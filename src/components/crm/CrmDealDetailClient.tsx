@@ -79,6 +79,7 @@ import { DealLicitacionBand } from "./deals/DealLicitacionBand";
 import { DealRail } from "./deals/DealRail";
 import { DealLicitacionFichaRows } from "./deals/DealLicitacionFichaRows";
 import { useDealLicitacionDocs } from "./deals/useDealLicitacionDocs";
+import { licitacionTipoLabel } from "@/modules/crm/documents/licitacion-corpus";
 import type { DealInstallationRef } from "@/lib/crm/deal-installation";
 import { DealNextStepBanner } from "./deal/DealNextStepBanner";
 import { DealUnifiedTimeline } from "./deal/DealUnifiedTimeline";
@@ -1907,7 +1908,23 @@ export function CrmDealDetailClient({
   const filesSection = {
     key: "files",
     label: "Documentos",
-    children: <FileAttachments entityType="deal" entityId={deal.id} title="Documentos" />,
+    children: (
+      <FileAttachments
+        entityType="deal"
+        entityId={deal.id}
+        title="Documentos"
+        classification={
+          licitacion.isLicitacion
+            ? {
+                items: licitacionDocs.files,
+                highlightTipoCodigo: filesHighlightTipo,
+                onClassify: (fileId, tipoCodigo) => licitacionDocs.classify(fileId, tipoCodigo),
+                onAfterChange: () => void licitacionDocs.reload(),
+              }
+            : undefined
+        }
+      />
+    ),
   };
 
   const associatedSections: AssociatedSection[] = [
@@ -2429,10 +2446,9 @@ export function CrmDealDetailClient({
     currentStage && openStageIdx >= 0
       ? `${currentStage.name} · ${openStageIdx + 1}/${openStageList.length}`
       : currentStage?.name ?? null;
-  const filesHighlightLabel =
-    filesHighlightTipo
-      ? licitacionDocs.types.find((t) => t.codigo === filesHighlightTipo)?.nombre ?? filesHighlightTipo
-      : null;
+  const filesHighlightLabel = filesHighlightTipo
+    ? licitacionTipoLabel(filesHighlightTipo)
+    : null;
 
   return (
     <>
@@ -2578,6 +2594,8 @@ export function CrmDealDetailClient({
               onReload: () => void licitacionDocs.reload(),
               onOpenFolder: () => setActiveTab("files"),
               driveUrl: driveStatus.folderUrl,
+              showClassification: licitacion.isLicitacion,
+              onClassify: (fileId, tipoCodigo) => licitacionDocs.classify(fileId, tipoCodigo),
             }}
             associated={<AssociatedRecordsPanel sections={associatedSections} embedded />}
             slackHasRoom={Boolean(deal.slackChannelName)}
@@ -2645,7 +2663,8 @@ export function CrmDealDetailClient({
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
             {filesHighlightLabel ? (
               <p className="mb-3 text-[13px] text-ds-text-2">
-                Destacando: <span className="font-medium text-ds-text-1">{filesHighlightLabel}</span>
+                Destacando archivos sin tipo para marcarlos como{" "}
+                <span className="font-medium text-ds-text-1">{filesHighlightLabel}</span>
               </p>
             ) : null}
             {filesSection.children}

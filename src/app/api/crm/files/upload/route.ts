@@ -10,6 +10,12 @@ import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 import { requireTenantModule } from '@/lib/require-module';
 import { enqueueCrmFileToDrive } from "@/lib/google-workspace/drive-enqueue-hooks";
+import { assignDocumentoTipo } from "@/modules/crm/documents/licitacion-ingest.service";
+import {
+  LICITACION_TIPO_CODIGOS,
+  isGeneratedProposalFileName,
+  resolveLicitacionTipoOnUpload,
+} from "@/modules/crm/documents/licitacion-corpus";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME = new Set([
@@ -42,6 +48,11 @@ export async function POST(request: NextRequest) {
     const entityId = formData.get("entityId") as string | null;
     const folderId = formData.get("folderId") as string | null;
     const portalVisible = formData.get("portalVisible") === "true";
+    const tipoCodigoField = formData.get("tipoCodigo");
+    const tipoCodigoExplicit =
+      typeof tipoCodigoField === "string" && tipoCodigoField.trim()
+        ? tipoCodigoField.trim()
+        : null;
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
@@ -105,6 +116,27 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    let assignedTipo: { id: string; codigo: string; nombre: string } | null = null;
+    if (entityType === "deal") {
+      const resolved = tipoCodigoExplicit
+        ? resolveLicitacionTipoOnUpload(documento.fileName, tipoCodigoExplicit)
+        : isGeneratedProposalFileName(documento.fileName)
+          ? LICITACION_TIPO_CODIGOS.otros
+          : null;
+      if (resolved) {
+        try {
+          const assigned = await assignDocumentoTipo({
+            tenantId: ctx.tenantId,
+            fileId: documento.id,
+            tipoCodigo: resolved,
+          });
+          assignedTipo = assigned.tipo;
+        } catch (err) {
+          console.warn("[CRM] No se pudo clasificar al subir:", err);
+        }
+      }
+    }
+
     // Espejo Drive (negocios/personas/instalaciones) — no bloquea la respuesta.
     void enqueueCrmFileToDrive({
       tenantId: ctx.tenantId,
@@ -135,6 +167,8 @@ export async function POST(request: NextRequest) {
         portalVisible: documento.portalVisible,
         folderId: folderId || null,
         folderName: folder?.name ?? null,
+        tipoCodigo: assignedTipo?.codigo ?? null,
+        tipoNombre: assignedTipo?.nombre ?? null,
       },
     }, { status: 201 });
   } catch (error) {

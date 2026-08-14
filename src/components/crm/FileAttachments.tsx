@@ -33,6 +33,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { DealDriveBanner } from "@/components/crm/DealDriveBanner";
+import {
+  DealFileQuickAssign,
+  DealFileSuggestChip,
+  DealFileTipoMenu,
+  DealUploadAsSelect,
+} from "@/components/crm/deals/DealFileTipoControls";
 
 export type FileAttachmentItem = {
   id: string;
@@ -70,12 +76,28 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+export type FileClassificationItem = {
+  fileId: string;
+  tipoCodigo: string | null;
+  tipoNombre: string | null;
+  needsClassification: boolean;
+  suggestedCodigo: string | null;
+};
+
+export type FileAttachmentsClassification = {
+  items: FileClassificationItem[];
+  highlightTipoCodigo?: string | null;
+  onClassify: (fileId: string, tipoCodigo: string | null) => Promise<{ ok: boolean; error?: string }>;
+  onAfterChange?: () => void;
+};
+
 interface FileAttachmentsProps {
   entityType: "lead" | "deal" | "account" | "contact" | "installation" | "guardia";
   entityId: string;
   readOnly?: boolean;
   title?: string;
   className?: string;
+  classification?: FileAttachmentsClassification;
 }
 
 export function FileAttachments({
@@ -84,6 +106,7 @@ export function FileAttachments({
   readOnly = false,
   title = "Documentos",
   className,
+  classification,
 }: FileAttachmentsProps) {
   const [files, setFiles] = useState<FileAttachmentItem[]>([]);
   const [folders, setFolders] = useState<DocumentFolder[]>([]);
@@ -98,6 +121,8 @@ export function FileAttachments({
   const [newFolderName, setNewFolderName] = useState("");
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [uploadAs, setUploadAs] = useState("auto");
+  const [classifyBusy, setClassifyBusy] = useState<string | null>(null);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -130,6 +155,46 @@ export function FileAttachments({
     Promise.all([fetchFiles(), fetchFolders()]).finally(() => setLoading(false));
   }, [fetchFiles, fetchFolders]);
 
+  const classificationById = new Map(
+    (classification?.items ?? []).map((item) => [item.fileId, item]),
+  );
+
+  useEffect(() => {
+    if (!classification?.highlightTipoCodigo) return;
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const f of files) {
+        const item = classificationById.get(f.id);
+        if (item?.needsClassification && f.folderId && !next.has(f.folderId)) {
+          next.add(f.folderId);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // classificationById is derived from classification.items + files
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classification?.highlightTipoCodigo, files, classification?.items]);
+
+  const handleClassify = useCallback(
+    async (fileId: string, tipoCodigo: string | null) => {
+      if (!classification) return;
+      setClassifyBusy(fileId);
+      try {
+        const result = await classification.onClassify(fileId, tipoCodigo);
+        if (!result.ok) {
+          toast.error(result.error || "No se pudo clasificar");
+          return;
+        }
+        toast.success(tipoCodigo ? "Clasificado" : "Tipo quitado");
+      } finally {
+        setClassifyBusy(null);
+      }
+    },
+    [classification],
+  );
+
   const handleUpload = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList?.length || uploading) return;
@@ -143,6 +208,7 @@ export function FileAttachments({
           form.append("entityId", entityId);
           if (selectedFolderId) form.append("folderId", selectedFolderId);
           form.append("portalVisible", "false");
+          if (classification) form.append("tipoCodigo", uploadAs);
           const res = await fetch("/api/crm/files/upload", {
             method: "POST",
             body: form,
@@ -170,13 +236,14 @@ export function FileAttachments({
           ]);
         }
         if (fileList.length > 0) toast.success("Archivo(s) subido(s)");
+        classification?.onAfterChange?.();
       } catch {
         toast.error("Error al subir archivo");
       } finally {
         setUploading(false);
       }
     },
-    [entityType, entityId, uploading, selectedFolderId, folders]
+    [entityType, entityId, uploading, selectedFolderId, folders, classification, uploadAs]
   );
 
   const handleTogglePortalVisible = useCallback(
@@ -362,12 +429,24 @@ export function FileAttachments({
   // Preferir el endpoint autenticado misma-origen; publicUrl queda de fallback
   // legacy hasta migrar todos los consumidores.
   const fileHref = (f: FileAttachmentItem) => f.downloadUrl ?? f.publicUrl;
+  const highlightTipo = classification?.highlightTipoCodigo ?? null;
 
-  const renderFileRow = (file: FileAttachmentItem) => (
+  const renderFileRow = (file: FileAttachmentItem) => {
+    const classif = classificationById.get(file.id);
+    const highlightUnclassified = Boolean(
+      highlightTipo && classif?.needsClassification,
+    );
+    return (
     <li
       key={file.id}
-      className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3"
+      className={cn(
+        "flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 sm:flex-row sm:items-center",
+        highlightUnclassified
+          ? "border-status-warn-border bg-status-warn-soft"
+          : "border-border",
+      )}
     >
+      <div className="flex min-w-0 flex-1 items-center gap-3">
       {IMAGE_MIMES.has(file.mimeType) && fileHref(file) ? (
         <button
           type="button"
@@ -398,7 +477,32 @@ export function FileAttachments({
           {new Date(file.createdAt).toLocaleDateString()}
         </p>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+        {classif ? (
+          <>
+            {classif.needsClassification && classif.suggestedCodigo ? (
+              <DealFileSuggestChip
+                suggestedCodigo={classif.suggestedCodigo}
+                disabled={Boolean(classifyBusy)}
+                onAccept={() => void handleClassify(file.id, classif.suggestedCodigo)}
+              />
+            ) : null}
+            {highlightUnclassified && highlightTipo ? (
+              <DealFileQuickAssign
+                tipoCodigo={highlightTipo}
+                disabled={Boolean(classifyBusy)}
+                onAssign={() => void handleClassify(file.id, highlightTipo)}
+              />
+            ) : null}
+            <DealFileTipoMenu
+              tipoCodigo={classif.tipoCodigo}
+              tipoNombre={classif.tipoNombre}
+              disabled={Boolean(classifyBusy)}
+              onSelect={(codigo) => void handleClassify(file.id, codigo)}
+            />
+          </>
+        ) : null}
         {!readOnly && (
           <Button
             variant="ghost"
@@ -490,7 +594,8 @@ export function FileAttachments({
         )}
       </div>
     </li>
-  );
+    );
+  };
 
   return (
     <>
@@ -508,7 +613,13 @@ export function FileAttachments({
         </CardHeader>
         <CardContent className="pt-4">
           {entityType === "deal" && (
-            <DealDriveBanner dealId={entityId} onImported={() => void fetchFiles()} />
+            <DealDriveBanner
+              dealId={entityId}
+              onImported={() => {
+                void fetchFiles();
+                classification?.onAfterChange?.();
+              }}
+            />
           )}
           {loading ? (
             <FileListSkeleton />
@@ -568,6 +679,13 @@ export function FileAttachments({
                         ))}
                       </select>
                     </div>
+                    {classification ? (
+                      <DealUploadAsSelect
+                        value={uploadAs}
+                        onChange={setUploadAs}
+                        disabled={uploading}
+                      />
+                    ) : null}
                   </div>
                 </div>
               )}

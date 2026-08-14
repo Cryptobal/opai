@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner, Surface, Tag } from "@/components/opai-ds";
 import { openAnchoredChat } from "@/lib/ai/ai-command-event";
 import { cn } from "@/lib/utils";
-import { LICITACION_TIPO_CODIGOS } from "@/modules/crm/documents/licitacion-corpus";
+import { LICITACION_TIPO_CODIGOS, licitacionSlotState } from "@/modules/crm/documents/licitacion-corpus";
 import type { LicitacionTypeRow } from "./useDealLicitacionDocs";
 
 const SLOTS: Array<{ codigo: string; label: string; optional?: boolean }> = [
@@ -18,11 +18,12 @@ const SLOTS: Array<{ codigo: string; label: string; optional?: boolean }> = [
 
 function slotState(types: LicitacionTypeRow[], codigo: string, filesUnclassified: boolean, optional?: boolean) {
   const row = types.find((t) => t.codigo === codigo);
-  if (row?.extracted) return { label: "Clasificado · texto listo", short: "Clasificado ✓", tone: "ok" as const };
-  if (row?.present) return { label: "Sin texto extraído", short: "Sin texto", tone: "warn" as const };
-  if (filesUnclassified) return { label: "Sin clasificar", short: "Sin clasificar", tone: "warn" as const };
-  if (optional) return { label: "Opcional", short: "Opcional", tone: "neutral" as const };
-  return { label: "Falta", short: "Falta", tone: "neutral" as const };
+  return licitacionSlotState({
+    present: Boolean(row?.present),
+    extracted: Boolean(row?.extracted),
+    hasUnclassified: filesUnclassified,
+    optional,
+  });
 }
 
 function countdownParts(fechaEntrega: string | null): {
@@ -164,7 +165,7 @@ export function DealLicitacionBand({
               const st = slotState(
                 types,
                 slot.codigo,
-                hasUnclassified && slot.codigo === LICITACION_TIPO_CODIGOS.bases,
+                hasUnclassified,
                 slot.optional,
               );
               return (
@@ -201,7 +202,7 @@ export function DealLicitacionBand({
               const st = slotState(
                 types,
                 slot.codigo,
-                hasUnclassified && slot.codigo === LICITACION_TIPO_CODIGOS.bases,
+                hasUnclassified,
                 slot.optional,
               );
               return (
