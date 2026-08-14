@@ -2356,3 +2356,19 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+/* Terreno UI v2 — motion only to confirm (pop, scanline, toast). */
+@keyframes terreno-pop {
+  0% { transform: scale(0.55); opacity: 0; }
+  70% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes terreno-scanline {
+  0% { transform: translateY(-40%); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateY(220%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .terreno-scanline { animation: none !important; }
+}
