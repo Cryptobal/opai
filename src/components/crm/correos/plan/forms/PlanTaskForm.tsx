@@ -32,7 +32,12 @@ export function PlanTaskForm({ task, onChange }: Props) {
           <Label htmlFor="task-due" className="text-[12px] text-ds-text-3">
             Fecha límite
           </Label>
-          <DatePickerField value={task.dueAt ? task.dueAt.slice(0, 10) : "" || null} onChange={(ymd) => onChange({ dueAt: (ymd ?? "") || null })} id={"task-due"} triggerClassName={"h-10 text-[13px] sm:h-9"} />
+          <DatePickerField
+            value={task.dueAt ? task.dueAt.slice(0, 10) : null}
+            onChange={(ymd) => onChange({ dueAt: ymd })}
+            id="task-due"
+            triggerClassName="h-10 text-[13px] sm:h-9"
+          />
         </div>
         <div className="flex items-end pb-0.5">
           <div className="flex items-center gap-2">

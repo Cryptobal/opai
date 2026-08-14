@@ -335,9 +335,16 @@ function ChecklistItem({
         {!isEditing &&
           (isEditingDate ? (
             <div className="flex items-center gap-1">
-              <DatePickerField value={"" || null} onChange={(ymd) => {
-                  if ((ymd ?? "")) onSaveDate((ymd ?? ""));
-                }} aria-label={"Fecha de vencimiento"} triggerClassName={"h-8 rounded-ds-sm border border-ds-border-default bg-ds-surface-1 px-2 text-xs text-ds-text-1 outline-none focus:border-ds-border-strong"} />
+              <DatePickerField
+                value={dueYmd || null}
+                onChange={(ymd) => {
+                  if (ymd) onSaveDate(ymd);
+                  else onCancelEditDate();
+                }}
+                clearable
+                aria-label="Fecha de vencimiento"
+                triggerClassName="h-8 rounded-ds-sm border border-ds-border-default bg-ds-surface-1 px-2 text-xs text-ds-text-1 outline-none focus:border-ds-border-strong"
+              />
               {due && (
                 <button
                   type="button"

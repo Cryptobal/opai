@@ -91,9 +91,13 @@ export function CorreoTasksStripForm({
         </button>
         <label className={chipCls(Boolean(dueYmd && dueYmd !== today && dueYmd !== tomorrow))}>
           Fecha
-          <DatePickerField value={dueYmd && dueYmd !== today && dueYmd !== tomorrow ? dueYmd : "" || null} onChange={(ymd) => {
-              if ((ymd ?? "")) setDue(dueFromYmd((ymd ?? ""), DEFAULT_MINUTE, true));
-            }} triggerClassName={"sr-only"} />
+          <DatePickerField
+            value={dueYmd && dueYmd !== today && dueYmd !== tomorrow ? dueYmd : null}
+            onChange={(ymd) => {
+              if (ymd) setDue(dueFromYmd(ymd, DEFAULT_MINUTE, true));
+            }}
+            triggerClassName="sr-only"
+          />
         </label>
         <button
           type="button"

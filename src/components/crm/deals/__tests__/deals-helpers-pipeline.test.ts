@@ -48,6 +48,8 @@ describe("deals-helpers pipeline fields", () => {
     expect(formatDealDateCountdown("2026-08-21", "2026-08-14")?.variant).toBe("warn");
     expect(formatDealDateCountdown("2026-09-01", "2026-08-14")?.variant).toBe("neutral");
   });
+
+  it("getDealCloseDateTone clasifica por cercanía", () => {
     expect(getDealCloseDateTone("2026-08-12", "2026-08-14")).toBe("danger");
     expect(getDealCloseDateTone("2026-08-17", "2026-08-14")).toBe("warn");
     expect(getDealCloseDateTone("2026-09-01", "2026-08-14")).toBe("ok");
