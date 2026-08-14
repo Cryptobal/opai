@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Exo_2, DM_Sans, JetBrains_Mono } from 'next/font/google'
 import { Linkedin } from 'lucide-react'
 import { MobileNav } from '@/components/marketing/MobileNav'
 import { MarketingThemeToggle } from '@/components/marketing/ThemeToggle'
@@ -8,26 +7,14 @@ import { FuncionalidadesMegaMenu } from '@/components/marketing/FuncionalidadesM
 import { MarketingChatWidget } from '@/components/marketing/MarketingChatWidget'
 import './marketing.css'
 
-const exo2 = Exo_2({
-  subsets: ['latin'],
-  weight: ['300', '400', '600', '700', '800', '900'],
-  variable: '--font-exo2',
-  display: 'swap',
-})
-
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500'],
-  variable: '--font-dm-sans',
-  display: 'swap',
-})
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-jetbrains',
-  display: 'swap',
-})
+/**
+ * Fuentes vía CSS (Google Fonts stylesheet), no `next/font/google`.
+ * Turbopack en `next build` (default Next 16 en Vercel) falla de forma
+ * intermitente resolviendo `@vercel/turbopack-next/internal/font/google/font`
+ * para DM Sans; el stylesheet externo evita ese pipeline y mantiene el look.
+ */
+const GOOGLE_FONTS_HREF =
+  'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Exo+2:wght@300;400;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.opai.cl'),
@@ -162,9 +149,13 @@ const websiteJsonLd = JSON.stringify({
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`mk-grid-bg ${exo2.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+      className="mk-grid-bg"
       style={{ background: 'var(--mk-bg)', color: 'var(--mk-text)', minHeight: '100vh', fontFamily: 'var(--mk-font-b)' }}
     >
+      {/* Hoisted to <head> by Next — evita next/font/google + Turbopack. */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
       {/* Organization + WebSite structured data — static constants, no user input */}
       {/* eslint-disable-next-line react/no-danger -- Static JSON-LD, no user input */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: orgJsonLd }} />

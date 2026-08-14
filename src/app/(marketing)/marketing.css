@@ -2,6 +2,10 @@
 
 /* Dark mode (default) */
 :root {
+  /* Familias cargadas por stylesheet en layout (sin next/font/google). */
+  --font-exo2: 'Exo 2', 'Barlow', sans-serif;
+  --font-dm-sans: 'DM Sans', sans-serif;
+  --font-jetbrains: 'JetBrains Mono', monospace;
   --mk-bg:           #050A12;
   --mk-bg-card:      #0C1523;
   --mk-bg-card-h:    #101D2E;
@@ -17,9 +21,9 @@
   --mk-border-h:     #243650;
   --mk-nav-bg:       rgba(5,10,18,0.92);
   --mk-grid-line:    rgba(0,212,176,0.025);
-  --mk-font-h:       var(--font-exo2), 'Exo 2', 'Barlow', sans-serif;
-  --mk-font-b:       var(--font-dm-sans), 'DM Sans', sans-serif;
-  --mk-font-m:       var(--font-jetbrains), 'JetBrains Mono', monospace;
+  --mk-font-h:       var(--font-exo2);
+  --mk-font-b:       var(--font-dm-sans);
+  --mk-font-m:       var(--font-jetbrains);
   --mk-max:          1200px;
   --mk-section:      clamp(64px, 10vw, 120px);
 }
