@@ -603,9 +603,9 @@ export function MarcacionScreen({
           }
           footer={
             fuera ? (
-              <p className="text-center text-sm font-medium text-white/90">Quedará observada</p>
+              <p className="text-center text-sm font-medium text-white">Quedará observada</p>
             ) : (
-              <p className="text-center text-[12px] text-white/70">Vuelve a pantalla principal en 5s</p>
+              <p className="text-center text-xs text-white">Vuelve a pantalla principal en 5s</p>
             )
           }
         />
