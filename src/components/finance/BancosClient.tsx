@@ -114,6 +114,7 @@ interface AccountOption {
   name: string;
   /** Tipo contable: ASSET, LIABILITY, EQUITY, REVENUE, COST, EXPENSE. */
   type?: string;
+  costCenterPolicy?: "NONE" | "OPTIONAL" | "DIRECT" | "ALLOCABLE";
 }
 
 interface FlowRowOption {
@@ -121,6 +122,7 @@ interface FlowRowOption {
   name: string;
   section: string;
   hasCategory: boolean;
+  costCenterPolicy?: "NONE" | "OPTIONAL" | "DIRECT" | "ALLOCABLE" | null;
 }
 
 interface Props {

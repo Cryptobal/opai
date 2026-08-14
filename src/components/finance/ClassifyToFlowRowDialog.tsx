@@ -22,12 +22,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  CostCenterAllocationBlock,
+  isCostCenterAssignmentReady,
+} from "./CostCenterAllocationBlock";
+import {
+  defaultAssignmentFromPolicy,
+  type CostCenterAssignment,
+  type CostCenterPolicy,
+} from "@/modules/finance/banking/cost-allocation-math";
 
 export interface ClassifyFlowRowOption {
   id: string;
   name: string;
   section: string;
   hasCategory: boolean;
+  costCenterPolicy?: CostCenterPolicy | null;
 }
 
 export interface ClassifyFlowRowTx {
@@ -81,13 +91,20 @@ export function ClassifyToFlowRowDialog({
   const [flowRowId, setFlowRowId] = useState("");
   const [selectOpen, setSelectOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [costCenter, setCostCenter] = useState<CostCenterAssignment>({
+    mode: "NONE",
+  });
+
+  const isIncome = (tx?.amount ?? 0) > 0;
+  const txAmountAbs = Math.abs(tx?.amount ?? 0);
 
   useEffect(() => {
     if (open) {
       setFlowRowId("");
       setSelectOpen(false);
+      setCostCenter(defaultAssignmentFromPolicy(null, isIncome));
     }
-  }, [open, tx?.id]);
+  }, [open, tx?.id, isIncome]);
 
   const groupedRows = useMemo(
     () => groupFlowRowsBySection(flowRows),
@@ -96,11 +113,31 @@ export function ClassifyToFlowRowDialog({
 
   const selectedRow = flowRows.find((r) => r.id === flowRowId);
 
+  useEffect(() => {
+    if (!selectedRow) return;
+    setCostCenter(
+      defaultAssignmentFromPolicy(selectedRow.costCenterPolicy ?? "OPTIONAL", isIncome),
+    );
+  }, [selectedRow, isIncome]);
+
+  const canSave =
+    Boolean(flowRowId) &&
+    isCostCenterAssignmentReady(costCenter, txAmountAbs) &&
+    (costCenter.mode !== "SINGLE" || Boolean(costCenter.installationId));
+
   const classify = async () => {
     if (!tx || !flowRowId) {
       toast.error("Elegí una fila de flujo");
       return;
     }
+    if (!isCostCenterAssignmentReady(costCenter, txAmountAbs)) {
+      toast.error("El reparto de centro de costo no cuadra");
+      return;
+    }
+    const payloadCostCenter =
+      costCenter.mode === "SINGLE" && !costCenter.installationId
+        ? { mode: "NONE" as const }
+        : costCenter;
     setSaving(true);
     try {
       const res = await fetch(
@@ -112,6 +149,7 @@ export function ClassifyToFlowRowDialog({
             kind: "FLOW_ROW",
             flowRowId,
             learnRule: "NONE",
+            costCenter: payloadCostCenter,
           }),
         },
       );
@@ -132,7 +170,7 @@ export function ClassifyToFlowRowDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-md"
+        className="max-w-lg max-h-[90dvh] overflow-hidden flex flex-col gap-0 p-0"
         onPointerDownOutside={(e) => {
           if (selectOpen) e.preventDefault();
         }}
@@ -143,65 +181,76 @@ export function ClassifyToFlowRowDialog({
           if (selectOpen) e.preventDefault();
         }}
       >
-        <DialogHeader>
+        <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
           <DialogTitle>Clasificar a fila del flujo</DialogTitle>
           <DialogDescription>
             El movimiento se vincula a la fila elegida (sin crear regla).
           </DialogDescription>
         </DialogHeader>
-        {tx && (
-          <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12px] space-y-1">
-            <p className="font-medium text-ds-text-1 truncate">{tx.description}</p>
-            <p className="font-mono tabular-nums text-ds-text-3">
-              {fmtAmount(tx.amount)}
-            </p>
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 space-y-4 pb-4">
+          {tx && (
+            <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12px] space-y-1">
+              <p className="font-medium text-ds-text-1 truncate">{tx.description}</p>
+              <p className="font-mono tabular-nums text-ds-text-3">
+                {fmtAmount(tx.amount)}
+              </p>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="classify-flow-row-select">Fila de flujo</Label>
+            <Select
+              key={tx?.id ?? "closed"}
+              open={selectOpen}
+              onOpenChange={setSelectOpen}
+              value={flowRowId}
+              onValueChange={setFlowRowId}
+            >
+              <SelectTrigger
+                id="classify-flow-row-select"
+                className="h-10 sm:h-9"
+                data-testid="classify-flow-row-select"
+              >
+                <SelectValue placeholder="Elegir fila…" />
+              </SelectTrigger>
+              <SelectContent position="popper" className="z-[110]">
+                {groupedRows.map((group) => (
+                  <SelectGroup key={group.section}>
+                    <SelectLabel>{group.section}</SelectLabel>
+                    {group.rows.map((row) => (
+                      <SelectItem
+                        key={row.id}
+                        value={row.id}
+                        disabled={!row.hasCategory}
+                        data-testid={`flow-row-option-${row.id}`}
+                      >
+                        {row.section} · {row.name}
+                        {!row.hasCategory ? " (sin cuenta contable)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedRow && (
+              <p
+                className="text-[12px] text-ds-text-3"
+                data-testid="classify-flow-row-selected-label"
+              >
+                Seleccionado: {selectedRow.section} · {selectedRow.name}
+              </p>
+            )}
           </div>
-        )}
-        <div className="space-y-1.5">
-          <Label htmlFor="classify-flow-row-select">Fila de flujo</Label>
-          <Select
-            key={tx?.id ?? "closed"}
-            open={selectOpen}
-            onOpenChange={setSelectOpen}
-            value={flowRowId}
-            onValueChange={setFlowRowId}
-          >
-            <SelectTrigger
-              id="classify-flow-row-select"
-              className="h-10 sm:h-9"
-              data-testid="classify-flow-row-select"
-            >
-              <SelectValue placeholder="Elegir fila…" />
-            </SelectTrigger>
-            <SelectContent position="popper" className="z-[110]">
-              {groupedRows.map((group) => (
-                <SelectGroup key={group.section}>
-                  <SelectLabel>{group.section}</SelectLabel>
-                  {group.rows.map((row) => (
-                    <SelectItem
-                      key={row.id}
-                      value={row.id}
-                      disabled={!row.hasCategory}
-                      data-testid={`flow-row-option-${row.id}`}
-                    >
-                      {row.section} · {row.name}
-                      {!row.hasCategory ? " (sin cuenta contable)" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
           {selectedRow && (
-            <p
-              className="text-[12px] text-ds-text-3"
-              data-testid="classify-flow-row-selected-label"
-            >
-              Seleccionado: {selectedRow.section} · {selectedRow.name}
-            </p>
+            <CostCenterAllocationBlock
+              txAmountAbs={txAmountAbs}
+              isIncome={isIncome}
+              accountPolicy={selectedRow.costCenterPolicy ?? "OPTIONAL"}
+              value={costCenter}
+              onChange={setCostCenter}
+            />
           )}
         </div>
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex-col sm:flex-row gap-2 px-6 py-4 border-t border-ds-border-subtle shrink-0">
           <Button
             variant="ghost"
             className="h-10 sm:h-9 w-full sm:w-auto"
@@ -213,7 +262,7 @@ export function ClassifyToFlowRowDialog({
           <Button
             className="h-10 sm:h-9 w-full sm:w-auto"
             onClick={() => void classify()}
-            disabled={saving || !flowRowId}
+            disabled={saving || !canSave}
             data-testid="classify-flow-row-confirm"
           >
             {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
