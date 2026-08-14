@@ -37,6 +37,9 @@ import {
   deriveDtePaymentStatusFromAllocations,
   isManualPaidWithoutReconciliation,
 } from "../billing/dte-payment-status";
+import type { CostCenterAssignment } from "./cost-allocation-math";
+import { replaceLinkAllocations, loadAllocationsForLinks } from "./cost-allocation.service";
+import type { EnrichedAllocation } from "./cost-allocation.service";
 
 // ── Helpers internos ──
 
@@ -252,6 +255,7 @@ export interface ClassifyToFlowRowLinkInput {
   note?: string | null;
   matchSource?: BankTxLinkInput["matchSource"];
   matchedByRuleId?: string | null;
+  costCenter?: CostCenterAssignment;
 }
 
 export type ReclassifyToFlowRowResult = {
@@ -297,6 +301,7 @@ export async function reclassifyTransactionToFlowRow(
         note,
         matchSource: input.matchSource ?? "MANUAL",
         matchedByRuleId: input.matchedByRuleId ?? null,
+        costCenter: input.costCenter,
       },
     ]);
     const created = await prisma.financeBankTransactionLink.findMany({
@@ -311,6 +316,10 @@ export async function reclassifyTransactionToFlowRow(
   }
 
   const linkIds = existingLinks.map((l) => l.id);
+  const bankTx = await prisma.financeBankTransaction.findFirst({
+    where: { id: bankTxId, tenantId },
+    select: { transactionDate: true },
+  });
   await prisma.$transaction(async (tx2: Prisma.TransactionClient) => {
     for (const link of existingLinks) {
       await tx2.financeBankTransactionLink.update({
@@ -323,6 +332,15 @@ export async function reclassifyTransactionToFlowRow(
           matchedByRuleId: input.matchedByRuleId ?? null,
         },
       });
+      if (input.costCenter !== undefined) {
+        await replaceLinkAllocations(tx2, {
+          tenantId,
+          linkId: link.id,
+          linkAmount: Number(link.amount),
+          assignment: input.costCenter,
+          refDate: bankTx?.transactionDate ?? new Date(),
+        });
+      }
     }
     await tx2.financeBankTransaction.update({
       where: { id: bankTxId },
@@ -381,6 +399,8 @@ export interface BankTxLinkInput {
     | null;
   /** Regla que originó el link (sin FK). */
   matchedByRuleId?: string | null;
+  /** Destino de centro de costo. Opcional; omitir = no tocar/no crear allocations. */
+  costCenter?: CostCenterAssignment;
 }
 
 export interface CandidateDte {
@@ -1823,6 +1843,7 @@ export interface EnrichedTransactionLink {
     /** Folio de la factura cedida (cuando el DTE asociado tiene folio). */
     dteFolio: number | null;
   } | null;
+  allocations: EnrichedAllocation[];
 }
 
 export async function listTransactionLinks(
@@ -1949,6 +1970,7 @@ export async function listTransactionLinks(
             totalAmount: d.totalAmount.toNumber(),
           },
           factoring: null,
+          allocations: [],
         });
       }
     }
@@ -1999,6 +2021,10 @@ export async function listTransactionLinks(
 
   const dteById = new Map(dtes.map((d) => [d.id, d]));
   const factoringById = new Map(factorings.map((f) => [f.id, f]));
+  const allocationsByLink = await loadAllocationsForLinks(
+    tenantId,
+    rows.map((r) => r.id),
+  );
 
   return rows.map((r) => {
     let entityLabel = `${r.targetType}`;
@@ -2058,6 +2084,7 @@ export async function listTransactionLinks(
       entityLabel,
       dte,
       factoring,
+      allocations: allocationsByLink.get(r.id) ?? [],
     };
   });
 }
@@ -2192,21 +2219,32 @@ export async function setTransactionLinks(
     });
 
     if (links.length > 0) {
-      await tx2.financeBankTransactionLink.createMany({
-        data: links.map((l) => ({
-          tenantId,
-          bankTransactionId: bankTxId,
-          targetType: l.targetType,
-          targetId: l.targetId ?? null,
-          amount: new Decimal(l.amount),
-          accountPlanId: l.accountPlanId ?? null,
-          flowRowId: l.flowRowId ?? null,
-          note: l.note ?? null,
-          matchSource: l.matchSource ?? null,
-          matchedByRuleId: l.matchedByRuleId ?? null,
-          createdById: userId ?? null,
-        })),
-      });
+      for (const l of links) {
+        const created = await tx2.financeBankTransactionLink.create({
+          data: {
+            tenantId,
+            bankTransactionId: bankTxId,
+            targetType: l.targetType,
+            targetId: l.targetId ?? null,
+            amount: new Decimal(l.amount),
+            accountPlanId: l.accountPlanId ?? null,
+            flowRowId: l.flowRowId ?? null,
+            note: l.note ?? null,
+            matchSource: l.matchSource ?? null,
+            matchedByRuleId: l.matchedByRuleId ?? null,
+            createdById: userId ?? null,
+          },
+        });
+        if (l.costCenter !== undefined) {
+          await replaceLinkAllocations(tx2, {
+            tenantId,
+            linkId: created.id,
+            linkAmount: l.amount,
+            assignment: l.costCenter,
+            refDate: tx.transactionDate,
+          });
+        }
+      }
     }
 
     // 3. Si hay links a DTE, crear FinancePaymentRecord + allocations.

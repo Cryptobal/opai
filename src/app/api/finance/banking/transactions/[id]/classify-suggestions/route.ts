@@ -33,6 +33,8 @@ import {
   reclassifyTransactionToFlowRow,
 } from "@/modules/finance/banking/bank-tx-link.service";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
+import { costCenterAssignmentSchema } from "@/modules/finance/banking/cost-allocation-math";
+import { inferCostCenterFromClassifySource } from "@/modules/finance/banking/cost-allocation.service";
 
 /** Ventana por defecto para liquidaciones/anticipos en la cascada. */
 const PAYROLL_WINDOW_DAYS = 120;
@@ -65,6 +67,7 @@ const classifyBodySchema = z.object({
     return v;
   }, z.enum(["RUT", "DESCRIPTION", "NONE"]).optional()),
   descriptionNeedle: z.string().trim().max(120).optional(),
+  costCenter: costCenterAssignmentSchema.optional(),
 });
 
 function matchSourceFromClassify(body: {
@@ -351,6 +354,21 @@ export async function POST(
       );
     }
 
+    if (
+      body.costCenter?.mode === "SPLIT" &&
+      body.costCenter.driver === "MANUAL" &&
+      allIds.length > 1
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "El reparto manual no se puede aplicar a varios movimientos a la vez. Clasificá uno por uno o usá guardias activos / partes iguales.",
+        },
+        { status: 400 },
+      );
+    }
+
     const existingLinks = await prisma.financeBankTransactionLink.findMany({
       where: { tenantId: ctx.tenantId, bankTransactionId: { in: allIds } },
       select: { bankTransactionId: true, targetType: true },
@@ -381,6 +399,42 @@ export async function POST(
       try {
         const amountAbs = Math.abs(Number(tx.amount));
         const isIncome = Number(tx.amount) > 0;
+        let costCenter = body.costCenter;
+        if (
+          costCenter?.mode === "SPLIT" &&
+          costCenter.driver === "MANUAL"
+        ) {
+          const missing = costCenter.installations.some(
+            (i) => i.amount == null || !Number.isFinite(i.amount),
+          );
+          if (missing) {
+            throw new Error(
+              "Cada instalación en modo manual requiere un monto",
+            );
+          }
+          const sum = costCenter.installations.reduce(
+            (s, i) => s + Math.round(i.amount ?? 0),
+            0,
+          );
+          if (sum !== Math.round(amountAbs)) {
+            throw new Error(
+              `El reparto manual ($${sum.toLocaleString("es-CL")}) no cuadra con el monto del movimiento ($${Math.round(amountAbs).toLocaleString("es-CL")})`,
+            );
+          }
+        }
+        if (costCenter === undefined && (body.source === "te" || body.source === "payroll")) {
+          costCenter =
+            (await inferCostCenterFromClassifySource({
+              tenantId: ctx.tenantId,
+              source: body.source,
+              bankTx: {
+                id: tx.id,
+                amount: Number(tx.amount),
+                description: tx.description,
+                reference: tx.reference,
+              },
+            })) ?? { mode: "NONE" };
+        }
         await reclassifyTransactionToFlowRow(ctx.tenantId, tx.id, ctx.userId, {
           targetType: isIncome ? "INCOME" : "EXPENSE",
           amount: amountAbs,
@@ -391,6 +445,7 @@ export async function POST(
             `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,
           matchSource: matchSourceFromClassify(body),
           matchedByRuleId: body.matchedByRuleId ?? null,
+          costCenter,
         });
         classified++;
       } catch (e) {

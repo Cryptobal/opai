@@ -14,6 +14,8 @@ import {
   clearTransactionLinks,
 } from "@/modules/finance/banking/bank-tx-link.service";
 
+import { costCenterAssignmentSchema } from "@/modules/finance/banking/cost-allocation-math";
+
 const linkSchema = z.object({
   targetType: z.enum([
     "DTE_ISSUED",
@@ -44,6 +46,7 @@ const linkSchema = z.object({
     .nullable()
     .optional(),
   matchedByRuleId: z.string().uuid().nullable().optional(),
+  costCenter: costCenterAssignmentSchema.optional(),
 });
 
 const setLinksSchema = z.object({
