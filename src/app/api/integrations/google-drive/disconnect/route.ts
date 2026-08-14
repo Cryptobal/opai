@@ -43,7 +43,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          "En modo unidad compartida no se puede desconectar así. Usá «Cambiar unidad» o desactivá el modo unidad compartida desde soporte (DELETE /shared-drive).",
+          "En modo unidad compartida no se puede desconectar así. Usa «Cambiar unidad» o desactivá el modo unidad compartida desde soporte (DELETE /shared-drive).",
       },
       { status: 409 },
     );

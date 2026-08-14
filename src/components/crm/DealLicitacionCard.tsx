@@ -42,7 +42,7 @@ export function DealLicitacionCard({ dealId, isLicitacion, onUpdated }: Props) {
       onUpdated?.({ isLicitacion: nextEnabled });
       toast.success(
         nextEnabled
-          ? "Marcado como licitación. Agendá la entrega en Agenda del negocio."
+          ? "Marcado como licitación. Agenda la entrega en Agenda del negocio."
           : "Licitación desmarcada.",
       );
     } finally {

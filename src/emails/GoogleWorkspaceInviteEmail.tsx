@@ -53,7 +53,7 @@ export default function GoogleWorkspaceInviteEmail({
             y calendario con OPAI.
           </Text>
 
-          <Text style={text}>Usá estos enlaces (iniciá sesión en OPAI si te lo pide):</Text>
+          <Text style={text}>Usa estos enlaces (iniciá sesión en OPAI si te lo pide):</Text>
 
           <Section style={linkBlock}>
             <Text style={linkLabel}>Gmail</Text>

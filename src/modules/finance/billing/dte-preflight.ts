@@ -155,7 +155,7 @@ function checkCert(
       ok: false,
       stage: "cert_missing",
       message:
-        "No hay certificado digital cargado. Subí un .pfx en /opai/configuracion/finanzas/dte → tab 'Certificado Digital'.",
+        "No hay certificado digital cargado. Sube un .pfx en /opai/configuracion/finanzas/dte → tab 'Certificado Digital'.",
     };
   }
 
@@ -186,7 +186,7 @@ function checkCert(
     return {
       ok: false,
       stage: "cert_expired",
-      message: `El certificado digital venció el ${venceStr}. Subí un .pfx vigente en /opai/configuracion/finanzas/dte.`,
+      message: `El certificado digital venció el ${venceStr}. Sube un .pfx vigente en /opai/configuracion/finanzas/dte.`,
     };
   }
 
@@ -237,7 +237,7 @@ function checkCaf(
       ok: false,
       stage: "caf_missing",
       message:
-        `No hay CAF activo cargado para el tipo DTE ${dteType}. Subí el CAF ` +
+        `No hay CAF activo cargado para el tipo DTE ${dteType}. Sube el CAF ` +
         `en /opai/configuracion/finanzas/dte → tab 'CAFs (Folios SII)'.`,
     };
   }
@@ -250,7 +250,7 @@ function checkCaf(
       return {
         ok: false,
         stage: "caf_parse",
-        message: `El CAF cargado tiene un XML inválido: ${err.message} Re-subí el CAF original recibido del SII.`,
+        message: `El CAF cargado tiene un XML inválido: ${err.message} Vuelve a subir el CAF original recibido del SII.`,
       };
     }
     return {
@@ -292,7 +292,7 @@ function checkCaf(
       message:
         `El folio ${folio} reservado para esta emisión está fuera del rango ` +
         `autorizado del CAF (${meta.folioDesde}–${meta.folioHasta}). ` +
-        `Esto suele significar que se agotaron los folios. Solicitá más folios al SII y subí ` +
+        `Esto suele significar que se agotaron los folios. Solicitá más folios al SII y sube ` +
         `el nuevo CAF en /opai/configuracion/finanzas/dte.`,
     };
   }

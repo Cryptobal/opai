@@ -209,8 +209,8 @@ export async function buildLicitacionCorpus(
   const basesError = !hasBases
     ? bases.find((c) => c.status === "error")?.error ??
       (bases.length === 0
-        ? "No hay un documento tipo Bases clasificado. Clasificá las bases en la ficha del negocio."
-        : "Las bases no tienen texto extraído. Reprocesá o subí una versión con capa de texto.")
+        ? "No hay un documento tipo Bases técnicas clasificado. Clasifica las bases en Documentos del negocio."
+        : "Las bases técnicas no tienen texto extraído. Reprocesa o sube una versión con capa de texto.")
     : null;
 
   return {
@@ -227,7 +227,7 @@ export function formatCorpusForPrompt(corpus: LicitacionCorpus): string {
   const parts = [corpus.banner, ""];
   if (corpus.truncated) {
     parts.push(
-      "[AVISO] El corpus superó el presupuesto: se priorizó Bases > Q&A > Anexos y el resto quedó truncado. No inventes el contenido omitido; si falta, va a Exclusiones y supuestos.",
+      "[AVISO] El corpus superó el presupuesto: se priorizó Bases técnicas > Bases administrativas > Q&A > Anexos y el resto quedó truncado. No inventes el contenido omitido; si falta, va a Exclusiones y supuestos.",
     );
   }
   for (const c of corpus.chunks) {
@@ -253,7 +253,7 @@ export type LicitacionDocRow = {
   mimeType: string;
   tipoCodigo: string | null;
   tipoNombre: string | null;
-  kind: "bases" | "qa" | "anexos" | null;
+  kind: "bases" | "bases_admin" | "qa" | "anexos" | null;
   needsClassification: boolean;
   suggestedCodigo: string | null;
   extractStatus: "ok" | "error" | "stale" | "pending" | "none";
@@ -314,13 +314,21 @@ export async function listDealLicitacionDocs(
     };
   });
 
-  const types = (["bases", "qa", "anexos"] as const).map((kind) => {
+  const types = (["bases", "bases_admin", "qa", "anexos"] as const).map((kind) => {
     const codigo = LICITACION_TIPO_CODIGOS[kind];
     const tipo = tipos.find((t) => t.codigo === codigo);
     const ofKind = files.filter((f) => f.tipoCodigo === codigo);
+    const fallbackNombre =
+      kind === "bases"
+        ? "Bases técnicas"
+        : kind === "bases_admin"
+          ? "Bases administrativas"
+          : kind === "qa"
+            ? "Q&A"
+            : "Anexos";
     return {
       codigo,
-      nombre: tipo?.nombre ?? (kind === "bases" ? "Bases" : kind === "qa" ? "Q&A" : "Anexos"),
+      nombre: tipo?.nombre ?? fallbackNombre,
       present: ofKind.length > 0,
       extracted: ofKind.some((f) => f.extractStatus === "ok"),
     };

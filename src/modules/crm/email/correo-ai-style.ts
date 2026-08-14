@@ -88,8 +88,8 @@ const CLOSENESS_GUIDE: Record<CorreoAiCloseness, string> = {
 
 const ADDRESSING_GUIDE: Record<CorreoAiAddressing, string> = {
   nombre: "Tratá al destinatario por su nombre de pila cuando se conozca; evitá 'Estimado/a' genérico.",
-  usted: "Usá tratamiento de usted.",
-  tu: "Usá tratamiento de tú (voseo chileno neutro aceptable).",
+  usted: "Usa tratamiento de usted.",
+  tu: "Usa tratamiento de tú (voseo chileno neutro aceptable).",
 };
 
 /**

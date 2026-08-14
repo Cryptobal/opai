@@ -468,7 +468,7 @@ export function OpsPautaMensualClient({
     [clients]
   );
 
-  // Client → installations (sigue usándose en fetch y resto de lógica)
+  // Client → installations (sigue en uso en fetch y resto de lógica)
   const currentClient = useMemo(
     () => clients.find((c) => c.id === clientId),
     [clients, clientId]

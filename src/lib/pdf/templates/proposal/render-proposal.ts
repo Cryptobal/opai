@@ -373,6 +373,18 @@ export async function renderProposalToBufferFromProps(
     bdLabel: { fontFamily: F.sans, fontSize: 8, color: C.text, flex: 3 },
     bdValue: { fontFamily: F.sans, fontSize: 8, fontWeight: 600, color: C.navy, flex: 2, textAlign: 'right' as const },
     bdCatHeader: { flexDirection: 'row' as const, paddingVertical: 5, paddingHorizontal: 10 },
+    watermark: {
+      position: 'absolute' as const,
+      top: '42%',
+      left: 0,
+      right: 0,
+      textAlign: 'center' as const,
+      fontSize: 48,
+      color: '#94a3b8',
+      opacity: 0.18,
+      letterSpacing: 8,
+      transform: 'rotate(-18deg)',
+    },
   });
 
   /* ─── Destructure props ─── */
@@ -385,6 +397,7 @@ export async function renderProposalToBufferFromProps(
     companyConfig, companyStats, proposalMetrics, clientLogosWithNames, providerLogo,
     breakdown, resourceBreakdown, includedItems,
     installations, consolidatedSummary,
+    watermark: watermarkText,
   } = props;
 
   /* La variante institucional ya fue delegada al renderer 16:9 al inicio. Se
@@ -550,12 +563,17 @@ export async function renderProposalToBufferFromProps(
       e(Text, { style: s.bulletText }, text),
     );
 
+  const watermarkEl = watermarkText
+    ? e(Text, { style: s.watermark, fixed: true }, watermarkText)
+    : null;
+
   /* ═══════════════════════════════════════════
    * PAGE 1: COVER
    * ═══════════════════════════════════════════ */
 
   const coverPage = e(
     Page, { key: 'cover', size: 'A4', style: s.coverPage },
+    watermarkEl,
     e(View, { style: s.coverContent },
       providerLogoUri
         ? e(PDFImage, { src: providerLogoUri, style: s.coverLogo })
@@ -1769,6 +1787,7 @@ export async function renderProposalToBufferFromProps(
 
   const contentPage = e(
     Page, { key: 'content', size: 'A4', style: s.page, wrap: true },
+    watermarkEl,
     header,
     e(View, { style: s.body }, ...orderedSections),
     pageFooter,

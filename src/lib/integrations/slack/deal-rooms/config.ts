@@ -1,11 +1,10 @@
 /**
- * Configuración de auto-apertura de salas de negocio (Fase 16, B1).
+ * Configuración de salas de negocio (Fase 16, B1).
  *
- * La activación por umbral es POR TENANT y viene APAGADA por defecto (Carlos
- * calibra a mano primero). Cuando `enabled`, una sala se abre sola cuando el
- * negocio supera el monto mínimo (CLP) Y/O alcanza el orden de etapa mínimo.
- * Se guarda en la tabla genérica `Setting` (category "slack_deal_rooms"), mismo
- * patrón que `knowledge/config.ts`.
+ * `enabled` / umbrales de auto-apertura: **deprecados**. El producto abre salas
+ * solo de forma manual (menú ⋯ / Integraciones). Los campos se conservan en
+ * Settings por compatibilidad; `maybeAutoOpenDealRoom` ya no se invoca.
+ * Se guarda en la tabla genérica `Setting` (category "slack_deal_rooms").
  */
 
 import { prisma } from "@/lib/prisma";
@@ -14,11 +13,11 @@ import { prisma } from "@/lib/prisma";
 export type ChannelNaming = "stageSuffix" | "emoji" | "stagePrefix" | "stable";
 
 export interface DealRoomConfig {
-  /** Si false (default), NUNCA se abre una sala automáticamente. */
+  /** @deprecated Auto-apertura retirada. Conservado en Settings. */
   enabled: boolean;
-  /** Monto mínimo del negocio (CLP) para gatillar la sala. 0 = sin umbral de monto. */
+  /** @deprecated Umbral de monto para auto-apertura. Conservado en Settings. */
   minAmountClp: number;
-  /** Orden de etapa mínimo (CrmPipelineStage.order) para gatillar. 0 = sin umbral de etapa. */
+  /** @deprecated Umbral de etapa para auto-apertura. Conservado en Settings. */
   minStageOrder: number;
   /**
    * Cómo refleja el nombre del canal la etapa (Fase 3):

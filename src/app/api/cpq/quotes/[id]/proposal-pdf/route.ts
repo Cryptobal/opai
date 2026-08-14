@@ -48,36 +48,44 @@ export async function GET(
     const modeParam = (request.nextUrl.searchParams.get('mode') ?? 'draft').toLowerCase();
     const pdfMode: 'draft' | 'final' = modeParam === 'final' ? 'final' : 'draft';
 
-    if (quote.proposalMode === 'licitacion' && pdfMode === 'final') {
+    if (pdfMode === 'final') {
       const { quote: loaded, content } = await loadQuoteProposal({ tenantId, quoteId: id });
-      if (content.status !== 'aprobada' && loaded.proposalStatus !== 'aprobada') {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'El PDF final exige la propuesta en estado aprobada. Revisá y aprobá todas las secciones.',
-          },
-          { status: 422 },
-        );
-      }
-      if (!allSectionsApproved(content)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'El PDF final exige el 100% de las secciones aprobadas.',
-          },
-          { status: 422 },
-        );
-      }
-      const blocking = blockingErrors(
-        validateProposalContent(content, {
-          hasDotacion: loaded.totalGuards > 0 || loaded.totalPositions > 0,
-        }),
-      );
-      if (blocking.length) {
-        return NextResponse.json(
-          { success: false, error: blocking[0]!.message },
-          { status: 422 },
-        );
+      const isV2 = content.version === 2;
+      const needsApprovalGate =
+        quote.proposalMode === 'licitacion' ||
+        (quote.proposalMode === 'comercial' && isV2);
+      if (needsApprovalGate) {
+        if (content.status !== 'aprobada' && loaded.proposalStatus !== 'aprobada') {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'El PDF final exige la propuesta en estado aprobada. Revisa y aprueba todas las secciones.',
+            },
+            { status: 422 },
+          );
+        }
+        if (!allSectionsApproved(content)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'El PDF final exige el 100% de las secciones aprobadas.',
+            },
+            { status: 422 },
+          );
+        }
+        if (quote.proposalMode === 'licitacion') {
+          const blocking = blockingErrors(
+            validateProposalContent(content, {
+              hasDotacion: loaded.totalGuards > 0 || loaded.totalPositions > 0,
+            }),
+          );
+          if (blocking.length) {
+            return NextResponse.json(
+              { success: false, error: blocking[0]!.message },
+              { status: 422 },
+            );
+          }
+        }
       }
     }
 

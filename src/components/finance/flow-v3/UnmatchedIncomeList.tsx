@@ -348,7 +348,7 @@ export function UnmatchedIncomeList({
       }>;
       const top = suggestions[0];
       if (!top || top.kind === "NONE") {
-        setClassifyHint("Sin sugerencia automática — clasificá en Bancos.");
+        setClassifyHint("Sin sugerencia automática — clasifica en Bancos.");
         return;
       }
       if (top.kind === "TGR_PICK") {

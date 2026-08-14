@@ -2704,7 +2704,7 @@ function TransactionsTab({
                   onClick={runHistoricalAutoMatch}
                   disabled={runningAutoMatch}
                   className="h-9 w-9 p-0 shrink-0 sm:h-8 sm:w-auto sm:px-3"
-                  title="Corre el matcher contra DTEs, turnos extras y reglas activas para los movimientos visibles. Tip: usá los filtros antes para limitar el alcance."
+                  title="Corre el matcher contra DTEs, turnos extras y reglas activas para los movimientos visibles. Tip: usa los filtros antes para limitar el alcance."
                   aria-label="Auto-conciliar movimientos visibles"
                 >
                   {runningAutoMatch ? (
@@ -2758,7 +2758,7 @@ function TransactionsTab({
                 {tabCounts.recognized === 1 ? "" : "s"} para autorizar
               </p>
               <p className="text-[12px] text-status-warn-fg/80 mt-0.5">
-                Revisá cada uno o usá "Autorizar todos" arriba.
+                Revisá cada uno o usa "Autorizar todos" arriba.
               </p>
             </div>
           </div>

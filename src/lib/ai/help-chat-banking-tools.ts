@@ -349,7 +349,7 @@ export function bankingReadToolDefinitions(): ToolDef[] {
       function: {
         name: "get_bank_movement",
         description:
-          "Detalle de un movimiento bancario + vínculos (expense/income links, flowRowId, accountPlanId, factoring, DTE). Incluye links a la UI de Bancos. Usá tras list_bank_movements o get_bank_triage_summary.",
+          "Detalle de un movimiento bancario + vínculos (expense/income links, flowRowId, accountPlanId, factoring, DTE). Incluye links a la UI de Bancos. Usa tras list_bank_movements o get_bank_triage_summary.",
         parameters: {
           type: "object",
           properties: {
@@ -470,7 +470,7 @@ export function bankingWriteToolDefinitions(): ToolDef[] {
       function: {
         name: "preview_authorize_bank_movements",
         description:
-          "PASO 1. Dry-run de Autorizar TE / bandeja «Por autorizar»: lista movimientos UNMATCHED con sugerencia (suggestedAccountPlanId) que se autorizarían. NO persiste. Filtrá por accountId/accountName y/o transactionIds. Usá authorize_bank_movements solo tras confirmación.",
+          "PASO 1. Dry-run de Autorizar TE / bandeja «Por autorizar»: lista movimientos UNMATCHED con sugerencia (suggestedAccountPlanId) que se autorizarían. NO persiste. Filtrá por accountId/accountName y/o transactionIds. Usa authorize_bank_movements solo tras confirmación.",
         parameters: {
           type: "object",
           properties: {
@@ -873,7 +873,7 @@ export async function toolGetBankTriageSummary(
       topUnmatchedOutflows: unmatchedOut.transactions.map(mapRow),
       pendingAuthorizeSample: pending.transactions.map(mapRow),
       note:
-        "Socios/directores no deben sugerirse como Turnos Extras (filtro SOCIO_PICK en cascada). Para clasificar a fila usá preview_classify_bank_to_flow_row con flowRowId.",
+        "Socios/directores no deben sugerirse como Turnos Extras (filtro SOCIO_PICK en cascada). Para clasificar a fila usa preview_classify_bank_to_flow_row con flowRowId.",
     },
   };
 }

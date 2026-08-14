@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: `Para anular (CodRef=1), el monto neto de la NC debe coincidir con el original. NC: $${ncTotalNet.toLocaleString("es-CL")}, original: $${originalNet.toLocaleString("es-CL")}. Usá CodRef=3 si querés corregir solo una parte.`,
+            error: `Para anular (CodRef=1), el monto neto de la NC debe coincidir con el original. NC: $${ncTotalNet.toLocaleString("es-CL")}, original: $${originalNet.toLocaleString("es-CL")}. Usa CodRef=3 si querés corregir solo una parte.`,
           },
           { status: 400 },
         );
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: `El monto de la NC ($${ncTotalNet.toLocaleString("es-CL")}) excede el saldo disponible ($${remaining.toLocaleString("es-CL")}). Ya hay $${creditedNetSoFar.toLocaleString("es-CL")} acreditados sobre el neto original $${originalNet.toLocaleString("es-CL")}. Si querés anular el total, usá CodRef=1.`,
+            error: `El monto de la NC ($${ncTotalNet.toLocaleString("es-CL")}) excede el saldo disponible ($${remaining.toLocaleString("es-CL")}). Ya hay $${creditedNetSoFar.toLocaleString("es-CL")} acreditados sobre el neto original $${originalNet.toLocaleString("es-CL")}. Si querés anular el total, usa CodRef=1.`,
           },
           { status: 400 },
         );

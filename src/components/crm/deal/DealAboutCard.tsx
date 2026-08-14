@@ -59,7 +59,7 @@ export function DealAboutCard({
         className="flex w-full items-center justify-between px-4 py-3 lg:cursor-default"
       >
         <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
-          Sobre el negocio
+          Ficha
         </span>
         <ChevronDown
           className={cn(

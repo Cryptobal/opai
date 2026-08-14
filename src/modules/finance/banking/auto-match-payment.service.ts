@@ -122,7 +122,7 @@ async function attachToActiveReconciliation(
  * Si NO matchea: retorna `{matched:false, reason}` sin tocar nada.
  *
  * @param userId — quién creó la importación (para auditoría del payment).
- *                 Usá un user válido del tenant (no un placeholder).
+ *                 Usa un user válido del tenant (no un placeholder).
  */
 export async function tryAutoMatchBankTransactionToDte(
   tenantId: string,

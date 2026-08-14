@@ -9,7 +9,8 @@ import { computeCpqQuoteCosts } from '@/modules/cpq/costing/compute-quote-costs'
 import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
 import { generateProposalAIContent, fallbackProposalAIContent } from './proposal-ai';
-import { readProposalContent } from '@/lib/cpq/proposal-sections/schema';
+import { isProposalContentV2, readProposalContent } from '@/lib/cpq/proposal-sections/schema';
+import { mapV2ToProposalAI } from './map-v2-to-ai';
 import { deriveComplianceMatrix } from '@/lib/cpq/proposal-sections/compliance-matrix';
 import { buildCpqQuotePdfFileName } from '@/lib/pdf/cpq-quote-pdf-filename';
 import { formatWeekdaysLong, formatCoverageSchedule } from '@/lib/cpq/weekdays';
@@ -490,9 +491,14 @@ export async function buildProposalProps(
   };
 
   let aiContent: ProposalAIContent;
-
+  const v2Content = isProposalContentV2(quote.proposalAiContent)
+    ? quote.proposalAiContent
+    : null;
   const cached = quote.proposalAiContent as ProposalAIContent | null | undefined;
-  if (cached && typeof cached === 'object' && cached.descripcionBreve) {
+
+  if (v2Content && quote.proposalMode !== "licitacion") {
+    aiContent = mapV2ToProposalAI(v2Content);
+  } else if (cached && typeof cached === "object" && cached.descripcionBreve) {
     aiContent = cached;
   } else {
     const staffingDetails = `${totalGuards} guardias en régimen ${staffingRegime}`;
@@ -999,6 +1005,9 @@ export async function buildProposalProps(
       })),
       status: content.status,
     };
+  } else if (v2Content) {
+    props.variant = 'technical';
+    props.watermark = opts?.pdfMode === 'final' ? null : 'BORRADOR';
   }
 
   const fileName = buildCpqQuotePdfFileName({

@@ -300,7 +300,7 @@ export function parseDteXml(xmlBuffer: Buffer): DteParsed {
  * para poder cederla, donde validamos que tipo+folio+RUTs+total coincidan
  * con la factura en BD).
  *
- * Para renderizar el PDF / generar PDF417 sigue usándose `parseDteXml()`
+ * Para renderizar el PDF / generar PDF417 sigue en uso `parseDteXml()`
  * que SÍ exige el TED.
  */
 export interface DteIdentity {
@@ -438,7 +438,7 @@ export function extractDteIdentity(xmlBuffer: Buffer): DteIdentity {
   }
   if (identities.length > 1) {
     throw new Error(
-      `El envelope contiene ${identities.length} DTEs; subí el XML con solo el DTE específico que querés adjuntar.`,
+      `El envelope contiene ${identities.length} DTEs; sube el XML con solo el DTE específico que querés adjuntar.`,
     );
   }
   return identities[0];

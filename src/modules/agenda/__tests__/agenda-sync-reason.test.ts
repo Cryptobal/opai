@@ -34,7 +34,7 @@ describe("sanitizeSyncReason", () => {
 
   it("mapea Invalid start time a acción de reenvío", () => {
     expect(sanitizeSyncReason("Invalid start time.")).toBe(
-      "Conflicto al actualizar la fecha en Google; usá Reenviar a Google",
+      "Conflicto al actualizar la fecha en Google; usa Reenviar a Google",
     );
   });
 });

@@ -134,10 +134,11 @@ export async function POST(request: NextRequest) {
     const installationId = body?.installationId?.trim() || null;
     const contactId = body?.contactId?.trim() || null;
 
+    let proposalMode: "licitacion" | "comercial" | undefined;
     if (dealId) {
       const dealExists = await prisma.crmDeal.findFirst({
         where: { id: dealId, tenantId },
-        select: { id: true },
+        select: { id: true, isLicitacion: true },
       });
       if (!dealExists) {
         return NextResponse.json(
@@ -145,6 +146,7 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+      proposalMode = dealExists.isLicitacion ? "licitacion" : "comercial";
     }
 
     if (installationId) {
@@ -200,6 +202,7 @@ export async function POST(request: NextRequest) {
           ...(dealId ? { dealId } : {}),
           ...(installationId ? { installationId } : {}),
           ...(contactId ? { contactId } : {}),
+          ...(proposalMode ? { proposalMode } : {}),
         },
       });
     });

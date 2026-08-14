@@ -131,21 +131,21 @@ describe("CpqPdfPreviewPanel", () => {
     openSpy.mockRestore();
   });
 
-  it("con allowedModes presentacion no muestra el toggle Cotización", () => {
+  it("con allowedModes cotizacion no muestra el tab Propuesta técnica", () => {
     render(
       <CpqPdfPreviewPanel
-        mode="presentacion"
+        mode="cotizacion"
         templateSlug="standard"
         previewUrl={null}
         loading={false}
         onModeChange={vi.fn()}
         onTemplateSlugChange={vi.fn()}
         onGenerate={vi.fn()}
-        allowedModes={["presentacion"]}
+        allowedModes={["cotizacion"]}
       />
     );
 
-    expect(screen.queryByRole("button", { name: "Cotización" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Estándar" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Propuesta técnica" })).not.toBeInTheDocument();
   });
 });

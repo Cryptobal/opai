@@ -397,7 +397,7 @@ export function detectApiKeyBlocked(res: SimpleApiResponse): {
       blocked: true,
       reason: "QUOTA",
       message:
-        "Apikey de SimpleAPI bloqueada (cupo mensual excedido). Desbloqueá inmediatamente en https://panel.simpleapi.cl/ contratando Peticiones de Respaldo, o subí de plan.",
+        "Apikey de SimpleAPI bloqueada (cupo mensual excedido). Desbloqueá inmediatamente en https://panel.simpleapi.cl/ contratando Peticiones de Respaldo, o sube de plan.",
     };
   }
 

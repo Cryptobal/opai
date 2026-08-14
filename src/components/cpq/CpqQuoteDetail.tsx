@@ -81,7 +81,6 @@ import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 import { CondicionesSection } from "@/components/cpq/workspace/CondicionesSection";
 import { LineasSection } from "@/components/cpq/workspace/LineasSection";
 import { FinancierosSection } from "@/components/cpq/workspace/FinancierosSection";
-import { AiSection } from "@/components/cpq/workspace/AiSection";
 import { ProposalSectionsEditor } from "@/components/cpq/proposal/ProposalSectionsEditor";
 import { ControlCenterPanel } from "@/components/cpq/workspace/ControlCenterPanel";
 import { WorkspaceRail } from "@/components/cpq/workspace/WorkspaceRail";
@@ -336,11 +335,7 @@ export function CpqQuoteDetail({
     website: string;
     contactEmail: string;
   }>({ companyName: "", brandNameUpper: "", website: "", contactEmail: "" });
-  const [generatingAi, setGeneratingAi] = useState(false);
-  const [generatingServiceDetail, setGeneratingServiceDetail] = useState(false);
   const [ufValue, setUfValue] = useState<number | null>(null);
-  const [aiCustomInstruction, setAiCustomInstruction] = useState("");
-  const [serviceDetailInstruction, setServiceDetailInstruction] = useState("");
 
   const isLocked = quote?.status === "sent";
   const canDeleteQuote = canDelete ?? true;
@@ -415,7 +410,6 @@ export function CpqQuoteDetail({
   const [secFinancieros, setSecFinancieros] = useState(true);
   const [secCondiciones, setSecCondiciones] = useState(true);
   const [secMargen, setSecMargen] = useState(true);
-  const [secAiContent, setSecAiContent] = useState(true);
   const [secDesglose, setSecDesglose] = useState(true);
   const [secAuditoria, setSecAuditoria] = useState(false);
   const [secPdf, setSecPdf] = useState(true);
@@ -434,7 +428,7 @@ export function CpqQuoteDetail({
     "sec-lineas": setSecLineas,
     "sec-financieros": setSecFinancieros,
     "sec-margen": setSecMargen,
-    "sec-ai": setSecAiContent,
+    "sec-propuesta": () => undefined,
     "sec-incluye": setSecIncluye,
     "sec-auditoria": setSecAuditoria,
   };
@@ -446,7 +440,6 @@ export function CpqQuoteDetail({
     setSecLineas(false);
     setSecFinancieros(false);
     setSecMargen(false);
-    setSecAiContent(false);
     setSecDesglose(false);
     setSecPdf(false);
     setSecIncluye(false);
@@ -531,7 +524,7 @@ export function CpqQuoteDetail({
     }
   }, []);
   const [controlSheetOpen, setControlSheetOpen] = useState(false);
-  const [pdfPreviewMode, setPdfPreviewMode] = useState<CpqPdfPreviewMode>("presentacion");
+  const [pdfPreviewMode, setPdfPreviewMode] = useState<CpqPdfPreviewMode>("cotizacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [pdfTemplateSlug, setPdfTemplateSlug] = useState<CpqPdfTemplateSlug>("standard");
@@ -1012,67 +1005,6 @@ export function CpqQuoteDetail({
     }, 600);
   };
 
-  const generateAiDescription = async () => {
-    setGeneratingAi(true);
-    try {
-      const res = await fetch("/api/ai/quote-description", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quoteId,
-          customInstruction: aiCustomInstruction.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      setQuote((prev) => (prev ? { ...prev, aiDescription: data.data.description } : prev));
-      toast.success(aiCustomInstruction.trim() ? "Descripcion refinada con AI" : "Descripcion generada con AI");
-    } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "No se pudo generar la descripcion AI");
-    } finally {
-      setGeneratingAi(false);
-    }
-  };
-
-  const generateServiceDetail = async () => {
-    setGeneratingServiceDetail(true);
-    try {
-      const res = await fetch("/api/ai/quote-service-detail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quoteId,
-          customInstruction: serviceDetailInstruction.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      setQuote((prev) => (prev ? { ...prev, serviceDetail: data.data.serviceDetail } : prev));
-      toast.success(serviceDetailInstruction.trim() ? "Detalle refinado con AI" : "Detalle de servicio generado con AI");
-    } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "No se pudo generar el detalle de servicio");
-    } finally {
-      setGeneratingServiceDetail(false);
-    }
-  };
-
-  const [regeneratingProposalAi, setRegeneratingProposalAi] = useState(false);
-  const regenerateProposalAi = async () => {
-    setRegeneratingProposalAi(true);
-    try {
-      const res = await fetch(`/api/cpq/quotes/${quoteId}/proposal-ai`, { method: "POST" });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      toast.success("Contenido IA de la propuesta reiniciado. Se regenerará al previsualizar el PDF.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo reiniciar el contenido IA");
-    } finally {
-      setRegeneratingProposalAi(false);
-    }
-  };
-
   const saveQuoteBasics = async (options?: { nextStep?: number }) => {
     setSavingQuote(true);
     setQuoteError(null);
@@ -1216,7 +1148,7 @@ export function CpqQuoteDetail({
         await handleMarkSentLicitacion();
         return;
       }
-      toast.error("Para marcar como enviada usá Enviar propuesta (portal o presentación).");
+      toast.error("Para marcar como enviada usa Enviar propuesta (portal) desde la card Propuesta.");
       return;
     }
     setChangingStatus(true);
@@ -1789,24 +1721,12 @@ export function CpqQuoteDetail({
     ? crmContacts.find((x) => x.id === crmContext.contactId) ?? null
     : null;
   const contactHasEmail = Boolean(contactForPortal?.email?.trim());
-  const canSendPortalProposal =
-    Boolean(quote) &&
-    (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
-    Boolean(crmContext.accountId && crmContext.contactId && crmContext.dealId) &&
-    contactHasEmail;
   const canMarkSentLicitacion =
     quote != null &&
     quote.status === "draft" &&
     isLicitacionDeal &&
     (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
     Boolean(crmContext.accountId && crmContext.dealId);
-  const portalReadinessItems = [
-    { label: "Cliente", ready: Boolean(crmContext.accountId) },
-    { label: "Contacto", ready: Boolean(crmContext.contactId) },
-    { label: "Email contacto", ready: contactHasEmail },
-    { label: "Negocio", ready: Boolean(crmContext.dealId) },
-    { label: "Puestos o líneas", ready: positions.length > 0 || (additionalLines?.length ?? 0) > 0 },
-  ];
 
   /** Abre el modal de envío o muestra toast accionable (nunca click silencioso). */
   const openPortalProposal = useCallback(() => {
@@ -2191,20 +2111,8 @@ export function CpqQuoteDetail({
                     >
                       <PencilLine className="h-3.5 w-3.5" /> Volver a borrador (editar)
                     </button>
-                  ) : isLicitacionDeal ? (
-                    <button
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
-                      onClick={() => {
-                        setOverflowMenuOpen(false);
-                        void handleMarkSentLicitacion();
-                      }}
-                      disabled={changingStatus || markingSentLicitacion || !canMarkSentLicitacion}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Marcar enviada (licitación)
-                    </button>
                   ) : null}
-                  {(quote.status === "sent" || isLicitacionDeal) && (
+                  {quote.status === "sent" && (
                     <div className="my-1 h-px bg-border" />
                   )}
                   {isLocked ? null : !bundleId && onConverted ? (
@@ -2350,6 +2258,11 @@ export function CpqQuoteDetail({
         setProposalTemplateId={setProposalTemplateId}
         proposalGoverned={conditionsGovernedByProposal}
         onEditAtProposal={onEditConditionsAtProposal}
+        serviceDetail={quote.serviceDetail ?? null}
+        onServiceDetailChange={(v) => {
+          setQuote((prev) => (prev ? { ...prev, serviceDetail: v } : prev));
+          saveQuoteFieldDebounced("serviceDetail", v);
+        }}
       />
 
       {/* -- Section: Desglose detallado (precio de venta, margen financiero) --
@@ -2638,38 +2551,16 @@ export function CpqQuoteDetail({
         )}
       </Card>
 
-      {/* -- Section: Contenido AI (Descripcion + Detalle servicio) -- */}
-      <AiSection
-        open={secAiContent}
-        onToggle={() => setSecAiContent(v => !v)}
-        isLocked={isLocked}
-        aiDescription={quote.aiDescription ?? null}
-        serviceDetail={quote.serviceDetail ?? null}
-        onAiDescriptionChange={(v) => {
-          setQuote((prev) => (prev ? { ...prev, aiDescription: v } : prev));
-          saveQuoteFieldDebounced("aiDescription", v);
-        }}
-        onServiceDetailChange={(v) => {
-          setQuote((prev) => (prev ? { ...prev, serviceDetail: v } : prev));
-          saveQuoteFieldDebounced("serviceDetail", v);
-        }}
-        aiCustomInstruction={aiCustomInstruction}
-        setAiCustomInstruction={setAiCustomInstruction}
-        serviceDetailInstruction={serviceDetailInstruction}
-        setServiceDetailInstruction={setServiceDetailInstruction}
-        generatingAi={generatingAi}
-        generatingServiceDetail={generatingServiceDetail}
-        onGenerateAiDescription={generateAiDescription}
-        onGenerateServiceDetail={generateServiceDetail}
-        regeneratingProposalAi={regeneratingProposalAi}
-        onRegenerateProposalAi={regenerateProposalAi}
-      />
-
-      <div id="sec-propuesta-secciones" className="scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
+      <div id="sec-propuesta" className="scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <ProposalSectionsEditor
           quoteId={quote.id}
           quoteLabel={quote.name || quote.code || "Cotización"}
           readOnly={isLocked}
+          dealId={crmContext.dealId || quote.dealId}
+          quoteStatus={quote.status}
+          onMarkSentLicitacion={isLicitacionDeal ? () => void handleMarkSentLicitacion() : undefined}
+          onSendPortal={!isLicitacionDeal ? openPortalProposal : undefined}
+          markingSent={markingSentLicitacion}
         />
       </div>
 
@@ -2727,6 +2618,7 @@ export function CpqQuoteDetail({
               templateSlug={pdfTemplateSlug}
               previewUrl={pdfPreviewUrl}
               loading={pdfPreviewLoading}
+              allowedModes={["cotizacion"]}
               onModeChange={(mode) => {
                 setPdfPreviewMode(mode);
                 setPdfPreviewUrl(null);
@@ -2825,7 +2717,6 @@ export function CpqQuoteDetail({
 
             <ControlCenterPanel
               quoteId={quoteId}
-              quoteStatus={quote.status}
               isLocked={isLocked}
               crmContext={crmContext}
               billingMonthlyTotal={billingMonthlyTotal}
@@ -2835,18 +2726,9 @@ export function CpqQuoteDetail({
               totalGuards={stats.totalGuards}
               roleSummary={roleSummary}
               onToggleGuardsBreakdown={() => setGuardsBreakdownOpen((v) => !v)}
-              canSendPortalProposal={canSendPortalProposal}
-              portalReadinessItems={portalReadinessItems}
-              contactHasEmail={contactHasEmail}
-              onSendProposal={openPortalProposal}
               isLicitacion={isLicitacionDeal}
-              canMarkSentLicitacion={canMarkSentLicitacion}
-              markingSentLicitacion={markingSentLicitacion}
-              onMarkSentLicitacion={() => void handleMarkSentLicitacion()}
               dealTitle={selectedDeal ? selectedDealTitle : null}
               dealStageName={selectedDealStageName}
-              positionsCount={positions.length}
-              additionalLinesCount={additionalLines?.length ?? 0}
               pdfPreviewMode={pdfPreviewMode}
               pdfTemplateSlug={pdfTemplateSlug}
               pdfPreviewUrl={pdfPreviewUrl}
@@ -3168,7 +3050,6 @@ export function CpqQuoteDetail({
         onOpenChange={setControlSheetOpen}
         panelProps={{
           quoteId,
-          quoteStatus: quote.status,
           isLocked,
           crmContext,
           billingMonthlyTotal,
@@ -3178,21 +3059,9 @@ export function CpqQuoteDetail({
           totalGuards: stats.totalGuards,
           roleSummary,
           onToggleGuardsBreakdown: () => setGuardsBreakdownOpen((v) => !v),
-          canSendPortalProposal,
-          portalReadinessItems,
-          contactHasEmail,
-          onSendProposal: () => { setControlSheetOpen(false); openPortalProposal(); },
           isLicitacion: isLicitacionDeal,
-          canMarkSentLicitacion,
-          markingSentLicitacion,
-          onMarkSentLicitacion: () => {
-            setControlSheetOpen(false);
-            void handleMarkSentLicitacion();
-          },
           dealTitle: selectedDeal ? selectedDealTitle : null,
           dealStageName: selectedDealStageName,
-          positionsCount: positions.length,
-          additionalLinesCount: additionalLines?.length ?? 0,
           pdfPreviewMode,
           pdfTemplateSlug,
           pdfPreviewUrl,

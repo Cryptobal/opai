@@ -4,14 +4,19 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import {
+  emptyProposalV2,
   readProposalContent,
   type ProposalContentV2,
   type ProposalMode,
 } from "./schema";
+import {
+  resolveProposalMode,
+  shouldAutoConvertComercialToLicitacion,
+} from "./mode";
 
 export class ProposalConflictError extends Error {
   constructor() {
-    super("La propuesta cambió en otro lugar. Recargá e intentá de nuevo.");
+    super("La propuesta cambió en otro lugar. Recarga e intenta de nuevo.");
     this.name = "ProposalConflictError";
   }
 }
@@ -35,6 +40,7 @@ export async function loadQuoteProposal(opts: {
     totalPositions: number;
   };
   content: ProposalContentV2;
+  dealIsLicitacion: boolean;
 }> {
   const quote = await prisma.cpqQuote.findFirst({
     where: { id: opts.quoteId, tenantId: opts.tenantId },
@@ -53,16 +59,47 @@ export async function loadQuoteProposal(opts: {
     },
   });
   if (!quote) throw new Error("QUOTE_NOT_FOUND");
-  const mode: ProposalMode =
-    (quote.proposalMode === "licitacion" || quote.proposalMode === "comercial"
-      ? quote.proposalMode
-      : opts.preferredMode) ?? "comercial";
-  const content = readProposalContent(quote.proposalAiContent, mode);
+
+  let dealIsLicitacion = false;
+  if (quote.dealId) {
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: quote.dealId, tenantId: opts.tenantId },
+      select: { isLicitacion: true },
+    });
+    dealIsLicitacion = Boolean(deal?.isLicitacion);
+  }
+
+  const mode = resolveProposalMode({
+    quoteMode: quote.proposalMode,
+    preferredMode: opts.preferredMode,
+    dealIsLicitacion,
+  });
+  let content = readProposalContent(quote.proposalAiContent, mode);
   if (!quote.proposalMode) content.mode = mode;
   if (quote.proposalStatus === "borrador" || quote.proposalStatus === "en_revision" || quote.proposalStatus === "aprobada" || quote.proposalStatus === "enviada") {
     content.status = quote.proposalStatus;
   }
-  return { quote, content };
+
+  if (shouldAutoConvertComercialToLicitacion({ dealIsLicitacion, content })) {
+    content = emptyProposalV2("licitacion", { legacyV1: content.legacyV1 });
+    content = await saveQuoteProposal({
+      tenantId: opts.tenantId,
+      quoteId: opts.quoteId,
+      content,
+    });
+    quote.proposalMode = "licitacion";
+    quote.proposalStatus = content.status;
+  } else if (!quote.proposalMode) {
+    content = await saveQuoteProposal({
+      tenantId: opts.tenantId,
+      quoteId: opts.quoteId,
+      content,
+    });
+    quote.proposalMode = content.mode;
+    quote.proposalStatus = content.status;
+  }
+
+  return { quote, content, dealIsLicitacion };
 }
 
 export async function saveQuoteProposal(opts: {

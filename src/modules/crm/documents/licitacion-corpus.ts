@@ -8,13 +8,14 @@ import {
 
 export const LICITACION_TIPO_CODIGOS = {
   bases: "bases_licitacion",
+  bases_admin: "bases_administrativas_licitacion",
   qa: "qa_licitacion",
   anexos: "anexos_licitacion",
 } as const;
 
 export const LICITACION_TIPO_SET = new Set<string>(Object.values(LICITACION_TIPO_CODIGOS));
 
-export type LicitacionKind = "bases" | "qa" | "anexos";
+export type LicitacionKind = "bases" | "bases_admin" | "qa" | "anexos";
 
 export type CorpusChunk = {
   fileId: string;
@@ -33,6 +34,11 @@ export function estimateTokenCount(text: string): number {
 
 export function suggestTipoFromFileName(fileName: string): string | null {
   const n = fileName.toLowerCase().replace(/[_-]+/g, " ");
+  // Bases administrativas ANTES del regex genérico de bases: "bases administrativas"
+  // no debe clasificarse como bases técnicas.
+  if (/\badministrativ/.test(n)) {
+    return LICITACION_TIPO_CODIGOS.bases_admin;
+  }
   if (/\b(bases|pliego|tdr|terms?\s*of\s*ref|licitaci[oó]n)\b/.test(n)) {
     return LICITACION_TIPO_CODIGOS.bases;
   }
@@ -47,12 +53,13 @@ export function suggestTipoFromFileName(fileName: string): string | null {
 
 export function kindFromCodigo(codigo: string): LicitacionKind | null {
   if (codigo === LICITACION_TIPO_CODIGOS.bases) return "bases";
+  if (codigo === LICITACION_TIPO_CODIGOS.bases_admin) return "bases_admin";
   if (codigo === LICITACION_TIPO_CODIGOS.qa) return "qa";
   if (codigo === LICITACION_TIPO_CODIGOS.anexos) return "anexos";
   return null;
 }
 
-const KIND_PRIORITY: LicitacionKind[] = ["bases", "qa", "anexos"];
+const KIND_PRIORITY: LicitacionKind[] = ["bases", "bases_admin", "qa", "anexos"];
 
 export function assembleCorpusChunks(
   files: Array<{
@@ -115,6 +122,6 @@ export function licitacionGenerationGate(
   if (hasBases) return null;
   return (
     basesError ??
-    "No hay Bases clasificadas con texto extraído. Clasificá el archivo de bases en la ficha del negocio y reprocesá la extracción."
+    "No hay Bases técnicas clasificadas con texto extraído. Clasifica el archivo de bases en Documentos del negocio y reprocesa la extracción."
   );
 }

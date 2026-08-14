@@ -352,13 +352,10 @@ export async function changeDealStage(input: {
       console.error("[crm] deal_stage_changed/lost notify failed:", e);
     }
 
-    // Auto-apertura por umbral (default OFF): no-op inmediato si el tenant no lo
-    // activó. Solo en movimientos vivos (no en cierre won/lost).
+    // Sincroniza etapa → sala existente (ficha + topic + naming). No-op si no hay
+    // sala. La apertura de sala es solo manual (menú ⋯ / Integraciones).
     if (nextStatus === "open") {
       try {
-        const { maybeAutoOpenDealRoom } = await import("@/lib/integrations/slack/deal-rooms/room");
-        await maybeAutoOpenDealRoom(ctx.tenantId, updatedDeal.id, ctx.userId);
-        // Sincroniza etapa → sala (ficha + topic + naming). No-op si no hay sala.
         const { syncDealRoomStage } = await import("@/lib/integrations/slack/deal-rooms/stage-sync");
         await syncDealRoomStage(ctx.tenantId, updatedDeal.id);
         // Ficha de Inicio (Canvas) al ADJUDICAR (etapa isAccepted): crea/actualiza
@@ -369,7 +366,7 @@ export async function changeDealStage(input: {
           await ensureStartCanvas(ctx.tenantId, updatedDeal.id);
         }
       } catch (e) {
-        console.error("[slack] auto-open/sync deal room failed:", e);
+        console.error("[slack] sync deal room failed:", e);
       }
     }
 

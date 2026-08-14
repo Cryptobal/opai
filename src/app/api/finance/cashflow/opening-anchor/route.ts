@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Ya existe un anchor activo. Usá el cierre semanal regular.",
+        error: "Ya existe un anchor activo. Usa el cierre semanal regular.",
       },
       { status: 409 },
     );

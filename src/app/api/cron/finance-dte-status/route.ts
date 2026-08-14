@@ -17,7 +17,7 @@
  *   - Cap de 7 chequeos por DTE (después timeout)
  *   - Para Gard (~20 DTEs/día): ~30-50 consultas/día = ~900-1500/mes
  *
- * Si necesitás respuesta más rápida del SII, usá el botón "Actualizar
+ * Si necesitás respuesta más rápida del SII, usa el botón "Actualizar
  * estado SII" (icono RefreshCw) en cada fila de DTE — manual on-demand.
  *
  * Respeta el cupo SimpleAPI:
