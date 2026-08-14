@@ -6,6 +6,7 @@ import {
   Plus, Trash2, Save, CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { DatePickerField } from '@/components/ui/date-picker'
 import { ClienteSession } from '@/lib/portal-cliente-types'
 import { isValidRut, formatRut } from '@/lib/chile-rut'
 
@@ -130,13 +131,23 @@ function InputField({
   return (
     <div>
       <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full h-9 rounded-lg border border-border bg-muted px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-status-info-border transition-colors"
-      />
+      {type === 'date' ? (
+        <DatePickerField
+          value={value || null}
+          onChange={(ymd) => onChange(ymd ?? '')}
+          aria-label={label}
+          placeholder={placeholder}
+          clearable
+        />
+      ) : (
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full h-9 rounded-lg border border-border bg-muted px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-status-info-border transition-colors"
+        />
+      )}
     </div>
   )
 }

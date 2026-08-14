@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -290,13 +292,7 @@ export function CommercialConditionsSection({
 
           <div className="space-y-1">
             <Label className="text-sm text-muted-foreground">Fecha inicio contrato</Label>
-            <Input
-              type="date"
-              value={value.contractStartDate ?? ""}
-              onChange={(e) => update({ contractStartDate: e.target.value || null })}
-              disabled={isLocked}
-              className="h-8 bg-card text-foreground border-border text-xs"
-            />
+            <DatePickerField value={value.contractStartDate || null} onChange={(ymd) => update({ contractStartDate: (ymd ?? "") || null })} disabled={isLocked} triggerClassName={"h-8 bg-card text-foreground border-border text-xs"} />
           </div>
 
           <div className="space-y-1 flex items-end gap-2 pb-0.5">

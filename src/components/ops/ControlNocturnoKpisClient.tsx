@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -212,19 +214,9 @@ export function ControlNocturnoKpisClient() {
           >
             90d
           </Button>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="h-7 rounded-md border border-input bg-background px-2 text-xs"
-          />
+          <DatePickerField value={dateFrom || null} onChange={(ymd) => setDateFrom((ymd ?? ""))} triggerClassName={"h-7 rounded-md border border-input bg-background px-2 text-xs"} />
           <span className="text-xs text-muted-foreground">—</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="h-7 rounded-md border border-input bg-background px-2 text-xs"
-          />
+          <DatePickerField value={dateTo || null} onChange={(ymd) => setDateTo((ymd ?? ""))} triggerClassName={"h-7 rounded-md border border-input bg-background px-2 text-xs"} />
         </div>
       </div>
 

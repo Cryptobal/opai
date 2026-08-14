@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -606,12 +608,7 @@ function EventCreateForm({
             /* Finiquito: single date */
             <div className="space-y-1.5">
               <Label className="text-xs">Fecha de finiquito *</Label>
-              <Input
-                type="date"
-                value={finiquitoDate}
-                onChange={(e) => setFiniquitoDate(e.target.value)}
-                className="text-sm max-w-xs"
-              />
+              <DatePickerField value={finiquitoDate || null} onChange={(ymd) => setFiniquitoDate((ymd ?? ""))} triggerClassName={"text-sm max-w-xs"} />
               {/* Causal 159-4 validation message */}
               {causal159N4Validation &&
                 !causal159N4Validation.compliant &&
@@ -649,23 +646,12 @@ function EventCreateForm({
                 <Label className="text-xs">
                   {isAmonestacion ? "Fecha *" : "Fecha inicio *"}
                 </Label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="text-sm"
-                />
+                <DatePickerField value={startDate || null} onChange={(ymd) => setStartDate((ymd ?? ""))} triggerClassName={"text-sm"} />
               </div>
               {needsDateRange && (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Fecha término *</Label>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    min={startDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="text-sm"
-                  />
+                  <DatePickerField value={endDate || null} onChange={(ymd) => setEndDate((ymd ?? ""))} min={startDate} triggerClassName={"text-sm"} />
                 </div>
               )}
             </div>

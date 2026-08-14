@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
@@ -239,17 +241,11 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
             )}
             <div>
               <Label className="text-zinc-400">Fecha desde *</Label>
-              <Input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className="bg-zinc-700 border-zinc-600" />
+              <DatePickerField value={fDate || null} onChange={(ymd) => setFDate((ymd ?? ""))} triggerClassName={"bg-zinc-700 border-zinc-600"} />
             </div>
             <div>
               <Label className="text-zinc-400">Fecha hasta (opcional)</Label>
-              <Input
-                type="date"
-                value={fEndDate}
-                onChange={(e) => setFEndDate(e.target.value)}
-                min={fDate || undefined}
-                className="bg-zinc-700 border-zinc-600"
-              />
+              <DatePickerField value={fEndDate || null} onChange={(ymd) => setFEndDate((ymd ?? ""))} min={fDate || undefined} triggerClassName={"bg-zinc-700 border-zinc-600"} />
             </div>
             <div className="flex gap-2">
               <div className="flex-1">

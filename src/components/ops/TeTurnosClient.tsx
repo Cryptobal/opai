@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -894,12 +896,7 @@ export function TeTurnosClient({
             </div>
             <div>
               <Label>Fecha</Label>
-              <Input
-                type="date"
-                value={createForm.date}
-                onChange={(e) => setCreateForm((f) => ({ ...f, date: e.target.value }))}
-                className="mt-1"
-              />
+              <DatePickerField value={createForm.date || null} onChange={(ymd) => setCreateForm((f) => ({ ...f, date: (ymd ?? "") }))} triggerClassName={"mt-1"} />
             </div>
             <div>
               <Label>Tipo</Label>

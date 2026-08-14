@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -338,14 +339,25 @@ function SmallField({
       <Label htmlFor={id} className="text-[12px] text-ds-text-3">
         {label}
       </Label>
-      <Input
-        id={id}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-10 text-[13px] sm:h-9"
-      />
+      {type === "date" ? (
+        <DatePickerField
+          id={id}
+          value={value || null}
+          onChange={(ymd) => onChange(ymd ?? "")}
+          aria-label={label}
+          placeholder={placeholder}
+          clearable
+        />
+      ) : (
+        <Input
+          id={id}
+          type={type}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 text-[13px] sm:h-9"
+        />
+      )}
     </div>
   );
 }

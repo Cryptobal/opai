@@ -1,10 +1,11 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Stat, StatGrid } from "@/components/opai-ds";
@@ -267,21 +268,11 @@ export function ReportesClient({
             <div className="flex flex-wrap items-end gap-3">
               <div>
                 <Label className="text-xs">Desde</Label>
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="mt-1 h-9 w-full sm:w-40"
-                />
+                <DatePickerField value={dateFrom || null} onChange={(ymd) => setDateFrom((ymd ?? ""))} triggerClassName={"mt-1 h-9 w-full sm:w-40"} />
               </div>
               <div>
                 <Label className="text-xs">Hasta</Label>
-                <Input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="mt-1 h-9 w-full sm:w-40"
-                />
+                <DatePickerField value={dateTo || null} onChange={(ymd) => setDateTo((ymd ?? ""))} triggerClassName={"mt-1 h-9 w-full sm:w-40"} />
               </div>
               <Button
                 variant="outline"

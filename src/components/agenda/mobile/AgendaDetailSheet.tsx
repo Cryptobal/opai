@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -265,12 +267,7 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
             <DialogTitle>Reprogramar</DialogTitle>
           </DialogHeader>
           <div className="flex gap-2">
-            <input
-              type="date"
-              value={newDate}
-              onChange={(e) => setNewDate(e.target.value)}
-              className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
-            />
+            <DatePickerField value={newDate || null} onChange={(ymd) => setNewDate((ymd ?? ""))} triggerClassName={"h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"} />
             <input
               type="time"
               value={newTime}

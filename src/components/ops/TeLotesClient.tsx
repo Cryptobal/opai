@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -122,21 +123,11 @@ export function TeLotesClient({
           <div className="grid gap-3 md:grid-cols-4">
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Semana inicio</label>
-              <input
-                type="date"
-                value={weekStart}
-                onChange={(e) => setWeekStart(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
+              <DatePickerField value={weekStart || null} onChange={(ymd) => setWeekStart((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Semana término</label>
-              <input
-                type="date"
-                value={weekEnd}
-                onChange={(e) => setWeekEnd(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
+              <DatePickerField value={weekEnd || null} onChange={(ymd) => setWeekEnd((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Estado</label>

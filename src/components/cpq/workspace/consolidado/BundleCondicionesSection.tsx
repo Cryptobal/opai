@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 /**
  * Condiciones comerciales a nivel propuesta: se editan UNA vez aquí y el
  * servidor las propaga automáticamente a todas las instalaciones (PATCH del
@@ -370,13 +372,7 @@ export function BundleCondicionesSection({
         </div>
         <div className="space-y-1">
           <Label className={LABEL_CLASS}>Válida hasta</Label>
-          <Input
-            type="date"
-            value={form.validUntil}
-            onChange={(e) => editLocal({ validUntil: e.target.value })}
-            onBlur={() => save({ validUntil: form.validUntil || null } as Partial<Form>)}
-            className={INPUT_CLASS}
-          />
+          <DatePickerField value={form.validUntil || null} onChange={(ymd) => editLocal({ validUntil: (ymd ?? "") })} triggerClassName={INPUT_CLASS} />
         </div>
       </div>
 

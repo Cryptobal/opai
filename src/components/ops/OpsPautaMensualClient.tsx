@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { EmptyState, Spinner } from "@/components/opai-ds";
@@ -2877,11 +2878,23 @@ export function OpsPautaMensualClient({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Desde</Label>
-                  <Input type="date" value={assignForm.startDate.slice(0, 10)} disabled className="bg-muted text-muted-foreground" />
+                  <DatePickerField
+                    value={assignForm.startDate.slice(0, 10) || null}
+                    onChange={() => {}}
+                    disabled
+                    aria-label="Desde"
+                    triggerClassName="bg-muted text-muted-foreground"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Hasta</Label>
-                  <Input type="date" value={assignForm.endDate.slice(0, 10)} disabled className="bg-muted text-muted-foreground" />
+                  <DatePickerField
+                    value={assignForm.endDate.slice(0, 10) || null}
+                    onChange={() => {}}
+                    disabled
+                    aria-label="Hasta"
+                    triggerClassName="bg-muted text-muted-foreground"
+                  />
                 </div>
               </div>
               <div className="space-y-1.5">

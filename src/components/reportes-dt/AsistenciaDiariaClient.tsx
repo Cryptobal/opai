@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState, useCallback } from "react";
 import { ReporteDtShell } from "./ReporteDtShell";
 import { MarcacionModificadaBadge } from "@/components/ops/MarcacionModificadaBadge";
@@ -72,13 +74,11 @@ export function AsistenciaDiariaClient({ installations }: { installations: Insta
     <div className="flex flex-wrap gap-3 items-end">
       <div>
         <label className="block text-sm text-muted-foreground mb-1">Desde</label>
-        <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-          className="border border-border rounded px-2 py-1.5 text-sm bg-background" />
+        <DatePickerField value={from || null} onChange={(ymd) => setFrom((ymd ?? ""))} triggerClassName={"border border-border rounded px-2 py-1.5 text-sm bg-background"} />
       </div>
       <div>
         <label className="block text-sm text-muted-foreground mb-1">Hasta</label>
-        <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-          className="border border-border rounded px-2 py-1.5 text-sm bg-background" />
+        <DatePickerField value={to || null} onChange={(ymd) => setTo((ymd ?? ""))} triggerClassName={"border border-border rounded px-2 py-1.5 text-sm bg-background"} />
       </div>
       <div>
         <label className="block text-sm text-muted-foreground mb-1">Instalación</label>

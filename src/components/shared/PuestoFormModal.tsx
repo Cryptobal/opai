@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Dialog,
@@ -342,14 +344,8 @@ export function PuestoFormModal({
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Fecha de inicio
             </Label>
-            <input
-              type="date"
-              value={form.activeFrom}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, activeFrom: e.target.value }))
-              }
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            />
+            <DatePickerField value={form.activeFrom || null} onChange={(ymd) =>
+                setForm((p) => ({ ...p, activeFrom: (ymd ?? "") }))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             <p className="text-[10px] text-muted-foreground">
               Desde cuándo está activo este puesto. La pauta solo se genera desde esta fecha.
             </p>

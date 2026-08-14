@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -712,18 +714,12 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
 
           <div>
             <Label htmlFor="fechaCesion">Fecha cesión</Label>
-            <Input
-              id="fechaCesion"
-              type="date"
-              value={fechaCesion}
-              onChange={(e) => {
-                const next = e.target.value;
+            <DatePickerField value={fechaCesion || null} onChange={(ymd) => {
+                const next = (ymd ?? "");
                 setFechaCesion(next);
                 // Mantenemos los días constantes: re-derivamos vencimiento.
                 setFechaVencimiento(addDaysToIso(next, diasFromDates));
-              }}
-              className="h-10 sm:h-9"
-            />
+              }} id={"fechaCesion"} triggerClassName={"h-10 sm:h-9"} />
           </div>
           <div>
             <Label htmlFor="diasCesion">Días de cesión</Label>

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -520,14 +522,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="entrega-date">Fecha</Label>
-                <Input
-                  id="entrega-date"
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                  required
-                  className="h-10 sm:h-9"
-                />
+                <DatePickerField value={form.date || null} onChange={(ymd) => setForm((f) => ({ ...f, date: (ymd ?? "") }))} id={"entrega-date"} required triggerClassName={"h-10 sm:h-9"} />
               </div>
               <div className="space-y-1.5">
                 <Label>Bodega origen *</Label>

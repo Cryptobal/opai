@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AtSign,
@@ -839,13 +840,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
               );
             })}
             {interactionType !== "note" && (
-              <input
-                type="date"
-                value={occurredAt}
-                onChange={(e) => setOccurredAt(e.target.value)}
-                title="¿Cuándo ocurrió? (opcional)"
-                className="h-10 shrink-0 rounded-md border border-input bg-background px-2 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:h-auto lg:py-0.5"
-              />
+              <DatePickerField value={occurredAt || null} onChange={(ymd) => setOccurredAt((ymd ?? ""))} triggerClassName={"h-10 shrink-0 rounded-md border border-input bg-background px-2 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:h-auto lg:py-0.5"} />
             )}
           </div>
         )}

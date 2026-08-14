@@ -1,10 +1,11 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -174,21 +175,11 @@ export default function EmailHistoryClient({ tenantId }: EmailHistoryClientProps
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Desde</label>
-            <Input
-              type="date"
-              value={desde}
-              onChange={(e) => setDesde(e.target.value)}
-              className="w-40"
-            />
+            <DatePickerField value={desde || null} onChange={(ymd) => setDesde((ymd ?? ""))} triggerClassName={"w-40"} />
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Hasta</label>
-            <Input
-              type="date"
-              value={hasta}
-              onChange={(e) => setHasta(e.target.value)}
-              className="w-40"
-            />
+            <DatePickerField value={hasta || null} onChange={(ymd) => setHasta((ymd ?? ""))} triggerClassName={"w-40"} />
           </div>
         </div>
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -17,7 +19,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -594,12 +595,7 @@ export function Step3Checklist({
                         <div className="space-y-2 pl-2 border-l-2 border-status-ok-border mt-2">
                           <div>
                             <label className="text-xs text-muted-foreground">Fecha ultima entrada</label>
-                            <Input
-                              type="date"
-                              value={result.lastEntryDate ?? ""}
-                              onChange={(e) => updateDocResult(doc.code, { lastEntryDate: e.target.value })}
-                              className="h-11 mt-1"
-                            />
+                            <DatePickerField value={result.lastEntryDate || null} onChange={(ymd) => updateDocResult(doc.code, { lastEntryDate: (ymd ?? "") })} triggerClassName={"h-11 mt-1"} />
                           </div>
                           <div>
                             <label className="text-xs text-muted-foreground">Foto ultima pagina (opcional)</label>
@@ -943,14 +939,8 @@ export function Step3Checklist({
               <div className="space-y-2 pl-2 border-l-2 border-status-ok-border">
                 <div className="space-y-2">
                   <Label className="text-xs">Fecha ultima entrada</Label>
-                  <Input
-                    type="date"
-                    value={bookLastEntryDate}
-                    onChange={(e) =>
-                      onBookChange({ bookUpToDate, bookLastEntryDate: e.target.value, bookNotes })
-                    }
-                    className="h-12"
-                  />
+                  <DatePickerField value={bookLastEntryDate || null} onChange={(ymd) =>
+                      onBookChange({ bookUpToDate, bookLastEntryDate: (ymd ?? ""), bookNotes })} triggerClassName={"h-12"} />
                 </div>
 
                 <div className="space-y-2">

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
@@ -339,11 +341,11 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
             <div className="flex gap-2">
               <div className="flex-1">
                 <Label className="text-zinc-400">Vigencia desde</Label>
-                <Input type="date" value={fValidFrom} onChange={(e) => setFValidFrom(e.target.value)} className="bg-zinc-700 border-zinc-600" />
+                <DatePickerField value={fValidFrom || null} onChange={(ymd) => setFValidFrom((ymd ?? ""))} triggerClassName={"bg-zinc-700 border-zinc-600"} />
               </div>
               <div className="flex-1">
                 <Label className="text-zinc-400">Vigencia hasta</Label>
-                <Input type="date" value={fValidUntil} onChange={(e) => setFValidUntil(e.target.value)} className="bg-zinc-700 border-zinc-600" />
+                <DatePickerField value={fValidUntil || null} onChange={(ymd) => setFValidUntil((ymd ?? ""))} triggerClassName={"bg-zinc-700 border-zinc-600"} />
               </div>
             </div>
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 /**
  * Pestaña "Análisis" — vista tipo tabla dinámica sobre los movimientos.
  *
@@ -238,21 +240,11 @@ export function BankAnalysisClient({ accounts }: BankAnalysisClientProps) {
             </div>
             <div className="space-y-1.5">
               <Label>Desde</Label>
-              <Input
-                type="date"
-                className="h-9"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
+              <DatePickerField value={dateFrom || null} onChange={(ymd) => setDateFrom((ymd ?? ""))} triggerClassName={"h-9"} />
             </div>
             <div className="space-y-1.5">
               <Label>Hasta</Label>
-              <Input
-                type="date"
-                className="h-9"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
+              <DatePickerField value={dateTo || null} onChange={(ymd) => setDateTo((ymd ?? ""))} triggerClassName={"h-9"} />
             </div>
             <div className="space-y-1.5">
               <Label>Dirección</Label>

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 /**
  * Drawer de conciliación manual de un movimiento bancario.
  *
@@ -2105,18 +2107,8 @@ export function BankTxReconcileSheet({
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    type="date"
-                    value={filterDateFrom}
-                    onChange={(e) => setFilterDateFrom(e.target.value)}
-                    className="h-11 sm:h-9 text-sm"
-                  />
-                  <Input
-                    type="date"
-                    value={filterDateTo}
-                    onChange={(e) => setFilterDateTo(e.target.value)}
-                    className="h-11 sm:h-9 text-sm"
-                  />
+                  <DatePickerField value={filterDateFrom || null} onChange={(ymd) => setFilterDateFrom((ymd ?? ""))} triggerClassName={"h-11 sm:h-9 text-sm"} />
+                  <DatePickerField value={filterDateTo || null} onChange={(ymd) => setFilterDateTo((ymd ?? ""))} triggerClassName={"h-11 sm:h-9 text-sm"} />
                 </div>
                 <Select
                   value={filterDirection}
@@ -2394,13 +2386,7 @@ export function BankTxReconcileSheet({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="manual-date">Fecha *</Label>
-                <Input
-                  id="manual-date"
-                  type="date"
-                  value={manualDate}
-                  onChange={(e) => setManualDate(e.target.value)}
-                  className="h-11 sm:h-9"
-                />
+                <DatePickerField value={manualDate || null} onChange={(ymd) => setManualDate((ymd ?? ""))} id={"manual-date"} triggerClassName={"h-11 sm:h-9"} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="manual-amount">Monto *</Label>

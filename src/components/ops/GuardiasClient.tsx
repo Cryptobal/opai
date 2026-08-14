@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -714,12 +716,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     </option>
                   ))}
                 </select>
-                <Input
-                  type="date"
-                  placeholder="Fecha de nacimiento *"
-                  value={form.birthDate}
-                  onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
-                />
+                <DatePickerField value={form.birthDate || null} onChange={(ymd) => setForm((prev) => ({ ...prev, birthDate: (ymd ?? "") }))} placeholder={"Fecha de nacimiento *"} />
                 <select
                   className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.afp}
@@ -965,12 +962,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Fecha de inicio</label>
-                <Input
-                  type="date"
-                  value={contractDate}
-                  onChange={(e) => setContractDate(e.target.value)}
-                  className="w-full"
-                />
+                <DatePickerField value={contractDate || null} onChange={(ymd) => setContractDate((ymd ?? ""))} triggerClassName={"w-full"} />
               </div>
             </div>
             <div className="flex justify-end gap-2">

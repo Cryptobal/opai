@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { CheckCircle2, ExternalLink, Trash2, X } from "lucide-react";
@@ -91,8 +93,7 @@ export function TaskDrawer({ task, onClose, onChanged }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Fecha"
-            className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9" />
+          <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} aria-label={"Fecha"} triggerClassName={"h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9"} />
           <TimeChipPicker value={time} onChange={setTime} menuAlign="right" />
         </div>
         <p className="text-[12px] text-ds-text-4">Sin hora → todo el día (aviso a media mañana).</p>

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
@@ -600,11 +602,11 @@ export function AccessControlListsManager({ installationId }: Props) {
               <>
                 <div>
                   <Label className="text-ds-text-3 text-xs">Vigencia desde</Label>
-                  <Input type="date" value={formValidFrom} onChange={(e) => setFormValidFrom(e.target.value)} className="mt-1" />
+                  <DatePickerField value={formValidFrom || null} onChange={(ymd) => setFormValidFrom((ymd ?? ""))} triggerClassName={"mt-1"} />
                 </div>
                 <div>
                   <Label className="text-ds-text-3 text-xs">Vigencia hasta</Label>
-                  <Input type="date" value={formValidUntil} onChange={(e) => setFormValidUntil(e.target.value)} className="mt-1" />
+                  <DatePickerField value={formValidUntil || null} onChange={(ymd) => setFormValidUntil((ymd ?? ""))} triggerClassName={"mt-1"} />
                 </div>
               </>
             )}

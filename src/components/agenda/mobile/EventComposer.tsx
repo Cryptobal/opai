@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -190,13 +192,7 @@ export function EventComposer({
               Vencimiento
             </p>
             <div className="flex gap-2">
-              <input
-                type="date"
-                value={task.form.date}
-                onChange={(e) => task.set.setDate(e.target.value)}
-                aria-label="Fecha de vencimiento"
-                className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
-              />
+              <DatePickerField value={task.form.date || null} onChange={(ymd) => task.set.setDate((ymd ?? ""))} aria-label={"Fecha de vencimiento"} triggerClassName={"h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"} />
               <TaskTimePicker value={task.form.time} onChange={task.set.setTime} />
             </div>
             <p className="text-[12px] text-ds-text-4">Sin hora = todo el día</p>

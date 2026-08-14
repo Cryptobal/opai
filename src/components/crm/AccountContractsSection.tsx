@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -2011,14 +2013,10 @@ export function AccountContractsSection({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Fecha de inicio</Label>
-                <Input
-                  type="date"
-                  value={uploadEffective}
-                  onChange={(e) => {
-                    setUploadEffective(e.target.value);
+                <DatePickerField value={uploadEffective || null} onChange={(ymd) => {
+                    setUploadEffective((ymd ?? ""));
                     setExpirationManuallyEdited(false);
-                  }}
-                />
+                  }} />
               </div>
               <div className="space-y-2">
                 <Label>Duración (meses)</Label>
@@ -2043,14 +2041,10 @@ export function AccountContractsSection({
                   (calculada automáticamente · puedes editarla)
                 </span>
               </Label>
-              <Input
-                type="date"
-                value={uploadExpiration}
-                onChange={(e) => {
-                  setUploadExpiration(e.target.value);
+              <DatePickerField value={uploadExpiration || null} onChange={(ymd) => {
+                  setUploadExpiration((ymd ?? ""));
                   setExpirationManuallyEdited(true);
-                }}
-              />
+                }} />
               <p className="text-[11px] text-muted-foreground">
                 Si dejas estos campos vacíos, el contrato quedará sin fecha de vencimiento (indefinido)
                 y no recibirá alertas automáticas.
@@ -2089,11 +2083,7 @@ export function AccountContractsSection({
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
                     <div className="space-y-2">
                       <Label>Fecha de firma</Label>
-                      <Input
-                        type="date"
-                        value={uploadSignedAt}
-                        onChange={(e) => setUploadSignedAt(e.target.value)}
-                      />
+                      <DatePickerField value={uploadSignedAt || null} onChange={(ymd) => setUploadSignedAt((ymd ?? ""))} />
                     </div>
                     <div className="space-y-2">
                       <Label>Firmado por</Label>
@@ -2684,20 +2674,14 @@ export function AccountContractsSection({
                               </div>
                               <div className="col-span-3">
                                 <Label className="text-xs">Fecha</Label>
-                                <Input
-                                  type="date"
-                                  value={ref.fchRef}
-                                  onChange={(e) =>
+                                <DatePickerField value={ref.fchRef || null} onChange={(ymd) =>
                                     setRecurringAdditionalRefs((prev) =>
                                       prev.map((r, idx) =>
                                         idx === i
-                                          ? { ...r, fchRef: e.target.value }
+                                          ? { ...r, fchRef: (ymd ?? "") }
                                           : r,
                                       ),
-                                    )
-                                  }
-                                  className="text-xs"
-                                />
+                                    )} triggerClassName={"text-xs"} />
                               </div>
                               <div className="col-span-1 flex items-end justify-end h-full">
                                 <Button
@@ -3117,14 +3101,10 @@ export function AccountContractsSection({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Fecha de inicio</Label>
-                <Input
-                  type="date"
-                  value={editEffective}
-                  onChange={(e) => {
-                    setEditEffective(e.target.value);
+                <DatePickerField value={editEffective || null} onChange={(ymd) => {
+                    setEditEffective((ymd ?? ""));
                     setEditExpirationManuallyEdited(false);
-                  }}
-                />
+                  }} />
               </div>
               <div className="space-y-2">
                 <Label>Duración (meses)</Label>
@@ -3150,16 +3130,11 @@ export function AccountContractsSection({
                   (calculada · puedes editarla)
                 </span>
               </Label>
-              <Input
-                type="date"
-                value={editExpiration}
-                onChange={(e) => {
-                  setEditExpiration(e.target.value);
+              <DatePickerField value={editExpiration || null} onChange={(ymd) => {
+                  setEditExpiration((ymd ?? ""));
                   setEditExpirationManuallyEdited(true);
-                  if (e.target.value) setEditIndefinite(false);
-                }}
-                disabled={editIndefinite}
-              />
+                  if ((ymd ?? "")) setEditIndefinite(false);
+                }} disabled={editIndefinite} />
             </div>
 
             <label className="flex items-center gap-2 cursor-pointer">
@@ -3384,24 +3359,14 @@ export function AccountContractsSection({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Fecha inicio FC</Label>
-                <Input
-                  type="date"
-                  value={cfStartDate}
-                  onChange={(e) => setCfStartDate(e.target.value)}
-                  className="h-10 sm:h-9"
-                />
+                <DatePickerField value={cfStartDate || null} onChange={(ymd) => setCfStartDate((ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
               </div>
               <div className="space-y-2">
                 <Label>
                   Fecha fin FC{" "}
                   <span className="text-[12px] text-ds-text-3 font-normal">(opcional)</span>
                 </Label>
-                <Input
-                  type="date"
-                  value={cfEndDate}
-                  onChange={(e) => setCfEndDate(e.target.value)}
-                  className="h-10 sm:h-9"
-                />
+                <DatePickerField value={cfEndDate || null} onChange={(ymd) => setCfEndDate((ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
               </div>
             </div>
 

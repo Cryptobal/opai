@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -311,13 +312,7 @@ export function VisitaTecnicaSolicitudModal({
               <CalendarDays className="h-3.5 w-3.5" /> Fecha y hora *
             </Label>
             <div className="flex gap-2">
-              <Input
-                type="date"
-                value={scheduledDate}
-                onChange={(e) => setScheduledDateTime(e.target.value, scheduledHour, scheduledMinute)}
-                disabled={sending}
-                className="bg-background flex-1"
-              />
+              <DatePickerField value={scheduledDate || null} onChange={(ymd) => setScheduledDateTime((ymd ?? ""), scheduledHour, scheduledMinute)} disabled={sending} triggerClassName={"bg-background flex-1"} />
               <SimpleSelect
                 value={scheduledHour}
                 onValueChange={(v) => setScheduledDateTime(scheduledDate, v, scheduledMinute)}

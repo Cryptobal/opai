@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
@@ -144,13 +145,7 @@ export function AsistenciaHeader({
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <input
-                key={selectedDate}
-                type="date"
-                value={selectedDate}
-                onChange={(e) => onDateChange(e.target.value)}
-                className="h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <DatePickerField value={selectedDate || null} onChange={(ymd) => onDateChange((ymd ?? ""))} triggerClassName={"h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"} />
               <button
                 type="button"
                 className="inline-flex items-center justify-center rounded-md border border-input bg-transparent h-9 w-10 shrink-0 text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

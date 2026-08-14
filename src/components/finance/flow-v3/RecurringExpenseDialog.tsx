@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -649,12 +651,7 @@ export function RecurringExpenseDialog({
 
           <label className="block space-y-1 text-xs text-ds-text-3">
             <span>Inicio</span>
-            <Input
-              className="h-10 sm:h-9"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
+            <DatePickerField value={startDate || null} onChange={(ymd) => setStartDate((ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
           </label>
 
           <div className="space-y-2">
@@ -680,12 +677,7 @@ export function RecurringExpenseDialog({
             {(termMode === "date" || termMode === "both") && (
               <label className="block space-y-1 text-xs text-ds-text-3">
                 <span>Fecha de término{termMode === "both" ? " (opcional si N es menor)" : ""}</span>
-                <Input
-                  className="h-10 sm:h-9"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+                <DatePickerField value={endDate || null} onChange={(ymd) => setEndDate((ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
               </label>
             )}
             {(termMode === "occurrences" || termMode === "both") && (

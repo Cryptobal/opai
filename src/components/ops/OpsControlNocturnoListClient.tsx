@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -325,12 +326,7 @@ export function OpsControlNocturnoListClient(_props: Props) {
           <div className="space-y-4">
             <div>
               <Label>Fecha del turno nocturno</Label>
-              <Input
-                type="date"
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
-                className="mt-1"
-              />
+              <DatePickerField value={formDate || null} onChange={(ymd) => setFormDate((ymd ?? ""))} triggerClassName={"mt-1"} />
             </div>
             <div>
               <Label>Operador de central</Label>

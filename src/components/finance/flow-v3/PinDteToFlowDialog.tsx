@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -18,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 interface GavRow {
@@ -152,12 +153,7 @@ export function PinDteToFlowDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Semana (lunes)</Label>
-            <Input
-              type="date"
-              className="h-10 sm:h-9"
-              value={weekStart}
-              onChange={(e) => setWeekStart(e.target.value)}
-            />
+            <DatePickerField value={weekStart || null} onChange={(ymd) => setWeekStart((ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
           </div>
         </div>
         <DialogFooter>

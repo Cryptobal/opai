@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -785,13 +787,7 @@ export function RendicionForm({
           {/* Date */}
           <div>
             <Label htmlFor="date">Fecha</Label>
-            <Input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className={cn("mt-1", errors.date && "border-status-danger-border")}
-            />
+            <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} id={"date"} triggerClassName={cn("mt-1", errors.date && "border-status-danger-border")} />
             {errors.date && (
               <p className="text-xs text-status-danger-fg mt-1">{errors.date}</p>
             )}

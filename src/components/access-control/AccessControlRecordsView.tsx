@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
@@ -176,18 +178,8 @@ export function AccessControlRecordsView({ installationId }: Props) {
             </button>
           ))}
         </div>
-        <Input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => { setDateFrom(e.target.value); setDatePreset(""); setPage(1); }}
-          className="w-36 bg-zinc-800 border-zinc-600"
-        />
-        <Input
-          type="date"
-          value={dateTo}
-          onChange={(e) => { setDateTo(e.target.value); setDatePreset(""); setPage(1); }}
-          className="w-36 bg-zinc-800 border-zinc-600"
-        />
+        <DatePickerField value={dateFrom || null} onChange={(ymd) => { setDateFrom((ymd ?? "")); setDatePreset(""); setPage(1); }} triggerClassName={"w-36 bg-zinc-800 border-zinc-600"} />
+        <DatePickerField value={dateTo || null} onChange={(ymd) => { setDateTo((ymd ?? "")); setDatePreset(""); setPage(1); }} triggerClassName={"w-36 bg-zinc-800 border-zinc-600"} />
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="mr-1 h-4 w-4" />
           Exportar

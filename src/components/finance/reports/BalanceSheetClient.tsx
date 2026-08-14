@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState, useTransition, useMemo } from "react";
 import { Scale, AlertTriangle, CheckCircle2 } from "lucide-react";
 import type {
@@ -120,12 +122,7 @@ export function BalanceSheetClient({ initialAsOf, initialData, initialCompare = 
           <label className="text-[11px] font-mono uppercase tracking-wider text-ds-text-3">
             Fecha de corte
           </label>
-          <input
-            type="date"
-            value={asOf}
-            onChange={(e) => refetch(e.target.value, compare)}
-            className="h-9 px-2 rounded-ds-md border border-ds-border-default text-sm bg-ds-surface"
-          />
+          <DatePickerField value={asOf || null} onChange={(ymd) => refetch((ymd ?? ""), compare)} triggerClassName={"h-9 px-2 rounded-ds-md border border-ds-border-default text-sm bg-ds-surface"} />
           <button
             onClick={() => refetch(asOf, !compare)}
             className={cn(

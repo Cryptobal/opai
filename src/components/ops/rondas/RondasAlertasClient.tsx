@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlertaCard } from "@/components/ops/rondas/alerta-card";
@@ -191,18 +193,8 @@ export function RondasAlertasClient({
                 onChange={setInstallationFilter}
               />
             </div>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="h-8 rounded-lg border border-[#1a1f2e] bg-[#111827] text-[13px] text-[#f1f5f9] px-3 w-36"
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="h-8 rounded-lg border border-[#1a1f2e] bg-[#111827] text-[13px] text-[#f1f5f9] px-3 w-36"
-            />
+            <DatePickerField value={dateFrom || null} onChange={(ymd) => setDateFrom((ymd ?? ""))} triggerClassName={"h-8 rounded-lg border border-[#1a1f2e] bg-[#111827] text-[13px] text-[#f1f5f9] px-3 w-36"} />
+            <DatePickerField value={dateTo || null} onChange={(ymd) => setDateTo((ymd ?? ""))} triggerClassName={"h-8 rounded-lg border border-[#1a1f2e] bg-[#111827] text-[13px] text-[#f1f5f9] px-3 w-36"} />
           </div>
         </div>
         {tipoPills.length > 1 && (

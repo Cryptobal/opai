@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -579,25 +580,15 @@ function ResumenTablaRangoView({
 
         {/* Custom date range */}
         <div className="flex items-center gap-1.5">
-          <input
-            type="date"
-            value={desde}
-            onChange={(e) => {
-              onDesdeChange(e.target.value);
+          <DatePickerField value={desde || null} onChange={(ymd) => {
+              onDesdeChange((ymd ?? ""));
               onPresetChange("custom");
-            }}
-            className="h-8 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[12px] text-[#f1f5f9] px-2 w-[130px]"
-          />
+            }} triggerClassName={"h-8 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[12px] text-[#f1f5f9] px-2 w-[130px]"} />
           <span className="text-[11px] text-[#64748b]">→</span>
-          <input
-            type="date"
-            value={hasta}
-            onChange={(e) => {
-              onHastaChange(e.target.value);
+          <DatePickerField value={hasta || null} onChange={(ymd) => {
+              onHastaChange((ymd ?? ""));
               onPresetChange("custom");
-            }}
-            className="h-8 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[12px] text-[#f1f5f9] px-2 w-[130px]"
-          />
+            }} triggerClassName={"h-8 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[12px] text-[#f1f5f9] px-2 w-[130px]"} />
         </div>
 
         {loading && (
@@ -899,12 +890,7 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
         >
           <ChevronLeft className="h-4 w-4 text-[#94a3b8]" />
         </button>
-        <input
-          type="date"
-          value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-          className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-40"
-        />
+        <DatePickerField value={fecha || null} onChange={(ymd) => setFecha((ymd ?? ""))} triggerClassName={"h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-40"} />
         <button
           onClick={() => {
             const d = new Date(fecha);

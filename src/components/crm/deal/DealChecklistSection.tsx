@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 /**
  * Checklist de un negocio (deal): lista tocable de pendientes con checkbox,
  * edición inline, vencimiento y borrado. Mobile-first (targets 44px). Consume
@@ -333,22 +335,9 @@ function ChecklistItem({
         {!isEditing &&
           (isEditingDate ? (
             <div className="flex items-center gap-1">
-              <input
-                type="date"
-                autoFocus
-                defaultValue={dueYmd}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") onCancelEditDate();
-                }}
-                onChange={(e) => {
-                  if (e.target.value) onSaveDate(e.target.value);
-                }}
-                onBlur={(e) => {
-                  if (!e.target.value) onCancelEditDate();
-                }}
-                aria-label="Fecha de vencimiento"
-                className="h-8 rounded-ds-sm border border-ds-border-default bg-ds-surface-1 px-2 text-xs text-ds-text-1 outline-none focus:border-ds-border-strong"
-              />
+              <DatePickerField value={"" || null} onChange={(ymd) => {
+                  if ((ymd ?? "")) onSaveDate((ymd ?? ""));
+                }} aria-label={"Fecha de vencimiento"} triggerClassName={"h-8 rounded-ds-sm border border-ds-border-default bg-ds-surface-1 px-2 text-xs text-ds-text-1 outline-none focus:border-ds-border-strong"} />
               {due && (
                 <button
                   type="button"
