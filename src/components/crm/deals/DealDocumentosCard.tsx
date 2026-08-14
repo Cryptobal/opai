@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Spinner, Surface, Tag } from "@/components/opai-ds";
 import { toast } from "sonner";
 import type { LicitacionDocRow } from "./useDealLicitacionDocs";
+import {
+  DealFileSuggestChip,
+  DealFileTipoMenu,
+  DealUploadAsSelect,
+} from "./DealFileTipoControls";
 
 export function DealDocumentosCard({
   dealId,
@@ -15,6 +20,8 @@ export function DealDocumentosCard({
   onReload,
   onOpenFolder,
   driveUrl,
+  showClassification = false,
+  onClassify,
 }: {
   dealId: string;
   files: LicitacionDocRow[];
@@ -23,27 +30,27 @@ export function DealDocumentosCard({
   onReload: () => void;
   onOpenFolder: () => void;
   driveUrl?: string | null;
+  showClassification?: boolean;
+  onClassify?: (fileId: string, tipoCodigo: string | null) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [uploadAs, setUploadAs] = useState("auto");
 
-  const suggestions = files.filter((f) => f.needsClassification && f.suggestedCodigo);
+  const suggestions = showClassification
+    ? files.filter((f) => f.needsClassification && f.suggestedCodigo)
+    : [];
 
-  async function classify(fileId: string, tipoCodigo: string) {
+  async function classify(fileId: string, tipoCodigo: string | null) {
+    if (!onClassify) return;
     setBusy(fileId);
     try {
-      const res = await fetch(`/api/crm/files/${fileId}/classify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipoCodigo, entityType: "deal", entityId: dealId }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
-      if (!res.ok || !json.success) {
-        toast.error(json.error || "No se pudo clasificar");
+      const result = await onClassify(fileId, tipoCodigo);
+      if (!result.ok) {
+        toast.error(result.error || "No se pudo clasificar");
         return;
       }
-      toast.success("Clasificado");
-      onReload();
+      toast.success(tipoCodigo ? "Clasificado" : "Tipo quitado");
     } finally {
       setBusy(null);
     }
@@ -62,6 +69,7 @@ export function DealDocumentosCard({
       fd.append("file", file);
       fd.append("entityType", "deal");
       fd.append("entityId", dealId);
+      if (showClassification) fd.append("tipoCodigo", uploadAs);
       const res = await fetch("/api/crm/files/upload", { method: "POST", body: fd });
       const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
       if (!res.ok || !json.success) {
@@ -96,11 +104,29 @@ export function DealDocumentosCard({
       ) : (
         <ul className="space-y-1.5">
           {files.slice(0, 8).map((f) => (
-            <li key={f.fileId} className="flex min-h-10 items-center justify-between gap-2 py-1">
-              <span className="min-w-0 truncate text-[13px] text-ds-text-1">{f.fileName}</span>
-              <Tag variant={f.tipoNombre ? "neutral" : "warn"} size="sm">
-                {f.tipoNombre ?? "Sin tipo"}
-              </Tag>
+            <li key={f.fileId} className="flex min-h-10 flex-wrap items-center justify-between gap-2 py-1">
+              <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-1">{f.fileName}</span>
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {showClassification && f.needsClassification && f.suggestedCodigo ? (
+                  <DealFileSuggestChip
+                    suggestedCodigo={f.suggestedCodigo}
+                    disabled={Boolean(busy)}
+                    onAccept={() => void classify(f.fileId, f.suggestedCodigo)}
+                  />
+                ) : null}
+                {showClassification ? (
+                  <DealFileTipoMenu
+                    tipoCodigo={f.tipoCodigo}
+                    tipoNombre={f.tipoNombre}
+                    disabled={Boolean(busy)}
+                    onSelect={(codigo) => void classify(f.fileId, codigo)}
+                  />
+                ) : (
+                  <Tag variant={f.tipoNombre ? "neutral" : "warn"} size="md">
+                    {f.tipoNombre ?? "Sin tipo"}
+                  </Tag>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -127,6 +153,9 @@ export function DealDocumentosCard({
           e.target.value = "";
         }}
       />
+      {showClassification ? (
+        <DealUploadAsSelect value={uploadAs} onChange={setUploadAs} disabled={busy === "upload"} />
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"

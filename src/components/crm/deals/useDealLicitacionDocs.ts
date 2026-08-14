@@ -22,6 +22,27 @@ export type LicitacionTypeRow = {
   extracted: boolean;
 };
 
+export async function classifyDealDocumento(
+  dealId: string,
+  fileId: string,
+  tipoCodigo: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`/api/crm/files/${fileId}/classify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tipoCodigo: tipoCodigo ?? "",
+      entityType: "deal",
+      entityId: dealId,
+    }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+  if (!res.ok || !json.success) {
+    return { ok: false, error: json.error || "No se pudo clasificar" };
+  }
+  return { ok: true };
+}
+
 export function useDealLicitacionDocs(dealId: string | null, enabled: boolean) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,5 +79,15 @@ export function useDealLicitacionDocs(dealId: string | null, enabled: boolean) {
     void load();
   }, [load]);
 
-  return { loading, error, types, files, gate, reload: load };
+  const classify = useCallback(
+    async (fileId: string, tipoCodigo: string | null) => {
+      if (!dealId) return { ok: false as const, error: "Sin negocio" };
+      const result = await classifyDealDocumento(dealId, fileId, tipoCodigo);
+      if (result.ok) await load();
+      return result;
+    },
+    [dealId, load],
+  );
+
+  return { loading, error, types, files, gate, reload: load, classify };
 }

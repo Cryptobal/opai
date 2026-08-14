@@ -13,24 +13,38 @@ import {
   truncateDocText,
 } from "@/lib/ai/document-text-budget";
 import {
+  LICITACION_CORPUS_KINDS,
+  LICITACION_CORPUS_TIPO_SET,
+  LICITACION_TIPO_CATALOG,
   LICITACION_TIPO_CODIGOS,
   LICITACION_TIPO_SET,
   assembleCorpusChunks,
   estimateTokenCount,
+  fileNeedsLicitacionClassification,
+  isGeneratedProposalFileName,
   kindFromCodigo,
   licitacionGenerationGate,
+  licitacionTipoLabel,
   suggestTipoFromFileName,
   type CorpusChunk,
 } from "./licitacion-corpus";
 
 export {
+  LICITACION_CLASSIFY_OPTIONS,
+  LICITACION_CORPUS_TIPO_SET,
   LICITACION_TIPO_CODIGOS,
   LICITACION_TIPO_SET,
+  LICITACION_TIPO_UI_LABELS,
   assembleCorpusChunks,
   estimateTokenCount,
+  fileNeedsLicitacionClassification,
+  isGeneratedProposalFileName,
   suggestTipoFromFileName,
   kindFromCodigo,
   licitacionGenerationGate,
+  licitacionSlotState,
+  licitacionTipoLabel,
+  resolveLicitacionTipoOnUpload,
   type CorpusChunk,
   type LicitacionKind,
 } from "./licitacion-corpus";
@@ -60,7 +74,7 @@ export async function ingestDocumentoTexto(opts: {
 
   const shouldIngest =
     file.tipo?.useAsAiKnowledge === true &&
-    (file.tipo.capa === "negocio" || LICITACION_TIPO_SET.has(file.tipo.codigo));
+    (file.tipo.capa === "negocio" || LICITACION_CORPUS_TIPO_SET.has(file.tipo.codigo));
   if (!shouldIngest) {
     return { status: "skipped", tokenCount: file.texto?.tokenCount ?? 0 };
   }
@@ -193,7 +207,7 @@ export async function buildLicitacionCorpus(
 
   const files = links
     .map((l) => l.file)
-    .filter((f) => f.tipo && LICITACION_TIPO_SET.has(f.tipo.codigo))
+    .filter((f) => f.tipo && LICITACION_CORPUS_TIPO_SET.has(f.tipo.codigo))
     .map((f) => ({
       id: f.id,
       fileName: f.fileName,
@@ -247,6 +261,96 @@ export async function hasExtractedBases(tenantId: string, dealId: string): Promi
   return corpus.hasBases;
 }
 
+export async function ensureLicitacionTipos(tenantId: string): Promise<void> {
+  for (const t of LICITACION_TIPO_CATALOG) {
+    await prisma.tipoDocumento.upsert({
+      where: { tenantId_codigo: { tenantId, codigo: t.codigo } },
+      create: {
+        tenantId,
+        codigo: t.codigo,
+        nombre: t.nombre,
+        capa: "negocio",
+        obligatorio: false,
+        tieneVencimiento: false,
+        diasAlerta: 0,
+        normativa: null,
+        order: t.order,
+        useAsAiKnowledge: t.useAsAiKnowledge,
+        isActive: true,
+      },
+      update: {
+        nombre: t.nombre,
+        capa: "negocio",
+        useAsAiKnowledge: t.useAsAiKnowledge,
+        isActive: true,
+      },
+    });
+  }
+}
+
+export async function assignDocumentoTipo(opts: {
+  tenantId: string;
+  fileId: string;
+  tipoCodigo: string | null;
+}): Promise<{
+  tipo: { id: string; codigo: string; nombre: string } | null;
+  ingest: { status: "ok" | "error" | "skipped"; tokenCount: number; error?: string } | null;
+}> {
+  if (!opts.tipoCodigo) {
+    await prisma.documento.updateMany({
+      where: { id: opts.fileId, tenantId: opts.tenantId },
+      data: { tipoId: null, needsClassification: true },
+    });
+    return { tipo: null, ingest: null };
+  }
+
+  if (LICITACION_TIPO_SET.has(opts.tipoCodigo)) {
+    await ensureLicitacionTipos(opts.tenantId);
+  }
+
+  const tipo = await prisma.tipoDocumento.findFirst({
+    where: { tenantId: opts.tenantId, codigo: opts.tipoCodigo, isActive: true },
+    select: { id: true, codigo: true, nombre: true },
+  });
+  if (!tipo) {
+    throw new Error(`Tipo de documento desconocido: ${opts.tipoCodigo}`);
+  }
+
+  await prisma.documento.updateMany({
+    where: { id: opts.fileId, tenantId: opts.tenantId },
+    data: { tipoId: tipo.id, needsClassification: false },
+  });
+
+  const ingest = await ingestDocumentoTexto({
+    tenantId: opts.tenantId,
+    fileId: opts.fileId,
+    force: true,
+  });
+  return { tipo, ingest };
+}
+
+async function autoclassifyGeneratedProposalPdfs(
+  tenantId: string,
+  files: Array<{ id: string; fileName: string; tipoId: string | null }>,
+): Promise<Set<string>> {
+  const pending = files.filter(
+    (f) => !f.tipoId && isGeneratedProposalFileName(f.fileName),
+  );
+  if (pending.length === 0) return new Set();
+  await ensureLicitacionTipos(tenantId);
+  const tipo = await prisma.tipoDocumento.findFirst({
+    where: { tenantId, codigo: LICITACION_TIPO_CODIGOS.otros, isActive: true },
+    select: { id: true },
+  });
+  if (!tipo) return new Set();
+  const ids = pending.map((f) => f.id);
+  await prisma.documento.updateMany({
+    where: { id: { in: ids }, tenantId },
+    data: { tipoId: tipo.id, needsClassification: false },
+  });
+  return new Set(ids);
+}
+
 export type LicitacionDocRow = {
   fileId: string;
   fileName: string;
@@ -271,10 +375,18 @@ export async function listDealLicitacionDocs(
   gate: string | null;
   hasBases: boolean;
 }> {
-  const tipos = await prisma.tipoDocumento.findMany({
+  let tipos = await prisma.tipoDocumento.findMany({
     where: { tenantId, codigo: { in: [...LICITACION_TIPO_SET] } },
     select: { codigo: true, nombre: true },
   });
+  if (!tipos.some((t) => t.codigo === LICITACION_TIPO_CODIGOS.otros)) {
+    await ensureLicitacionTipos(tenantId);
+    tipos = await prisma.tipoDocumento.findMany({
+      where: { tenantId, codigo: { in: [...LICITACION_TIPO_SET] } },
+      select: { codigo: true, nombre: true },
+    });
+  }
+
   const links = await prisma.documentoEnlace.findMany({
     where: { tenantId, entityType: "deal", entityId: dealId },
     include: {
@@ -287,6 +399,12 @@ export async function listDealLicitacionDocs(
     },
   });
 
+  const autoIds = await autoclassifyGeneratedProposalPdfs(
+    tenantId,
+    links.map((l) => ({ id: l.file.id, fileName: l.file.fileName, tipoId: l.file.tipoId })),
+  );
+  const otrosMeta = tipos.find((t) => t.codigo === LICITACION_TIPO_CODIGOS.otros);
+
   const files: LicitacionDocRow[] = links.map((l) => {
     const f = l.file;
     const stale = Boolean(
@@ -297,15 +415,24 @@ export async function listDealLicitacionDocs(
       : f.texto?.status === "ok" || f.texto?.status === "error" || f.texto?.status === "pending"
         ? f.texto.status
         : "none";
-    const tipoCodigo = f.tipo?.codigo ?? null;
+    const autoOtros = autoIds.has(f.id);
+    const tipoCodigo = autoOtros ? LICITACION_TIPO_CODIGOS.otros : (f.tipo?.codigo ?? null);
+    const tipoNombre = autoOtros
+      ? (otrosMeta?.nombre ?? licitacionTipoLabel(LICITACION_TIPO_CODIGOS.otros))
+      : (f.tipo?.nombre ?? null);
     return {
       fileId: f.id,
       fileName: f.fileName,
       mimeType: f.mimeType,
       tipoCodigo,
-      tipoNombre: f.tipo?.nombre ?? null,
+      tipoNombre,
       kind: tipoCodigo ? kindFromCodigo(tipoCodigo) : null,
-      needsClassification: f.needsClassification || !f.tipoId,
+      needsClassification: fileNeedsLicitacionClassification({
+        tipoCodigo,
+        tipoId: autoOtros ? "auto" : f.tipoId,
+        needsClassificationFlag: autoOtros ? false : f.needsClassification,
+        fileName: f.fileName,
+      }),
       suggestedCodigo: suggestTipoFromFileName(f.fileName),
       extractStatus,
       extractError: f.texto?.error ?? null,
@@ -314,21 +441,13 @@ export async function listDealLicitacionDocs(
     };
   });
 
-  const types = (["bases", "bases_admin", "qa", "anexos"] as const).map((kind) => {
+  const types = LICITACION_CORPUS_KINDS.map((kind) => {
     const codigo = LICITACION_TIPO_CODIGOS[kind];
     const tipo = tipos.find((t) => t.codigo === codigo);
     const ofKind = files.filter((f) => f.tipoCodigo === codigo);
-    const fallbackNombre =
-      kind === "bases"
-        ? "Bases técnicas"
-        : kind === "bases_admin"
-          ? "Bases administrativas"
-          : kind === "qa"
-            ? "Q&A"
-            : "Anexos";
     return {
       codigo,
-      nombre: tipo?.nombre ?? fallbackNombre,
+      nombre: tipo?.nombre ?? licitacionTipoLabel(codigo),
       present: ofKind.length > 0,
       extracted: ofKind.some((f) => f.extractStatus === "ok"),
     };

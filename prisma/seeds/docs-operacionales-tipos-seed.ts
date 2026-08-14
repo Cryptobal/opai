@@ -34,6 +34,7 @@ const TIPOS_DEFAULT = [
   { codigo: "qa_licitacion", nombre: "Preguntas y respuestas (Q&A)", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 41, useAsAiKnowledge: true },
   { codigo: "anexos_licitacion", nombre: "Anexos de licitación", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 42, useAsAiKnowledge: true },
   { codigo: "bases_administrativas_licitacion", nombre: "Bases administrativas", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 43, useAsAiKnowledge: true },
+  { codigo: "otros_licitacion", nombre: "Otros respaldos", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 44, useAsAiKnowledge: false },
 
   // Placeholders para ingesta Drive sin tipo (nunca usados para datos legados)
   { codigo: "sin_clasificar", nombre: "Sin clasificar", capa: "global", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 90 },
@@ -75,7 +76,7 @@ export async function seedTiposDocOperacional(
       update: {
         nombre: t.nombre,
         capa: t.capa,
-        useAsAiKnowledge: true,
+        useAsAiKnowledge: t.useAsAiKnowledge === true,
         tieneVencimiento: false,
         isActive: true,
       },

@@ -26,6 +26,8 @@ export function DealRail({
     onReload: () => void;
     onOpenFolder: () => void;
     driveUrl?: string | null;
+    showClassification?: boolean;
+    onClassify?: (fileId: string, tipoCodigo: string | null) => Promise<{ ok: boolean; error?: string }>;
   };
   associated: ReactNode;
   slackHasRoom: boolean;
