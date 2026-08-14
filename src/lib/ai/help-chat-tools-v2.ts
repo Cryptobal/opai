@@ -52,6 +52,11 @@ import {
   createDraftDte,
   type DraftDteInput,
 } from "@/modules/finance/billing/dte-draft.service";
+import { listReceivedDtes } from "@/modules/finance/billing/dte-received.service";
+import {
+  assignDteCostCenter,
+  AssignDteCostCenterError,
+} from "@/modules/finance/billing/dte-cost-center.service";
 import {
   hasFacturacionCapability,
   hasCapability,
@@ -572,7 +577,9 @@ function v2ToolDefinitions() {
       type: "function" as const,
       function: {
         name: "get_finance_summary",
-        description: "Resumen financiero: rendiciones y DTEs por estado en los últimos N días.",
+        description:
+          "Resumen financiero: rendiciones y DTEs por estado en los últimos N días. " +
+          "Los DTEs vienen separados en dtes.issued (ventas/emitidos) y dtes.received (compras/proveedor); no mezclar los totales.",
         parameters: {
           type: "object",
           properties: {
@@ -877,13 +884,21 @@ function v2ToolDefinitions() {
       function: {
         name: "search_dtes",
         description:
-          "Busca DTEs por folio, RUT, nombre del receptor/cuenta CRM, monto o período YYYY-MM. Default status=issued (emitidos). Para BORRADORES pendientes de Programación preferí search_invoice_drafts (más rico: instalación, plantilla, refs HES/OC). Si usas status=draft acá, también funciona pero sin templateName.",
+          "Busca documentos tributarios (DTEs) por folio, RUT, nombre de contraparte/cuenta CRM, monto o período YYYY-MM. " +
+          "direction filtra el universo: issued (ventas, default, retrocompatible), received (compras/proveedor) o all. " +
+          "status filtra siiStatus (issued = no DRAFT, default). Para el libro de compras preferí search_received_dtes. " +
+          "Para BORRADORES pendientes de Programación preferí search_invoice_drafts.",
         parameters: {
           type: "object",
           properties: {
-            search: { type: "string", description: "Búsqueda fuzzy: folio, RUT, nombre o monto." },
+            search: { type: "string", description: "Búsqueda fuzzy: folio, RUT, nombre o monto. En received/all también busca emisor (issuerName/issuerRut)." },
             periodo: { type: "string", description: "Formato YYYY-MM para filtrar por mes." },
-            status: { type: "string", enum: ["all", "draft", "issued"], description: "Default issued. Usa draft solo si no llamás search_invoice_drafts." },
+            status: { type: "string", enum: ["all", "draft", "issued"], description: "Filtro siiStatus. Default issued (no DRAFT). Independiente de direction." },
+            direction: {
+              type: "string",
+              enum: ["issued", "received", "all"],
+              description: "Universo: emitidos (default), recibidos o ambos. Sin este parámetro el resultado es idéntico al histórico (solo ISSUED).",
+            },
             accountId: { type: "string" },
             installationId: { type: "string" },
             limit: { type: "number", description: "Máximo 50, default 15." },
@@ -897,12 +912,54 @@ function v2ToolDefinitions() {
       function: {
         name: "get_dte_detail",
         description:
-          "Obtiene el detalle completo de un DTE por folio o por id. Incluye sus notas de crédito y notas de débito asociadas (vía referencedBy). Útil para preguntas como '¿la factura 1234 tiene NC?', '¿cuándo se emitió la factura X?', '¿está pagada?'.",
+          "Obtiene el detalle completo de un DTE emitido o recibido por folio o por id. Incluye NC/ND asociadas (referencedBy). " +
+          "Si el mismo folio existe como emitido y recibido, devuelve error pidiendo direction. " +
+          "Útil para '¿la factura 1234 tiene NC?', '¿está pagada?', 'detalle de la factura de proveedor X'.",
         parameters: {
           type: "object",
           properties: {
             folio: { type: "number" },
             dteId: { type: "string", description: "UUID alternativo a folio." },
+            direction: {
+              type: "string",
+              enum: ["issued", "received"],
+              description: "Obligatorio si el folio existe en ambas direcciones. Con dteId no hace falta.",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "search_received_dtes",
+        description:
+          "Libro de compras: lista facturas recibidas / de proveedor (direction=RECEIVED). " +
+          "Mismos filtros que /finanzas/facturacion/recibidos: período, proveedor, cliente CRM, instalación, " +
+          "estado de pago/recepción, tipos DTE, rango de montos y onlyWithoutCostCenter (sin instalación asignada). " +
+          "Usar para 'cuánto gastamos en X', 'facturas de proveedor sin instalación', 'compras de la instalación Y'.",
+        parameters: {
+          type: "object",
+          properties: {
+            search: { type: "string", description: "Folio, RUT emisor o nombre emisor." },
+            periodo: { type: "string", description: "YYYY-MM o CURRENT_MONTH." },
+            supplierId: { type: "string", description: "UUID del proveedor catalogado." },
+            crmAccountId: { type: "string", description: "UUID del cliente CRM (centro de costo)." },
+            installationId: { type: "string", description: "UUID de la instalación (centro de costo)." },
+            paymentStatus: { type: "string", description: "UNPAID, PARTIAL, PAID, etc. CSV aceptado." },
+            receptionStatus: {
+              type: "string",
+              description: "PENDING_REVIEW, ACCEPTED, CLAIMED, PARTIAL_CLAIM, EXPIRED. CSV aceptado.",
+            },
+            dteTypes: { type: "array", items: { type: "number" }, description: "Tipos SII (33, 34, 61, …)." },
+            amountMin: { type: "number" },
+            amountMax: { type: "number" },
+            onlyWithoutCostCenter: {
+              type: "boolean",
+              description: "Si true, solo DTEs sin instalación asignada.",
+            },
+            limit: { type: "number", description: "Máximo 50, default 15." },
           },
           additionalProperties: false,
         },
@@ -2466,6 +2523,33 @@ function writeToolDefinitions() {
         },
       },
     },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_dte_cost_center",
+        description:
+          "Asigna o desasigna el centro de costo (cliente CRM + instalación) de un DTE emitido o recibido. " +
+          "Reutiliza la misma validación que la UI: en emitidos el RUT del cliente debe coincidir con el receptor; " +
+          "en recibidos no se valida RUT (gasto imputado al cliente/instalación). " +
+          "Pasar crmAccountId=null o installationId=null desasigna ese campo. null en cliente también limpia la instalación.",
+        parameters: {
+          type: "object",
+          properties: {
+            dteId: { type: "string", description: "UUID del DTE. OBLIGATORIO." },
+            crmAccountId: {
+              type: ["string", "null"],
+              description: "UUID del cliente CRM. null desasigna (y limpia la instalación si no se envía otra).",
+            },
+            installationId: {
+              type: ["string", "null"],
+              description: "UUID de la instalación. null desasigna.",
+            },
+          },
+          required: ["dteId"],
+          additionalProperties: false,
+        },
+      },
+    },
   ];
 }
 
@@ -2552,6 +2636,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   reassign_ticket: "Reasignar ticket",
   change_ticket_priority: "Cambiar prioridad de ticket",
   bulk_update_installations: "Actualizar instalaciones en lote",
+  update_dte_cost_center: "Asignar centro de costo de DTE",
   ...BANKING_WRITE_TOOL_LABELS,
 };
 
@@ -3181,12 +3266,12 @@ async function toolGetMyTickets(
   };
 }
 
-async function toolGetFinanceSummary(tenantId: string, daysBack: number) {
+export async function toolGetFinanceSummary(tenantId: string, daysBack: number) {
   const since = new Date();
   since.setDate(since.getDate() - Math.max(1, Math.min(daysBack || 30, 365)));
   since.setHours(0, 0, 0, 0);
 
-  const [rendByStatus, rendSum, dteByPay, dteSum] = await Promise.all([
+  const [rendByStatus, rendSum, issuedByPay, issuedSum, receivedByPay, receivedSum] = await Promise.all([
     prisma.financeRendicion.groupBy({
       by: ["status"],
       where: { tenantId, createdAt: { gte: since } },
@@ -3199,14 +3284,31 @@ async function toolGetFinanceSummary(tenantId: string, daysBack: number) {
     }),
     prisma.financeDte.groupBy({
       by: ["paymentStatus"],
-      where: { tenantId, createdAt: { gte: since } },
+      where: { tenantId, direction: "ISSUED", createdAt: { gte: since } },
       _count: { id: true },
     }),
     prisma.financeDte.aggregate({
-      where: { tenantId, createdAt: { gte: since } },
+      where: { tenantId, direction: "ISSUED", createdAt: { gte: since } },
+      _sum: { totalAmount: true },
+    }),
+    prisma.financeDte.groupBy({
+      by: ["paymentStatus"],
+      where: { tenantId, direction: "RECEIVED", createdAt: { gte: since } },
+      _count: { id: true },
+    }),
+    prisma.financeDte.aggregate({
+      where: { tenantId, direction: "RECEIVED", createdAt: { gte: since } },
       _sum: { totalAmount: true },
     }),
   ]);
+
+  const packDtes = (
+    byPay: typeof issuedByPay,
+    sum: typeof issuedSum,
+  ) => ({
+    byPaymentStatus: Object.fromEntries(byPay.map((r) => [String(r.paymentStatus), r._count.id])),
+    totalAmount: Number(sum._sum.totalAmount ?? 0),
+  });
 
   return {
     since: since.toISOString(),
@@ -3217,8 +3319,8 @@ async function toolGetFinanceSummary(tenantId: string, daysBack: number) {
       totalAmount: rendSum._sum.amount ?? 0,
     },
     dtes: {
-      byPaymentStatus: Object.fromEntries(dteByPay.map((r) => [String(r.paymentStatus), r._count.id])),
-      totalAmount: Number(dteSum._sum.totalAmount ?? 0),
+      issued: packDtes(issuedByPay, issuedSum),
+      received: packDtes(receivedByPay, receivedSum),
     },
   };
 }
@@ -7645,10 +7747,54 @@ async function toolCreateFactoringCompany(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// search_dtes + get_dte_detail
+// search_dtes + get_dte_detail + search_received_dtes + update_dte_cost_center
 // ─────────────────────────────────────────────────────────────────────────
 
-async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
+const FACTURACION_VIEW_DENIED =
+  "No tienes permiso facturacion_view para consultar documentos tributarios.";
+
+export type DteSearchDirection = "issued" | "received" | "all";
+
+export function resolveDteSearchDirection(raw: unknown): DteSearchDirection {
+  if (raw === "received" || raw === "all" || raw === "issued") return raw;
+  return "issued";
+}
+
+/** Filtro Prisma de direction. `{}` omite la clave (direction:"all"). */
+export function buildSearchDtesDirectionWhere(
+  directionArg: unknown,
+): { direction: "ISSUED" } | { direction: "RECEIVED" } | Record<string, never> {
+  const direction = resolveDteSearchDirection(directionArg);
+  if (direction === "received") return { direction: "RECEIVED" };
+  if (direction === "all") return {};
+  return { direction: "ISSUED" };
+}
+
+function dteListUrl(direction: string | null | undefined): string {
+  return direction === "RECEIVED" ? "/finanzas/facturacion/recibidos" : "/finanzas/facturacion/emitidos";
+}
+
+function parseCsvOrSingle(raw: unknown): string[] | undefined {
+  if (typeof raw === "string" && raw.trim()) {
+    const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts.length > 0 ? parts : undefined;
+  }
+  if (Array.isArray(raw)) {
+    const parts = raw.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+    return parts.length > 0 ? parts : undefined;
+  }
+  return undefined;
+}
+
+export async function toolSearchDtes(
+  tenantId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+) {
+  if (!hasFacturacionCapability(perms, "facturacion_view")) {
+    return { ok: false as const, error: FACTURACION_VIEW_DENIED };
+  }
+
   const search = typeof args.search === "string" ? args.search.trim() : "";
   const periodo = typeof args.periodo === "string" ? args.periodo : "";
   const status = typeof args.status === "string" ? args.status : "issued";
@@ -7656,10 +7802,12 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
   const installationId = typeof args.installationId === "string" ? args.installationId : "";
   const limitRaw = typeof args.limit === "number" ? args.limit : 15;
   const limit = Math.min(Math.max(1, limitRaw), 50);
+  const directionFilter = buildSearchDtesDirectionWhere(args.direction);
+  const includeReceived = !("direction" in directionFilter) || directionFilter.direction === "RECEIVED";
 
   const where: Prisma.FinanceDteWhereInput = {
     tenantId,
-    direction: "ISSUED",
+    ...directionFilter,
   };
   if (status === "draft") where.siiStatus = "DRAFT";
   else if (status === "issued") where.siiStatus = { not: "DRAFT" };
@@ -7691,6 +7839,12 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
       { receiverName: { contains: search, mode: "insensitive" } },
       { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
     ];
+    if (includeReceived) {
+      orClauses.push(
+        { issuerName: { contains: search, mode: "insensitive" } },
+        { issuerRut: { contains: rutNeedle, mode: "insensitive" } },
+      );
+    }
     if (matchingAccounts.length > 0) {
       orClauses.push({ crmAccountId: { in: matchingAccounts.map((a) => a.id) } });
     }
@@ -7719,10 +7873,12 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
     orderBy: [{ date: "desc" }, { folio: "desc" }],
     take: limit,
     select: {
-      id: true, folio: true, dteType: true, date: true,
-      receiverRut: true, receiverName: true, totalAmount: true,
-      siiStatus: true, paymentStatus: true, currency: true,
-      crmAccountId: true,
+      id: true, folio: true, dteType: true, date: true, direction: true,
+      receiverRut: true, receiverName: true,
+      issuerRut: true, issuerName: true,
+      totalAmount: true,
+      siiStatus: true, paymentStatus: true, receptionStatus: true, currency: true,
+      crmAccountId: true, installationId: true,
     },
   });
 
@@ -7738,34 +7894,127 @@ async function toolSearchDtes(tenantId: string, args: Record<string, unknown>) {
     : [];
   const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
 
-  return dtes.map((d) => ({
-    id: d.id,
-    folio: d.folio,
-    dteType: d.dteType,
-    dteTypeLabel: dteTypeLabel(d.dteType),
-    date: d.date,
-    receiverRut: d.receiverRut,
-    receiverName: d.receiverName,
-    accountName: d.crmAccountId ? accountNameById.get(d.crmAccountId) ?? null : null,
-    totalAmount: Number(d.totalAmount),
-    currency: d.currency,
-    siiStatus: d.siiStatus,
-    paymentStatus: d.paymentStatus,
-    url: `/finanzas/facturacion/emitidos`,
-  }));
+  return {
+    ok: true as const,
+    data: dtes.map((d) => ({
+      id: d.id,
+      folio: d.folio,
+      dteType: d.dteType,
+      dteTypeLabel: dteTypeLabel(d.dteType),
+      date: d.date,
+      direction: d.direction,
+      receiverRut: d.receiverRut,
+      receiverName: d.receiverName,
+      issuerRut: d.issuerRut,
+      issuerName: d.issuerName,
+      installationId: d.installationId,
+      receptionStatus: d.receptionStatus,
+      accountName: d.crmAccountId ? accountNameById.get(d.crmAccountId) ?? null : null,
+      totalAmount: Number(d.totalAmount),
+      currency: d.currency,
+      siiStatus: d.siiStatus,
+      paymentStatus: d.paymentStatus,
+      url: dteListUrl(d.direction),
+    })),
+  };
 }
 
-async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>) {
+export async function toolGetDteDetail(
+  tenantId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+) {
+  if (!hasFacturacionCapability(perms, "facturacion_view")) {
+    return { ok: false, error: FACTURACION_VIEW_DENIED };
+  }
+
   const folio = typeof args.folio === "number" ? args.folio : null;
   const dteId = typeof args.dteId === "string" ? args.dteId : null;
   if (!folio && !dteId) return { ok: false, error: "Dame folio o dteId." };
 
+  const directionArg =
+    args.direction === "issued" || args.direction === "received" ? args.direction : null;
+  const directionDb = directionArg === "issued" ? "ISSUED" : directionArg === "received" ? "RECEIVED" : null;
+
+  if (folio && !dteId) {
+    const candidates = await prisma.financeDte.findMany({
+      where: {
+        tenantId,
+        folio,
+        ...(directionDb
+          ? {
+              direction: directionDb,
+              ...(directionDb === "ISSUED" ? { siiStatus: { not: "DRAFT" as const } } : {}),
+            }
+          : {
+              OR: [
+                { direction: "ISSUED" as const, siiStatus: { not: "DRAFT" as const } },
+                { direction: "RECEIVED" as const },
+              ],
+            }),
+      },
+      select: {
+        id: true,
+        direction: true,
+        date: true,
+        dteType: true,
+        totalAmount: true,
+        receiverName: true,
+        receiverRut: true,
+        issuerName: true,
+        issuerRut: true,
+      },
+      take: 10,
+    });
+    if (candidates.length === 0) return { ok: false, error: "DTE no encontrado." };
+    if (candidates.length > 1) {
+      const dirs = new Set(candidates.map((c) => c.direction));
+      const error =
+        dirs.size > 1
+          ? "Folio ambiguo (existe emitido y recibido). Especificá direction."
+          : "Folio ambiguo (varios DTEs con el mismo folio). Especificá dteId.";
+      return {
+        ok: false,
+        error,
+        candidates: candidates.map((c) => ({
+          id: c.id,
+          direction: c.direction,
+          dteType: c.dteType,
+          date: c.date,
+          contraparte:
+            c.direction === "RECEIVED"
+              ? (c.issuerName || c.issuerRut || null)
+              : (c.receiverName || c.receiverRut || null),
+          monto: Number(c.totalAmount),
+        })),
+      };
+    }
+  }
+
+  const resolvedId = dteId ?? (folio
+    ? (await prisma.financeDte.findFirst({
+        where: {
+          tenantId,
+          folio,
+          ...(directionDb
+            ? {
+                direction: directionDb,
+                ...(directionDb === "ISSUED" ? { siiStatus: { not: "DRAFT" as const } } : {}),
+              }
+            : {
+                OR: [
+                  { direction: "ISSUED" as const, siiStatus: { not: "DRAFT" as const } },
+                  { direction: "RECEIVED" as const },
+                ],
+              }),
+        },
+        select: { id: true },
+      }))?.id
+    : null);
+  if (!resolvedId) return { ok: false, error: "DTE no encontrado." };
+
   const dte = await prisma.financeDte.findFirst({
-    where: {
-      tenantId,
-      direction: "ISSUED",
-      ...(folio ? { folio, siiStatus: { not: "DRAFT" } } : { id: dteId! }),
-    },
+    where: { tenantId, id: resolvedId },
     include: {
       lines: { orderBy: { lineNumber: "asc" } },
       referencedBy: {
@@ -7828,7 +8077,7 @@ async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>)
   const bankLinks = await prisma.financeBankTransactionLink.findMany({
     where: {
       tenantId,
-      targetType: "DTE_ISSUED",
+      targetType: dte.direction === "RECEIVED" ? "DTE_RECEIVED" : "DTE_ISSUED",
       targetId: dte.id,
     },
     select: {
@@ -7857,8 +8106,12 @@ async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>)
       dteTypeLabel: dteTypeLabel(dte.dteType),
       date: dte.date,
       dueDate: dte.dueDate,
+      direction: dte.direction,
       receiverRut: dte.receiverRut,
       receiverName: dte.receiverName,
+      issuerRut: dte.issuerRut,
+      issuerName: dte.issuerName,
+      receptionStatus: dte.receptionStatus,
       totalAmount: Number(dte.totalAmount),
       netAmount: Number(dte.netAmount),
       taxAmount: Number(dte.taxAmount),
@@ -7871,7 +8124,7 @@ async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>)
       reconciledAt: dte.reconciledAt,
       billingPeriod: dte.billingPeriod,
       recurringTemplateId: dte.recurringTemplateId,
-      /** true cuando hay movimiento bancario DTE_ISSUED linkeado a este folio. */
+      /** true cuando hay movimiento bancario DTE_ISSUED/DTE_RECEIVED linkeado a este folio. */
       isBankReconciled: dte.reconciledAt != null || bankLinks.length > 0,
       account,
       installation,
@@ -7938,11 +8191,173 @@ async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>)
         advanceAmount: f.advanceAmount ? Number(f.advanceAmount) : null,
         factoringCompany: f.factoringCompanyRel?.razonSocial ?? f.factoringCompany,
       })),
-      url: `/finanzas/facturacion/emitidos`,
+      url: dteListUrl(dte.direction),
     },
   };
 }
 
+export async function toolSearchReceivedDtes(
+  tenantId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+) {
+  if (!hasFacturacionCapability(perms, "facturacion_view")) {
+    return { ok: false as const, error: FACTURACION_VIEW_DENIED };
+  }
+
+  const limitRaw = typeof args.limit === "number" ? args.limit : 15;
+  const limit = Math.min(Math.max(1, limitRaw), 50);
+  const dteTypes = Array.isArray(args.dteTypes)
+    ? args.dteTypes.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
+    : undefined;
+  const paymentStatuses = parseCsvOrSingle(args.paymentStatus);
+  const receptionStatuses = parseCsvOrSingle(args.receptionStatus);
+
+  const result = await listReceivedDtes(tenantId, {
+    page: 1,
+    pageSize: limit,
+    search: typeof args.search === "string" ? args.search : undefined,
+    periodo: typeof args.periodo === "string" ? args.periodo : undefined,
+    supplierId: typeof args.supplierId === "string" ? args.supplierId : undefined,
+    accountId: typeof args.crmAccountId === "string" ? args.crmAccountId : undefined,
+    installationId: typeof args.installationId === "string" ? args.installationId : undefined,
+    paymentStatuses,
+    receptionStatuses,
+    dteTypes: dteTypes && dteTypes.length > 0 ? dteTypes : undefined,
+    amountMin: typeof args.amountMin === "number" ? args.amountMin : undefined,
+    amountMax: typeof args.amountMax === "number" ? args.amountMax : undefined,
+    onlyWithoutCostCenter: args.onlyWithoutCostCenter === true,
+    withSummary: true,
+  });
+
+  const documents = result.dtes.map((d) => ({
+    id: d.id,
+    folio: d.folio,
+    dteType: d.dteType,
+    dteTypeLabel: dteTypeLabel(d.dteType),
+    date: d.date,
+    issuerRut: d.issuerRut,
+    issuerName: d.issuerName,
+    supplierName: d.supplier?.name ?? d.issuerName ?? null,
+    netAmount: Number(d.netAmount),
+    taxAmount: Number(d.taxAmount),
+    totalAmount: Number(d.totalAmount),
+    paymentStatus: d.paymentStatus,
+    receptionStatus: d.receptionStatus,
+    crmAccountId: d.crmAccountId,
+    accountName: d.crmAccount?.name ?? null,
+    installationId: d.installationId,
+    installationName: d.installation?.name ?? null,
+    url: dteListUrl("RECEIVED"),
+  }));
+
+  const summary = result.summary ?? {
+    count: result.pagination.total,
+    totalNet: documents.reduce((s, d) => s + d.netAmount, 0),
+    totalGross: documents.reduce((s, d) => s + d.totalAmount, 0),
+    withoutCostCenter: documents.filter((d) => !d.installationId).length,
+  };
+
+  return {
+    ok: true as const,
+    data: {
+      documents,
+      summary,
+    },
+  };
+}
+
+export async function toolUpdateDteCostCenter(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+) {
+  const t0 = Date.now();
+  if (!hasCapability(perms, "facturacion_manage")) {
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "update_dte_cost_center",
+      args,
+      status: "denied",
+      errorMessage: "Sin permiso facturacion_manage",
+      startedAt: t0,
+    });
+    return { ok: false as const, error: "No tienes permiso facturacion_manage para asignar centro de costo." };
+  }
+
+  const dteId = typeof args.dteId === "string" ? args.dteId.trim() : "";
+  if (!dteId || !isUuid(dteId)) {
+    return { ok: false as const, error: "dteId debe ser un UUID válido." };
+  }
+
+  const crmAccountId =
+    args.crmAccountId === null
+      ? null
+      : typeof args.crmAccountId === "string"
+        ? args.crmAccountId
+        : undefined;
+  const installationId =
+    args.installationId === null
+      ? null
+      : typeof args.installationId === "string"
+        ? args.installationId
+        : undefined;
+
+  if (crmAccountId === undefined && installationId === undefined) {
+    return { ok: false as const, error: "Indicá crmAccountId y/o installationId (null para desasignar)." };
+  }
+
+  try {
+    const updated = await assignDteCostCenter(tenantId, dteId, { crmAccountId, installationId });
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "update_dte_cost_center",
+      args,
+      status: "success",
+      resultEntityId: updated.id,
+      resultEntityType: "finance_dte",
+      startedAt: t0,
+    });
+    return {
+      ok: true as const,
+      data: {
+        id: updated.id,
+        crmAccountId: updated.crmAccountId,
+        installationId: updated.installationId,
+        url: "/finanzas/facturacion",
+      },
+    };
+  } catch (e) {
+    if (e instanceof AssignDteCostCenterError) {
+      await logAiAction({
+        tenantId,
+        userId,
+        toolName: "update_dte_cost_center",
+        args,
+        status: "validation_error",
+        errorMessage: e.message,
+        startedAt: t0,
+      });
+      return { ok: false as const, error: e.message };
+    }
+    const msg = e instanceof Error ? e.message : "?";
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "update_dte_cost_center",
+      args,
+      status: "internal_error",
+      errorMessage: msg,
+      startedAt: t0,
+    });
+    return { ok: false as const, error: `No pude asignar el centro de costo: ${msg}` };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────
 // Reports: ventas / income statement / balance / dashboard / profitability
 // ─────────────────────────────────────────────────────────────────────────
@@ -8723,8 +9138,10 @@ export async function executeToolCallV2(
   if (toolName === "change_ticket_priority") return await toolChangeTicketPriority(tenantId, userId, perms, args);
   if (toolName === "preview_bulk_update_installations") return await toolPreviewBulkUpdateInstallations(tenantId, userId, perms, args);
   if (toolName === "bulk_update_installations") return await toolBulkUpdateInstallations(tenantId, userId, perms, args);
-  if (toolName === "search_dtes") return { ok: true, data: await toolSearchDtes(tenantId, args) };
-  if (toolName === "get_dte_detail") return await toolGetDteDetail(tenantId, args);
+  if (toolName === "search_dtes") return await toolSearchDtes(tenantId, perms, args);
+  if (toolName === "get_dte_detail") return await toolGetDteDetail(tenantId, perms, args);
+  if (toolName === "search_received_dtes") return await toolSearchReceivedDtes(tenantId, perms, args);
+  if (toolName === "update_dte_cost_center") return await toolUpdateDteCostCenter(tenantId, userId, perms, args);
   if (toolName === "get_sales_report") return await toolGetSalesReport(tenantId, perms, args);
   if (toolName === "get_income_statement") return await toolGetIncomeStatement(tenantId, perms, args);
   if (toolName === "get_balance_sheet") return await toolGetBalanceSheet(tenantId, perms, args);

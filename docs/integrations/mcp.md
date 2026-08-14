@@ -25,8 +25,8 @@ Cada tenant genera **API keys** desde el panel anterior. La key resuelve el **te
 
 | Scope efectivo | Tools en `tools/list` |
 | --- | --- |
-| `READ` | **57** (solo lectura; +4 banca) |
-| `READ_WRITE` + `allowWrites` | **114** (57 lectura + 57 escritura; +4 banca write) |
+| `READ` | **58** (solo lectura; incluye `search_received_dtes`) |
+| `READ_WRITE` + `allowWrites` | **116** (58 lectura + 58 escritura; incluye `update_dte_cost_center`) |
 
 ## Autenticación
 
@@ -207,14 +207,17 @@ Leyenda: **R** = lectura (scope READ), **W** = escritura (requiere READ_WRITE + 
 | `add_quote_position`, `update_quote_position`, `remove_quote_position`, previews | W | CPQ edit; remove requiere nivel full CPQ |
 | `manage_quote_extras`, `manage_quote_includes`, `get_quote_proposal`, `preview_send_quote_proposal`, `send_quote_proposal` | W | CPQ + envío propuesta |
 
-### Finanzas — reportes y flujo (8 R)
+### Finanzas — reportes y flujo (9 R, 1 W)
 
 | Tool | R/W | Guard |
 | --- | --- | --- |
-| `get_finance_summary` | R | Módulo finance |
+| `get_finance_summary` | R | Módulo finance. DTEs separados: `dtes.issued` (ventas) y `dtes.received` (compras). |
 | `flow_cashflow_overview` | R | Flujo de caja; opc. `includeBalanceBreaks` / `includeRowAccounts` |
 | `get_sales_report`, `get_income_statement`, `get_balance_sheet`, `get_finance_dashboard_kpis`, `get_profitability` | R | Reportes finance + capabilities |
-| `search_dtes`, `get_dte_detail` | R | DTEs emitidos; incluye `paymentStatus`, `factoring[]` en detalle |
+| `search_dtes` | R | `facturacion_view`. `direction`: `issued` (default, retrocompatible), `received`, `all`. Filtros folio/RUT/nombre/monto/período/`installationId`. |
+| `get_dte_detail` | R | `facturacion_view`. Resuelve emitidos y recibidos; folio duplicado entre direcciones pide `direction`. Incluye `paymentStatus`, `factoring[]`. |
+| `search_received_dtes` | R | `facturacion_view`. Libro de compras: proveedor, cliente CRM, instalación, período, recepción/pago, `onlyWithoutCostCenter`. |
+| `update_dte_cost_center` | W | `facturacion_manage` + scope `READ_WRITE`. Asigna/desasigna `crmAccountId` / `installationId` (emitidos y recibidos). |
 
 **Gap Cobranzas:** no existe filtro `non_ceded` / `sin_cesión` en `search_dtes`. El agente debe filtrar client-side con `factoring[]` vacío en `get_dte_detail` o post-procesar resultados.
 
@@ -286,8 +289,8 @@ Escritura desde correo va por tools CRM (`create_*_from_email`).
 
 | Agente | Tools útiles | Gaps principales |
 | --- | --- | --- |
-| **Tesorero** | `flow_cashflow_overview`, banca (`list_bank_movements`, triage, classify, authorize), KPIs/balance/EERR | RCV, proyección multi-escenario, factoring 1→N deposit |
-| **Cobranzas** | `search_dtes`, `get_dte_detail` (`paymentStatus`, `factoring`) | Sin filtro server-side DTEs no cedidos; sin registrar cobros |
+| **Tesorero** | `flow_cashflow_overview`, banca, `search_received_dtes` / `search_dtes` (`direction`), KPIs/balance/EERR | RCV período, proyección multi-escenario, factoring 1→N deposit |
+| **Cobranzas** | `search_dtes` (`direction`), `get_dte_detail` (`paymentStatus`, `factoring`) | Sin filtro server-side DTEs no cedidos; sin registrar cobros |
 | **Comercial** | Pipeline CRM + CPQ + email | Sin Apollo; CPQ write riesgoso en multi-agente |
 | **Ops** | Guardias, rondas, tickets, asistencia | Sin pautas, inventario, marcación |
 
