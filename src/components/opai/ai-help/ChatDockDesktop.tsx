@@ -93,6 +93,7 @@ export function ChatDockDesktop(props: ChatPanelSharedProps) {
           onSelect={props.onSelectConversation}
           onRefresh={props.onRefreshConversations}
           variant="popover"
+          anchorLabel={props.anchorLabel}
         />
         {isDragging ? (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center border-2 border-dashed border-primary/40 bg-ds-surface-3/80 backdrop-blur-sm">

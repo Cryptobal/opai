@@ -18,6 +18,8 @@ import {
 } from "@/lib/ai/help-chat-intents";
 import { chooseModel, detectFrustration } from "@/lib/ai/help-chat-model-router";
 import { searchKnowledge } from "@/lib/knowledge/search";
+import { pageContextToAnchor } from "@/lib/ai/help-chat-anchor";
+import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 
 async function searchKnowledgeForChat(query: string, tenantId: string) {
   try {
@@ -340,8 +342,26 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => ({}))) as {
       message?: unknown;
       conversationId?: unknown;
+      pageContext?: unknown;
     };
     const appBaseUrl = request.nextUrl.origin;
+
+    let pageContext: HelpChatPageContext | null = null;
+    if (body.pageContext && typeof body.pageContext === "object") {
+      const pc = body.pageContext as Record<string, unknown>;
+      if (
+        typeof pc.entityType === "string" &&
+        typeof pc.entityId === "string" &&
+        typeof pc.entityName === "string"
+      ) {
+        pageContext = {
+          entityType: pc.entityType,
+          entityId: pc.entityId,
+          entityName: pc.entityName,
+        };
+      }
+    }
+    const anchor = pageContextToAnchor(pageContext);
 
     const userMessage = typeof body.message === "string" ? body.message.trim() : "";
     if (!userMessage) {
@@ -369,6 +389,7 @@ export async function POST(request: NextRequest) {
               tenantId: ctx.tenantId,
               userId: ctx.userId,
               title: clipTitle(userMessage),
+              ...(anchor ? { anchorType: anchor.type, anchorId: anchor.id } : {}),
             },
           })
       : null;

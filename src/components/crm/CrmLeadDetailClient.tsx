@@ -57,7 +57,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
+import { openAnchoredChat } from "@/lib/ai/ai-command-event";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
@@ -524,6 +526,17 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
   const leadRef = useRef(lead);
   leadRef.current = lead;
   const isEditable = lead.status === "pending" || lead.status === "in_review";
+  const leadChatName =
+    [lead.firstName, lead.lastName].filter(Boolean).join(" ").trim() ||
+    lead.companyName ||
+    "Lead";
+
+  useRegisterChatPageContext({
+    entityType: "crm_lead",
+    entityId: lead.id,
+    entityName: leadChatName,
+    entityUrl: `/crm/leads/${lead.id}`,
+  });
 
   // ─── Approve form state ───
   const [approving, setApproving] = useState(false);
@@ -1948,6 +1961,17 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
   };
 
   const headerActions: EntityHeaderAction[] = [
+    {
+      label: "Abrir chat",
+      icon: MessageCircle,
+      onClick: () =>
+        openAnchoredChat({
+          anchorType: "crm_lead",
+          anchorId: lead.id,
+          entityName: leadChatName,
+        }),
+      primary: true,
+    },
     { label: "Eliminar", icon: Trash2, variant: "destructive", onClick: () => setDeleteConfirm(true) },
   ];
 

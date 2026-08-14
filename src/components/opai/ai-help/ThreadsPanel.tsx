@@ -31,6 +31,7 @@ export function ThreadsPanel({
   onSelect,
   onRefresh,
   variant = "sheet",
+  anchorLabel,
 }: {
   open: boolean;
   onClose: () => void;
@@ -41,6 +42,7 @@ export function ThreadsPanel({
   onSelect: (id: string | null) => void;
   onRefresh: () => Promise<void>;
   variant?: "sheet" | "popover";
+  anchorLabel?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -239,7 +241,9 @@ export function ThreadsPanel({
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <p className="flex-1 font-display text-[14px] font-semibold">Hilos</p>
+        <p className="flex-1 truncate font-display text-[14px] font-semibold">
+          {anchorLabel ? `Hilos · ${anchorLabel}` : "Hilos"}
+        </p>
         <button
           type="button"
           aria-label="Nueva conversación"

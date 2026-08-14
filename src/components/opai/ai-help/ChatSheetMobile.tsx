@@ -144,6 +144,7 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
             onSelect={props.onSelectConversation}
             onRefresh={props.onRefreshConversations}
             variant="sheet"
+            anchorLabel={props.anchorLabel}
           />
         </div>
       </div>

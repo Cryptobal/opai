@@ -83,6 +83,7 @@ model Tenant {
   configJornadas                 ConfigJornada[]
   opsAlertaLogs                  OpsAlertaLog[]
   tiposDocumento                 TipoDocumento[]
+  documentoTextos                DocumentoTexto[]
   docsOperacionales              DocOperacional[]
   docsMigrationStates            DocsMigrationState[]
   tenantAddons                   TenantAddon[]
@@ -757,9 +758,11 @@ model AiChatConversation {
   title     String
   /// Si está fijada, aparece arriba del historial.
   pinnedAt  DateTime? @map("pinned_at")
-  /// Ancla de negocio (nullable): crm_deal | crm_account | …
+  /// Ancla de negocio (nullable): crm_deal | crm_account | cpq_quote | crm_lead | …
   anchorType String?  @map("anchor_type")
   anchorId   String?  @map("anchor_id")
+  /// Metadata de conversación (p. ej. cotización elegida en un deal con varias).
+  metadata   Json?    @db.JsonB
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -1525,6 +1528,10 @@ model CpqQuote {
   aiDescription         String?   @map("ai_description")
   proposalAiContent     Json?     @map("proposal_ai_content")
   proposalAiGeneratedAt DateTime? @map("proposal_ai_generated_at")
+  /// borrador | en_revision | aprobada | enviada — estado del documento de propuesta v2
+  proposalStatus        String?   @map("proposal_status")
+  /// licitacion | comercial
+  proposalMode          String?   @map("proposal_mode")
   serviceDetail         String?   @map("service_detail")
   paymentTerms          String    @default("contrafactura") @map("payment_terms")
   serviceStartDays      Int       @default(5) @map("service_start_days")
@@ -3337,6 +3344,7 @@ model Documento {
   needsAttention         Boolean   @default(false) @map("needs_attention")
 
   links DocumentoEnlace[]
+  texto DocumentoTexto?
   tipo  TipoDocumento?    @relation(fields: [tipoId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_crm_files_tenant")
@@ -3372,6 +3380,31 @@ model DocumentoEnlace {
   @@index([folderId], map: "idx_crm_file_links_folder")
   @@index([role], map: "idx_crm_file_links_role")
   @@map("file_links")
+  @@schema("crm")
+}
+
+/// Texto extraído de un Documento CRM para consumo del asistente / propuesta de licitación.
+model DocumentoTexto {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String    @map("tenant_id")
+  fileId      String    @unique @map("file_id") @db.Uuid
+  text        String    @db.Text
+  tokenCount  Int       @default(0) @map("token_count")
+  /// pending | ok | error | stale
+  status      String    @default("pending")
+  extractedAt DateTime? @map("extracted_at") @db.Timestamptz(6)
+  error       String?   @db.Text
+  /// Hash del binario al extraer; si Documento.contentHash cambia, queda stale.
+  contentHash String?   @map("content_hash")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  file   Documento @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_crm_file_texts_tenant")
+  @@index([tenantId, status], map: "idx_crm_file_texts_tenant_status")
+  @@map("file_texts")
   @@schema("crm")
 }
 

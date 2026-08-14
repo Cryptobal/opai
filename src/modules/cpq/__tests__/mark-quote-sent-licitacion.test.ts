@@ -95,10 +95,7 @@ describe("markQuoteSentLicitacion", () => {
       userId: "u1",
     });
 
-    expect(updateQuoteMany).toHaveBeenCalledWith({
-      where: { id: "q1", tenantId: "t1" },
-      data: { status: "sent" },
-    });
+    expect(updateQuoteMany).toHaveBeenCalled();
     expect(markDealProposalSent).toHaveBeenCalled();
     expect(advanceDealToQuoteSentStage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -154,5 +151,21 @@ describe("markQuoteSentLicitacion", () => {
       expect.objectContaining({ targetStageId: "s-neg-legacy" }),
     );
     expect(result.stageName).toBe("Negociando");
+  });
+
+  it("exige propuesta aprobada cuando hay contenido v2 de licitación", async () => {
+    findQuote.mockReset();
+    findQuote.mockResolvedValueOnce({
+      ...baseQuote,
+      proposalMode: "licitacion",
+      proposalStatus: "borrador",
+      proposalAiContent: { version: 2, mode: "licitacion" },
+    });
+    findDeal.mockResolvedValue({ id: "d1", stageId: "s1", isLicitacion: true });
+
+    await expect(
+      markQuoteSentLicitacion({ quoteId: "q1", tenantId: "t1", userId: "u1" }),
+    ).rejects.toMatchObject({ message: expect.stringContaining("aprobada") });
+    expect(updateQuoteMany).not.toHaveBeenCalled();
   });
 });

@@ -6,4 +6,6 @@ export type HelpChatPageContext = {
   entityUrl?: string;
   /** Texto opcional desde el cliente (no garantizado en todas las rutas). */
   extra?: string;
+  /** Hilo persistente actual (para metadata deal→quote). */
+  conversationId?: string;
 };

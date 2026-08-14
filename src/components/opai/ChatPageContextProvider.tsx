@@ -37,6 +37,7 @@ export type ChatPageContextEntityType =
   | "crm_deal"
   | "crm_installation"
   | "crm_contact"
+  | "crm_lead"
   | "crm_email_thread"
   | "cpq_quote"
   | "cpq_bundle"

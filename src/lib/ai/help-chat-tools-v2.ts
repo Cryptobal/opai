@@ -97,6 +97,17 @@ import {
   aiTool_update_quote_status,
 } from "@/lib/ai/help-chat-cpq-ai-handlers";
 import {
+  aiTool_licitacion_aplicar_cambio,
+  aiTool_licitacion_aplicar_indice,
+  aiTool_licitacion_estado,
+  aiTool_licitacion_regenerar_seccion,
+  aiTool_preview_licitacion_cambio,
+  aiTool_preview_licitacion_indice,
+  aiTool_preview_licitacion_regenerar,
+  aiTool_preview_propuesta_editar_seccion,
+  aiTool_propuesta_editar_seccion,
+} from "@/lib/ai/help-chat-licitacion-handlers";
+import {
   billingDraftReadToolDefinitions,
   billingDraftWriteToolDefinitions,
   toolPreviewUpdateInvoiceDraftRefs,
@@ -2288,7 +2299,169 @@ function writeToolDefinitions() {
             query: { type: "string" },
             status: { type: "string", enum: ["prospect", "active", "inactive"] },
           },
-          required: ["status"],
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_licitacion_indice",
+        description:
+          "LICITACIÓN: propone un índice DINÁMICO de propuesta técnica leyendo bases+Q&A+anexos+CPQ. NO persiste. Mostrá :::cards con previewCards. Si no hay Bases extraídas, error accionable (no inventes). Tras OK llamá licitacion_aplicar_indice con previewToken.",
+        parameters: {
+          type: "object",
+          properties: {
+            dealId: { type: "string" },
+            quoteIdOrCode: { type: "string", description: "Si el negocio tiene varias cotizaciones, el código CPQ." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "licitacion_aplicar_indice",
+        description:
+          "LICITACIÓN PASO 2: persiste el índice propuesto en el JSON v2. Requiere previewToken.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            previewToken: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_licitacion_cambio",
+        description:
+          "LICITACIÓN: previsualiza un cambio de índice (add/merge/rename/reorder/remove/moveToExclusiones/setContent). Invariantes no se eliminan.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            action: {
+              type: "string",
+              enum: ["add", "merge", "rename", "reorder", "remove", "moveToExclusiones", "setContent"],
+            },
+            title: { type: "string" },
+            content: { type: "string" },
+            ref: { type: "string" },
+            sectionId: { type: "string" },
+            otherSectionId: { type: "string" },
+            afterId: { type: "string" },
+            orderedIds: { type: "array", items: { type: "string" } },
+            note: { type: "string" },
+          },
+          required: ["action"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "licitacion_aplicar_cambio",
+        description: "LICITACIÓN PASO 2: aplica el cambio de índice. Requiere previewToken.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            previewToken: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_licitacion_regenerar",
+        description:
+          "LICITACIÓN: regenera el cuerpo de UNA sección con instrucción, citando bases. No persiste.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            sectionId: { type: "string" },
+            title: { type: "string" },
+            instruction: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "licitacion_regenerar_seccion",
+        description: "LICITACIÓN PASO 2: persiste la regeneración. Requiere previewToken.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            previewToken: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "licitacion_estado",
+        description:
+          "Lee o transiciona el estado de la propuesta v2 (get | approve_section | unapprove_section | set_status).",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            action: {
+              type: "string",
+              enum: ["get", "approve_section", "unapprove_section", "set_status"],
+            },
+            sectionId: { type: "string" },
+            status: { type: "string", enum: ["borrador", "en_revision", "aprobada"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_propuesta_editar_seccion",
+        description:
+          "Cotización NO licitación: previsualiza edición de una sección de la presentación comercial (v2).",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            action: { type: "string", enum: ["add", "setContent", "rename", "remove"] },
+            sectionId: { type: "string" },
+            title: { type: "string" },
+            content: { type: "string" },
+            instruction: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "propuesta_editar_seccion",
+        description: "Persiste la edición de sección comercial. Requiere previewToken.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            previewToken: { type: "string" },
+          },
           additionalProperties: false,
         },
       },
@@ -2319,6 +2492,10 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
   preview_update_quote_position: { confirmToolName: "update_quote_position", label: "Actualizar puesto de la cotización" },
   preview_remove_quote_position: { confirmToolName: "remove_quote_position", label: "Eliminar puesto de la cotización" },
   preview_bulk_update_installations: { confirmToolName: "bulk_update_installations", label: "Actualizar instalaciones en lote" },
+  preview_licitacion_indice: { confirmToolName: "licitacion_aplicar_indice", label: "Aplicar índice de propuesta de licitación" },
+  preview_licitacion_cambio: { confirmToolName: "licitacion_aplicar_cambio", label: "Aplicar cambio al índice de la propuesta" },
+  preview_licitacion_regenerar: { confirmToolName: "licitacion_regenerar_seccion", label: "Regenerar sección de la propuesta" },
+  preview_propuesta_editar_seccion: { confirmToolName: "propuesta_editar_seccion", label: "Editar sección de la presentación" },
   ...BANKING_PREVIEW_TO_CONFIRM,
 };
 
@@ -2354,6 +2531,11 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   manage_quote_extras: "Editar adicionales de cotización",
   update_quote: "Editar datos generales de la cotización",
   send_quote_proposal: "Enviar propuesta de cotización",
+  licitacion_aplicar_indice: "Aplicar índice de propuesta de licitación",
+  licitacion_aplicar_cambio: "Aplicar cambio al índice de la propuesta",
+  licitacion_regenerar_seccion: "Regenerar sección de la propuesta",
+  licitacion_estado: "Cambiar estado de la propuesta",
+  propuesta_editar_seccion: "Editar sección de la presentación",
   create_invoice_draft: "Crear borrador de factura",
   create_credit_note_draft: "Crear nota de crédito",
   create_debit_note_draft: "Crear nota de débito",
@@ -2417,6 +2599,7 @@ const WRITE_SECTION_READ_ONLY: ReadonlySet<string> = new Set([
   "count_emails",
   "resolve_entity",
   "mailbox_coverage",
+  "licitacion_estado",
 ]);
 
 /**
@@ -8498,6 +8681,24 @@ export async function executeToolCallV2(
   if (toolName === "preview_send_quote_proposal")
     return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "send_quote_proposal") return await aiTool_send_quote_proposal(tenantId, userId, perms, args, pageContext);
+  if (toolName === "preview_licitacion_indice")
+    return await aiTool_preview_licitacion_indice(tenantId, userId, perms, args, pageContext);
+  if (toolName === "licitacion_aplicar_indice")
+    return await aiTool_licitacion_aplicar_indice(tenantId, userId, perms, args, pageContext);
+  if (toolName === "preview_licitacion_cambio")
+    return await aiTool_preview_licitacion_cambio(tenantId, userId, perms, args, pageContext);
+  if (toolName === "licitacion_aplicar_cambio")
+    return await aiTool_licitacion_aplicar_cambio(tenantId, userId, perms, args, pageContext);
+  if (toolName === "preview_licitacion_regenerar")
+    return await aiTool_preview_licitacion_regenerar(tenantId, userId, perms, args, pageContext);
+  if (toolName === "licitacion_regenerar_seccion")
+    return await aiTool_licitacion_regenerar_seccion(tenantId, userId, perms, args, pageContext);
+  if (toolName === "licitacion_estado")
+    return await aiTool_licitacion_estado(tenantId, userId, perms, args, pageContext);
+  if (toolName === "preview_propuesta_editar_seccion")
+    return await aiTool_preview_propuesta_editar_seccion(tenantId, userId, perms, args, pageContext);
+  if (toolName === "propuesta_editar_seccion")
+    return await aiTool_propuesta_editar_seccion(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_invoice_draft") return await toolPreviewInvoiceDraft(tenantId, userId, perms, args);
   if (toolName === "create_invoice_draft") return await toolCreateInvoiceDraft(tenantId, userId, perms, args);
   if (toolName === "preview_credit_note_draft") return await toolPreviewCreditNoteDraft(tenantId, userId, perms, args);

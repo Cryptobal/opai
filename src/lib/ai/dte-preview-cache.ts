@@ -19,6 +19,12 @@ export type CpqPersistToolName =
   | "remove_quote_position"
   | "send_quote_proposal";
 
+export type LicitacionPersistToolName =
+  | "licitacion_aplicar_indice"
+  | "licitacion_aplicar_cambio"
+  | "licitacion_regenerar_seccion"
+  | "propuesta_editar_seccion";
+
 export type BankingPersistToolName =
   | "classify_bank_to_flow_row"
   | "authorize_bank_movements";
@@ -26,6 +32,7 @@ export type BankingPersistToolName =
 export type PreviewBackedToolName =
   | DtePreviewToolName
   | CpqPersistToolName
+  | LicitacionPersistToolName
   | BankingPersistToolName;
 
 export type PreviewPayload = {

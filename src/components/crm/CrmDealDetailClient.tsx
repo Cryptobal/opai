@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { getQuoteStatus } from "@/lib/quoteStatus";
 import { getFollowUpFlowStatus } from "@/lib/crm/followup-flow-status";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
+import { openAnchoredChat } from "@/lib/ai/ai-command-event";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Sparkles, Layers } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Sparkles, Layers, MessageCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -52,6 +53,7 @@ import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { DealChecklistSection } from "./deal/DealChecklistSection";
 import { NotesSection } from "./NotesSection";
 import { DealLicitacionCard } from "./DealLicitacionCard";
+import { LicitacionDocsCard } from "./deals/LicitacionDocsCard";
 import { DealPipelineFieldsCard } from "./deal/DealPipelineFieldsCard";
 import { DealVisitasCard } from "./DealVisitasCard";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
@@ -2345,6 +2347,17 @@ export function CrmDealDetailClient({
 
   const headerActions: EntityHeaderAction[] = [
     {
+      label: "Abrir chat",
+      icon: MessageCircle,
+      onClick: () =>
+        openAnchoredChat({
+          anchorType: "crm_deal",
+          anchorId: deal.id,
+          entityName: deal.title,
+        }),
+      primary: true,
+    },
+    {
       label: "WhatsApp adjudicado",
       icon: MessageSquare,
       onClick: openWaAdjudicado,
@@ -2510,6 +2523,9 @@ export function CrmDealDetailClient({
                 setLicitacion((prev) => ({ ...prev, isLicitacion: next.isLicitacion }))
               }
             />
+            {licitacion.isLicitacion ? (
+              <LicitacionDocsCard dealId={deal.id} dealTitle={deal.title} />
+            ) : null}
             <DealVisitasCard
               dealId={deal.id}
               accountId={deal.account?.id}

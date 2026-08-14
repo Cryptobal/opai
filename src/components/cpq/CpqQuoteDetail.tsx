@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
+import { openAnchoredChat } from "@/lib/ai/ai-command-event";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -81,6 +82,7 @@ import { CondicionesSection } from "@/components/cpq/workspace/CondicionesSectio
 import { LineasSection } from "@/components/cpq/workspace/LineasSection";
 import { FinancierosSection } from "@/components/cpq/workspace/FinancierosSection";
 import { AiSection } from "@/components/cpq/workspace/AiSection";
+import { ProposalSectionsEditor } from "@/components/cpq/proposal/ProposalSectionsEditor";
 import { ControlCenterPanel } from "@/components/cpq/workspace/ControlCenterPanel";
 import { WorkspaceRail } from "@/components/cpq/workspace/WorkspaceRail";
 import { SectionChips } from "@/components/cpq/workspace/SectionChips";
@@ -2142,6 +2144,21 @@ export function CpqQuoteDetail({
           ) : null}
           <Button
             type="button"
+            variant="outline"
+            className="h-9"
+            onClick={() =>
+              openAnchoredChat({
+                anchorType: "cpq_quote",
+                anchorId: quote.id,
+                entityName: quote.name || quote.code || "Cotización",
+              })
+            }
+          >
+            <MessageCircle className="h-4 w-4" />
+            Abrir chat
+          </Button>
+          <Button
+            type="button"
             size="icon"
             variant="outline"
             className="h-9 w-9"
@@ -2647,6 +2664,14 @@ export function CpqQuoteDetail({
         regeneratingProposalAi={regeneratingProposalAi}
         onRegenerateProposalAi={regenerateProposalAi}
       />
+
+      <div id="sec-propuesta-secciones" className="scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
+        <ProposalSectionsEditor
+          quoteId={quote.id}
+          quoteLabel={quote.name || quote.code || "Cotización"}
+          readOnly={isLocked}
+        />
+      </div>
 
       {/* -- Section: Incluye (items incluidos en la cotización) -- */}
       <Card id="sec-incluye" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">

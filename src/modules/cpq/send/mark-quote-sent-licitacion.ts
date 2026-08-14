@@ -13,6 +13,9 @@ import {
 } from "@/lib/crm/advance-deal-on-quote-sent";
 import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
+import { isProposalContentV2 } from "@/lib/cpq/proposal-sections/schema";
+import { setProposalDocStatus } from "@/lib/cpq/proposal-sections/ops";
+import type { Prisma } from "@prisma/client";
 
 /** Nombres canónicos y alias legacy (Soho) de la etapa de negociación. */
 const NEGOTIATION_STAGE_NAMES = ["Negociación", "Negociando"] as const;
@@ -103,6 +106,18 @@ export async function markQuoteSentLicitacion(opts: {
     );
   }
 
+  const proposalMode = (quote as { proposalMode?: string | null }).proposalMode;
+  const proposalStatus = (quote as { proposalStatus?: string | null }).proposalStatus;
+  const proposalAiContent = (quote as { proposalAiContent?: unknown }).proposalAiContent;
+  const isV2Licitacion =
+    proposalMode === "licitacion" ||
+    (isProposalContentV2(proposalAiContent) && proposalAiContent.mode === "licitacion");
+  if (isV2Licitacion && proposalStatus !== "aprobada") {
+    throw new MarkQuoteSentLicitacionError(
+      "La propuesta técnica debe estar aprobada (100% de secciones) antes de marcarla enviada.",
+    );
+  }
+
   const negotiationStage = await findNegotiationStage(tenantId);
   if (!negotiationStage) {
     throw new MarkQuoteSentLicitacionError(
@@ -128,6 +143,21 @@ export async function markQuoteSentLicitacion(opts: {
     where: { id: quoteId, tenantId },
     data: { status: "sent" },
   });
+
+  if (isV2Licitacion && isProposalContentV2(proposalAiContent)) {
+    try {
+      const sent = setProposalDocStatus(proposalAiContent, "enviada", { userId });
+      await prisma.cpqQuote.updateMany({
+        where: { id: quoteId, tenantId },
+        data: {
+          proposalStatus: "enviada",
+          proposalAiContent: sent as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch {
+      // El envío de cotización ya ocurrió; no revertimos por fallo de metadata.
+    }
+  }
 
   await markDealProposalSent({
     db: prisma,

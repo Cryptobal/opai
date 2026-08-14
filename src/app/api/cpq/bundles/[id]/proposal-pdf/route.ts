@@ -40,16 +40,27 @@ export async function GET(
       );
     }
 
-    const included = await prisma.cpqProposalBundleQuote.count({
+    const included = await prisma.cpqProposalBundleQuote.findMany({
       where: { bundleId: id, tenantId: ctx.tenantId, includedInProposal: true },
+      select: { quote: { select: { proposalMode: true, code: true } } },
     });
-    if (included === 0) {
+    if (included.length === 0) {
       return NextResponse.json(
         {
           success: false,
           error: "No hay cotizaciones incluidas para generar el PDF",
         },
         { status: 400 },
+      );
+    }
+    const licitacion = included.find((row) => row.quote.proposalMode === "licitacion");
+    if (licitacion) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `El modo licitación no está disponible en bundles. Generá el PDF desde la cotización ${licitacion.quote.code ?? ""}.`,
+        },
+        { status: 422 },
       );
     }
 
