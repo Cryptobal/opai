@@ -13,7 +13,9 @@ import { useHelpChatController } from "./ai-help/useHelpChatController";
 import type { ChatPanelSharedProps } from "./ai-help/chat-panel-props";
 import {
   AI_COMMAND_EVENT,
+  AI_OPEN_ANCHORED_EVENT,
   type AiCommandDetail,
+  type AiOpenAnchoredDetail,
 } from "@/lib/ai/ai-command-event";
 
 function scheduleComposerFocus() {
@@ -61,6 +63,19 @@ export function AiHelpChatWidgetV2() {
     };
     window.addEventListener("opai-ai-open", openEvt);
     return () => window.removeEventListener("opai-ai-open", openEvt);
+  }, [chatCtx, notifCtx, intelCtx]);
+
+  useEffect(() => {
+    const onAnchored = (ev: Event) => {
+      const detail = (ev as CustomEvent<AiOpenAnchoredDetail>).detail;
+      if (!detail?.anchorType || !detail?.anchorId) return;
+      chatCtx.closePanel();
+      notifCtx.closePanel();
+      intelCtx.openPanel();
+      void ctrlRef.current.openAnchored(detail);
+    };
+    window.addEventListener(AI_OPEN_ANCHORED_EVENT, onAnchored);
+    return () => window.removeEventListener(AI_OPEN_ANCHORED_EVENT, onAnchored);
   }, [chatCtx, notifCtx, intelCtx]);
 
   useEffect(() => {
@@ -123,7 +138,8 @@ export function AiHelpChatWidgetV2() {
     activeConversationId: ctrl.activeConversationId,
     scrollRef: ctrl.scrollRef,
     onClose: () => setOpen(false),
-    onNew: ctrl.startNewConversation,
+    onNew: ctrl.activeAnchor ? ctrl.startNewAnchored : ctrl.startNewConversation,
+    anchorLabel: ctrl.activeAnchor?.name ?? null,
     onSelectConversation: (id) => {
       ctrl.setActiveConversationId(id);
       ctrl.setIsNewConversation(!id);

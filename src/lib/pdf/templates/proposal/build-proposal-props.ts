@@ -9,6 +9,8 @@ import { computeCpqQuoteCosts } from '@/modules/cpq/costing/compute-quote-costs'
 import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
 import { generateProposalAIContent, fallbackProposalAIContent } from './proposal-ai';
+import { readProposalContent } from '@/lib/cpq/proposal-sections/schema';
+import { deriveComplianceMatrix } from '@/lib/cpq/proposal-sections/compliance-matrix';
 import { buildCpqQuotePdfFileName } from '@/lib/pdf/cpq-quote-pdf-filename';
 import { formatWeekdaysLong, formatCoverageSchedule } from '@/lib/cpq/weekdays';
 import { resolveAccountLogo } from '@/lib/crm/account-logo';
@@ -24,7 +26,27 @@ export interface ProposalProps {
    *   características del servicio (dotación, horarios, inversión). Mantiene
    *   todo el contenido institucional + el nombre del cliente.
    */
-  variant?: 'technical' | 'institutional';
+  variant?: 'technical' | 'institutional' | 'licitacion';
+  /** Marca de agua (PDF borrador de licitación). */
+  watermark?: string | null;
+  /** Contenido v2 + matriz (solo variante licitacion). */
+  licitacion?: {
+    sections: Array<{
+      id: string;
+      order: number;
+      title: string;
+      ref?: string | null;
+      content: string;
+      invariant?: string;
+    }>;
+    matrix: Array<{
+      ref: string;
+      requirement: string;
+      sectionTitle: string | null;
+      level: string;
+    }>;
+    status: string;
+  };
   companyName: string;
   companyLogo?: string;
   quotationCode: string;
@@ -153,7 +175,8 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 export async function buildProposalProps(
   quotationId: string,
-  tenantId: string
+  tenantId: string,
+  opts?: { pdfMode?: 'draft' | 'final' },
 ): Promise<ProposalProps & { fileName: string }> {
   const quote = await prisma.cpqQuote.findFirst({
     where: { id: quotationId, tenantId },
@@ -951,6 +974,32 @@ export async function buildProposalProps(
     resourceBreakdown,
     includedItems: (quote.includedItems ?? []).filter((t) => t.trim().length > 0),
   };
+
+  if (quote.proposalMode === 'licitacion') {
+    const content = readProposalContent(quote.proposalAiContent, 'licitacion');
+    const matrix = deriveComplianceMatrix(content);
+    props.variant = 'licitacion';
+    props.watermark = opts?.pdfMode === 'final' ? null : 'BORRADOR';
+    props.licitacion = {
+      sections: [...content.sections]
+        .sort((a, b) => a.order - b.order)
+        .map((s) => ({
+          id: s.id,
+          order: s.order,
+          title: s.title,
+          ref: s.ref,
+          content: s.content,
+          invariant: s.invariant,
+        })),
+      matrix: matrix.map((r) => ({
+        ref: r.ref,
+        requirement: r.requirement,
+        sectionTitle: r.sectionTitle,
+        level: r.level,
+      })),
+      status: content.status,
+    };
+  }
 
   const fileName = buildCpqQuotePdfFileName({
     clientName: companyName,

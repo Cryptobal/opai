@@ -21,6 +21,12 @@ import {
 import { buildUserMessage, type MultimodalAttachment } from "@/lib/ai/help-chat-multimodal";
 import { buildAttachmentsContext } from "@/lib/ai/help-chat-attachments-context";
 import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
+import { pageContextToAnchor } from "@/lib/ai/help-chat-anchor";
+import {
+  buildLeadSystemMessage,
+  buildLicitacionSystemMessage,
+  LICITACION_PREVIEW_TOOLS,
+} from "@/lib/ai/help-chat-licitacion-handlers";
 import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2";
 import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
 import {
@@ -194,6 +200,7 @@ export async function POST(request: NextRequest) {
         entityName: pc.entityName,
         entityUrl: typeof pc.entityUrl === "string" ? pc.entityUrl : undefined,
         extra: typeof pc.extra === "string" ? pc.extra : undefined,
+        conversationId: typeof pc.conversationId === "string" ? pc.conversationId : undefined,
       };
     }
   }
@@ -215,14 +222,30 @@ export async function POST(request: NextRequest) {
 
   let conversation: { id: string } | null = null;
   let savedUserMessage: { id: string } | null = null;
+  const anchor = pageContextToAnchor(pageContext);
   if (persistenceEnabled) {
     conversation = existingConversationId
       ? await prisma.aiChatConversation.findFirst({
           where: { id: existingConversationId, tenantId: ctx.tenantId, userId: ctx.userId },
         })
       : await prisma.aiChatConversation.create({
-          data: { tenantId: ctx.tenantId, userId: ctx.userId, title: clipTitle(userMessage) },
+          data: {
+            tenantId: ctx.tenantId,
+            userId: ctx.userId,
+            title: clipTitle(userMessage),
+            ...(anchor ? { anchorType: anchor.type, anchorId: anchor.id } : {}),
+          },
         });
+    if (conversation && anchor) {
+      await prisma.aiChatConversation.updateMany({
+        where: { id: conversation.id, tenantId: ctx.tenantId, anchorType: null },
+        data: { anchorType: anchor.type, anchorId: anchor.id },
+      });
+    }
+  }
+
+  if (pageContext && conversation) {
+    pageContext.conversationId = conversation.id;
   }
 
   if (persistenceEnabled && !conversation) {
@@ -435,6 +458,15 @@ REGLAS DE CONTEXTO DE MÓDULO:
     }
   }
 
+  const licitacionContextMessage = await buildLicitacionSystemMessage({
+    tenantId: ctx.tenantId,
+    pageContext,
+  }).catch(() => null);
+  const leadContextMessage = await buildLeadSystemMessage({
+    tenantId: ctx.tenantId,
+    pageContext,
+  }).catch(() => null);
+
   const messages: Array<Record<string, unknown>> = [
     { role: "system", content: systemPrompt },
     { role: "system", content: `Contexto documental y base de conocimiento relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}` },
@@ -442,6 +474,8 @@ REGLAS DE CONTEXTO DE MÓDULO:
     ...(emailThreadContextMessage
       ? [{ role: "system", content: emailThreadContextMessage }]
       : []),
+    ...(licitacionContextMessage ? [{ role: "system", content: licitacionContextMessage }] : []),
+    ...(leadContextMessage ? [{ role: "system", content: leadContextMessage }] : []),
     ...(moduleContextSystemMessage ? [{ role: "system", content: moduleContextSystemMessage }] : []),
     ...(attachmentsContext ? [{ role: "system", content: attachmentsContext }] : []),
     ...trimmedHistory.map(m => ({ role: m.role, content: m.content })),
@@ -583,12 +617,18 @@ REGLAS DE CONTEXTO DE MÓDULO:
                 };
               } else {
                 if (writeKey) seenWriteKeys.add(writeKey);
+                const licitacionDefer =
+                  LICITACION_PREVIEW_TOOLS.has(call.name) ||
+                  call.name === "licitacion_aplicar_indice" ||
+                  call.name === "licitacion_aplicar_cambio" ||
+                  call.name === "licitacion_regenerar_seccion" ||
+                  call.name === "propuesta_editar_seccion";
                 const pre = decideWriteDeferral({
                   toolName: call.name,
                   args,
                   allowWrites,
                   pendingCount: deferredPendings.length,
-                  deferWrites: false,
+                  deferWrites: licitacionDefer,
                 });
 
                 if (pre.kind === "defer" || pre.kind === "limit") {
@@ -607,7 +647,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
                     allowWrites,
                     pendingCount: deferredPendings.length,
                     executedResult: result as { ok?: boolean },
-                    deferWrites: false,
+                    deferWrites: licitacionDefer,
                   });
                   if (post.kind === "defer") deferredPendings.push(post.pending);
                   else if (post.kind === "limit") result = post.toolResult;

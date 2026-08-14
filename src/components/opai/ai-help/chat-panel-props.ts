@@ -27,6 +27,7 @@ export type ChatPanelSharedProps = {
   onSelectConversation: (id: string | null) => void;
   onRefreshConversations: () => Promise<void>;
   onClearPageContext: () => void;
+  anchorLabel?: string | null;
   onSendStarter: (q: string) => void;
   onAction: (
     action: VisualCardItem["action"] | VisualSuggestionItem["action"] | undefined,

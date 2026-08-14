@@ -108,12 +108,22 @@ export function decideWriteDeferral(input: {
     }
     const desc = describeWriteArgs(previewMap.confirmToolName, args);
     const baseLabel = WRITE_TOOL_LABELS[previewMap.confirmToolName] ?? previewMap.confirmToolName;
+    const previewToken =
+      executedResult &&
+      typeof executedResult === "object" &&
+      "data" in executedResult &&
+      executedResult.data &&
+      typeof executedResult.data === "object" &&
+      "previewToken" in executedResult.data &&
+      typeof (executedResult.data as { previewToken?: unknown }).previewToken === "string"
+        ? (executedResult.data as { previewToken: string }).previewToken
+        : undefined;
     return {
       kind: "defer",
       pending: {
         previewToolName: toolName,
         confirmToolName: previewMap.confirmToolName,
-        args,
+        args: previewToken ? { ...args, previewToken } : args,
         summary: desc === baseLabel ? previewMap.label : desc,
       },
       toolResult: executedResult as Record<string, unknown>,

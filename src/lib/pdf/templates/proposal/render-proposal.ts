@@ -35,6 +35,10 @@ export async function renderProposalToBufferFromProps(
       props as ProposalProps & { portalUrl?: string }
     );
   }
+  if (props.variant === 'licitacion') {
+    const { renderLicitacionProposalToBufferFromProps } = await import('./render-licitacion');
+    return renderLicitacionProposalToBufferFromProps(props);
+  }
 
   // eslint-disable-next-line no-eval
   const nodeRequire = eval('require') as NodeRequire;

@@ -1,9 +1,6 @@
 /**
  * API Route: Descargar Propuesta Técnica PDF
- * GET /api/cpq/quotes/[id]/proposal-pdf
- *
- * Genera el PDF de propuesta técnica (20 páginas) con contenido AI.
- * Puede tardar unos segundos por la generación de contenido AI.
+ * GET /api/cpq/quotes/[id]/proposal-pdf?mode=draft|final
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,12 +10,15 @@ import { buildProposalProps } from '@/lib/pdf/templates/proposal/build-proposal-
 import { buildContentDisposition } from '@/lib/pdf/cpq-quote-pdf-filename';
 import { prisma } from '@/lib/prisma';
 import { requireTenantModule } from '@/lib/require-module';
+import { loadQuoteProposal } from '@/lib/cpq/proposal-sections/persist';
+import { allSectionsApproved } from '@/lib/cpq/proposal-sections/ops';
+import { blockingErrors, validateProposalContent } from '@/lib/cpq/proposal-sections/validate';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -38,14 +38,50 @@ export async function GET(
 
     const quote = await prisma.cpqQuote.findFirst({
       where: { id, tenantId },
-      select: { id: true, code: true },
+      select: { id: true, code: true, proposalMode: true, proposalStatus: true },
     });
 
     if (!quote) {
       return NextResponse.json({ success: false, error: 'Cotización no encontrada' }, { status: 404 });
     }
 
-    const { fileName, ...props } = await buildProposalProps(id, tenantId);
+    const modeParam = (request.nextUrl.searchParams.get('mode') ?? 'draft').toLowerCase();
+    const pdfMode: 'draft' | 'final' = modeParam === 'final' ? 'final' : 'draft';
+
+    if (quote.proposalMode === 'licitacion' && pdfMode === 'final') {
+      const { quote: loaded, content } = await loadQuoteProposal({ tenantId, quoteId: id });
+      if (content.status !== 'aprobada' && loaded.proposalStatus !== 'aprobada') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'El PDF final exige la propuesta en estado aprobada. Revisá y aprobá todas las secciones.',
+          },
+          { status: 422 },
+        );
+      }
+      if (!allSectionsApproved(content)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'El PDF final exige el 100% de las secciones aprobadas.',
+          },
+          { status: 422 },
+        );
+      }
+      const blocking = blockingErrors(
+        validateProposalContent(content, {
+          hasDotacion: loaded.totalGuards > 0 || loaded.totalPositions > 0,
+        }),
+      );
+      if (blocking.length) {
+        return NextResponse.json(
+          { success: false, error: blocking[0]!.message },
+          { status: 422 },
+        );
+      }
+    }
+
+    const { fileName, ...props } = await buildProposalProps(id, tenantId, { pdfMode });
     const pdfBuffer = await renderProposalToBufferFromProps(props);
 
     return new NextResponse(new Uint8Array(pdfBuffer), {

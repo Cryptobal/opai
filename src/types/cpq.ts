@@ -192,6 +192,8 @@ export interface CpqQuote {
   includedItems?: string[];
   /** Proposal template */
   proposalTemplateId?: string | null;
+  proposalStatus?: string | null;
+  proposalMode?: string | null;
 }
 
 export interface CpqCatalogItem {

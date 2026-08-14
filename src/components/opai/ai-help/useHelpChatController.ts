@@ -22,6 +22,7 @@ import { startNavProgress } from "../nav-progress-bus";
 import { pageContextFromCorreoUrl } from "@/lib/ai/help-chat-correo-url-context";
 import { isTransientNetworkError } from "@/lib/ai/help-chat-network-error";
 import type { ChatPageContextValue } from "../ChatPageContextProvider";
+import type { AiOpenAnchoredDetail } from "@/lib/ai/ai-command-event";
 
 const POLISH_KEY = "opai-dictado-pulido";
 const MOTOR_KEY = "opai-dictado-motor";
@@ -93,6 +94,11 @@ export function useHelpChatController(opts: {
   const [canAccess, setCanAccess] = useState(false);
   const [conversations, setConversations] = useState<HistoryConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeAnchor, setActiveAnchor] = useState<{
+    type: string;
+    id: string;
+    name: string;
+  } | null>(null);
   const [isNewConversation, setIsNewConversation] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -355,6 +361,55 @@ export function useHelpChatController(opts: {
     },
     [],
   );
+
+  const openAnchored = useCallback(
+    async (detail: AiOpenAnchoredDetail) => {
+      setActiveAnchor({ type: detail.anchorType, id: detail.anchorId, name: detail.entityName });
+      setOpen(true);
+      try {
+        const res = await fetch("/api/ai/conversations/anchored", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: detail.anchorType,
+            id: detail.anchorId,
+            entityName: detail.entityName,
+            createNew: Boolean(detail.createNew),
+          }),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          conversation?: { id: string; title?: string };
+          error?: string;
+        };
+        if (!res.ok || !json.conversation?.id) {
+          toast.error(json.error || "No se pudo abrir el chat anclado");
+          return;
+        }
+        skipMessageFetchRef.current = json.conversation.id;
+        setActiveConversationId(json.conversation.id);
+        setIsNewConversation(false);
+        const msgs = await hydrateConversationMessages(json.conversation.id);
+        setMessages(msgs ?? []);
+        void refreshConversations();
+      } catch {
+        toast.error("No se pudo abrir el chat anclado");
+      }
+    },
+    [hydrateConversationMessages, refreshConversations, setOpen],
+  );
+
+  const startNewAnchored = useCallback(() => {
+    if (!activeAnchor) {
+      startNewConversation();
+      return;
+    }
+    void openAnchored({
+      anchorType: activeAnchor.type as AiOpenAnchoredDetail["anchorType"],
+      anchorId: activeAnchor.id,
+      entityName: activeAnchor.name,
+      createNew: true,
+    });
+  }, [activeAnchor, openAnchored, startNewConversation]);
 
   const clearReasoningLive = useCallback(() => {
     reasoningTextRef.current = "";
@@ -980,6 +1035,9 @@ export function useHelpChatController(opts: {
     finishDictation,
     finishAndSendDictation,
     startNewConversation,
+    startNewAnchored,
+    openAnchored,
+    activeAnchor,
     refreshConversations,
     setActiveConversationId,
     setIsNewConversation,

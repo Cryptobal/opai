@@ -118,4 +118,20 @@ describe("help-chat-defer-writes", () => {
     });
     expect(d.kind).toBe("execute");
   });
+
+  it("preview ok con deferWrites true pasa previewToken a la tool de confirmación", () => {
+    const d = decideWriteDeferral({
+      toolName: "preview_licitacion_indice",
+      args: { dealId: "d1" },
+      allowWrites: true,
+      pendingCount: 0,
+      executedResult: { ok: true, data: { previewToken: "tok-abc" } },
+      deferWrites: true,
+    });
+    expect(d.kind).toBe("defer");
+    if (d.kind === "defer") {
+      expect(d.pending.confirmToolName).toBe("licitacion_aplicar_indice");
+      expect(d.pending.args.previewToken).toBe("tok-abc");
+    }
+  });
 });

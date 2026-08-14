@@ -29,6 +29,11 @@ const TIPOS_DEFAULT = [
   { codigo: "registro_capacitacion", nombre: "Registro de Capacitación", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "Manual OS10", order: 25 },
   { codigo: "historial_penal", nombre: "Historial Penal", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "D.S. 867", order: 26 },
 
+  // Capa NEGOCIO — documentos de licitación (bases / Q&A / anexos)
+  { codigo: "bases_licitacion", nombre: "Bases de licitación", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 40, useAsAiKnowledge: true },
+  { codigo: "qa_licitacion", nombre: "Preguntas y respuestas (Q&A)", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 41, useAsAiKnowledge: true },
+  { codigo: "anexos_licitacion", nombre: "Anexos de licitación", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 42, useAsAiKnowledge: true },
+
   // Placeholders para ingesta Drive sin tipo (nunca usados para datos legados)
   { codigo: "sin_clasificar", nombre: "Sin clasificar", capa: "global", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 90 },
   { codigo: "sin_clasificar", nombre: "Sin clasificar", capa: "instalacion", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 91 },
@@ -59,10 +64,29 @@ export async function seedTiposDocOperacional(
     created++;
   }
 
-  if (created === 0) {
+  // Upsert idempotente de tipos de licitación (capa negocio) en tenants ya sembrados.
+  const LICITACION_TIPOS = TIPOS_SEED.filter((t) => t.capa === "negocio");
+  let upserted = 0;
+  for (const t of LICITACION_TIPOS) {
+    const row = await prisma.tipoDocumento.upsert({
+      where: { tenantId_codigo: { tenantId, codigo: t.codigo } },
+      create: { tenantId, ...t },
+      update: {
+        nombre: t.nombre,
+        capa: t.capa,
+        useAsAiKnowledge: true,
+        tieneVencimiento: false,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (row) upserted++;
+  }
+
+  if (created === 0 && upserted === 0) {
     console.log("  ⏭️  TiposDocumento ya existen, saltando");
     return;
   }
 
-  console.log(`  ✅ ${created} tipos de documento creados/asegurados`);
+  console.log(`  ✅ ${created} tipos de documento creados; ${upserted} tipos de licitación asegurados`);
 }
