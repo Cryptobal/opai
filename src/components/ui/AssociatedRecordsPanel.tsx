@@ -75,8 +75,8 @@ export function AssociatedRecordsPanel({
 
   if (embedded) {
     return (
-      <div className={cn("rounded-xl border border-ds-border-default bg-card p-3", className)}>
-        <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
+      <div className={cn("rounded-xl border border-ds-border-default bg-card p-3 lg:p-3", className)}>
+        <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
           Registros asociados
         </h3>
         <div className="space-y-1">
@@ -231,7 +231,7 @@ function AccordionItem({
         <button
           type="button"
           onClick={onToggle}
-          className="flex-1 flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg transition-colors min-w-0"
+          className="flex-1 flex items-center gap-2 px-2.5 py-2.5 text-sm rounded-lg transition-colors min-w-0 lg:py-2"
         >
           <ChevronRight
             className={cn(

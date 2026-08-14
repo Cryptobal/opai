@@ -65,8 +65,8 @@ export function DealUnifiedTimeline({
 
   return (
     <div className="rounded-xl border border-border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-border/60 px-4 py-2 scrollbar-thin">
+        <div className="flex flex-nowrap items-center gap-1.5">
           {CHIPS.map((chip) => (
             <button
               key={chip.key}
@@ -76,7 +76,7 @@ export function DealUnifiedTimeline({
                 if (chip.key === "notas") onFocusNotes?.();
               }}
               className={cn(
-                "rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors",
+                "h-10 shrink-0 rounded-full px-2.5 text-[12px] font-medium transition-colors lg:h-auto lg:py-1",
                 filter === chip.key
                   ? "bg-primary/10 text-primary"
                   : "text-ds-text-3 hover:bg-muted/50"
@@ -85,8 +85,8 @@ export function DealUnifiedTimeline({
               {chip.label}
             </button>
           ))}
+          {headerAction ? <div className="shrink-0 pl-1">{headerAction}</div> : null}
         </div>
-        {headerAction}
       </div>
 
       <div className="px-4 py-4">

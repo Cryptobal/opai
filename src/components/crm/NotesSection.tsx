@@ -787,7 +787,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
     <div className="space-y-3">
       {/* ── New note input ── */}
       <div className="relative">
-        <div className="relative">
+        <div className="flex items-end gap-2 lg:block lg:relative">
           {mentionTarget === "new" && <MentionDropdown />}
           <textarea
             ref={textareaRef}
@@ -802,13 +802,13 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
               }
             }}
             placeholder="Escribe una nota... usa @ para mencionar"
-            className="w-full min-h-[72px] resize-none rounded-lg border border-input bg-background px-3 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
+            className="min-h-10 w-full flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors lg:min-h-[72px] lg:pr-10"
             rows={2}
           />
           <Button
             size="icon"
             variant="ghost"
-            className="absolute right-1.5 bottom-1.5 h-7 w-7 text-muted-foreground hover:text-primary"
+            className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:text-primary lg:absolute lg:right-1.5 lg:bottom-1.5 lg:h-7 lg:w-7 lg:rounded-md"
             onClick={createNote}
             disabled={sending || !newNote.trim()}
             aria-label="Enviar nota"
@@ -818,7 +818,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
           </Button>
         </div>
         {["deal", "lead", "account", "contact"].includes(entityType) && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <div className="mt-2 flex flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-thin lg:flex-wrap">
             {INTERACTION_TYPES.map((t) => {
               const active = interactionType === t.key;
               return (
@@ -826,7 +826,7 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
                   key={t.key}
                   type="button"
                   onClick={() => setInteractionType(t.key)}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
+                  className={`inline-flex h-10 shrink-0 items-center gap-1 rounded-full border px-2.5 text-[12px] transition-colors lg:h-auto lg:py-0.5 ${
                     active
                       ? "border-primary/40 bg-primary/10 text-primary font-medium"
                       : "border-border text-muted-foreground hover:bg-accent/40"
@@ -844,13 +844,13 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
                 value={occurredAt}
                 onChange={(e) => setOccurredAt(e.target.value)}
                 title="¿Cuándo ocurrió? (opcional)"
-                className="rounded-md border border-input bg-background px-2 py-0.5 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="h-10 shrink-0 rounded-md border border-input bg-background px-2 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:h-auto lg:py-0.5"
               />
             )}
           </div>
         )}
-        <p className="mt-1 text-[10px] text-muted-foreground">
-          <kbd className="rounded border border-border px-1 py-0.5 text-[9px]">Ctrl</kbd>+<kbd className="rounded border border-border px-1 py-0.5 text-[9px]">Enter</kbd> para enviar
+        <p className="mt-1 hidden text-[12px] text-muted-foreground lg:block">
+          <kbd className="rounded border border-border px-1 py-0.5 text-[12px]">Ctrl</kbd>+<kbd className="rounded border border-border px-1 py-0.5 text-[12px]">Enter</kbd> para enviar
         </p>
       </div>
 

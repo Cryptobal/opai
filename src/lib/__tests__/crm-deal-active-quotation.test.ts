@@ -1,6 +1,7 @@
 import {
   collectLinkedQuoteIds,
   resolveDealActiveQuotationSummary,
+  resolveQuoteAmountBase,
   type DealWithQuoteLinks,
   type QuoteForActiveQuotation,
 } from '@/lib/crm-deal-active-quotation';
@@ -22,6 +23,7 @@ describe('crm-deal-active-quotation', () => {
         status: 'draft',
         currency: 'CLP',
         monthlyCost: 1250000,
+        parameters: { salePriceMonthly: 1250000 },
         totalGuards: 12,
       },
     ]);
@@ -47,6 +49,7 @@ describe('crm-deal-active-quotation', () => {
         status: 'sent',
         currency: 'CLP',
         monthlyCost: 1000000,
+        parameters: { salePriceMonthly: 1000000 },
         updatedAt: '2026-01-01T10:00:00.000Z',
       },
       {
@@ -54,6 +57,7 @@ describe('crm-deal-active-quotation', () => {
         status: 'sent',
         currency: 'CLP',
         monthlyCost: 1600000,
+        parameters: { salePriceMonthly: 1600000 },
         totalGuards: 9,
         updatedAt: '2025-01-01T10:00:00.000Z',
       },
@@ -79,6 +83,7 @@ describe('crm-deal-active-quotation', () => {
         status: 'sent',
         currency: 'CLP',
         monthlyCost: 700000,
+        parameters: { salePriceMonthly: 700000 },
         updatedAt: '2025-01-01T10:00:00.000Z',
       },
       {
@@ -86,6 +91,7 @@ describe('crm-deal-active-quotation', () => {
         status: 'draft',
         currency: 'CLP',
         monthlyCost: 1000000,
+        parameters: { salePriceMonthly: 1000000 },
         updatedAt: '2026-01-01T10:00:00.000Z',
       },
       {
@@ -93,6 +99,7 @@ describe('crm-deal-active-quotation', () => {
         status: 'sent',
         currency: 'CLP',
         monthlyCost: 1300000,
+        parameters: { salePriceMonthly: 1300000 },
         updatedAt: '2026-02-01T10:00:00.000Z',
       },
     ]);
@@ -111,8 +118,8 @@ describe('crm-deal-active-quotation', () => {
       quotes: [{ quoteId: 'q-1' }, { quoteId: 'q-2' }],
     };
     const quoteMap = buildQuoteMap([
-      { id: 'q-1', status: 'draft', currency: 'CLP', monthlyCost: 100 },
-      { id: 'q-2', status: 'approved', currency: 'CLP', monthlyCost: 200 },
+      { id: 'q-1', status: 'draft', currency: 'CLP', monthlyCost: 100, parameters: { salePriceMonthly: 100 } },
+      { id: 'q-2', status: 'approved', currency: 'CLP', monthlyCost: 200, parameters: { salePriceMonthly: 200 } },
     ]);
 
     const summary = resolveDealActiveQuotationSummary(deal, quoteMap, 39000);
@@ -133,6 +140,7 @@ describe('crm-deal-active-quotation', () => {
         status: 'draft',
         currency: 'CLP',
         monthlyCost: 100,
+        parameters: { salePriceMonthly: 100 },
         totalGuards: 2,
         updatedAt: '2026-01-01T10:00:00.000Z',
       },
@@ -141,6 +149,7 @@ describe('crm-deal-active-quotation', () => {
         status: 'draft',
         currency: 'CLP',
         monthlyCost: 200,
+        parameters: { salePriceMonthly: 200 },
         totalGuards: 5,
         updatedAt: '2026-02-01T10:00:00.000Z',
       },
@@ -205,6 +214,7 @@ describe('crm-deal-active-quotation', () => {
         id: 'q-a',
         status: 'sent',
         monthlyCost: 10_000_000,
+        parameters: { salePriceMonthly: 10_000_000 },
         totalGuards: 10,
         bundleId: 'bundle-2',
         includedInProposal: true,
@@ -214,6 +224,7 @@ describe('crm-deal-active-quotation', () => {
         id: 'q-b',
         status: 'sent',
         monthlyCost: 4_000_000,
+        parameters: { salePriceMonthly: 4_000_000 },
         totalGuards: 4,
         bundleId: 'bundle-2',
         includedInProposal: true,
@@ -238,6 +249,7 @@ describe('crm-deal-active-quotation', () => {
         id: 'q-a',
         status: 'draft',
         monthlyCost: 10_000_000,
+        parameters: { salePriceMonthly: 10_000_000 },
         totalGuards: 10,
         bundleId: 'bundle-3',
         includedInProposal: true,
@@ -246,6 +258,7 @@ describe('crm-deal-active-quotation', () => {
         id: 'q-b',
         status: 'draft',
         monthlyCost: 99_000_000,
+        parameters: { salePriceMonthly: 99_000_000 },
         totalGuards: 99,
         bundleId: 'bundle-3',
         includedInProposal: false,
@@ -267,5 +280,64 @@ describe('crm-deal-active-quotation', () => {
     ]);
 
     expect(ids.sort()).toEqual(['q-1', 'q-2', 'q-3']);
+  });
+});
+
+describe('resolveQuoteAmountBase', () => {
+  it('usa el total vigente y no el snapshot stale', () => {
+    const quote: QuoteForActiveQuotation = {
+      id: 'q-stale',
+      status: 'draft',
+      monthlyCost: 13_241_807,
+      parameters: { salePriceMonthly: 13_241_807 },
+      liveSalePriceMonthly: 16_230_313,
+    };
+    expect(resolveQuoteAmountBase(quote)).toBe(16_230_313);
+
+    const deal: DealWithQuoteLinks = {
+      id: 'deal-stale',
+      activeQuotationId: null,
+      quotes: [{ quoteId: 'q-stale' }],
+    };
+    const summary = resolveDealActiveQuotationSummary(
+      deal,
+      buildQuoteMap([quote]),
+      40_851,
+    );
+    expect(summary?.amountClp).toBe(16_230_313);
+    expect(summary?.amountUf).toBeCloseTo(397.3, 1);
+  });
+
+  it('no usa monthlyCost (costo) como fallback de venta', () => {
+    expect(
+      resolveQuoteAmountBase({
+        id: 'q-legacy',
+        status: 'draft',
+        monthlyCost: 13_241_807,
+      }),
+    ).toBe(0);
+  });
+
+  it('devuelve 0 sin NaN si no hay snapshot ni total vigente', () => {
+    expect(
+      resolveQuoteAmountBase({
+        id: 'q-empty',
+        status: 'draft',
+        monthlyCost: 'n/a',
+        parameters: { salePriceMonthly: null },
+        liveSalePriceMonthly: Number.NaN,
+      }),
+    ).toBe(0);
+  });
+
+  it('usa el snapshot cuando no hay total vivo', () => {
+    expect(
+      resolveQuoteAmountBase({
+        id: 'q-snap',
+        status: 'sent',
+        monthlyCost: 1,
+        parameters: { salePriceMonthly: 16_230_313 },
+      }),
+    ).toBe(16_230_313);
   });
 });

@@ -25,11 +25,11 @@ function formatDate(value: string): string {
 
 function Item({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex min-w-[8.5rem] shrink-0 flex-col justify-center px-3.5 first:pl-1">
+    <div className="flex min-w-[7.4rem] shrink-0 flex-col justify-center px-3 first:pl-1 lg:min-w-[8.5rem] lg:px-3.5">
       <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
         {label}
       </span>
-      <span className="mt-0.5 truncate text-[15px] font-semibold leading-tight tabular-nums">
+      <span className="mt-0.5 truncate font-mono text-[13px] font-semibold leading-tight tabular-nums lg:font-sans lg:text-[15px]">
         {children}
       </span>
     </div>
@@ -52,10 +52,18 @@ export function DealKpiStrip({
   return (
     <div className="flex items-stretch gap-0 overflow-x-auto scrollbar-thin divide-x divide-ds-border-subtle px-1">
       <Item label="Monto mensual">
-        <span className="text-status-ok-fg">{formatCLP(amountClp)}</span>
+        {amountClp > 0 ? (
+          <span className="text-status-ok-fg">{formatCLP(amountClp)}</span>
+        ) : (
+          <span className="font-sans text-[13px] font-normal text-ds-text-3">—</span>
+        )}
       </Item>
       <Item label="UF">
-        <span className="text-status-info-fg">{formatUFSuffix(amountUf)}</span>
+        {amountUf > 0 ? (
+          <span className="text-status-info-fg">{formatUFSuffix(amountUf)}</span>
+        ) : (
+          <span className="font-sans text-[13px] font-normal text-ds-text-3">—</span>
+        )}
       </Item>
       <Item label="Guardias">{totalGuards.toLocaleString("es-CL")}</Item>
       <Item label="Cotización activa">

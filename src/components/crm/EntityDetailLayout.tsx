@@ -104,8 +104,12 @@ export interface EntityDetailLayoutProps {
    * Colapsa el bloque superior (avatar+título+acciones+pipelineBar) al hacer
    * scroll, dejando solo el strip de tabs + mini-título pegado a la topbar.
    * Kill-switch de rollback: pasar `false` restaura el header estático.
+   * En viewport `< lg` el colapso y el sticky del header están deshabilitados
+   * (solo la tab bar queda fija).
    */
   collapseOnScroll?: boolean;
+  /** Fila de pills/meta bajo el título, solo móvil (`< lg`). Desktop ignora. */
+  mobileMeta?: ReactNode;
   /** Additional class on the root container */
   className?: string;
 }
@@ -142,6 +146,7 @@ export function EntityDetailLayout({
   stickyMeta,
   onAvatarClick,
   collapseOnScroll = true,
+  mobileMeta,
   className,
 }: EntityDetailLayoutProps) {
   // Publica el último segmento del breadcrumb (nombre de la entidad) para
@@ -168,22 +173,23 @@ export function EntityDetailLayout({
     !header.avatar?.color;
   const entityTint = header.entityId ? tintFromId(header.entityId) : undefined;
 
-  // Colapso on-scroll: histéresis 64/26 sobre el contenedor de scroll real
-  // (window en el AppShell). El área colapsada no desmonta — solo se contrae.
+  // Colapso on-scroll: solo desktop (≥lg). En móvil el hook no escucha y
+  // `collapsed` queda en false — el header scrollea con la página.
   const { collapsed, rootRef } = useCollapsibleHeader(collapseOnScroll);
+
+  const bleedClass = cn(
+    "-mx-2 px-4 sm:-mx-3 sm:px-6",
+    "lg:-ml-4 lg:-mr-8 lg:pl-4 lg:pr-8",
+    "xl:-ml-5 xl:-mr-10 xl:pl-5 xl:pr-10",
+    "2xl:-ml-6 2xl:-mr-12 2xl:pl-6 2xl:pr-12",
+  );
 
   return (
     <div ref={rootRef} className={cn("min-w-0 -mt-3 sm:-mt-4 lg:mt-0", className)}>
-      {/* ── Sticky Header + Tab Bar (single container to avoid gap) ── */}
-      <div
-        className={cn(
-          "sticky top-0 lg:top-[var(--app-topbar-offset)] z-10 bg-background",
-          "-mx-2 px-4 sm:-mx-3 sm:px-6",
-          "lg:-ml-4 lg:-mr-8 lg:pl-4 lg:pr-8",
-          "xl:-ml-5 xl:-mr-10 xl:pl-5 xl:pr-10",
-          "2xl:-ml-6 2xl:-mr-12 2xl:pl-6 2xl:pr-12"
-        )}
-      >
+      {/* Desktop: un solo sticky (header+pipeline+tabs) con colapso.
+          Móvil: el header va en flujo; solo la tab bar es sticky de altura fija
+          y fondo sólido (sin backdrop-blur) para no tiritear en iOS. */}
+      <div className={cn("bg-background lg:sticky lg:top-[var(--app-topbar-offset)] lg:z-10", bleedClass)}>
         {/* ── Área colapsable: header + pipeline bar (las tabs quedan fuera) ── */}
         <RecordCollapse collapsed={collapsed}>
         {/* ── Header ── */}
@@ -215,7 +221,7 @@ export function EntityDetailLayout({
                     <img
                       src={header.avatar.photoUrl}
                       alt=""
-                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-ds-border-default bg-background object-contain"
+                      className="h-9 w-9 sm:h-12 sm:w-12 rounded-full border border-ds-border-default bg-background object-contain"
                     />
                   ) : useTintAvatar && entityTint ? (
                     <Avatar
@@ -224,12 +230,12 @@ export function EntityDetailLayout({
                       size="lg"
                       initials={header.avatar.initials}
                       name={header.title}
-                      className="h-10 w-10 sm:h-12 sm:w-12 text-ds-body sm:text-ds-title"
+                      className="h-9 w-9 sm:h-12 sm:w-12 text-ds-body sm:text-ds-title"
                     />
                   ) : (
                     <div
                       className={cn(
-                        "flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full text-ds-body sm:text-ds-title font-semibold",
+                        "flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-full text-ds-body sm:text-ds-title font-semibold",
                         header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
                           ? "text-white"
                           : header.avatar.color || "bg-primary/10 text-primary"
@@ -260,7 +266,7 @@ export function EntityDetailLayout({
                   {header.status && (
                     <Badge
                       variant={header.status.color ? "outline" : (header.status.variant || "secondary")}
-                      className="shrink-0 hidden sm:inline-flex"
+                      className="shrink-0 hidden lg:inline-flex"
                       style={header.status.color ? {
                         borderColor: `${header.status.color}40`,
                         color: header.status.color,
@@ -275,7 +281,7 @@ export function EntityDetailLayout({
                     </Badge>
                   )}
                   {header.statusAdornment && (
-                    <span className="shrink-0 hidden sm:inline-flex">{header.statusAdornment}</span>
+                    <span className="shrink-0 hidden lg:inline-flex">{header.statusAdornment}</span>
                   )}
                 </div>
                 {header.subtitle && (
@@ -283,9 +289,11 @@ export function EntityDetailLayout({
                     {header.subtitle}
                   </p>
                 )}
-                {/* Mobile-only: chip de estado compacto, mismo renglón que subtítulo si existiera */}
-                {header.status && (
-                  <div className="mt-1 sm:hidden flex items-center gap-1.5">
+                {mobileMeta ? (
+                  <div className="mt-1.5 min-w-0 lg:hidden">{mobileMeta}</div>
+                ) : (
+                  header.status && (
+                  <div className="mt-1 lg:hidden flex items-center gap-1.5">
                     <span
                       className={cn(
                         "inline-flex items-center gap-1 rounded-full px-1.5 py-px text-ds-caption font-medium leading-tight",
@@ -304,6 +312,7 @@ export function EntityDetailLayout({
                     </span>
                     {header.statusAdornment}
                   </div>
+                  )
                 )}
               </div>
             </div>
@@ -352,10 +361,9 @@ export function EntityDetailLayout({
         {pipelineBar}
         </RecordCollapse>
 
-        {/* ── ChipTabs + mini-título (inside sticky container) ──
-            El mini-título (avatar 22px + nombre) aparece con fade/expand cuando
-            el header está colapsado. En fichas single-page (sin tabs) se
-            muestra un strip mínimo solo al colapsar. */}
+        {/* ── ChipTabs: sticky en móvil (altura fija, fondo sólido); en desktop
+            viaja con el contenedor sticky del header. */}
+        <div className="sticky top-0 z-10 bg-background lg:static lg:z-auto">
         {visibleTabs.length > 0 ? (
           <div className="flex items-center min-w-0">
             {collapseOnScroll && (
@@ -400,6 +408,7 @@ export function EntityDetailLayout({
 
         {/* ── Sub-tabs (inside sticky) ── */}
         {subTabs}
+        </div>
       </div>
 
       {/* ── Content area: main + optional right panel ── */}

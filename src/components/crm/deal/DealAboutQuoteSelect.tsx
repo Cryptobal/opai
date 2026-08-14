@@ -55,9 +55,9 @@ export function DealAboutQuoteSelect({
           ))}
         </SelectContent>
       </Select>
-      <p className="text-[11px] text-ds-text-3">{helperText}</p>
+      <p className="text-[12px] text-ds-text-3">{helperText}</p>
       {updating && (
-        <div className="inline-flex items-center gap-1 text-[11px] text-ds-text-3">
+        <div className="inline-flex items-center gap-1 text-[12px] text-ds-text-3">
           <Loader2 className="h-3 w-3 animate-spin" />
           Guardando selección…
         </div>
