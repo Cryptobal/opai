@@ -66,7 +66,8 @@ import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { toast } from "sonner";
-import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { formatNumber, parseLocalizedNumber, timeAgo } from "@/lib/utils";
+import { Tag } from "@/components/opai-ds";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 import { FileAttachments } from "./FileAttachments";
@@ -95,6 +96,7 @@ import { LeadHeaderCta } from "./lead/LeadHeaderCta";
 import { LeadPipelineStepper } from "./lead/LeadPipelineStepper";
 import { LeadExtractionPanel } from "./lead/LeadExtractionPanel";
 import { LeadOverflowMenu } from "./lead/LeadOverflowMenu";
+import { LeadConversionRail } from "./lead/LeadConversionRail";
 import { LedgerSection } from "./lead/ledger/LedgerSection";
 import { LedgerAccountRow } from "./lead/ledger/LedgerAccountRow";
 import { LedgerContactRow } from "./lead/ledger/LedgerContactRow";
@@ -540,6 +542,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
 
   // ─── Approve form state ───
   const [approving, setApproving] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [savingLead, setSavingLead] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateAccount[]>([]);
   const [existingContact, setExistingContact] = useState<ExistingContact | null>(null);
@@ -1972,8 +1975,29 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
         }),
       primary: true,
     },
-    { label: "Eliminar", icon: Trash2, variant: "destructive", onClick: () => setDeleteConfirm(true) },
   ];
+
+  const reopenLead = async () => {
+    if (reopening || lead.status !== "rejected") return;
+    setReopening(true);
+    try {
+      const res = await fetch(`/api/crm/leads/${lead.id}/reopen`, { method: "POST" });
+      const json = await parseResponseJson<{ success: boolean; data?: CrmLead; error?: string }>(res);
+      if (!json.success || !json.data) {
+        toast.error(json.error || "No se pudo reabrir el lead");
+        return;
+      }
+      setLead(json.data);
+      setDuplicateChecked(false);
+      setDuplicates([]);
+      toast.success("Lead reabierto");
+    } catch (e) {
+      console.error(e);
+      toast.error("No se pudo reabrir el lead");
+    } finally {
+      setReopening(false);
+    }
+  };
 
   // === TAB: General ===
   // Patrón unificado con Account/Installation/Contact/Deal:
@@ -2068,44 +2092,14 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
           <DotacionSummary dotacion={dotacion} totalGuards={totalGuards} />
         )}
 
-        {/* Entidades creadas (lead aprobado) */}
-        {lead.status === "approved" && convertedEntities && (
+        {/* Cotizaciones CPQ creadas al aprobar (cuenta/contacto/negocio viven en el rail) */}
+        {lead.status === "approved" && convertedEntities && convertedEntities.quotes.length > 0 && (
           <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-4 space-y-3">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-status-ok-fg flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              Registros creados
+              <FileText className="h-4 w-4" />
+              Cotizaciones CPQ
             </h4>
             <div className="space-y-2 text-sm">
-              {convertedEntities.account && (
-                <Link href={`/crm/accounts/${convertedEntities.account.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Building2 className="h-4 w-4 text-violet-500 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-muted-foreground">Cuenta</p>
-                    <p className="font-medium truncate">{convertedEntities.account.name}</p>
-                  </div>
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                </Link>
-              )}
-              {convertedEntities.contact && (
-                <Link href={`/crm/contacts/${convertedEntities.contact.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Users className="h-4 w-4 text-status-info-fg shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-muted-foreground">Contacto</p>
-                    <p className="font-medium truncate">{[convertedEntities.contact.firstName, convertedEntities.contact.lastName].filter(Boolean).join(" ")}</p>
-                  </div>
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                </Link>
-              )}
-              {convertedEntities.deal && (
-                <Link href={`/crm/deals/${convertedEntities.deal.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
-                  <Briefcase className="h-4 w-4 text-status-warn-fg shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-muted-foreground">Negocio</p>
-                    <p className="font-medium truncate">{convertedEntities.deal.title}</p>
-                  </div>
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                </Link>
-              )}
               {convertedEntities.quotes.map((q) => (
                 <Link key={q.id} href={`/cpq/${q.id}`} className="flex items-center gap-3 rounded-md border border-border p-3 hover:bg-muted/50 transition-colors">
                   <FileText className="h-4 w-4 text-status-ok-fg shrink-0" />
@@ -2150,25 +2144,6 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
             </div>
           );
         })()}
-
-        {/* Rejection info */}
-        {lead.status === "rejected" && rejectionInfo && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-destructive flex items-center gap-2">
-              <XCircle className="h-4 w-4" />
-              Información del rechazo
-            </h4>
-            <DetailFieldGrid columns={3}>
-              <DetailField label="Motivo" value={getRejectReasonLabel(rejectionInfo.reason)} />
-              <DetailField label="Correo enviado" value={
-                <Badge variant={rejectionInfo.emailSent ? "success" : "warning"} className="text-[10px]">
-                  {rejectionInfo.emailSent ? "Sí" : "No"}
-                </Badge>
-              } />
-              {rejectionInfo.note && <DetailField label="Observación" value={rejectionInfo.note} fullWidth />}
-            </DetailFieldGrid>
-          </div>
-        )}
 
       </div>
   );
@@ -2262,6 +2237,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
         />
       )}
       <LeadSpecCard
+        companyName={lead.companyName ?? null}
         serviceType={specServiceLabel}
         detail={null}
         contactFullName={fullName}
@@ -2270,6 +2246,8 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
         address={lead.address ?? null}
         commune={lead.commune ?? null}
         city={lead.city ?? null}
+        industry={lead.industry ?? lead.industryType ?? null}
+        source={getSourceLabel(lead.source)}
         rawNotes={lead.notes ?? null}
         utm={utmString}
       />
@@ -2365,11 +2343,36 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
       <EntityDetailLayout
         breadcrumb={["CRM", "Prospectos", lead.companyName || fullName]}
         breadcrumbHrefs={["/crm", "/crm/leads"]}
+        collapseOnScroll={false}
+        mobileMeta={
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Tag size="sm" variant="neutral">Lead</Tag>
+            <Tag
+              size="sm"
+              variant={
+                lead.status === "approved"
+                  ? "ok"
+                  : lead.status === "rejected"
+                    ? "danger"
+                    : lead.status === "in_review"
+                      ? "info"
+                      : "warn"
+              }
+            >
+              {statusInfo.label}
+            </Tag>
+            <span className="text-[12px] text-ds-text-3">
+              {getSourceLabel(lead.source)} · {timeAgo(lead.createdAt)}
+            </span>
+          </div>
+        }
         header={{
           avatar: { initials: (lead.companyName || fullName).charAt(0).toUpperCase() },
           title: lead.companyName || fullName,
+          subtitle: specServiceLabel || undefined,
           status: statusInfo,
-          actions: [],
+          statusAdornment: <Tag size="sm" variant="neutral">Lead</Tag>,
+          actions: headerActions,
           extra: (
             <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
               <DropdownMenu>
@@ -2426,7 +2429,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
               ) : null}
               <LeadHeaderCta
                 className="hidden lg:flex"
-                isEditable={isEditable}
+                isEditable={false}
                 isApproved={lead.status === "approved"}
                 isRejected={lead.status === "rejected"}
                 duplicateChecked={duplicateChecked}
@@ -2456,6 +2459,41 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
             firstContactAt={lead.firstContactAt ?? null}
           />
         }
+        rightPanel={
+          <LeadConversionRail
+            status={lead.status}
+            preview={{
+              account: approveForm.accountName,
+              contact: [approveForm.contactFirstName, approveForm.contactLastName].filter(Boolean).join(" "),
+              deal: approveForm.dealTitle,
+            }}
+            duplicates={duplicates}
+            useExistingAccountId={useExistingAccountId}
+            onLinkExisting={(id) => {
+              setUseExistingAccountId(id);
+              setInstallationUseExisting({});
+            }}
+            onApprove={approveLead}
+            onReject={openRejectModal}
+            onReopen={() => void reopenLead()}
+            approving={approving}
+            reopening={reopening}
+            converted={lead.status === "approved" ? convertedEntities : null}
+            rejectionReason={rejectionInfo ? getRejectReasonLabel(rejectionInfo.reason) : null}
+            rejectionNote={rejectionInfo?.note ?? null}
+            source={getSourceLabel(lead.source)}
+            createdAt={
+              lead.createdAt
+                ? new Date(lead.createdAt).toLocaleDateString("es-CL", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : null
+            }
+            idleLabel={lead.firstContactAt ? "Contactado" : timeAgo(lead.createdAt)}
+          />
+        }
       >
         {singlePageContent}
         <details className="group mt-3 rounded-2xl border border-ds-border-subtle bg-card">
@@ -2475,9 +2513,11 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
         duplicateChecked={duplicateChecked}
         hasConflicts={hasConflicts}
         approving={approving}
+        reopening={reopening}
         onReject={openRejectModal}
         onVerifyAndApprove={approveLead}
         onOpenDeal={onOpenConvertedDeal}
+        onReopen={() => void reopenLead()}
       />
 
       {/* ── Approval Success Modal ── */}
