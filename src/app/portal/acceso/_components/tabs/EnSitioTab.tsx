@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import SkeletonCard from "../ui/SkeletonCard";
+import SwipeAction from "../ui/SwipeAction";
 import {
   RECORD_TYPE_CONFIG,
   type AccessRecordType,
@@ -96,15 +97,15 @@ function FilterChip({
 // ── Duration color helpers ──────────────────────────────────────────────────
 
 const LEFT_BORDER_COLORS = {
-  green: "border-l-[#10B981]",
-  yellow: "border-l-[#F59E0B]",
-  red: "border-l-[#EF4444]",
+  green: "border-l-status-ok",
+  yellow: "border-l-status-warn",
+  red: "border-l-status-danger",
 } as const;
 
 const DURATION_BADGE_COLORS = {
-  green: "bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]",
-  yellow: "bg-[#F59E0B]/10 border-[#F59E0B]/30 text-[#F59E0B]",
-  red: "bg-[#EF4444]/10 border-[#EF4444]/30 text-[#EF4444]",
+  green: "bg-status-ok-soft border-status-ok-border text-status-ok-fg",
+  yellow: "bg-status-warn-soft border-status-warn-border text-status-warn-fg",
+  red: "bg-status-danger-soft border-status-danger-border text-status-danger-fg",
 } as const;
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -262,7 +263,7 @@ export default function EnSitioTab({
             <span className="text-muted-foreground">personas</span>
           </span>
           <span className="flex items-center gap-1.5 text-foreground">
-            <Car className="h-4 w-4 text-[#A855F7]" />
+            <Car className="h-4 w-4 text-tint-violet-fg" />
             <span className="font-semibold">{counts.vehicles}</span>
             <span className="text-muted-foreground">vehiculos</span>
           </span>
@@ -282,7 +283,7 @@ export default function EnSitioTab({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por nombre, RUT o patente..."
-          className="pl-9 bg-muted border-border text-foreground placeholder:text-muted-foreground"
+          className="h-[52px] pl-9 bg-ds-surface-2 border-ds-border-default text-ds-text-1 placeholder:text-ds-text-4"
         />
       </div>
 
@@ -351,9 +352,13 @@ export default function EnSitioTab({
             );
 
             return (
-              <div
+              <SwipeAction
                 key={record.id}
-                className={`rounded-lg border border-border border-l-4 ${LEFT_BORDER_COLORS[color]} bg-card p-3`}
+                actionLabel="Salida"
+                onAction={() => handleQuickExit(record.id)}
+              >
+              <div
+                className={`rounded-lg border border-ds-border-default border-l-4 ${LEFT_BORDER_COLORS[color]} bg-ds-surface-1 p-3`}
               >
                 <div className="flex items-start justify-between gap-2">
                   {/* Left: info */}
@@ -386,7 +391,7 @@ export default function EnSitioTab({
 
                     {/* Time info */}
                     <div className="mt-1.5 flex items-center gap-2">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1 font-mono text-[12px] tabular-nums text-ds-text-3">
                         <Clock className="h-3 w-3" />
                         {entryTimeStr}
                       </span>
@@ -405,7 +410,7 @@ export default function EnSitioTab({
                     variant="outline"
                     onClick={() => handleQuickExit(record.id)}
                     disabled={exitingId === record.id}
-                    className="shrink-0 border-border text-muted-foreground hover:bg-[#EF4444]/10 hover:text-[#EF4444] hover:border-[#EF4444]/30"
+                    className="shrink-0 border-ds-border-default text-ds-text-3 hover:border-status-danger-border hover:bg-status-danger-soft hover:text-status-danger-fg"
                   >
                     {exitingId === record.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -418,6 +423,7 @@ export default function EnSitioTab({
                   </Button>
                 </div>
               </div>
+              </SwipeAction>
             );
           })}
         </div>

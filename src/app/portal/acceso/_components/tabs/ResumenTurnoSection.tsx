@@ -124,19 +124,19 @@ export default function ResumenTurnoSection({
           value={stats?.totalEntriesToday ?? 0}
           label="Entradas Hoy"
           icon={<ArrowUpRight className="h-5 w-5" />}
-          color="#10B981"
+          tone="ok"
         />
         <MetricCard
           value={stats?.totalExitsToday ?? 0}
           label="Salidas Hoy"
           icon={<ArrowDownLeft className="h-5 w-5" />}
-          color="#F59E0B"
+          tone="warn"
         />
         <MetricCard
           value={stats?.currentlyInSite ?? 0}
           label="En Sitio"
           icon={<Users className="h-5 w-5" />}
-          color="#06B6D4"
+          tone="info"
         />
         <MetricCard
           value={
@@ -146,7 +146,7 @@ export default function ResumenTurnoSection({
           }
           label="Prom. Estadía"
           icon={<Timer className="h-5 w-5" />}
-          color="#A855F7"
+          tone="neutral"
         />
       </div>
 
@@ -176,7 +176,7 @@ export default function ResumenTurnoSection({
                         {tc.label}
                       </Badge>
                     </div>
-                    <span className="text-lg font-bold text-foreground">
+                    <span className="font-mono text-3xl font-bold tabular-nums text-ds-text-1">
                       {count}
                     </span>
                   </div>

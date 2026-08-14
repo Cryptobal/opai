@@ -108,14 +108,14 @@ export default function ListasControlSection({
       <div className="flex gap-2">
         <Badge
           variant="outline"
-          className="border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]"
+          className="border-status-ok-border bg-status-ok-soft text-status-ok-fg"
         >
           <ShieldCheck className="mr-1 h-3 w-3" />
           {whitelistCount} autorizados
         </Badge>
         <Badge
           variant="outline"
-          className="border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]"
+          className="border-status-danger-border bg-status-danger-soft text-status-danger-fg"
         >
           <ShieldX className="mr-1 h-3 w-3" />
           {blacklistCount} bloqueados
@@ -177,8 +177,8 @@ export default function ListasControlSection({
                 key={entry.id}
                 className={`rounded-lg border border-l-4 bg-card opai-glass-soft-m p-3 ${
                   isWhitelist
-                    ? "border-border border-l-[#10B981]"
-                    : "border-border border-l-[#EF4444]"
+                    ? "border-ds-border-default border-l-status-ok"
+                    : "border-ds-border-default border-l-status-danger"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -188,8 +188,8 @@ export default function ListasControlSection({
                         variant="outline"
                         className={`text-xs px-1.5 py-0 ${
                           isWhitelist
-                            ? "border-[#10B981]/30 text-[#10B981]"
-                            : "border-[#EF4444]/30 text-[#EF4444]"
+                            ? "border-status-ok-border text-status-ok-fg"
+                            : "border-status-danger-border text-status-danger-fg"
                         }`}
                       >
                         {isWhitelist ? (
@@ -227,7 +227,7 @@ export default function ListasControlSection({
                     </div>
 
                     {entry.blockReason && (
-                      <p className="mt-1 text-sm text-[#EF4444] italic">
+                      <p className="mt-1 text-sm italic text-status-danger-fg">
                         {entry.blockReason}
                       </p>
                     )}

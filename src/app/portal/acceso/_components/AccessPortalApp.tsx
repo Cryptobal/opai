@@ -8,11 +8,11 @@ import { GuardSelector } from "./GuardSelector";
 import { StandbyScreen } from "./StandbyScreen";
 import { BottomTabBar } from "./BottomTabBar";
 import { InstallationHeader } from "./InstallationHeader";
-import { OfflineBanner } from "./OfflineBanner";
 import InicioTab from "./tabs/InicioTab";
 import RegistroTab from "./tabs/RegistroTab";
 import EnSitioTab from "./tabs/EnSitioTab";
 import MasTab from "./tabs/MasTab";
+import { TruthBar } from "@/components/opai/terreno";
 import type { AccessControlConfigData } from "@/lib/access-control/types";
 import { DEVICE_TOKEN_KEY, LEGACY_ACCESS_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
@@ -383,22 +383,13 @@ export function AccessPortalApp() {
 
   if (appState === "loading") {
     return (
-      <div
-        className="min-h-dvh flex flex-col items-center justify-center"
-        style={{ background: "#0f172a" }}
-      >
-        <div
-          className="w-[56px] h-[56px] rounded-[16px] flex items-center justify-center mb-5"
-          style={{
-            background: "linear-gradient(135deg, #f43f5e, #e11d48, #be123c)",
-            boxShadow: "0 0 40px rgba(244,63,94,0.2)",
-          }}
-        >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-background">
+        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
         </div>
-        <div className="w-6 h-6 border-2 border-white/10 border-t-white/40 rounded-full animate-spin" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-ds-border-default border-t-primary" />
       </div>
     );
   }
@@ -448,9 +439,15 @@ export function AccessPortalApp() {
   // Main app with tabs (active or preview mode)
   return (
     <div
-      className="flex flex-col bg-[#0A0F1C] overflow-hidden"
+      className="flex flex-col overflow-hidden bg-background"
       style={{ height: "100%", minHeight: "100%" }}
     >
+      <TruthBar
+        gpsStatus="off"
+        online={isOnline}
+        queueCount={pendingCount}
+        extra="Dispositivo pareado"
+      />
       <InstallationHeader
         installationName={device.installationName}
         guardName={guardName}
@@ -469,6 +466,10 @@ export function AccessPortalApp() {
             installationName={device.installationName}
             guardName={guardName}
             deviceToken={device.deviceToken}
+            onQuickEntry={() => {
+              setActiveTab("registro");
+              setQuickEntryRequested(true);
+            }}
           />
         )}
         {activeTab === "registro" && config && (
@@ -503,8 +504,6 @@ export function AccessPortalApp() {
           />
         )}
       </main>
-
-      <OfflineBanner isOnline={isOnline} pendingCount={pendingCount} />
 
       <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
 

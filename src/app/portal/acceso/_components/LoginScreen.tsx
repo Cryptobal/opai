@@ -80,15 +80,15 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-[#0A0F1C] px-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6">
       {/* Logo area */}
       <div className="mb-10 flex flex-col items-center">
         <div className="mb-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icons/logo-horizontal-white.png" alt="OPAI" className="h-10 object-contain mx-auto" />
         </div>
-        <h1 className="mt-3 text-2xl font-bold text-white">Control de Acceso</h1>
-        <p className="mt-1 text-sm text-gray-400">OPAI</p>
+        <h1 className="mt-3 text-2xl font-bold text-ds-text-1">Control de Acceso</h1>
+        <p className="mt-1 text-sm text-ds-text-3">OPAI</p>
       </div>
 
       {/* Login form */}
@@ -101,7 +101,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
 
         {/* Email */}
         <div className="space-y-1.5">
-          <label htmlFor="login-email" className="block text-sm font-medium text-gray-300">
+          <label htmlFor="login-email" className="block text-sm font-medium text-ds-text-2">
             Correo electrónico
           </label>
           <input
@@ -112,13 +112,13 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="guardia@gardsecurity.com"
-            className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info"
+            className="h-12 w-full rounded-xl border border-ds-border-default bg-ds-surface-2 px-4 py-3 text-sm text-ds-text-1 outline-none placeholder:text-ds-text-4 focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
 
         {/* Password */}
         <div className="space-y-1.5">
-          <label htmlFor="login-password" className="block text-sm font-medium text-gray-300">
+          <label htmlFor="login-password" className="block text-sm font-medium text-ds-text-2">
             Contrasena
           </label>
           <div className="relative">
@@ -130,12 +130,12 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="********"
-              className="w-full rounded-xl border border-gray-700 bg-gray-900/60 px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info"
+              className="h-12 w-full rounded-xl border border-ds-border-default bg-ds-surface-2 px-4 py-3 pr-12 text-sm text-ds-text-1 outline-none placeholder:text-ds-text-4 focus:border-primary focus:ring-1 focus:ring-primary"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 transition-colors hover:text-gray-200"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-ds-text-3"
               aria-label={showPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
             >
               {showPassword ? (
@@ -148,12 +148,12 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         </div>
 
         {/* Remember checkbox */}
-        <label className="flex items-center gap-2.5 text-sm text-gray-400">
+        <label className="flex items-center gap-2.5 text-sm text-ds-text-3">
           <input
             type="checkbox"
             checked={remember}
             onChange={(e) => setRemember(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-status-info-fg focus:ring-cyan-500 focus:ring-offset-0"
+            className="h-5 w-5 rounded border-ds-border-default bg-ds-surface-2 text-primary"
           />
           Recordar sesion
         </label>
@@ -175,10 +175,10 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         </button>
       </form>
 
-      <p className="mt-8 text-xs text-gray-600 text-center">
+      <p className="mt-8 text-center text-xs text-ds-text-3">
         Si no tienes acceso, contacta a tu supervisor.
       </p>
-      <p className="mt-2 text-xs text-gray-700 text-center">
+      <p className="mt-2 text-center text-xs text-ds-text-4">
         Powered by{" "}
         <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-500 transition-colors">LX3.ai</a>
       </p>

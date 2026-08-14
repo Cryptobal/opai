@@ -105,7 +105,7 @@ export function StandbyScreen({
 
   return (
     <div
-      className="flex min-h-dvh flex-col items-center justify-center bg-[#0A0F1C] px-6 cursor-pointer select-none"
+      className="flex min-h-dvh cursor-pointer select-none flex-col items-center justify-center bg-background px-6"
       onClick={handleWake}
       onTouchStart={handleWake}
       role="button"
@@ -114,35 +114,38 @@ export function StandbyScreen({
         if (e.key === "Enter" || e.key === " ") handleWake();
       }}
     >
-      {/* Installation */}
-      <div className="flex items-center gap-2 mb-12">
-        <Building2 className="h-5 w-5 text-status-info-fg shrink-0" />
-        <span className="text-sm font-medium text-gray-400">
-          {installationName}
-        </span>
+      {/* Logo + Installation */}
+      <div className="mb-10 flex flex-col items-center gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/logo-horizontal-white.png" alt="OPAI" className="mx-auto h-10 object-contain" />
+        <div className="flex items-center gap-2">
+          <Building2 className="h-5 w-5 shrink-0 text-primary" />
+          <span className="text-sm font-medium text-ds-text-2">
+            {installationName}
+          </span>
+        </div>
       </div>
 
       {/* Clock */}
       <div className="flex flex-col items-center mb-12">
-        <p className="text-7xl font-bold text-white tabular-nums tracking-tight">
+        <p className="font-mono text-7xl font-bold tabular-nums tracking-tight text-ds-text-1">
           {time}
         </p>
-        <p className="mt-3 text-lg text-gray-400">{formattedDate}</p>
+        <p className="mt-3 text-lg text-ds-text-3">{formattedDate}</p>
       </div>
 
       {/* People counter */}
       {inSiteCount !== null && (
         <div className="mb-16">
-          <p className="text-base text-gray-400">
-            <span className="mr-1.5">👥</span>
+          <p className="text-base text-ds-text-3">
             {inSiteCount} en sitio ahora
           </p>
         </div>
       )}
 
       {/* Tap hint */}
-      <p className="text-sm text-gray-600 animate-pulse">
-        Toca para registrar acceso
+      <p className="text-sm text-ds-text-4">
+        Toca para comenzar
       </p>
     </div>
   );

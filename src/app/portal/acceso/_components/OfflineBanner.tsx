@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Banner offline del portal Acceso.
+ * Absorbido por TruthBar en AccessPortalApp; se mantiene el export
+ * por si algún consumidor externo lo monta.
+ */
+
 import { useEffect, useState } from "react";
 import { CloudOff, RefreshCw } from "lucide-react";
 

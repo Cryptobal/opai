@@ -19,60 +19,27 @@ export default function SuccessAnimation({
 
   return (
     <div
-      className="inline-flex items-center justify-center"
+      className="inline-flex items-center justify-center text-status-ok-fg motion-safe:animate-[terreno-pop_0.45s_cubic-bezier(0.22,1.2,0.36,1)_both] motion-reduce:animate-none"
       style={{ width: size, height: size }}
     >
-      <svg
-        className="success-checkmark"
-        viewBox="0 0 52 52"
-        width={size}
-        height={size}
-      >
+      <svg viewBox="0 0 52 52" width={size} height={size} aria-hidden>
         <circle
-          className="success-checkmark__circle"
           cx="26"
           cy="26"
           r="24"
           fill="none"
-          stroke="#10B981"
+          stroke="currentColor"
           strokeWidth="2"
         />
         <path
-          className="success-checkmark__check"
           fill="none"
-          stroke="#10B981"
+          stroke="currentColor"
           strokeWidth="3"
           strokeLinecap="round"
           strokeLinejoin="round"
           d="M14 27l7 7 16-16"
         />
       </svg>
-
-      <style jsx>{`
-        .success-checkmark__circle {
-          stroke-dasharray: 166;
-          stroke-dashoffset: 166;
-          animation: stroke-circle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
-        }
-
-        .success-checkmark__check {
-          stroke-dasharray: 48;
-          stroke-dashoffset: 48;
-          animation: stroke-check 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
-        }
-
-        @keyframes stroke-circle {
-          100% {
-            stroke-dashoffset: 0;
-          }
-        }
-
-        @keyframes stroke-check {
-          100% {
-            stroke-dashoffset: 0;
-          }
-        }
-      `}</style>
     </div>
   );
 }

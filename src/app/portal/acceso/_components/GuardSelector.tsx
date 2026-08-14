@@ -75,7 +75,7 @@ export function GuardSelector({
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-card opai-glass-soft-m px-6 py-10">
+    <div className="flex min-h-dvh flex-col bg-background px-6 py-10">
       {/* Installation name */}
       <div className="flex items-center gap-2 mb-8">
         <Building2 className="h-5 w-5 text-primary shrink-0" />
