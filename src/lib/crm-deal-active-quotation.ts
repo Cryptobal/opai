@@ -16,6 +16,11 @@ export type QuoteForActiveQuotation = {
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
   parameters?: QuoteParametersInput;
+  /**
+   * Total de venta mensual vigente del motor CPQ (`costSummary.salePriceMonthly`).
+   * Si viene, gana al snapshot `parameters.salePriceMonthly` (puede quedar stale).
+   */
+  liveSalePriceMonthly?: unknown;
   /** Si la cotización pertenece a una propuesta multi-instalación. */
   bundleId?: string | null;
   /** Miembro incluido en la propuesta (default true si no viene). */
@@ -68,10 +73,19 @@ function parseDate(value?: Date | string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function resolveQuoteAmountBase(quote: QuoteForActiveQuotation): number {
-  const salePriceMonthly = parseNumber(quote.parameters?.salePriceMonthly);
-  if (salePriceMonthly > 0) return salePriceMonthly;
-  return parseNumber(quote.monthlyCost);
+/**
+ * Precio de venta mensual vigente (CLP), alineado al header de la cotización.
+ *
+ * Orden: total vivo del motor → snapshot `parameters.salePriceMonthly` → 0.
+ * Nunca usa `monthlyCost` (es costo, no venta). Quotes legacy sin snapshot
+ * quedan en 0 (KPI con guion, sin NaN).
+ */
+export function resolveQuoteAmountBase(quote: QuoteForActiveQuotation): number {
+  const live = parseNumber(quote.liveSalePriceMonthly);
+  if (live > 0) return live;
+  const snapshot = parseNumber(quote.parameters?.salePriceMonthly);
+  if (snapshot > 0) return snapshot;
+  return 0;
 }
 
 function toQuotationAmounts(
@@ -81,7 +95,7 @@ function toQuotationAmounts(
   const normalizedUf = normalizeUfValue(ufValue);
   const amountBase = resolveQuoteAmountBase(quote);
 
-  // salePriceMonthly and monthlyCost are always stored in CLP (from CPQ cost computation).
+  // salePriceMonthly is always stored in CLP (from CPQ cost computation).
   // The quote.currency field is display preference only; it does not change stored values.
   // Treat amountBase as CLP to avoid absurd values when currency=UF was set but value stayed in CLP.
   const amountClp = amountBase;

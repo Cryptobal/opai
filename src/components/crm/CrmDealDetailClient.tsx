@@ -52,7 +52,6 @@ import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCa
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { DealChecklistSection } from "./deal/DealChecklistSection";
 import { NotesSection } from "./NotesSection";
-import { DealLicitacionCard } from "./DealLicitacionCard";
 import { DealVisitasCard } from "./DealVisitasCard";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
@@ -78,12 +77,14 @@ import { DeactivateInstallationDialog } from "@/components/crm/DeactivateInstall
 import { DealKpiStrip } from "./deals/DealKpiStrip";
 import { DealLicitacionBand } from "./deals/DealLicitacionBand";
 import { DealRail } from "./deals/DealRail";
+import { DealLicitacionFichaRows } from "./deals/DealLicitacionFichaRows";
 import { useDealLicitacionDocs } from "./deals/useDealLicitacionDocs";
 import type { DealInstallationRef } from "@/lib/crm/deal-installation";
 import { DealNextStepBanner } from "./deal/DealNextStepBanner";
 import { DealUnifiedTimeline } from "./deal/DealUnifiedTimeline";
 import { useEmailAttachments } from "./correos/useEmailAttachments";
 import { patchCrmField } from "@/components/crm/patchCrmField";
+import { resolveQuoteAmountBase } from "@/lib/crm-deal-active-quotation";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -305,72 +306,10 @@ function DealPipelineStepper({
   const isLost = isLostByStage || (dealStatus === "lost" && !isOnOpenStage && !isWonByStage);
   const isClosed = isWon || isLost;
 
-  const currentOpenStage = currentIdx >= 0 ? openStages[currentIdx] : undefined;
-  const closedStage = isWon ? wonStage : isLost ? lostStage : undefined;
-  const closedColor = isWon ? "#10b981" : isLost ? "#ef4444" : "#94a3b8";
-  const currentStageColor = isClosed
-    ? closedStage?.color || closedColor
-    : currentOpenStage?.color || "#94a3b8";
-
-  // Etiqueta para el card "Etapa actual" en móvil
-  const currentLabel = isWon
-    ? "Ganado"
-    : isLost
-      ? "Perdido"
-      : currentOpenStage?.name || "Sin etapa";
-  const progressPct = isClosed
-    ? 100
-    : currentIdx >= 0 && openStages.length > 0
-      ? ((currentIdx + 1) / openStages.length) * 100
-      : 0;
-
   return (
-    <div className="space-y-2 py-2 sm:space-y-0">
-      {/* Mobile: indicador compacto de etapa actual + progreso */}
-      <div className="sm:hidden space-y-2">
-        {openStages.length > 0 && (
-          <div
-            className="rounded-md border px-3 py-2 transition-colors"
-            style={{
-              borderColor: isClosed ? `${currentStageColor}60` : undefined,
-              backgroundColor: isClosed ? `${currentStageColor}10` : undefined,
-            }}
-          >
-            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-              <span className="uppercase tracking-wider">Etapa actual</span>
-              <span className="tabular-nums">
-                {isClosed
-                  ? "Cerrado"
-                  : `${currentIdx >= 0 ? currentIdx + 1 : "–"} / ${openStages.length}`}
-              </span>
-            </div>
-            <div className="mt-1 flex items-center gap-2">
-              <span
-                className="inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: currentStageColor }}
-              />
-              <span
-                className="text-sm font-medium truncate"
-                style={isClosed ? { color: currentStageColor } : undefined}
-              >
-                {currentLabel}
-              </span>
-            </div>
-            {/* Progress bar */}
-            <div className="mt-2 h-1 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${progressPct}%`,
-                  backgroundColor: currentStageColor,
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Scroll horizontal con chips compactas */}
-        <div className="-mx-1 overflow-x-auto scrollbar-thin">
+    <div className="space-y-2 py-2 lg:space-y-0">
+      {/* Mobile: una sola fila de chips (etapas + Adjudicado/Perdido) */}
+      <div className="lg:hidden -mx-1 overflow-x-auto scrollbar-thin">
           <div className="flex flex-nowrap gap-1.5 px-1 pb-1">
             {openStages.map((stage, idx) => {
               const isCurrent = !isClosed && stage.id === currentStageId;
@@ -384,13 +323,13 @@ function DealPipelineStepper({
                   disabled={disabled}
                   onClick={() => onStageClick(stage.id)}
                   className={cn(
-                    "flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-all",
+                    "flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-medium whitespace-nowrap transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     isClosed && "opacity-60 cursor-pointer hover:opacity-100 hover:brightness-110",
                     !isClosed && !isCurrent && "cursor-pointer hover:brightness-110",
                     isCurrent && "text-white border-transparent shadow-sm",
                     isPast && "text-white/90 border-transparent",
-                    isFuture && "bg-background text-muted-foreground border-border",
+                    isFuture && "bg-background text-ds-text-3 border-ds-border-default",
                   )}
                   style={
                     isCurrent
@@ -402,57 +341,49 @@ function DealPipelineStepper({
                   title={stage.name}
                 >
                   {isPast && <Check className="h-3 w-3 shrink-0" />}
-                  <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-black/20 text-[9px] tabular-nums">
-                    {idx + 1}
-                  </span>
                   <span>{stage.name}</span>
                 </button>
               );
             })}
+            {wonStage && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={onWonClick}
+                className={cn(
+                  "flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-medium whitespace-nowrap transition-all",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isWon
+                    ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+                    : "border-ds-border-default text-ds-text-3",
+                )}
+              >
+                <Check className="h-3 w-3" />
+                {wonStage.name}
+              </button>
+            )}
+            {lostStage && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={onLostClick}
+                className={cn(
+                  "flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-medium whitespace-nowrap transition-all",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isLost
+                    ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
+                    : "border-ds-border-default text-ds-text-3",
+                )}
+              >
+                <XCircle className="h-3 w-3" />
+                {lostStage.name}
+              </button>
+            )}
           </div>
-        </div>
-
-        {/* Ganado / Perdido */}
-        <div className="flex flex-row gap-2">
-          {wonStage && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={onWonClick}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                isWon
-                  ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border shadow-sm"
-                  : "border border-border text-muted-foreground hover:border-status-ok-border hover:text-status-ok-fg hover:bg-status-ok-soft"
-              )}
-            >
-              <Check className="h-3 w-3" />
-              {wonStage.name}
-            </button>
-          )}
-          {lostStage && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={onLostClick}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                isLost
-                  ? "bg-status-danger-soft text-status-danger-fg border border-status-danger-border shadow-sm"
-                  : "border border-border text-muted-foreground hover:border-status-danger-border hover:text-status-danger-fg hover:bg-status-danger-soft"
-              )}
-            >
-              <XCircle className="h-3 w-3" />
-              {lostStage.name}
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Desktop: chevrons tradicionales */}
-      <div className="hidden sm:flex sm:items-center gap-2 sm:overflow-x-auto scrollbar-thin">
+      <div className="hidden lg:flex lg:items-center gap-2 lg:overflow-x-auto scrollbar-thin">
         <div className="flex sm:flex-row sm:items-stretch sm:min-w-0">
           {openStages.map((stage, idx) => {
             const isCurrent = !isClosed && stage.id === currentStageId;
@@ -757,7 +688,7 @@ export function CrmDealDetailClient({
     setDealAccount(deal.account ?? null);
   }, [deal.account]);
   // Estado local de licitación (mismo patrón que dealStatus): se actualiza al
-  // instante cuando DealLicitacionCard persiste, y re-sincroniza con el prop.
+  // instante cuando DealLicitacionFichaRows persiste, y re-sincroniza con el prop.
   const [licitacion, setLicitacion] = useState<{ isLicitacion: boolean; fechaEntrega: string | null }>({
     isLicitacion: Boolean(deal.isLicitacion),
     fechaEntrega: deal.fechaEntrega ?? null,
@@ -767,6 +698,7 @@ export function CrmDealDetailClient({
   }, [deal.isLicitacion, deal.fechaEntrega]);
 
   const licitacionDocs = useDealLicitacionDocs(deal.id, true);
+  const [filesHighlightTipo, setFilesHighlightTipo] = useState<string | null>(null);
   const [driveStatus, setDriveStatus] = useState<{ hasFolder: boolean; folderUrl: string | null }>({
     hasFolder: false,
     folderUrl: null,
@@ -1249,11 +1181,14 @@ export function CrmDealDetailClient({
   const formatQuoteAmounts = useCallback(
     (quote?: QuoteOption) => {
       if (!quote) return "Monto no disponible";
-      const salePriceMonthly = Number(quote.parameters?.salePriceMonthly ?? 0);
-      const raw = salePriceMonthly > 0 ? salePriceMonthly : Number(quote.monthlyCost ?? 0);
+      const raw = resolveQuoteAmountBase({
+        id: quote.id,
+        status: quote.status,
+        monthlyCost: quote.monthlyCost,
+        parameters: quote.parameters,
+      });
       if (!Number.isFinite(raw) || raw <= 0) return "Monto no disponible";
       const safeUf = ufValue > 0 ? ufValue : 38000;
-      // salePriceMonthly/monthlyCost are always stored in CLP; currency is display preference only
       const amountClp = raw;
       const amountUf = raw / safeUf;
       return `$${Math.round(amountClp).toLocaleString("es-CL")} · UF ${amountUf.toLocaleString("es-CL", {
@@ -2464,12 +2399,12 @@ export function CrmDealDetailClient({
     licitacion.isLicitacion || primaryPhone ? (
       <div className="flex flex-wrap items-center gap-2">
         {licitacion.isLicitacion && (
-          <span className="inline-flex items-center rounded-full bg-tint-violet px-2.5 py-1 text-[12px] font-medium text-tint-violet-fg">
+          <span className="hidden lg:inline-flex items-center rounded-full bg-tint-violet px-2.5 py-1 text-[12px] font-medium text-tint-violet-fg">
             Licitación{entregaLabel ? ` · entrega ${entregaLabel}` : ""}
           </span>
         )}
         {licitacion.isLicitacion && countdown && (
-          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-medium ${countdown.tone}`}>
+          <span className={`hidden lg:inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-medium ${countdown.tone}`}>
             {countdown.text}
           </span>
         )}
@@ -2488,6 +2423,17 @@ export function CrmDealDetailClient({
       </div>
     ) : undefined;
 
+  const openStageList = pipelineStages.filter((s) => !s.isClosedWon && !s.isClosedLost);
+  const openStageIdx = openStageList.findIndex((s) => s.id === currentStage?.id);
+  const stagePill =
+    currentStage && openStageIdx >= 0
+      ? `${currentStage.name} · ${openStageIdx + 1}/${openStageList.length}`
+      : currentStage?.name ?? null;
+  const filesHighlightLabel =
+    filesHighlightTipo
+      ? licitacionDocs.types.find((t) => t.codigo === filesHighlightTipo)?.nombre ?? filesHighlightTipo
+      : null;
+
   return (
     <>
       <EntityDetailLayout
@@ -2500,6 +2446,25 @@ export function CrmDealDetailClient({
           actions: headerActions,
           extra: headerExtra,
         }}
+        mobileMeta={
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            {licitacion.isLicitacion ? (
+              <span className="inline-flex shrink-0 items-center rounded-full bg-tint-violet px-2 py-0.5 text-[12px] font-medium text-tint-violet-fg">
+                Licitación
+              </span>
+            ) : null}
+            {deal.account ? (
+              <span className="inline-flex max-w-[10rem] shrink-0 truncate rounded-full bg-ds-surface-2 px-2 py-0.5 text-[12px] text-ds-text-2">
+                {deal.account.name}
+              </span>
+            ) : null}
+            {stagePill ? (
+              <span className="inline-flex shrink-0 rounded-full bg-ds-surface-2 px-2 py-0.5 text-[12px] text-ds-text-2">
+                {stagePill}
+              </span>
+            ) : null}
+          </div>
+        }
         pipelineBar={
           <>
             <DealPipelineStepper
@@ -2542,7 +2507,10 @@ export function CrmDealDetailClient({
                   types={licitacionDocs.types}
                   hasUnclassified={licitacionDocs.files.some((f) => f.needsClassification)}
                   gate={licitacionDocs.gate}
-                  onOpenDocumentos={() => setActiveTab("files")}
+                  onOpenDocumentos={(tipoCodigo) => {
+                    setFilesHighlightTipo(tipoCodigo);
+                    setActiveTab("files");
+                  }}
                   onFechaChange={(ymd) => void persistDealPipeline({ fechaEntrega: ymd })}
                 />
               </div>
@@ -2577,29 +2545,31 @@ export function CrmDealDetailClient({
                 helperText: aboutQuoteHelperText,
               },
               installation: dealInstallation,
+              montoManual: dealAmount ? String(dealAmount) : null,
+              canEdit,
+              onMontoCommit: async (_key, value) => {
+                const num = value ? Number(value) : 0;
+                const data = await patchCrmField<Record<string, unknown>>({
+                  url: `/api/crm/deals/${deal.id}`,
+                  key: "amount",
+                  value: num,
+                });
+                const saved = String(data.amount ?? num);
+                setDealAmount(saved);
+                return saved;
+              },
+              fichaExtra: (
+                <DealLicitacionFichaRows
+                  dealId={deal.id}
+                  isLicitacion={licitacion.isLicitacion}
+                  fechaEntrega={licitacion.fechaEntrega}
+                  onFechaChange={(ymd) => void persistDealPipeline({ fechaEntrega: ymd })}
+                  onUpdated={(next) =>
+                    setLicitacion((prev) => ({ ...prev, isLicitacion: next.isLicitacion }))
+                  }
+                />
+              ),
             }}
-            montoManual={dealAmount ? String(dealAmount) : null}
-            canEdit={canEdit}
-            onMontoCommit={async (_key, value) => {
-              const num = value ? Number(value) : 0;
-              const data = await patchCrmField<Record<string, unknown>>({
-                url: `/api/crm/deals/${deal.id}`,
-                key: "amount",
-                value: num,
-              });
-              const saved = String(data.amount ?? num);
-              setDealAmount(saved);
-              return saved;
-            }}
-            afterFicha={
-              <DealLicitacionCard
-                dealId={deal.id}
-                isLicitacion={licitacion.isLicitacion}
-                onUpdated={(next) =>
-                  setLicitacion((prev) => ({ ...prev, isLicitacion: next.isLicitacion }))
-                }
-              />
-            }
             documentos={{
               dealId: deal.id,
               files: licitacionDocs.files,
@@ -2671,7 +2641,16 @@ export function CrmDealDetailClient({
         {effectiveTab === "copiloto" && (
           <DealCopilotoPanel dealId={deal.id} dealTitle={deal.title} />
         )}
-        {effectiveTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{filesSection.children}</div>}
+        {effectiveTab === "files" && (
+          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+            {filesHighlightLabel ? (
+              <p className="mb-3 text-[13px] text-ds-text-2">
+                Destacando: <span className="font-medium text-ds-text-1">{filesHighlightLabel}</span>
+              </p>
+            ) : null}
+            {filesSection.children}
+          </div>
+        )}
       </EntityDetailLayout>
 
       {/* ── Email Compose Modal ── */}

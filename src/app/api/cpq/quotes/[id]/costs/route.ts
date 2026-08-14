@@ -842,6 +842,14 @@ export async function PUT(
           monthlyCost: summary.monthlyTotal,
         },
       });
+      // El body puede haber escrito un salePriceMonthly stale (snapshot del
+      // cliente). El total vigente es el del motor, el mismo que muestra el
+      // header de CpqQuoteDetail.
+      await prisma.cpqQuoteParameters.upsert({
+        where: { quoteId: id },
+        update: { salePriceMonthly: summary.salePriceMonthly },
+        create: { quoteId: id, salePriceMonthly: summary.salePriceMonthly },
+      });
     } catch (computeError: any) {
       console.error("Error computing/updating CPQ quote totals:", computeError?.message, computeError?.code, computeError?.meta);
       // Transaction succeeded but computation failed — return partial success

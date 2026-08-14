@@ -172,27 +172,28 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
             return (
               <li
                 key={`${r.source}-${r.id}`}
-                className="flex flex-col gap-2 px-3 py-3"
+                className="flex items-center gap-2 px-3 py-2.5 lg:flex-col lg:items-stretch lg:gap-2 lg:py-3"
               >
-                <div className="flex min-w-0 items-start gap-2">
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <p className="text-[13px] font-medium text-ds-text-1">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-ds-text-1">
                       {r.label ? (
                         <span className="text-ds-text-3">{r.label} · </span>
                       ) : null}
-                      <span className="break-words">{r.title || r.type}</span>
-                    </p>
-                    <p className="text-[12px] text-ds-text-3">
-                      {formatWhen(r)}
-                      {r.assignedName ? ` · ${r.assignedName}` : ""}
+                      <span>{r.title || r.type}</span>
+                      <span className="font-normal text-ds-text-3">
+                        {" · "}
+                        {formatWhen(r)}
+                        {r.assignedName ? ` · ${r.assignedName}` : ""}
+                      </span>
                     </p>
                     {r.syncStatus === "ERROR" && sync.label ? (
-                      <p className="text-[12px] text-status-danger-fg">{sync.label}</p>
+                      <p className="truncate text-[12px] text-status-danger-fg">{sync.label}</p>
                     ) : null}
                   </div>
                   {r.syncStatus ? (
                     <span
-                      className="mt-1 shrink-0"
+                      className="shrink-0"
                       title={sync.label}
                       aria-label={sync.ariaLabel}
                     >
@@ -210,7 +211,7 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
                     </span>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex shrink-0 flex-wrap gap-0.5 lg:gap-1">
                   {r.htmlLink && (
                     <a
                       href={r.htmlLink}

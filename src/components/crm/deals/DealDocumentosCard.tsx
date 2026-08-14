@@ -76,8 +76,8 @@ export function DealDocumentosCard({
   }
 
   return (
-    <Surface elevation={1} padding="md" className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
+    <Surface elevation={1} padding="sm" className="space-y-2 lg:space-y-3 lg:p-4">
+      <div className="flex min-h-10 items-center justify-between gap-2">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">Documentos</p>
         <Tag variant="neutral" size="sm">Sync Drive</Tag>
       </div>
@@ -92,7 +92,7 @@ export function DealDocumentosCard({
       ) : (
         <ul className="space-y-1.5">
           {files.slice(0, 8).map((f) => (
-            <li key={f.fileId} className="flex items-start justify-between gap-2">
+            <li key={f.fileId} className="flex min-h-10 items-center justify-between gap-2 py-1">
               <span className="min-w-0 truncate text-[13px] text-ds-text-1">{f.fileName}</span>
               <Tag variant={f.tipoNombre ? "neutral" : "warn"} size="sm">
                 {f.tipoNombre ?? "Sin tipo"}

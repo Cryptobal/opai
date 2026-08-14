@@ -119,6 +119,21 @@ describe("summarizeDeals", () => {
     expect(summary.byStage.won.count).toBe(1);
     expect(summary.byStage.won.clp).toBe(9_000_000);
   });
+
+  it("usa el monto vigente del summary (no un snapshot paralelo)", () => {
+    const stages: StageLike[] = [...openStages];
+    const deals: DealForMetrics[] = [
+      deal({
+        id: "live",
+        stageId: "s1",
+        probability: 100,
+        activeQuoteSummary: { amountClp: 16_230_313, amountUf: 397.3, totalGuards: 8 },
+      }),
+    ];
+    const summary = summarizeDeals(deals, stages);
+    expect(summary.open.clp).toBe(16_230_313);
+    expect(summary.open.uf).toBeCloseTo(397.3);
+  });
 });
 
 describe("formatClpCompact / sanitizeStageColor", () => {
