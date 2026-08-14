@@ -13,7 +13,6 @@ describe("CpqPdfPreviewPanel", () => {
         addListener: vi.fn(),
         removeListener: vi.fn(),
         addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
         dispatchEvent: vi.fn(),
       })),
     );
@@ -23,7 +22,7 @@ describe("CpqPdfPreviewPanel", () => {
     vi.unstubAllGlobals();
   });
 
-  it("separa tipo de PDF y formato de cotizacion", () => {
+  it("muestra formato único de cotización sin selector Estándar/Detallado/Licitación", () => {
     render(
       <CpqPdfPreviewPanel
         mode="cotizacion"
@@ -31,25 +30,20 @@ describe("CpqPdfPreviewPanel", () => {
         previewUrl={null}
         loading={false}
         onModeChange={vi.fn()}
-        onTemplateSlugChange={vi.fn()}
         onGenerate={vi.fn()}
-      />
+      />,
     );
 
-    expect(screen.getByText("PDF y documentos")).toBeInTheDocument();
-    expect(
-      screen.getByText("Genera la propuesta y adjunta respaldos para enviarla."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Cotización" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Propuesta técnica" })).toBeInTheDocument();
-    expect(screen.getByText("Formato de cotización")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Estándar" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Detallado" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Licitación" })).toBeInTheDocument();
+    expect(screen.getByText("Cotización PDF")).toBeInTheDocument();
+    expect(screen.getAllByText("Cotización PDF · formato único").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Formato de cotización")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Estándar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Detallado" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Licitación" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ver" })).toBeInTheDocument();
   });
 
-  it("oculta formatos de cotizacion cuando se elige presentacion", () => {
+  it("oculta el sello de formato único cuando se elige presentacion", () => {
     const onModeChange = vi.fn();
     render(
       <CpqPdfPreviewPanel
@@ -58,9 +52,8 @@ describe("CpqPdfPreviewPanel", () => {
         previewUrl={null}
         loading={false}
         onModeChange={onModeChange}
-        onTemplateSlugChange={vi.fn()}
         onGenerate={vi.fn()}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Propuesta técnica" }));
@@ -77,9 +70,8 @@ describe("CpqPdfPreviewPanel", () => {
         previewUrl={null}
         loading={false}
         onModeChange={vi.fn()}
-        onTemplateSlugChange={vi.fn()}
         onGenerate={onGenerate}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Ver" }));
@@ -100,7 +92,6 @@ describe("CpqPdfPreviewPanel", () => {
         addListener: vi.fn(),
         removeListener: vi.fn(),
         addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
         dispatchEvent: vi.fn(),
       })),
     );
@@ -113,9 +104,8 @@ describe("CpqPdfPreviewPanel", () => {
         previewUrl="/api/cpq/quotes/q1/proposal-pdf?t=1"
         loading={false}
         onModeChange={vi.fn()}
-        onTemplateSlugChange={vi.fn()}
         onGenerate={vi.fn()}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Ver" }));
@@ -139,13 +129,12 @@ describe("CpqPdfPreviewPanel", () => {
         previewUrl={null}
         loading={false}
         onModeChange={vi.fn()}
-        onTemplateSlugChange={vi.fn()}
         onGenerate={vi.fn()}
         allowedModes={["cotizacion"]}
-      />
+      />,
     );
 
-    expect(screen.getByRole("button", { name: "Estándar" })).toBeInTheDocument();
+    expect(screen.getAllByText("Cotización PDF · formato único").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Propuesta técnica" })).not.toBeInTheDocument();
   });
 });

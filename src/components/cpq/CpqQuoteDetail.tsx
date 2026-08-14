@@ -31,6 +31,7 @@ import {
   CPQ_BREAKDOWN_ROW,
   cpqBreakdownAmount,
 } from "@/components/cpq/cpqBreakdownLayout";
+import { economicOpeningFromCostSummary } from "@/lib/cpq/economic-opening";
 import { cn, formatNumber } from "@/lib/utils";
 import type {
   CpqQuote,
@@ -320,6 +321,7 @@ export function CpqQuoteDetail({
   /** Fuerza recarga de deals (etapa puede cambiar al enviar propuesta). */
   const [crmDealsReloadKey, setCrmDealsReloadKey] = useState(0);
   const [markingSentLicitacion, setMarkingSentLicitacion] = useState(false);
+  const [proposalApproved, setProposalApproved] = useState(false);
   const [crmContext, setCrmContext] = useState({
     accountId: "" as string,
     installationId: "" as string,
@@ -527,7 +529,7 @@ export function CpqQuoteDetail({
   const [pdfPreviewMode, setPdfPreviewMode] = useState<CpqPdfPreviewMode>("cotizacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
-  const [pdfTemplateSlug, setPdfTemplateSlug] = useState<CpqPdfTemplateSlug>("standard");
+  const [pdfTemplateSlug] = useState<CpqPdfTemplateSlug>("standard");
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
   /** Guardados pendientes al desmontar (cambio de pestaña / navegación). */
@@ -1141,14 +1143,11 @@ export function CpqQuoteDetail({
   const handleStatusChange = async (newStatus: "draft" | "sent") => {
     if (!quote) return;
     if (newStatus === "sent") {
-      const dealIsLicitacion = Boolean(
-        crmDeals.find((d) => d.id === crmContext.dealId)?.isLicitacion,
+      toast.error(
+        isLicitacionDeal
+          ? "Para marcar como enviada usa el botón de la card Propuesta o la barra inferior."
+          : "Para marcar como enviada usa Enviar desde la card Propuesta o la barra inferior.",
       );
-      if (dealIsLicitacion) {
-        await handleMarkSentLicitacion();
-        return;
-      }
-      toast.error("Para marcar como enviada usa Enviar propuesta (portal) desde la card Propuesta.");
       return;
     }
     setChangingStatus(true);
@@ -1725,6 +1724,7 @@ export function CpqQuoteDetail({
     quote != null &&
     quote.status === "draft" &&
     isLicitacionDeal &&
+    proposalApproved &&
     (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
     Boolean(crmContext.accountId && crmContext.dealId);
 
@@ -1757,7 +1757,7 @@ export function CpqQuoteDetail({
       const bust = Date.now();
       const url = pdfPreviewMode === "presentacion"
         ? `/api/cpq/quotes/${quoteId}/proposal-pdf?t=${bust}`
-        : `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=${encodeURIComponent(pdfTemplateSlug)}&t=${bust}`;
+        : `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=standard&t=${bust}`;
       if (pdfPreviewUrl && pdfPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(url);
       return url;
@@ -2016,7 +2016,7 @@ export function CpqQuoteDetail({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <div className="hidden lg:flex items-stretch overflow-hidden rounded-lg border border-border/60 bg-background/40">
+          <div className="hidden lg:flex items-stretch overflow-x-auto rounded-lg border border-border/60 bg-background/40">
             <div className="flex flex-col justify-center px-3 py-1">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total mensual</span>
               <CpqDualCurrencyAmount
@@ -2561,6 +2561,11 @@ export function CpqQuoteDetail({
           onMarkSentLicitacion={isLicitacionDeal ? () => void handleMarkSentLicitacion() : undefined}
           onSendPortal={!isLicitacionDeal ? openPortalProposal : undefined}
           markingSent={markingSentLicitacion}
+          economicOpening={economicOpeningFromCostSummary(costSummary, {
+            currency: crmContext.currency || "CLP",
+            ufValue: ufValue ?? 0,
+          })}
+          onProposalStatusChange={(_status, approved) => setProposalApproved(approved)}
         />
       </div>
 
@@ -2596,7 +2601,7 @@ export function CpqQuoteDetail({
           className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-semibold text-primary shrink-0">PDF y documentos</h2>
+            <h2 className="text-sm font-semibold text-primary shrink-0">Cotización PDF</h2>
             {!secPdf && (
               <span className="text-xs text-muted-foreground truncate">
                 {pdfPreviewLoading
@@ -2623,10 +2628,7 @@ export function CpqQuoteDetail({
                 setPdfPreviewMode(mode);
                 setPdfPreviewUrl(null);
               }}
-              onTemplateSlugChange={(slug) => {
-                setPdfTemplateSlug(slug);
-                setPdfPreviewUrl(null);
-              }}
+              onTemplateSlugChange={() => undefined}
               onGenerate={handleGeneratePdfPreview}
               className="border-0 shadow-none"
               previewClassName={pdfPreviewUrl ? "h-[420px] sm:h-[620px]" : undefined}
@@ -2734,7 +2736,7 @@ export function CpqQuoteDetail({
               pdfPreviewUrl={pdfPreviewUrl}
               pdfPreviewLoading={pdfPreviewLoading}
               onPdfModeChange={(mode) => { setPdfPreviewMode(mode); setPdfPreviewUrl(null); }}
-              onPdfTemplateSlugChange={(slug) => { setPdfTemplateSlug(slug); setPdfPreviewUrl(null); }}
+              onPdfTemplateSlugChange={() => undefined}
               onGeneratePdfPreview={handleGeneratePdfPreview}
             />
           </Card>
@@ -2769,15 +2771,6 @@ export function CpqQuoteDetail({
                 disabled={changingStatus}
               >
                 <PencilLine className="h-4 w-4" /> Volver a borrador (editar)
-              </button>
-            ) : isLicitacionDeal ? (
-              <button
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
-                onClick={() => void handleMarkSentLicitacion()}
-                disabled={changingStatus || markingSentLicitacion || !canMarkSentLicitacion}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Marcar enviada (licitación)
               </button>
             ) : null}
             {isLocked ? null : !bundleId && onConverted ? (
@@ -2859,7 +2852,9 @@ export function CpqQuoteDetail({
                 title={
                   alreadySent
                     ? "Ya marcada como enviada (licitación)"
-                    : "Marca como enviada y pasa el negocio a Negociación (sin portal ni correo)"
+                    : !proposalApproved
+                      ? "Aprueba todas las secciones de la propuesta para marcar enviada"
+                      : "Marca como enviada y pasa el negocio a Negociación (sin portal ni correo)"
                 }
                 onClick={() => void handleMarkSentLicitacion()}
               >
@@ -2868,12 +2863,13 @@ export function CpqQuoteDetail({
                   ? "Marcando…"
                   : alreadySent
                     ? "Enviada"
-                    : "Enviar"}
+                    : "Marcar enviada"}
               </Button>
             );
           }
           const baseDisabled =
             !quote ||
+            !proposalApproved ||
             (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
             !crmContext.accountId ||
             !crmContext.contactId ||
@@ -3067,7 +3063,7 @@ export function CpqQuoteDetail({
           pdfPreviewUrl,
           pdfPreviewLoading,
           onPdfModeChange: (mode) => { setPdfPreviewMode(mode); setPdfPreviewUrl(null); },
-          onPdfTemplateSlugChange: (slug) => { setPdfTemplateSlug(slug); setPdfPreviewUrl(null); },
+          onPdfTemplateSlugChange: () => undefined,
           onGeneratePdfPreview: handleGeneratePdfPreview,
         }}
       />

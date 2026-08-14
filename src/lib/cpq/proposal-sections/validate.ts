@@ -3,8 +3,9 @@
  * Las advertencias (montos) no bloquean; los errores sí.
  */
 import type { ProposalContentV2 } from "./schema";
-import { allSectionsApproved } from "./ops";
+import { allSectionsApproved, approvedCount } from "./ops";
 import { deriveComplianceMatrix } from "./compliance-matrix";
+import { isAutoSection } from "./oferta-economica";
 
 export type ProposalValidation = {
   code: string;
@@ -55,6 +56,7 @@ export function validateProposalContent(
   if (content.mode === "licitacion") {
     for (const s of content.sections) {
       if (s.invariant === "matriz") continue;
+      if (isAutoSection(s)) continue;
       if (MONEY_HINT.test(s.content) || MONEY_HINT.test(s.title)) {
         out.push({
           code: "montos_en_cuerpo",
@@ -65,10 +67,7 @@ export function validateProposalContent(
     }
   }
 
-  const { approved, total } = {
-    approved: content.sections.filter((s) => s.status === "aprobada").length,
-    total: content.sections.length,
-  };
+  const { approved, total } = approvedCount(content);
   if (!allSectionsApproved(content)) {
     out.push({
       code: "secciones_pendientes",

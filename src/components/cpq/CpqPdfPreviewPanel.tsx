@@ -13,12 +13,11 @@ import {
 import { cn } from "@/lib/utils";
 
 export const CPQ_PDF_TEMPLATE_OPTIONS = [
-  { slug: "standard", label: "Estándar" },
-  { slug: "detailed", label: "Detallado" },
-  { slug: "tender", label: "Licitación" },
+  { slug: "standard", label: "Cotización PDF · formato único" },
 ] as const;
 
-export type CpqPdfTemplateSlug = (typeof CPQ_PDF_TEMPLATE_OPTIONS)[number]["slug"];
+/** Slugs que el endpoint aún acepta (documentos históricos). La UI solo emite `standard`. */
+export type CpqPdfTemplateSlug = "standard" | "detailed" | "tender";
 export type CpqPdfPreviewMode = "cotizacion" | "presentacion";
 
 interface CpqPdfPreviewPanelProps {
@@ -27,7 +26,7 @@ interface CpqPdfPreviewPanelProps {
   previewUrl: string | null;
   loading: boolean;
   onModeChange: (mode: CpqPdfPreviewMode) => void;
-  onTemplateSlugChange: (slug: CpqPdfTemplateSlug) => void;
+  onTemplateSlugChange?: (slug: CpqPdfTemplateSlug) => void;
   /** Genera (o regenera) el PDF. Puede devolver la URL para abrirla al instante. */
   onGenerate: () => void | Promise<void | string | null>;
   title?: string;
@@ -54,8 +53,8 @@ export function CpqPdfPreviewPanel({
   onModeChange,
   onTemplateSlugChange,
   onGenerate,
-  title = "PDF y documentos",
-  description = "Genera la propuesta y adjunta respaldos para enviarla.",
+  title = "Cotización PDF",
+  description = "Formato único. Genera el PDF económico y ábrelo para revisar o enviar.",
   className,
   previewClassName,
   emptyCotizacionText = "Click en Generar PDF para ver la vista previa de la cotización",
@@ -178,28 +177,9 @@ export function CpqPdfPreviewPanel({
 
         <div className="space-y-3 p-3">
           {mode === "cotizacion" && (
-            <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/10 p-2.5">
-              <p className="text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
-                Formato de cotización
-              </p>
-              <div className="grid grid-cols-3 gap-1.5">
-                {CPQ_PDF_TEMPLATE_OPTIONS.map((option) => (
-                  <button
-                    key={option.slug}
-                    type="button"
-                    onClick={() => onTemplateSlugChange(option.slug)}
-                    className={cn(
-                      "h-10 rounded-md border px-2 text-xs font-semibold transition-colors sm:h-8",
-                      templateSlug === option.slug
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-transparent bg-background/50 text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <p className="rounded-lg border border-ds-border-subtle bg-ds-surface-2 px-2.5 py-2 text-[12px] text-ds-text-3">
+              Cotización PDF · formato único
+            </p>
           )}
 
           {previewUrl ? (

@@ -4,6 +4,7 @@
  */
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { ECONOMIC_OPENING_TITLE } from "@/lib/cpq/economic-opening";
 
 export const PROPOSAL_V2_VERSION = 2 as const;
 
@@ -18,6 +19,10 @@ export type ProposalSectionStatus = (typeof SECTION_STATUSES)[number];
 
 export const INVARIANT_KEYS = ["identificacion", "exclusiones", "matriz"] as const;
 export type InvariantKey = (typeof INVARIANT_KEYS)[number];
+
+export const SECTION_KINDS = ["oferta_economica"] as const;
+export type ProposalSectionKind = (typeof SECTION_KINDS)[number];
+export const OFERTA_ECONOMICA_KIND: ProposalSectionKind = "oferta_economica";
 
 export const INVARIANT_TITLES: Record<InvariantKey, string> = {
   identificacion: "Identificación",
@@ -34,6 +39,7 @@ export const sectionSchema = z.object({
   sources: z.array(z.string()).default([]),
   content: z.string(),
   invariant: z.enum(INVARIANT_KEYS).optional(),
+  kind: z.enum(SECTION_KINDS).optional(),
 });
 
 export type ProposalSection = z.infer<typeof sectionSchema>;
@@ -83,7 +89,13 @@ export function newSectionId(): string {
 function section(
   title: string,
   content: string,
-  opts?: { invariant?: InvariantKey; order?: number; status?: ProposalSectionStatus; sources?: string[] },
+  opts?: {
+    invariant?: InvariantKey;
+    kind?: ProposalSectionKind;
+    order?: number;
+    status?: ProposalSectionStatus;
+    sources?: string[];
+  },
 ): ProposalSection {
   return {
     id: newSectionId(),
@@ -94,6 +106,7 @@ function section(
     sources: opts?.sources ?? [],
     content,
     invariant: opts?.invariant,
+    kind: opts?.kind,
   };
 }
 
@@ -106,6 +119,10 @@ export function emptyProposalV2(
   opts?: { legacyV1?: unknown },
 ): ProposalContentV2 {
   const now = new Date().toISOString();
+  const oferta = section(ECONOMIC_OPENING_TITLE, "", {
+    kind: OFERTA_ECONOMICA_KIND,
+    sources: ["costeo"],
+  });
   const sections =
     mode === "licitacion"
       ? reindex([
@@ -115,6 +132,7 @@ export function emptyProposalV2(
             "Pendiente: se completará con lo no cubierto por las bases y la cotización.",
             { invariant: "exclusiones" },
           ),
+          oferta,
           section(INVARIANT_TITLES.matriz, "", { invariant: "matriz" }),
         ])
       : reindex([
@@ -126,6 +144,7 @@ export function emptyProposalV2(
             "Pendiente de completar.",
             { invariant: "exclusiones" },
           ),
+          oferta,
         ]);
 
   return {

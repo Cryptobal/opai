@@ -5,10 +5,12 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import {
   emptyProposalV2,
+  isProposalContentV2,
   readProposalContent,
   type ProposalContentV2,
   type ProposalMode,
 } from "./schema";
+import { ensureOfertaEconomica, isAutoSection } from "./oferta-economica";
 import {
   resolveProposalMode,
   shouldAutoConvertComercialToLicitacion,
@@ -74,7 +76,7 @@ export async function loadQuoteProposal(opts: {
     preferredMode: opts.preferredMode,
     dealIsLicitacion,
   });
-  let content = readProposalContent(quote.proposalAiContent, mode);
+  let content = ensureOfertaEconomica(readProposalContent(quote.proposalAiContent, mode));
   if (!quote.proposalMode) content.mode = mode;
   if (quote.proposalStatus === "borrador" || quote.proposalStatus === "en_revision" || quote.proposalStatus === "aprobada" || quote.proposalStatus === "enviada") {
     content.status = quote.proposalStatus;
@@ -97,6 +99,15 @@ export async function loadQuoteProposal(opts: {
     });
     quote.proposalMode = content.mode;
     quote.proposalStatus = content.status;
+  } else if (
+    !isProposalContentV2(quote.proposalAiContent) ||
+    !quote.proposalAiContent.sections.some(isAutoSection)
+  ) {
+    content = await saveQuoteProposal({
+      tenantId: opts.tenantId,
+      quoteId: opts.quoteId,
+      content,
+    });
   }
 
   return { quote, content, dealIsLicitacion };
@@ -122,10 +133,10 @@ export async function saveQuoteProposal(opts: {
       throw new ProposalConflictError();
     }
   }
-  const content: ProposalContentV2 = {
+  const content: ProposalContentV2 = ensureOfertaEconomica({
     ...opts.content,
     updatedAt: new Date().toISOString(),
-  };
+  });
   await prisma.cpqQuote.updateMany({
     where: { id: opts.quoteId, tenantId: opts.tenantId },
     data: {

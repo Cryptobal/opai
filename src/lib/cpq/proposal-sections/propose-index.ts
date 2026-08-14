@@ -5,7 +5,8 @@
 import { z } from "zod";
 import { aiService } from "@/lib/ai-service";
 import type { InvariantKey } from "./schema";
-import { INVARIANT_TITLES } from "./schema";
+import { INVARIANT_TITLES, OFERTA_ECONOMICA_KIND } from "./schema";
+import { ECONOMIC_OPENING_TITLE } from "@/lib/cpq/economic-opening";
 import type { LicitacionCorpus } from "@/modules/crm/documents/licitacion-ingest.service";
 import { formatCorpusForPrompt } from "@/modules/crm/documents/licitacion-ingest.service";
 
@@ -14,6 +15,7 @@ export const proposedIndexItemSchema = z.object({
   ref: z.string().nullable().optional(),
   rationale: z.string().optional(),
   invariant: z.enum(["identificacion", "exclusiones", "matriz"]).optional(),
+  kind: z.enum(["oferta_economica"]).optional(),
   sources: z.array(z.string()).optional(),
 });
 
@@ -57,6 +59,17 @@ function ensureInvariants(items: ProposedIndexItem[]): ProposedIndexItem[] {
       invariant: "matriz",
       rationale: "Anexo autogenerado de cumplimiento",
     });
+  }
+  if (!out.some((i) => i.kind === OFERTA_ECONOMICA_KIND)) {
+    const matrizIdx = out.findIndex((i) => i.invariant === "matriz");
+    const oferta = {
+      title: ECONOMIC_OPENING_TITLE,
+      kind: OFERTA_ECONOMICA_KIND,
+      rationale: "Apertura económica automática desde el costeo vigente",
+      sources: ["costeo"],
+    } satisfies ProposedIndexItem;
+    if (matrizIdx >= 0) out.splice(matrizIdx, 0, oferta);
+    else out.push(oferta);
   }
   const identIdx = out.findIndex((i) => i.invariant === "identificacion");
   if (identIdx > 0) {
