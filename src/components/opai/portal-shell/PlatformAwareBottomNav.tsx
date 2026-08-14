@@ -16,6 +16,11 @@ function usePortalBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
     const measure = () => {
       rafId = null;
       const rect = el.getBoundingClientRect();
+      if (rect.height < 1) {
+        document.documentElement.style.removeProperty("--portal-bottom-nav-height");
+        lastClearance = "";
+        return;
+      }
       const vp = window.visualViewport;
       const viewportBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
       // +8px de colchón para evitar solapamiento por subpíxeles / blur del nav.

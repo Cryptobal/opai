@@ -70,3 +70,22 @@ export interface ClienteSession {
   hasActivePresentation: boolean;
   commercialPresentationUrl: string | null;
 }
+
+export type Round24hStatus = "ok" | "warn" | "now" | "pending";
+
+export interface SummaryOnDuty {
+  guardName: string;
+  shiftStart: string;
+  shiftEnd: string | null;
+  sinceMinutes: number;
+}
+
+export interface SummaryNextRound {
+  scheduledAt: string;
+  checkpoints: number;
+}
+
+export interface SummaryRound24hSlot {
+  hour: number;
+  status: Round24hStatus;
+}

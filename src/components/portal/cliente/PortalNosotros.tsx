@@ -167,9 +167,10 @@ const TIER_COLORS = [
 
 interface Props {
   onNavigate?: (section: string) => void;
+  onOpenLead?: () => void;
 }
 
-export function PortalNosotros({ onNavigate }: Props) {
+export function PortalNosotros({ onNavigate, onOpenLead }: Props) {
   const { branding } = useBranding();
   const logoClara = branding.logoWhite || branding.logoFull || "";
 
@@ -315,6 +316,15 @@ export function PortalNosotros({ onNavigate }: Props) {
         <div className="text-center pt-2 space-y-4">
           <p className="text-xs text-muted-foreground">¿Tienes preguntas sobre nuestros servicios?</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            {onOpenLead && (
+              <button
+                type="button"
+                onClick={onOpenLead}
+                className="inline-flex items-center justify-center min-h-11 px-6 rounded-xl text-sm font-semibold bg-tint-orange text-tint-orange-fg"
+              >
+                Solicitar propuesta
+              </button>
+            )}
             {onNavigate && (
               <button
                 onClick={() => onNavigate("chat")}

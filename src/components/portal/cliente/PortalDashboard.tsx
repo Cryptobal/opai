@@ -45,6 +45,9 @@ import { ContratosEnRevisionCard } from "./ContratosEnRevisionCard";
 import { EquipoGlobalCard } from "./dashboard/EquipoGlobalCard";
 import { DocComplianceAlertCard } from "./dashboard/DocComplianceAlertCard";
 import { WhatsAppButton } from "./cotizaciones/WhatsAppButton";
+import { PulsoServicioHero } from "./dashboard/PulsoServicioHero";
+import { AmpliarCoberturaCard } from "./dashboard/AmpliarCoberturaCard";
+import type { SummaryNextRound, SummaryOnDuty, SummaryRound24hSlot } from "@/lib/portal-cliente-types";
 
 interface Summary {
   compliance: number;
@@ -83,6 +86,9 @@ interface Summary {
     os10PorVencer: number;
     os10Vencido: number;
   };
+  onDuty?: SummaryOnDuty | null;
+  nextRound?: SummaryNextRound | null;
+  rounds24h?: SummaryRound24hSlot[];
 }
 interface DailyPoint {
   date: string;
@@ -135,20 +141,20 @@ const CLIENT_QUICK_ACTIONS = [
 function TrendBadge({ value, suffix = "" }: { value: number; suffix?: string }) {
   if (value > 0)
     return (
-      <span className="text-status-ok-fg text-[10px] flex items-center gap-0.5">
+      <span className="text-status-ok-fg text-ds-caption flex items-center gap-0.5">
         <TrendingUp className="h-3 w-3" /> +{value}
         {suffix}
       </span>
     );
   if (value < 0)
     return (
-      <span className="text-status-danger-fg text-[10px] flex items-center gap-0.5">
+      <span className="text-status-danger-fg text-ds-caption flex items-center gap-0.5">
         <TrendingDown className="h-3 w-3" /> {value}
         {suffix}
       </span>
     );
   return (
-    <span className="text-muted-foreground text-[10px] flex items-center gap-0.5">
+    <span className="text-ds-text-3 text-ds-caption flex items-center gap-0.5">
       <Minus className="h-3 w-3" /> 0{suffix}
     </span>
   );
@@ -158,29 +164,17 @@ function KpiCard({
   label,
   value,
   trend,
-  color,
 }: {
   label: string;
   value: string;
   trend: React.ReactNode;
-  color: string;
 }) {
-  const borderCls =
-    color === "emerald"
-      ? "border-status-ok-border"
-      : color === "blue"
-      ? "border-status-info-border"
-      : color === "red"
-      ? "border-status-danger-border"
-      : color === "amber"
-      ? "border-status-warn-border"
-      : "border-white/10";
   return (
-    <div className={cn("rounded-xl border bg-white/[0.02] p-3", borderCls)}>
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+    <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3">
+      <p className="text-ds-caption font-mono uppercase tracking-[0.08em] text-ds-text-4 mb-1">
         {label}
       </p>
-      <p className="text-xl font-bold tabular-nums">{value}</p>
+      <p className="text-ds-heading font-mono tabular-nums text-ds-text-1">{value}</p>
       <div className="mt-1">{trend}</div>
     </div>
   );
@@ -190,17 +184,6 @@ function barColor(pct: number): string {
   if (pct >= 90) return "#22c55e";
   if (pct >= 70) return "#3b82f6";
   return "#f59e0b";
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "hace instantes";
-  if (min < 60) return `hace ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `hace ${h}h`;
-  const d = Math.floor(h / 24);
-  return `hace ${d}d`;
 }
 
 function formatActivityTimestamp(iso: string): string {
@@ -219,9 +202,10 @@ function formatActivityTimestamp(iso: string): string {
 interface Props {
   selectedInstallation: string;
   onNavigate: (section: string) => void;
+  onOpenLead?: () => void;
 }
 
-export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
+export function PortalDashboard({ selectedInstallation, onNavigate, onOpenLead }: Props) {
   const { session } = usePortalSession();
   const { branding } = useBranding();
   const [daysRange, setDaysRange] = useState(30);
@@ -305,7 +289,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
   const attentionCount = s?.attentionCount ?? 0;
 
   return (
-    <div className="px-4 py-4 pb-24 max-w-6xl mx-auto w-full space-y-5">
+    <div className="ds-page-enter py-4 pb-8 w-full space-y-5">
       <div>
         <h1 className="text-xl font-bold text-white">
           {session.firstName ? `Hola, ${session.firstName}` : `Bienvenido a ${branding.companyName}`}
@@ -370,18 +354,18 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
         <EquipoGlobalCard onNavigate={onNavigate} isProspect={isProspect} />
       )}
 
-      {/* Hero dinámico: prioriza ronda en curso, fallback a última ronda */}
-      {!isProspect && s?.rondaEnCurso ? (
-        <RondaEnCursoHero
-          rondaEnCurso={s.rondaEnCurso}
+      {/* Pulso del Servicio — prioriza onDuty; fallback a última ronda */}
+      {!isProspect && s && (
+        <PulsoServicioHero
+          compliance={s.compliance}
+          onDuty={s.onDuty ?? null}
+          nextRound={s.nextRound ?? null}
+          rounds24h={s.rounds24h ?? []}
+          lastRound={s.lastRound ?? null}
           onNavigate={onNavigate}
+          onOpenLead={onOpenLead}
         />
-      ) : !isProspect && s?.lastRound ? (
-        <ServiceStatusHero
-          lastRound={s.lastRound}
-          onNavigate={onNavigate}
-        />
-      ) : null}
+      )}
 
       {/* KPIs de servicio */}
       {s && (
@@ -396,32 +380,25 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
                 label="Cumplimiento mensual"
                 value={`${s.compliance}%`}
                 trend={<TrendBadge value={s.complianceTrend} suffix="%" />}
-                color="emerald"
               />
               <KpiCard
                 label="Rondas completadas"
                 value={`${s.completedRounds}/${s.totalRounds}`}
-                trend={<span className="text-[10px] text-muted-foreground">este mes</span>}
-                color="blue"
+                trend={<span className="text-ds-caption text-ds-text-3">este mes</span>}
               />
               <KpiCard
                 label="Trust Score"
                 value={String(s.trustScore)}
                 trend={<TrendBadge value={s.trustTrend} />}
-                color={s.trustScore >= 80 ? "emerald" : s.trustScore >= 60 ? "blue" : "red"}
               />
               <KpiCard
                 label="Atención"
                 value={String(attentionCount)}
                 trend={
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-ds-caption text-ds-text-3">
                     {(s.incompleteRounds ?? 0)} incompletas · {(s.missedRounds ?? 0)} no realizadas
                   </span>
                 }
-                // Mantenemos visibilidad del conteo pero sin usar rojo: el
-                // cliente no puede accionar sobre esto y el "rojo" genera una
-                // señal negativa desproporcionada respecto al servicio real.
-                color={attentionCount === 0 ? "emerald" : "amber"}
               />
             </div>
           ) : (
@@ -647,6 +624,8 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
         </div>
       )}
 
+      {!isProspect && onOpenLead && <AmpliarCoberturaCard onOpen={onOpenLead} />}
+
       {/* Card del ejecutivo */}
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <h3 className="text-sm font-semibold mb-3">Tu ejecutivo</h3>
@@ -699,130 +678,6 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
 }
 
 /* ── Sub-widgets ──────────────────────────────────────────────────── */
-
-function RondaEnCursoHero({
-  rondaEnCurso,
-  onNavigate,
-}: {
-  rondaEnCurso: NonNullable<Summary["rondaEnCurso"]>;
-  onNavigate: (s: string) => void;
-}) {
-  const pct = Math.max(0, Math.min(100, rondaEnCurso.porcentaje));
-  return (
-    <button
-      onClick={() => onNavigate("rondas")}
-      className={cn(
-        "w-full rounded-2xl border p-4 text-left transition-colors active:scale-[0.99]",
-        "border-status-warn-border bg-status-warn-soft",
-      )}
-      aria-label="Ronda en curso"
-    >
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-status-warn-soft relative">
-          <span className="absolute inset-0 rounded-xl bg-status-warn/30 animate-ping" aria-hidden />
-          <MapPin className="h-5 w-5 text-status-warn-fg relative" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-status-warn-fg">
-            EN CURSO AHORA
-          </p>
-          <p className="text-sm font-medium text-white leading-tight">
-            Ronda en ejecución · {rondaEnCurso.checkpointsCompletados}/{rondaEnCurso.checkpointsTotal} checkpoints
-          </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {rondaEnCurso.guardiaName ?? "Guardia"}
-            {rondaEnCurso.startedAt
-              ? ` · inició ${timeAgo(rondaEnCurso.startedAt)}`
-              : ""}
-          </p>
-        </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-      </div>
-      <div className="mt-3">
-        <div className="h-1 bg-black/30 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-status-warn rounded-full transition-all"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function ServiceStatusHero({
-  lastRound,
-  onNavigate,
-}: {
-  lastRound: NonNullable<Summary["lastRound"]>;
-  onNavigate: (s: string) => void;
-}) {
-  // El tono del hero refleja SOLO la última ronda — no mezclamos con conteos
-  // agregados como `attentionCount`, que mostraban el hero en rojo incluso
-  // cuando la última ronda estaba en verde (inconsistente con el listado).
-  // Además, "no_realizada" no llega al portal del cliente (lo filtramos en
-  // `/api/portal/cliente/rondas`), así que por defecto la experiencia es
-  // neutral / positiva.
-  const isCompleted = lastRound.status === "completada";
-  const isIncomplete = lastRound.status === "incompleta";
-
-  const tone = isCompleted
-    ? {
-        border: "border-status-ok-border",
-        bg: "bg-status-ok-soft",
-        icon: CheckCircle2,
-        color: "text-status-ok-fg",
-      }
-    : isIncomplete
-      ? {
-          border: "border-status-warn-border",
-          bg: "bg-status-warn-soft",
-          icon: AlertTriangle,
-          color: "text-status-warn-fg",
-        }
-      : {
-          border: "border-white/10",
-          bg: "bg-white/[0.02]",
-          icon: MapPin,
-          color: "text-muted-foreground",
-        };
-
-  const Icon = tone.icon;
-  const statusText = isCompleted
-    ? "Completada correctamente"
-    : isIncomplete
-      ? `Completada parcialmente (${lastRound.porcentaje}%)`
-      : "Ver detalle";
-
-  return (
-    <button
-      onClick={() => onNavigate("rondas")}
-      className={cn(
-        "w-full rounded-2xl border p-4 text-left transition-colors active:scale-[0.99]",
-        tone.border,
-        tone.bg,
-      )}
-      aria-label="Última ronda"
-    >
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-white/[0.04]">
-          <Icon className={cn("h-5 w-5", tone.color)} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className={cn("text-[11px] font-semibold uppercase tracking-wider", tone.color)}>
-            Última ronda
-          </p>
-          <p className="text-sm font-medium text-white leading-tight">{statusText}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {timeAgo(lastRound.timestamp)}
-            {lastRound.guardiaName ? ` · ${lastRound.guardiaName}` : ""}
-          </p>
-        </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-      </div>
-    </button>
-  );
-}
 
 function TeamCard({
   team,
