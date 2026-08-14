@@ -14,6 +14,8 @@ function isRadixSelectPortalTarget(target: EventTarget | null): boolean {
     target.closest?.("[data-radix-select-content]") ||
     target.closest?.("[data-radix-select-viewport]") ||
     target.closest?.("[data-radix-select-item]") ||
+    target.closest?.("[data-radix-popper-content-wrapper]") ||
+    target.closest?.("[data-radix-popover-content]") ||
     target.closest?.("[role='listbox']") ||
     target.closest?.("[role='option']")
   )

@@ -94,6 +94,31 @@ export async function listAgenda(
     }
   }
   const nameMap = new Map(admins.map((a) => [a.id, a.name]));
+  const visitaIds = visitas.map((v) => v.id);
+  const [partRows, extRows] = await Promise.all([
+    visitaIds.length
+      ? prisma.calendarEventParticipant.findMany({
+          where: { tenantId, eventId: { in: visitaIds } },
+          select: { eventId: true, userId: true },
+        })
+      : Promise.resolve([]),
+    visitaIds.length
+      ? prisma.calendarExternalAttendee.findMany({
+          where: { tenantId, eventId: { in: visitaIds } },
+          select: { eventId: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  const partByEvent = new Map<string, string[]>();
+  for (const p of partRows) {
+    const list = partByEvent.get(p.eventId) ?? [];
+    list.push(p.userId);
+    partByEvent.set(p.eventId, list);
+  }
+  const extCount = new Map<string, number>();
+  for (const e of extRows) {
+    extCount.set(e.eventId, (extCount.get(e.eventId) ?? 0) + 1);
+  }
   const items: AgendaListItem[] = [];
 
   for (const v of visitas) {
@@ -130,6 +155,9 @@ export async function listAgenda(
       dealId: v.dealId,
       status: v.status,
       sourceKey: opaiSourceKey("cliente"),
+      inviteeCount:
+        (partByEvent.get(v.id) ?? []).filter((id) => id !== v.assignedUserId).length +
+        (extCount.get(v.id) ?? 0),
       ...(span ?? {}),
     });
   }
