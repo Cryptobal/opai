@@ -540,7 +540,7 @@ export async function aiTool_preview_propuesta_editar_seccion(
       { ...args, quoteIdOrCode: target.quoteId },
     );
   }
-  if (!section) return { ok: false, error: "Sección no encontrada. Usá licitacion_estado/get o listá títulos." };
+  if (!section) return { ok: false, error: "Sección no encontrada. Usa licitacion_estado/get o listá títulos." };
   const instruction = asStr(args, "instruction");
   if (instruction) {
     const cpq = await cpqContext(tenantId, target.quoteId);
@@ -657,7 +657,7 @@ export async function buildLicitacionSystemMessage(opts: {
         });
       }
     }
-    return `Cotización ${quote?.code ?? pc.entityName} (modo comercial). Para editar la presentación usá preview_propuesta_editar_seccion → propuesta_editar_seccion. El PDF técnico clásico no cambia.`;
+    return `Cotización ${quote?.code ?? pc.entityName} (modo comercial). Para editar la presentación usa preview_propuesta_editar_seccion → propuesta_editar_seccion. El PDF técnico clásico no cambia.`;
   }
   return null;
 }

@@ -349,7 +349,7 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
                     <ul className="space-y-2 p-2 sm:p-3 border-t border-ds-border-subtle overflow-visible">
                       {group.rows.length === 0 ? (
                         <li className="px-2 py-3 text-[13px] text-ds-text-3">
-                          Sin renglones. Usá el botón para agregar uno.
+                          Sin renglones. Usa el botón para agregar uno.
                         </li>
                       ) : (
                         group.rows.map((row) => (

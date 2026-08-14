@@ -47,7 +47,7 @@ export const WORKSPACE_SECTIONS = [
   { id: "sec-lineas", label: "Líneas" },
   { id: "sec-financieros", label: "Financieros" },
   { id: "sec-margen", label: "Margen" },
-  { id: "sec-ai", label: "Contenido AI" },
+  { id: "sec-propuesta", label: "Propuesta" },
   { id: "sec-incluye", label: "Incluye" },
   { id: "sec-auditoria", label: "Auditoría" },
 ] as const;

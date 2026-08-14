@@ -151,7 +151,7 @@ export function CorreoContextCascade({
     }
     if (c.entityType === "contact") {
       // Contactos del hilo se gestionan vía CorreoThreadContacts (chips abajo).
-      toast.message("Usá Agregar en Contactos para vincular");
+      toast.message("Usa Agregar en Contactos para vincular");
       setOmnibox(null);
       return;
     }

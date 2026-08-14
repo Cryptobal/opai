@@ -1066,7 +1066,7 @@ function RuleEditorSheet({
                       prioridad <b>menor</b>. Default <span className="font-mono">100</span>.
                     </p>
                     <p className="text-ds-text-3 mt-1">
-                      Usá números bajos (10, 20) para reglas más específicas que deban
+                      Usa números bajos (10, 20) para reglas más específicas que deban
                       ganar sobre las genéricas.
                     </p>
                   </div>

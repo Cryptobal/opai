@@ -54,7 +54,7 @@ export function truncateDocText(
   const label = opts?.label ? ` (${opts.label})` : "";
   const marker =
     `[...documento truncado${label}: leíste los caracteres ${offset}–${end} de ${totalLength}. ` +
-    `NO afirmes que un dato no existe sin leer el resto: usá read_document con offset=${end}.]`;
+    `NO afirmes que un dato no existe sin leer el resto: usa read_document con offset=${end}.]`;
 
   return {
     text: chunk ? `${chunk}\n\n${marker}` : marker,

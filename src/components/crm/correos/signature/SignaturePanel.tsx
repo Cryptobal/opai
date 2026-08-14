@@ -215,7 +215,7 @@ export function SignaturePanel({
           </div>
           {scope === "tenant" && !canEditTenant && (
             <p className="rounded-lg bg-ds-surface-2 px-3 py-2 text-[12px] text-ds-text-3">
-              Sin permiso para editar firmas de la empresa. Pedí a un admin o usá firma personal.
+              Sin permiso para editar firmas de la empresa. Pedí a un admin o usa firma personal.
             </p>
           )}
           {convertedFromLegacy && (

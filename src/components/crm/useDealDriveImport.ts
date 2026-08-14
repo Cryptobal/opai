@@ -37,7 +37,7 @@ export function useDealDriveImport(dealId: string, onImported?: () => void) {
             toast.success(`${imported} documento(s) traído(s) desde Drive`);
           } else if (reason === "scope_limitado") {
             toast.message(
-              "Los archivos subidos directamente en Drive no son visibles para OPAI con el permiso actual. Usá el selector de Drive o subilos desde OPAI.",
+              "Los archivos subidos directamente en Drive no son visibles para OPAI con el permiso actual. Usa el selector de Drive o subilos desde OPAI.",
             );
           } else if (reason === "sin_carpeta") {
             toast.message("Todavía no hay carpeta de este negocio en Drive");

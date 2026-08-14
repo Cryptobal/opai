@@ -33,6 +33,7 @@ const TIPOS_DEFAULT = [
   { codigo: "bases_licitacion", nombre: "Bases de licitación", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 40, useAsAiKnowledge: true },
   { codigo: "qa_licitacion", nombre: "Preguntas y respuestas (Q&A)", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 41, useAsAiKnowledge: true },
   { codigo: "anexos_licitacion", nombre: "Anexos de licitación", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 42, useAsAiKnowledge: true },
+  { codigo: "bases_administrativas_licitacion", nombre: "Bases administrativas", capa: "negocio", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 43, useAsAiKnowledge: true },
 
   // Placeholders para ingesta Drive sin tipo (nunca usados para datos legados)
   { codigo: "sin_clasificar", nombre: "Sin clasificar", capa: "global", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 90 },

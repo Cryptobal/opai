@@ -202,15 +202,6 @@ export async function POST(request: NextRequest) {
       createdBy: ctx.userId,
     });
 
-    // Auto-apertura de sala desde la Oportunidad (Fase 3): default OFF; abre solo
-    // si el tenant lo activó y el negocio supera el umbral. Best-effort, no bloquea.
-    try {
-      const { maybeAutoOpenDealRoom } = await import("@/lib/integrations/slack/deal-rooms/room");
-      await maybeAutoOpenDealRoom(ctx.tenantId, deal.id, ctx.userId);
-    } catch (e) {
-      console.error("[slack] auto-open deal room on create failed:", e);
-    }
-
     // Licitaciones: carpeta Drive anticipada (bases llegan por fuera de OPAI).
     if (deal.isLicitacion) {
       void import("@/lib/google-workspace/drive-deal-folder").then(({ ensureLicitacionDriveFolder }) =>

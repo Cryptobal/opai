@@ -825,7 +825,7 @@ export function CashflowConfigParamsPanel({
             La sincronización es <strong>automática</strong> en tres puntos:
             (1) cada vez que se crea/edita un contrato CPQ, (2) al cargar el flujo
             de caja por primera vez tras un cambio masivo, (3) cada noche a las
-            4 AM. Solo usá el botón si querés forzar una recorrida ahora.
+            4 AM. Solo usa el botón si querés forzar una recorrida ahora.
           </p>
           <Button
             variant="outline"

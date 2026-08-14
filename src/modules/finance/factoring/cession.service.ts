@@ -320,7 +320,7 @@ export async function cedeDte(
     },
   });
   if (!cert) {
-    throw new Error("Tenant sin certificado digital — subí un .pfx en la config DTE.");
+    throw new Error("Tenant sin certificado digital — sube un .pfx en la config DTE.");
   }
 
   // 4. Calcular términos económicos sobre el SALDO NETO, no el total

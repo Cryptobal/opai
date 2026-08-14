@@ -291,7 +291,7 @@ export async function toolCountEmails(
       filters: parts,
       folder: effectiveFolder,
       instruction:
-        "Usá este total como cifra autoritativa. PROHIBIDO extrapolar desde search_emails.",
+        "Usa este total como cifra autoritativa. PROHIBIDO extrapolar desde search_emails.",
     };
   }
 
@@ -361,7 +361,7 @@ export async function toolCountEmails(
     filters: parts,
     folder: effectiveFolder,
     instruction:
-      "Usá estos agregados como cifras autoritativas. No listes asuntos. PROHIBIDO extrapolar desde search_emails.",
+      "Usa estos agregados como cifras autoritativas. No listes asuntos. PROHIBIDO extrapolar desde search_emails.",
   };
 }
 
@@ -389,7 +389,7 @@ export async function toolResolveEntity(
     ok: true,
     entities,
     instruction:
-      "Usá email → to:/from: y domain → domain: en search_emails. No pidas el email si ya lo resolviste.",
+      "Usa email → to:/from: y domain → domain: en search_emails. No pidas el email si ya lo resolviste.",
   };
 }
 

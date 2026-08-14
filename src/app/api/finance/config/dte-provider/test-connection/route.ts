@@ -187,7 +187,7 @@ export async function POST() {
             `el certificado o los datos del emisor. Causas probables: el .pfx fue subido con ` +
             `contraseña incorrecta, el cert digital fue revocado en el SII, o el firmante ` +
             `no está autorizado en el SII para emitir DTEs en nombre del RUT del emisor. ` +
-            `Re-subí el .pfx con la password correcta en /opai/configuracion/finanzas/dte.`,
+            `Vuelve a subir el .pfx con la password correcta en /opai/configuracion/finanzas/dte.`,
           rateLimitRemaining: result.rateLimit.remaining,
         },
         { status: 502 },

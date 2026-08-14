@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   if (!isSupported(body.docType)) {
     return NextResponse.json(
       {
-        error: `docType inválido. Usá uno de: ${SUPPORTED_DOC_TYPES.join(", ")}`,
+        error: `docType inválido. Usa uno de: ${SUPPORTED_DOC_TYPES.join(", ")}`,
       },
       { status: 400 },
     );

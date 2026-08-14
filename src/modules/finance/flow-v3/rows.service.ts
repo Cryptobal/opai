@@ -319,7 +319,7 @@ export async function updateRow(
   if (input.categoryId !== undefined && input.mapping !== "MANUAL" && input.accountPlanIds === undefined) {
     if (!input.categoryId) {
       throw new Error(
-        "Para quitar cuentas usá accountPlanIds: []. Elegir vacío en una fila de ingreso no aplica.",
+        "Para quitar cuentas usa accountPlanIds: []. Elegir vacío en una fila de ingreso no aplica.",
       );
     }
     if (

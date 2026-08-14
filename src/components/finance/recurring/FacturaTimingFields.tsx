@@ -35,7 +35,7 @@ export function FacturaTimingFields({ value, onChange }: Props) {
           autoComplete="off"
         />
         <p className="text-[12px] text-muted-foreground">
-          Usá -1 para &quot;último día del mes&quot;.
+          Usa -1 para &quot;último día del mes&quot;.
         </p>
       </div>
       <div className="space-y-1.5">

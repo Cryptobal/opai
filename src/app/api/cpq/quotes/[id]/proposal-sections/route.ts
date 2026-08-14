@@ -33,7 +33,8 @@ import {
   licitacionGenerationGate,
 } from "@/modules/crm/documents/licitacion-ingest.service";
 import type { ProposalContentV2, ProposalDocStatus } from "@/lib/cpq/proposal-sections/schema";
-import { PROPOSAL_STATUSES } from "@/lib/cpq/proposal-sections/schema";
+import { emptyProposalV2, PROPOSAL_STATUSES } from "@/lib/cpq/proposal-sections/schema";
+import { needsManualConvertToLicitacion } from "@/lib/cpq/proposal-sections/mode";
 
 export const maxDuration = 60;
 
@@ -66,7 +67,7 @@ export async function GET(
     if (forbidden) return forbidden;
 
     const { id } = await params;
-    const { quote, content } = await loadQuoteProposal({ tenantId: ctx.tenantId, quoteId: id });
+    const { quote, content, dealIsLicitacion } = await loadQuoteProposal({ tenantId: ctx.tenantId, quoteId: id });
     const vCtx = await validationCtx(ctx.tenantId, quote);
     const validations = validateProposalContent(content, vCtx);
     let gate: string | null = null;
@@ -81,6 +82,7 @@ export async function GET(
         content,
         validations,
         gate,
+        needsConversion: needsManualConvertToLicitacion({ dealIsLicitacion, content }),
         matrix: deriveComplianceMatrix(content),
         quote: {
           id: quote.id,
@@ -164,7 +166,7 @@ export async function PATCH(
       if (content.mode === "licitacion") {
         if (!quote.dealId) {
           return NextResponse.json(
-            { success: false, error: "La cotización no tiene negocio. Vinculala antes de generar." },
+            { success: false, error: "La cotización no tiene negocio. Vincúlala antes de generar." },
             { status: 400 },
           );
         }
@@ -205,13 +207,15 @@ export async function PATCH(
           instruction: typeof body.instruction === "string" ? body.instruction : undefined,
           corpus: null,
           cpq: { code: quote.code, name: quote.name, clientName: quote.clientName },
-          mode: "comercial",
+          mode: content.mode,
         });
         next = setSectionContent(next, sectionId, generated.content, {
           sources: generated.sources,
           mark: generated.fallback ? undefined : "ia",
         });
       }
+    } else if (action === "convert_to_licitacion") {
+      next = emptyProposalV2("licitacion", { legacyV1: content.legacyV1 ?? content });
     } else {
       return NextResponse.json({ success: false, error: "Acción no reconocida" }, { status: 400 });
     }

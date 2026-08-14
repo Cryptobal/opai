@@ -304,7 +304,7 @@ export function CorreoAttachmentSave({
 
       <p className="flex items-center justify-center gap-1.5 text-[12px] text-ds-text-4">
         <Download className="h-3.5 w-3.5" />
-        Para el teléfono usá Descargar / Compartir en el archivo
+        Para el teléfono usa Descargar / Compartir en el archivo
       </p>
     </div>
   );

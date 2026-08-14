@@ -101,7 +101,7 @@ export type IssueDteInput = {
   receiverName: string;
   /**
    * Email primario del receptor — el único que va al XML SII como
-   * <CorreoRecep>. Si querés enviar copia a más gente, usá
+   * <CorreoRecep>. Si querés enviar copia a más gente, usa
    * `receiverEmailCc` (no afecta el XML SII, solo el envío externo).
    */
   receiverEmail?: string;
@@ -393,7 +393,7 @@ export async function issueDte(
     emissionDbDate = parseYmdToDbDate(emissionYmd);
   } catch {
     throw new Error(
-      `Fecha de emisión inválida: "${input.issueDate ?? ""}". Usá formato YYYY-MM-DD.`,
+      `Fecha de emisión inválida: "${input.issueDate ?? ""}". Usa formato YYYY-MM-DD.`,
     );
   }
 

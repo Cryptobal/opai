@@ -22,11 +22,14 @@ export interface AssociatedSection {
 interface AssociatedRecordsPanelProps {
   sections: AssociatedSection[];
   className?: string;
+  /** Sin aside sticky: se embebe en el rail del negocio (316px). */
+  embedded?: boolean;
 }
 
 export function AssociatedRecordsPanel({
   sections,
   className,
+  embedded = false,
 }: AssociatedRecordsPanelProps) {
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -69,6 +72,27 @@ export function AssociatedRecordsPanel({
   };
 
   if (sections.length === 0) return null;
+
+  if (embedded) {
+    return (
+      <div className={cn("rounded-xl border border-ds-border-default bg-card p-3", className)}>
+        <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
+          Registros asociados
+        </h3>
+        <div className="space-y-1">
+          {sections.map((section) => (
+            <AccordionItem
+              key={section.id}
+              section={section}
+              isOpen={expanded.has(section.id)}
+              onToggle={() => toggle(section.id)}
+              onExpand={() => expand(section.id)}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

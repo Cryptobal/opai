@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Sparkles, Layers, MessageCircle } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Sparkles, Layers, MessageCircle, Hash } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -53,8 +53,6 @@ import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { DealChecklistSection } from "./deal/DealChecklistSection";
 import { NotesSection } from "./NotesSection";
 import { DealLicitacionCard } from "./DealLicitacionCard";
-import { LicitacionDocsCard } from "./deals/LicitacionDocsCard";
-import { DealPipelineFieldsCard } from "./deal/DealPipelineFieldsCard";
 import { DealVisitasCard } from "./DealVisitasCard";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
@@ -77,16 +75,15 @@ import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { DeactivateInstallationDialog } from "@/components/crm/DeactivateInstallationDialog";
-import { DealHighlightsStrip } from "./deal/DealHighlightsStrip";
-import { DealAboutCard } from "./deal/DealAboutCard";
+import { DealKpiStrip } from "./deals/DealKpiStrip";
+import { DealLicitacionBand } from "./deals/DealLicitacionBand";
+import { DealRail } from "./deals/DealRail";
+import { useDealLicitacionDocs } from "./deals/useDealLicitacionDocs";
 import type { DealInstallationRef } from "@/lib/crm/deal-installation";
 import { DealNextStepBanner } from "./deal/DealNextStepBanner";
 import { DealUnifiedTimeline } from "./deal/DealUnifiedTimeline";
-import { SlackDealRoomCard } from "./deal/SlackDealRoomCard";
 import { useEmailAttachments } from "./correos/useEmailAttachments";
-import { InlineEditField } from "@/components/opai/InlineEditField";
 import { patchCrmField } from "@/components/crm/patchCrmField";
-import { normalizeWebsite, normalizeMoneyClp } from "@/lib/validations/field-normalizers";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -768,6 +765,28 @@ export function CrmDealDetailClient({
   useEffect(() => {
     setLicitacion({ isLicitacion: Boolean(deal.isLicitacion), fechaEntrega: deal.fechaEntrega ?? null });
   }, [deal.isLicitacion, deal.fechaEntrega]);
+
+  const licitacionDocs = useDealLicitacionDocs(deal.id, true);
+  const [driveStatus, setDriveStatus] = useState<{ hasFolder: boolean; folderUrl: string | null }>({
+    hasFolder: false,
+    folderUrl: null,
+  });
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/crm/deals/${deal.id}/drive`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive || !j.success) return;
+        setDriveStatus({
+          hasFolder: Boolean(j.data?.hasFolder),
+          folderUrl: j.data?.folderUrl ?? null,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [deal.id]);
   const [onboardingTarget, setOnboardingTarget] = useState<
     { dealId: string; defaultPlaybookId?: string } | null
   >(null);
@@ -957,36 +976,6 @@ export function CrmDealDetailClient({
       })
       .catch(() => {});
   }, [canEdit, accountOptions.length]);
-
-  const accountSelectOptions = useMemo(() => {
-    const opts = accountOptions.map((a) => ({ value: a.id, label: a.name }));
-    if (dealAccount && !opts.find((o) => o.value === dealAccount.id)) {
-      opts.unshift({ value: dealAccount.id, label: dealAccount.name });
-    }
-    return opts;
-  }, [accountOptions, dealAccount]);
-
-  const commitDealField = async (key: string, value: string | null): Promise<string | null> => {
-    const apiValue = key === "amount" ? Number(value ?? 0) : value;
-    const data = await patchCrmField<Record<string, unknown>>({
-      url: `/api/crm/deals/${deal.id}`,
-      key,
-      value: apiValue,
-    });
-    if (key === "title" && typeof data.title === "string") setDealTitle(data.title);
-    if (key === "amount") setDealAmount(String(data.amount ?? value ?? "0"));
-    if (key === "proposalLink") setDealProposalLink((data.proposalLink as string | null) ?? value);
-    if (key === "accountId" && typeof data.accountId === "string") {
-      const nextAccount = accountOptions.find((a) => a.id === data.accountId)
-        ?? (dealAccount?.id === data.accountId ? dealAccount : null);
-      if (nextAccount) {
-        setDealAccount({ id: nextAccount.id, name: nextAccount.name });
-      }
-      router.refresh();
-    }
-    const saved = data[key];
-    return saved != null ? String(saved) : value;
-  };
 
   const openDealEdit = () => {
     setEditDealForm({
@@ -2343,6 +2332,64 @@ export function CrmDealDetailClient({
     }
   };
 
+  const handleOpenDriveFolder = async () => {
+    try {
+      if (driveStatus.folderUrl) {
+        window.open(driveStatus.folderUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      const res = await fetch(`/api/crm/deals/${deal.id}/drive`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        toast.error(json?.error || "No se pudo crear la carpeta en Drive");
+        return;
+      }
+      const url = json.data?.folderUrl as string | null;
+      setDriveStatus({ hasFolder: true, folderUrl: url });
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      toast.success("Carpeta de Drive lista");
+    } catch {
+      toast.error("No se pudo abrir Drive");
+    }
+  };
+
+  const persistDealPipeline = async (patch: {
+    expectedCloseDate?: string | null;
+    nextStep?: string | null;
+    fechaEntrega?: string | null;
+  }) => {
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.error || "No se pudo guardar");
+        return;
+      }
+      if (patch.expectedCloseDate !== undefined) {
+        setDealExpectedCloseDate(
+          json.data?.expectedCloseDate != null ? String(json.data.expectedCloseDate) : null,
+        );
+      }
+      if (patch.nextStep !== undefined) {
+        setDealNextStep(json.data?.nextStep ?? null);
+      }
+      if (patch.fechaEntrega !== undefined) {
+        const nextFecha =
+          json.data?.fechaEntrega != null ? String(json.data.fechaEntrega) : patch.fechaEntrega ?? null;
+        setLicitacion((prev) => ({
+          ...prev,
+          fechaEntrega: nextFecha,
+        }));
+      }
+    } catch {
+      toast.error("No se pudo guardar");
+    }
+  };
+
   const currentStageIsAccepted = !!pipelineStages.find((s) => s.id === currentStage?.id)?.isAccepted;
 
   const headerActions: EntityHeaderAction[] = [
@@ -2365,6 +2412,16 @@ export function CrmDealDetailClient({
       hidden: !currentStageIsAccepted,
     },
     { label: "Editar negocio", icon: Pencil, onClick: openDealEdit, primary: true },
+    {
+      label: deal.slackChannelName ? "Abrir sala en Slack" : "Crear sala en Slack",
+      icon: Hash,
+      onClick: () => void handleOpenDealRoom(),
+    },
+    {
+      label: "Carpeta en Drive",
+      icon: Link2,
+      onClick: () => void handleOpenDriveFolder(),
+    },
     {
       label: "Onboarding del cliente",
       icon: ListChecks,
@@ -2454,15 +2511,11 @@ export function CrmDealDetailClient({
               onLostClick={handleLostClick}
               disabled={changingStage}
             />
-            {/* Métricas dentro del área colapsable: al hacer scroll quedan
-                solo las tabs pegadas a la topbar. */}
-            <div className="border-t border-border/50 bg-muted/15 py-2">
-              <DealHighlightsStrip
+            <div className="border-t border-ds-border-subtle bg-muted/15 py-2">
+              <DealKpiStrip
                 amountClp={activeQuoteIndicators.amountClp}
                 amountUf={activeQuoteIndicators.amountUf}
                 totalGuards={activeQuoteIndicators.totalGuards}
-                serviceStartDate={dealServiceStartDate}
-                onEditStartDate={openEditStartDate}
                 activeQuote={
                   deal.activeQuoteSummary?.code
                     ? {
@@ -2471,159 +2524,103 @@ export function CrmDealDetailClient({
                       }
                     : null
                 }
+                expectedCloseDate={dealExpectedCloseDate}
+                nextStep={dealNextStep}
+                canEdit={canEdit}
+                onCloseDateChange={(ymd) => void persistDealPipeline({ expectedCloseDate: ymd || null })}
+                onNextStepChange={(value) => void persistDealPipeline({ nextStep: value.trim() || null })}
               />
             </div>
+            {licitacion.isLicitacion ? (
+              <div className="border-t border-ds-border-subtle px-3 py-3 sm:px-4">
+                <DealLicitacionBand
+                  dealId={deal.id}
+                  dealTitle={dealTitle}
+                  fechaEntrega={licitacion.fechaEntrega}
+                  loading={licitacionDocs.loading}
+                  error={licitacionDocs.error}
+                  types={licitacionDocs.types}
+                  hasUnclassified={licitacionDocs.files.some((f) => f.needsClassification)}
+                  gate={licitacionDocs.gate}
+                  onOpenDocumentos={() => setActiveTab("files")}
+                  onFechaChange={(ymd) => void persistDealPipeline({ fechaEntrega: ymd })}
+                />
+              </div>
+            ) : null}
           </>
         }
         tabs={tabs}
         activeTab={effectiveTab}
         onTabChange={setActiveTab}
-        leftPanel={
-          <>
-          <DealAboutCard
-            account={deal.account ? { id: deal.account.id, name: deal.account.name } : null}
-            primaryContact={
-              deal.primaryContact && deal.primaryContactId
-                ? {
-                    id: deal.primaryContactId,
-                    name: `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim(),
-                  }
-                : null
-            }
-            followUpFlowStatus={followUpFlowStatus}
-            proposalLink={dealProposalLink}
-            createdAt={deal.createdAt}
-            updatedAt={deal.updatedAt}
-            quote={{
-              selectValue: activeQuotationSelectValue,
-              onChange: (value) => void updateActiveQuotation(value),
-              updating: updatingActiveQuotation,
-              hasSent: sentLinkedQuotes.length > 0,
-              autoLabel: aboutQuoteAutoLabel,
-              options: aboutQuoteOptions,
-              helperText: aboutQuoteHelperText,
-            }}
-            installation={dealInstallation}
-          />
-          <div className="mt-4 space-y-4">
-            <DealPipelineFieldsCard
-              dealId={deal.id}
-              expectedCloseDate={dealExpectedCloseDate}
-              nextStep={dealNextStep}
-              canEdit={canEdit}
-              onUpdated={(next) => {
-                setDealExpectedCloseDate(next.expectedCloseDate);
-                setDealNextStep(next.nextStep);
-              }}
-            />
-            <DealLicitacionCard
-              dealId={deal.id}
-              isLicitacion={licitacion.isLicitacion}
-              onUpdated={(next) =>
-                setLicitacion((prev) => ({ ...prev, isLicitacion: next.isLicitacion }))
-              }
-            />
-            {licitacion.isLicitacion ? (
-              <LicitacionDocsCard dealId={deal.id} dealTitle={deal.title} />
-            ) : null}
-            <DealVisitasCard
-              dealId={deal.id}
-              accountId={deal.account?.id}
-              installationId={dealInstallation?.id}
-            />
-          </div>
-          </>
-        }
         rightPanel={
-          <div className="lg:flex lg:flex-col">
-            {/* Sala Slack destacada arriba del panel de asociados */}
-            <div className="mb-4 lg:mb-0 lg:border-l lg:border-border/60 lg:px-3 lg:pt-3">
-              <SlackDealRoomCard
-                accountName={deal.account?.name}
-                dealTitle={dealTitle}
-                channelName={deal.slackChannelName}
-                hasRoom={!!deal.slackChannelName}
-                onOpen={handleOpenDealRoom}
-                onRefresh={handleRefreshDealRoom}
+          <DealRail
+            ficha={{
+              account: deal.account ? { id: deal.account.id, name: deal.account.name } : null,
+              primaryContact:
+                deal.primaryContact && deal.primaryContactId
+                  ? {
+                      id: deal.primaryContactId,
+                      name: `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim(),
+                    }
+                  : null,
+              followUpFlowStatus,
+              proposalLink: dealProposalLink,
+              createdAt: deal.createdAt,
+              updatedAt: deal.updatedAt,
+              quote: {
+                selectValue: activeQuotationSelectValue,
+                onChange: (value) => void updateActiveQuotation(value),
+                updating: updatingActiveQuotation,
+                hasSent: sentLinkedQuotes.length > 0,
+                autoLabel: aboutQuoteAutoLabel,
+                options: aboutQuoteOptions,
+                helperText: aboutQuoteHelperText,
+              },
+              installation: dealInstallation,
+            }}
+            montoManual={dealAmount ? String(dealAmount) : null}
+            canEdit={canEdit}
+            onMontoCommit={async (_key, value) => {
+              const num = value ? Number(value) : 0;
+              const data = await patchCrmField<Record<string, unknown>>({
+                url: `/api/crm/deals/${deal.id}`,
+                key: "amount",
+                value: num,
+              });
+              const saved = String(data.amount ?? num);
+              setDealAmount(saved);
+              return saved;
+            }}
+            afterFicha={
+              <DealLicitacionCard
+                dealId={deal.id}
+                isLicitacion={licitacion.isLicitacion}
+                onUpdated={(next) =>
+                  setLicitacion((prev) => ({ ...prev, isLicitacion: next.isLicitacion }))
+                }
               />
-            </div>
-            <AssociatedRecordsPanel sections={associatedSections} />
-          </div>
+            }
+            documentos={{
+              dealId: deal.id,
+              files: licitacionDocs.files,
+              loading: licitacionDocs.loading,
+              error: licitacionDocs.error,
+              onReload: () => void licitacionDocs.reload(),
+              onOpenFolder: () => setActiveTab("files"),
+              driveUrl: driveStatus.folderUrl,
+            }}
+            associated={<AssociatedRecordsPanel sections={associatedSections} embedded />}
+            slackHasRoom={Boolean(deal.slackChannelName)}
+            slackChannelName={deal.slackChannelName}
+            onSlackOpen={() => void handleOpenDealRoom()}
+            driveHasFolder={driveStatus.hasFolder}
+            driveUrl={driveStatus.folderUrl}
+            onDriveOpen={() => void handleOpenDriveFolder()}
+          />
         }
       >
         {effectiveTab === "general" && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-card p-4">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
-                Datos del negocio
-              </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <InlineEditField
-                  label="Título"
-                  fieldKey="title"
-                  type="text"
-                  value={dealTitle}
-                  canEdit={canEdit}
-                  required
-                  onCommit={async (key, value) => {
-                    const saved = await commitDealField(key, value);
-                    if (saved) setDealTitle(saved);
-                    return saved;
-                  }}
-                />
-                <InlineEditField
-                  label="Cliente (cuenta)"
-                  fieldKey="accountId"
-                  type="select"
-                  value={dealAccount?.id ?? null}
-                  canEdit={canEdit}
-                  options={accountSelectOptions}
-                  confirm={{
-                    title: "¿Mover el negocio a otro cliente?",
-                    description: (next) => {
-                      const toName = accountSelectOptions.find((o) => o.value === next)?.label ?? "otra cuenta";
-                      return `Vas a cambiar la cuenta de «${dealAccount?.name ?? "sin cuenta"}» a «${toName}». El negocio dejará de aparecer en el cliente actual.`;
-                    },
-                  }}
-                  onCommit={commitDealField}
-                />
-                <InlineEditField
-                  label="Monto"
-                  fieldKey="amount"
-                  type="money"
-                  value={dealAmount ? String(dealAmount) : null}
-                  canEdit={canEdit}
-                  normalize={normalizeMoneyClp}
-                  displayValue={(v) =>
-                    v ? `$${Number(v).toLocaleString("es-CL")}` : null
-                  }
-                  onCommit={async (key, value) => {
-                    const num = value ? Number(value) : 0;
-                    const data = await patchCrmField<Record<string, unknown>>({
-                      url: `/api/crm/deals/${deal.id}`,
-                      key,
-                      value: num,
-                    });
-                    const saved = String(data.amount ?? num);
-                    setDealAmount(saved);
-                    return saved;
-                  }}
-                />
-                <InlineEditField
-                  label="Link propuesta"
-                  fieldKey="proposalLink"
-                  type="url"
-                  value={dealProposalLink}
-                  canEdit={canEdit}
-                  normalize={normalizeWebsite}
-                  onCommit={async (key, value) => {
-                    const saved = await commitDealField(key, value);
-                    setDealProposalLink(saved);
-                    return saved;
-                  }}
-                />
-              </div>
-            </div>
             <DealNextStepBanner
               log={pendingLogsBySequence[0] ?? null}
               onSendNow={handleSendFollowUpNow}
@@ -2654,6 +2651,11 @@ export function CrmDealDetailClient({
               onFocusNotes={() =>
                 notesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
               }
+            />
+            <DealVisitasCard
+              dealId={deal.id}
+              accountId={deal.account?.id}
+              installationId={dealInstallation?.id}
             />
           </div>
         )}

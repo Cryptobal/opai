@@ -8,7 +8,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Bot,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -19,6 +18,7 @@ import {
   Percent,
   ScrollText,
   Settings2,
+  Sparkles,
   Users,
   Wallet,
   type LucideIcon,
@@ -35,7 +35,7 @@ const SECTION_ICONS: Record<WorkspaceSectionId, LucideIcon> = {
   "sec-lineas": ListPlus,
   "sec-financieros": LineChart,
   "sec-margen": Percent,
-  "sec-ai": Bot,
+  "sec-propuesta": Sparkles,
   "sec-incluye": FileStack,
   "sec-auditoria": ScrollText,
 };

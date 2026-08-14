@@ -8,8 +8,7 @@
 
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Briefcase, Check, Gavel, Send, Users } from "lucide-react";
+import { Briefcase, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tag } from "@/components/opai-ds";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
@@ -21,11 +20,8 @@ import {
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
 import { EntityConversations } from "@/components/crm/EntityConversations";
 
-export type PortalReadinessItem = { label: string; ready: boolean };
-
 export function ControlCenterPanel({
   quoteId,
-  quoteStatus,
   isLocked,
   crmContext,
   billingMonthlyTotal,
@@ -35,18 +31,9 @@ export function ControlCenterPanel({
   totalGuards,
   roleSummary,
   onToggleGuardsBreakdown,
-  canSendPortalProposal,
-  portalReadinessItems,
-  contactHasEmail,
-  onSendProposal,
   isLicitacion = false,
-  canMarkSentLicitacion = false,
-  markingSentLicitacion = false,
-  onMarkSentLicitacion,
   dealTitle = null,
   dealStageName = null,
-  positionsCount,
-  additionalLinesCount,
   pdfPreviewMode,
   pdfTemplateSlug,
   pdfPreviewUrl,
@@ -57,7 +44,6 @@ export function ControlCenterPanel({
   showConversations = true,
 }: {
   quoteId: string;
-  quoteStatus: string;
   isLocked: boolean;
   crmContext: { accountId: string; dealId: string; contactId: string; currency: string };
   billingMonthlyTotal: number;
@@ -67,21 +53,9 @@ export function ControlCenterPanel({
   totalGuards: number;
   roleSummary: Array<{ qty: number; label: string }>;
   onToggleGuardsBreakdown: () => void;
-  canSendPortalProposal: boolean;
-  portalReadinessItems: PortalReadinessItem[];
-  contactHasEmail: boolean;
-  onSendProposal: () => void;
-  /** Negocio marcado como licitación (CRM). */
   isLicitacion?: boolean;
-  canMarkSentLicitacion?: boolean;
-  markingSentLicitacion?: boolean;
-  onMarkSentLicitacion?: () => void;
-  /** Título del negocio CRM asociado (barra / contexto). */
   dealTitle?: string | null;
-  /** Etapa actual del pipeline del negocio asociado. */
   dealStageName?: string | null;
-  positionsCount: number;
-  additionalLinesCount: number;
   pdfPreviewMode: CpqPdfPreviewMode;
   pdfTemplateSlug: CpqPdfTemplateSlug;
   pdfPreviewUrl: string | null;
@@ -91,20 +65,6 @@ export function ControlCenterPanel({
   onGeneratePdfPreview: () => void | Promise<void | string | null>;
   showConversations?: boolean;
 }) {
-  const sendDisabled =
-    (positionsCount === 0 && additionalLinesCount === 0) ||
-    !crmContext.accountId ||
-    !crmContext.contactId ||
-    !crmContext.dealId;
-
-  const markLicitacionDisabled =
-    !canMarkSentLicitacion ||
-    markingSentLicitacion ||
-    quoteStatus === "sent" ||
-    (positionsCount === 0 && additionalLinesCount === 0) ||
-    !crmContext.accountId ||
-    !crmContext.dealId;
-
   return (
     <div className="space-y-4 p-4">
       {showConversations && quoteId && (
@@ -232,77 +192,27 @@ export function ControlCenterPanel({
 
       <div className="space-y-2 border-t border-border/50 pt-3">
         <div className="space-y-2 rounded-lg border border-border/60 bg-background/35 p-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Preparación portal
+              Propuesta
             </p>
-            <span className={cn("text-xs font-semibold", canSendPortalProposal ? "text-status-ok-fg" : "text-status-warn-fg")}>
-              {portalReadinessItems.filter((item) => item.ready).length}/{portalReadinessItems.length}
-            </span>
+            {isLicitacion ? <Tag variant="info" size="sm">Licitación</Tag> : <Tag variant="neutral" size="sm">Comercial</Tag>}
           </div>
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            {portalReadinessItems.map((item) => (
-              <div key={item.label} className="flex items-center gap-1.5 text-xs">
-                <span
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                    item.ready
-                      ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
-                      : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
-                  )}
-                  aria-hidden
-                >
-                  {item.ready ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
-                </span>
-                <span className={cn("truncate", item.ready ? "text-foreground" : "text-muted-foreground")}>
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
+          <a
+            href="#sec-propuesta"
+            className="text-[13px] font-medium text-primary hover:underline"
+          >
+            Ver propuesta →
+          </a>
         </div>
-        {isLicitacion && (
-          <div className="space-y-2 rounded-lg border border-status-info-border bg-status-info-soft/40 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-status-info-fg">
-                Licitación
-              </p>
-              <Tag variant="info" size="sm">Sin portal</Tag>
-            </div>
-            <p className="text-sm text-ds-text-2">
-              Al marcar enviada, el negocio pasa a Negociación (no se envía portal ni correo).
-            </p>
-            {quoteStatus !== "sent" && onMarkSentLicitacion ? (
-              <Button
-                className="h-10 w-full gap-2 sm:h-9"
-                variant="outline"
-                disabled={markLicitacionDisabled}
-                onClick={onMarkSentLicitacion}
-              >
-                <Gavel className="h-4 w-4" />
-                {markingSentLicitacion ? "Marcando…" : "Marcar enviada (licitación)"}
-              </Button>
-            ) : null}
-          </div>
-        )}
-        <Button
-          className="h-9 w-full gap-2 bg-status-ok text-white hover:brightness-110"
-          disabled={sendDisabled}
-          title={
-            crmContext.contactId && !contactHasEmail
-              ? "El contacto no tiene email cargado"
-              : undefined
-          }
-          onClick={onSendProposal}
-        >
-          <Send className="h-4 w-4" />
-          {quoteStatus === "sent" ? "Reenviar propuesta" : "Enviar propuesta"}
-        </Button>
         <CpqPdfPreviewPanel
           mode={pdfPreviewMode}
           templateSlug={pdfTemplateSlug}
           previewUrl={pdfPreviewUrl}
           loading={pdfPreviewLoading}
+          allowedModes={["cotizacion"]}
+          title="Cotización PDF"
+          description="Documento económico. La propuesta se genera desde la card Propuesta."
           onModeChange={onPdfModeChange}
           onTemplateSlugChange={onPdfTemplateSlugChange}
           onGenerate={onGeneratePdfPreview}

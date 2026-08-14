@@ -5,8 +5,10 @@
  * `openDealRoom` crea un canal PRIVADO `neg-{slug-cliente}`, invita al actor y
  * al owner del negocio, publica la ficha viva y la fija, guarda el map
  * `CrmDealSlackRoom` y audita. Idempotente por `dealId` (unique): si ya existe
- * sala, la devuelve sin recrear. `maybeAutoOpenDealRoom` aplica el umbral por
- * tenant (default APAGADO) — solo abre si `enabled` y el negocio lo supera.
+ * sala, la devuelve sin recrear.
+ *
+ * `@deprecated maybeAutoOpenDealRoom` — la apertura es solo manual (menú ⋯ /
+ * Integraciones). Se conserva por compatibilidad; no tiene llamadores.
  */
 
 import "server-only";
@@ -345,9 +347,9 @@ export async function openDealRoom(
 }
 
 /**
- * Aplica el umbral por tenant y abre la sala solo si corresponde. Se llama desde
- * el servicio real de cambio de etapa/monto. NUNCA abre si el tenant lo tiene
- * apagado (default). Silencioso: no lanza ni avisa (best-effort en background).
+ * @deprecated La apertura de salas es solo manual. No invocar desde flujos
+ * de creación ni cambio de etapa. Se conserva por si algún tenant aún
+ * referencia el umbral; no tiene llamadores.
  */
 export async function maybeAutoOpenDealRoom(tenantId: string, dealId: string, actorAdminId: string): Promise<void> {
   const cfg = await getDealRoomConfig(tenantId);

@@ -449,7 +449,7 @@ export async function syncCalendarEventToGoogle(
     const syncStatus = attendeesOk ? "SYNCED" : "ERROR";
     const lastError = attendeesOk
       ? null
-      : `Google no aceptó ${missingAttendees.length} invitado(s). Usá «Reenviar a Google».`;
+      : `Google no aceptó ${missingAttendees.length} invitado(s). Usa «Reenviar a Google».`;
 
     const debugPayload = buildInviteSyncDebugPayload({
       eventId: event.id,

@@ -730,7 +730,7 @@ export function DtesEmitidosClient({
     if (
       !(await confirmDialog({
         description:
-          "¿Desconciliar este DTE? Se borrará el link al movimiento bancario. La factura sigue marcada como pagada — usá 'Desmarcar como pagada' por separado si también querés revertir el estado.",
+          "¿Desconciliar este DTE? Se borrará el link al movimiento bancario. La factura sigue marcada como pagada — usa 'Desmarcar como pagada' por separado si también querés revertir el estado.",
         variant: "destructive",
         confirmLabel: "Desconciliar",
       }))

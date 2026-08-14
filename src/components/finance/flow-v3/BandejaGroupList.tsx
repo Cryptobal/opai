@@ -382,7 +382,7 @@ export function BandejaGroupList({
     }
     setSelected(new Set(suggestableIds));
     toast.success(
-      `${suggestableIds.length} sugerencia${suggestableIds.length === 1 ? "" : "s"} marcada${suggestableIds.length === 1 ? "" : "s"} — revisá y clasificá`,
+      `${suggestableIds.length} sugerencia${suggestableIds.length === 1 ? "" : "s"} marcada${suggestableIds.length === 1 ? "" : "s"} — revisá y clasifica`,
     );
   };
 

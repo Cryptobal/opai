@@ -37,6 +37,8 @@ export function CondicionesSection({
   setProposalTemplateId,
   proposalGoverned = false,
   onEditAtProposal,
+  serviceDetail,
+  onServiceDetailChange,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -51,6 +53,8 @@ export function CondicionesSection({
   /** Multi-instalación: condiciones gobernadas por la propuesta (solo lectura). */
   proposalGoverned?: boolean;
   onEditAtProposal?: () => void;
+  serviceDetail?: string | null;
+  onServiceDetailChange?: (value: string) => void;
 }) {
   const disabled = isLocked || proposalGoverned;
 
@@ -314,6 +318,24 @@ export function CondicionesSection({
           )}
         </div>
       </div>
+      {serviceDetail !== undefined ? (
+        <div className="mt-4 space-y-1.5 border-t border-ds-border-subtle pt-3">
+          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Detalle del servicio
+          </Label>
+          <p className="text-[12px] text-ds-text-3">
+            Texto que aparece en el PDF de cotización (no en la propuesta).
+          </p>
+          <textarea
+            value={serviceDetail ?? ""}
+            onChange={(e) => onServiceDetailChange?.(e.target.value)}
+            disabled={isLocked}
+            rows={4}
+            className="w-full rounded-md border border-border bg-card px-2 py-2 text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
+            placeholder="Qué incluye el servicio, alcance y condiciones operativas…"
+          />
+        </div>
+      ) : null}
     </SectionCard>
   );
 }

@@ -15,10 +15,22 @@ describe("suggestTipoFromFileName", () => {
     expect(suggestTipoFromFileName("Anexo_3_planos.pdf")).toBe(LICITACION_TIPO_CODIGOS.anexos);
     expect(suggestTipoFromFileName("foto.jpg")).toBeNull();
   });
+
+  it("clasifica bases administrativas antes del regex genérico de bases", () => {
+    expect(suggestTipoFromFileName("Bases_Administrativas.pdf")).toBe(
+      LICITACION_TIPO_CODIGOS.bases_admin,
+    );
+    expect(suggestTipoFromFileName("bases administrativas Codelco.pdf")).toBe(
+      LICITACION_TIPO_CODIGOS.bases_admin,
+    );
+    expect(suggestTipoFromFileName("Pliego_administrativo.docx")).toBe(
+      LICITACION_TIPO_CODIGOS.bases_admin,
+    );
+  });
 });
 
 describe("assembleCorpusChunks budget", () => {
-  it("prioriza Bases > Q&A > Anexos y marca truncado", () => {
+  it("prioriza Bases > Bases administrativas > Q&A > Anexos y marca truncado", () => {
     const { chunks, truncated } = assembleCorpusChunks(
       [
         {
@@ -26,6 +38,14 @@ describe("assembleCorpusChunks budget", () => {
           fileName: "anexo.pdf",
           tipoCodigo: LICITACION_TIPO_CODIGOS.anexos,
           text: "A".repeat(80),
+          status: "ok",
+          error: null,
+        },
+        {
+          id: "adm",
+          fileName: "bases-admin.pdf",
+          tipoCodigo: LICITACION_TIPO_CODIGOS.bases_admin,
+          text: "D".repeat(80),
           status: "ok",
           error: null,
         },
@@ -50,6 +70,7 @@ describe("assembleCorpusChunks budget", () => {
     );
     expect(truncated).toBe(true);
     expect(chunks[0]?.kind).toBe("bases");
+    expect(chunks[1]?.kind).toBe("bases_admin");
     expect(chunks[0]?.text.startsWith("B")).toBe(true);
     expect(chunks[0]?.text.length).toBeGreaterThan(10);
     const anex = chunks.find((c) => c.kind === "anexos");

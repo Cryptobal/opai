@@ -1,0 +1,153 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { ExternalLink, FolderOpen, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Spinner, Surface, Tag } from "@/components/opai-ds";
+import { toast } from "sonner";
+import type { LicitacionDocRow } from "./useDealLicitacionDocs";
+
+export function DealDocumentosCard({
+  dealId,
+  files,
+  loading,
+  error,
+  onReload,
+  onOpenFolder,
+  driveUrl,
+}: {
+  dealId: string;
+  files: LicitacionDocRow[];
+  loading: boolean;
+  error: string | null;
+  onReload: () => void;
+  onOpenFolder: () => void;
+  driveUrl?: string | null;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const suggestions = files.filter((f) => f.needsClassification && f.suggestedCodigo);
+
+  async function classify(fileId: string, tipoCodigo: string) {
+    setBusy(fileId);
+    try {
+      const res = await fetch(`/api/crm/files/${fileId}/classify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipoCodigo, entityType: "deal", entityId: dealId }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (!res.ok || !json.success) {
+        toast.error(json.error || "No se pudo clasificar");
+        return;
+      }
+      toast.success("Clasificado");
+      onReload();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function acceptAll() {
+    for (const f of suggestions) {
+      if (f.suggestedCodigo) await classify(f.fileId, f.suggestedCodigo);
+    }
+  }
+
+  async function upload(file: File) {
+    setBusy("upload");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("entityType", "deal");
+      fd.append("entityId", dealId);
+      const res = await fetch("/api/crm/files/upload", { method: "POST", body: fd });
+      const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (!res.ok || !json.success) {
+        toast.error(json.error || "No se pudo subir");
+        return;
+      }
+      toast.success("Archivo subido");
+      onReload();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Surface elevation={1} padding="md" className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">Documentos</p>
+        <Tag variant="neutral" size="sm">Sync Drive</Tag>
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-2 text-[13px] text-ds-text-3">
+          <Spinner size="sm" /> Cargando…
+        </div>
+      ) : error ? (
+        <p className="text-[13px] text-status-danger-fg">{error}</p>
+      ) : files.length === 0 ? (
+        <p className="text-[13px] text-ds-text-3">Sin archivos en la carpeta.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {files.slice(0, 8).map((f) => (
+            <li key={f.fileId} className="flex items-start justify-between gap-2">
+              <span className="min-w-0 truncate text-[13px] text-ds-text-1">{f.fileName}</span>
+              <Tag variant={f.tipoNombre ? "neutral" : "warn"} size="sm">
+                {f.tipoNombre ?? "Sin tipo"}
+              </Tag>
+            </li>
+          ))}
+        </ul>
+      )}
+      {suggestions.length > 0 ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-10 w-full sm:h-9"
+          disabled={Boolean(busy)}
+          onClick={() => void acceptAll()}
+        >
+          Aceptar y clasificar ({suggestions.length})
+        </Button>
+      ) : null}
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void upload(file);
+          e.target.value = "";
+        }}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-10 sm:h-9"
+          disabled={busy === "upload"}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Upload className="h-4 w-4" />
+          Subir
+        </Button>
+        <Button type="button" size="sm" variant="ghost" className="h-10 sm:h-9" onClick={onOpenFolder}>
+          <FolderOpen className="h-4 w-4" />
+          Ver carpeta completa
+        </Button>
+        {driveUrl ? (
+          <Button type="button" size="sm" variant="ghost" className="h-10 sm:h-9" asChild>
+            <a href={driveUrl} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" />
+              Drive
+            </a>
+          </Button>
+        ) : null}
+      </div>
+    </Surface>
+  );
+}

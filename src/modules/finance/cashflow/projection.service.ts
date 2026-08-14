@@ -2175,7 +2175,7 @@ export async function buildProjection(
 
   // Carga ampliada de tx (indexada por cuenta) para reconstruir el saldo
   // desde el snapshot más antiguo relevante. Esta carga es independiente
-  // de `bankTxs` (que sigue usándose para actualBankIncome/Expense).
+  // de `bankTxs` (que sigue en uso para actualBankIncome/Expense).
   const oldestSnapshotDate = allSnapshots[0]?.asOfDate ?? range.from;
   const minTxDate =
     oldestSnapshotDate < range.from ? oldestSnapshotDate : range.from;

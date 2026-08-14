@@ -198,7 +198,7 @@ export function PdfCanvas({ data }: { data: ArrayBuffer }) {
   if (load.phase === "error") {
     return (
       <p className="mx-auto mt-12 max-w-xs px-4 text-center text-[13px] text-ds-text-2">
-        {load.message} Usá el botón de descarga para abrirlo en otra app.
+        {load.message} Usa el botón de descarga para abrirlo en otra app.
       </p>
     );
   }

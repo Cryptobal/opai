@@ -1396,7 +1396,7 @@ export function RecurringTemplateForm({
                         autoComplete="off"
                       />
                       <p className="text-[12px] text-muted-foreground">
-                        Usá -1 para "último día del mes".
+                        Usa -1 para "último día del mes".
                       </p>
                     </div>
                   )}
@@ -1660,7 +1660,7 @@ export function RecurringTemplateForm({
                     className="mt-0.5 size-4"
                   />
                   <span>
-                    Plantilla activa (si la pausás, el cron no genera borradores
+                    Plantilla activa (si la pausas, el cron no genera borradores
                     pero la plantilla se conserva).
                   </span>
                 </label>

@@ -1825,7 +1825,7 @@ function ReceivedDteDetailDialog({
               <p className="font-medium mb-1">Nota sobre el documento original</p>
               <p>
                 El SII no expone re-descarga del XML/PDF de DTEs recibidos. El
-                proveedor está obligado a enviarte el XML por email. Subí acá
+                proveedor está obligado a enviarte el XML por email. Sube acá
                 el archivo recibido para tenerlo guardado junto al DTE, y/o
                 ingresá al visor SII para ver el detalle oficial:
               </p>

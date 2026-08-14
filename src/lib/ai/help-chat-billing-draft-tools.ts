@@ -519,7 +519,7 @@ export async function toolSearchInvoiceDrafts(
       }),
       instruction:
         "Estos son borradores pendientes de Programación (NO cotizaciones CPQ). " +
-        "Para agregar/actualizar HES u OC usá preview_update_invoice_draft_refs con el draftId. " +
+        "Para agregar/actualizar HES u OC usa preview_update_invoice_draft_refs con el draftId. " +
         "Mostrá :::cards con title=displayName, subtitle=cliente·instalación, meta=$neto, badge=refsLabel.",
     },
   };
@@ -666,7 +666,7 @@ export async function toolSearchRecurringInvoices(
         };
       }),
       instruction:
-        "Plantillas recurrentes (NO borradores del mes). HES/OC del período suelen ir en el borrador generado — usá search_invoice_drafts + preview_update_invoice_draft_refs. Solo actualizá la plantilla si el usuario pide explícitamente cambiar la plantilla.",
+        "Plantillas recurrentes (NO borradores del mes). HES/OC del período suelen ir en el borrador generado — usa search_invoice_drafts + preview_update_invoice_draft_refs. Solo actualizá la plantilla si el usuario pide explícitamente cambiar la plantilla.",
     },
   };
 }
@@ -721,7 +721,7 @@ export async function toolPreviewUpdateInvoiceDraftRefs(
   if (!draft) {
     return {
       ok: false,
-      error: "Borrador no encontrado o ya emitido. Usá search_invoice_drafts para obtener el id correcto.",
+      error: "Borrador no encontrado o ya emitido. Usa search_invoice_drafts para obtener el id correcto.",
     };
   }
 
@@ -1054,7 +1054,7 @@ export async function toolPreviewUpdateRecurringInvoiceRefs(
   if (!tpl) {
     return {
       ok: false,
-      error: "Plantilla no encontrada. Usá search_recurring_invoices.",
+      error: "Plantilla no encontrada. Usa search_recurring_invoices.",
     };
   }
 
