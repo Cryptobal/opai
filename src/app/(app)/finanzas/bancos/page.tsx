@@ -49,7 +49,7 @@ export default async function BancosPage({
 
   const accountPlans = await prisma.financeAccountPlan.findMany({
     where: { tenantId, isActive: true, acceptsEntries: true },
-    select: { id: true, code: true, name: true, type: true },
+    select: { id: true, code: true, name: true, type: true, costCenterPolicy: true },
     orderBy: { code: "asc" },
   });
 
@@ -65,6 +65,14 @@ export default async function BancosPage({
       section: true,
       categoryId: true,
       _count: { select: { accountMappings: true } },
+      accountMappings: {
+        select: {
+          isPrimary: true,
+          accountPlan: { select: { costCenterPolicy: true } },
+        },
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        take: 1,
+      },
     },
     orderBy: [{ section: "asc" }, { orderIndex: "asc" }],
   });
@@ -73,6 +81,7 @@ export default async function BancosPage({
     name: r.name,
     section: r.section,
     hasCategory: r._count.accountMappings > 0 || r.categoryId != null,
+    costCenterPolicy: r.accountMappings[0]?.accountPlan.costCenterPolicy ?? "OPTIONAL",
   }));
 
   const data = bankAccounts.map((a) => ({

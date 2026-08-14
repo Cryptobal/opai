@@ -67,6 +67,12 @@ import {
 import { cn } from "@/lib/utils";
 import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
+import {
+  CostCenterAllocationBlock,
+  isCostCenterAssignmentReady,
+  type CostCenterAssignment,
+} from "./CostCenterAllocationBlock";
+import { assignmentFromAllocations } from "@/modules/finance/banking/cost-allocation-math";
 import { SaveAsRuleModal } from "./SaveAsRuleModal";
 import { DTE_TYPE_SHORT_LABELS } from "@/components/finance/dtes/shared/constants";
 import { AllocationRail } from "./reconcile/AllocationRail";
@@ -161,6 +167,7 @@ interface LocalLink {
   label: string;
   folio?: number | null;
   shortLabel?: string;
+  costCenter?: CostCenterAssignment;
 }
 
 /** Forma del link enriquecido que devuelve GET /links (post 2026-05). */
@@ -192,6 +199,16 @@ interface ExistingLink {
     code: string;
     factoringCompanyName: string;
   } | null;
+  allocations?: Array<{
+    id: string;
+    installationId: string;
+    installationName: string;
+    accountName: string | null;
+    amount: number;
+    weight: number;
+    driver: string;
+    driverValue: number | null;
+  }>;
 }
 
 interface ExistingPaymentRecord {
@@ -222,6 +239,7 @@ interface AccountPlanOption {
   name: string;
   /** Tipo contable. */
   type?: string;
+  costCenterPolicy?: "NONE" | "OPTIONAL" | "DIRECT" | "ALLOCABLE";
 }
 
 const ACCOUNT_TYPE_LABEL: Record<string, string> = {
@@ -703,6 +721,10 @@ export function BankTxReconcileSheet({
         label,
         folio,
         shortLabel,
+        costCenter:
+          targetType === "EXPENSE" || targetType === "INCOME"
+            ? assignmentFromAllocations(l.allocations)
+            : undefined,
       };
     });
     setLinks(localLinks);
@@ -872,7 +894,15 @@ export function BankTxReconcileSheet({
       hasShortfall &&
       (!allLinksAreReconcilable ||
         (diffMode !== "manual" && !diffAccountPlanId));
-    if (remainingUnresolved || shortfallUnresolved) return "diff";
+    const costCenterUnresolved = links.some(
+      (l) =>
+        (l.targetType === "EXPENSE" || l.targetType === "INCOME") &&
+        l.costCenter != null &&
+        !isCostCenterAssignmentReady(l.costCenter, l.amount),
+    );
+    if (remainingUnresolved || shortfallUnresolved || costCenterUnresolved) {
+      return "diff";
+    }
     return "ready";
   }, [
     links.length,
@@ -882,6 +912,7 @@ export function BankTxReconcileSheet({
     allLinksAreReconcilable,
     diffMode,
     diffAccountPlanId,
+    links,
   ]);
 
   // Búsqueda server-side con debounce 300ms.
@@ -1053,6 +1084,12 @@ export function BankTxReconcileSheet({
     setLinks((prev) => prev.filter((l) => l.key !== key));
   };
 
+  const updateLinkCostCenter = (key: string, costCenter: CostCenterAssignment) => {
+    setLinks((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, costCenter } : l)),
+    );
+  };
+
   const handleAddManualLine = () => {
     if (!manualAccountId) {
       toast.error("Seleccioná una cuenta contable");
@@ -1081,6 +1118,7 @@ export function BankTxReconcileSheet({
         note: noteWithDate,
         label: `${isIncome ? "Ingreso manual" : "Gasto manual"}: ${account?.code ?? ""} ${account?.name ?? ""}`,
         shortLabel: account?.code ?? (isIncome ? "Ingreso" : "Gasto"),
+        costCenter: { mode: "NONE" },
       },
     ]);
     setManualAmount(formatCLPInput(String(remaining > 0 ? remaining - amt : 0)));
@@ -1093,6 +1131,16 @@ export function BankTxReconcileSheet({
     if (!tx || txs.length === 0) return;
     if (links.length === 0) {
       toast.error("Agregá al menos un vínculo o categorización");
+      return;
+    }
+    const unreadyCc = links.find(
+      (l) =>
+        (l.targetType === "EXPENSE" || l.targetType === "INCOME") &&
+        l.costCenter != null &&
+        !isCostCenterAssignmentReady(l.costCenter, l.amount),
+    );
+    if (unreadyCc) {
+      toast.error("El reparto de centro de costo no cuadra");
       return;
     }
 
@@ -1238,6 +1286,7 @@ export function BankTxReconcileSheet({
               amount: l.amount,
               accountPlanId: l.accountPlanId,
               note: l.note,
+              ...(l.costCenter ? { costCenter: l.costCenter } : {}),
             })),
           }),
         }
@@ -1830,6 +1879,24 @@ export function BankTxReconcileSheet({
                               {l.accountPlan.code} {l.accountPlan.name}
                             </p>
                           ) : null}
+                          {l.allocations && l.allocations.length > 0 ? (
+                            <ul className="mt-1.5 space-y-0.5">
+                              {l.allocations.map((a) => (
+                                <li
+                                  key={a.id}
+                                  className="text-[12px] text-ds-text-3 flex justify-between gap-2"
+                                >
+                                  <span className="truncate">
+                                    {a.installationName}
+                                    {a.accountName ? ` · ${a.accountName}` : ""}
+                                  </span>
+                                  <span className="font-mono shrink-0">
+                                    {fmtCLP.format(a.amount)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
                         </div>
                         <div className="text-right">
                           <p className="font-mono text-sm font-medium">
@@ -1931,6 +1998,38 @@ export function BankTxReconcileSheet({
 
         {(mode === "create" || mode === "edit") && (
         <>
+        {links.some(
+          (l) => l.targetType === "EXPENSE" || l.targetType === "INCOME",
+        ) && (
+          <div className="mt-4 space-y-4">
+            {links
+              .filter(
+                (l) => l.targetType === "EXPENSE" || l.targetType === "INCOME",
+              )
+              .map((l) => {
+                const policy =
+                  accountPlans.find((a) => a.id === l.accountPlanId)
+                    ?.costCenterPolicy ?? "OPTIONAL";
+                return (
+                  <div
+                    key={`cc-${l.key}`}
+                    className="rounded-lg border border-ds-border-subtle p-3"
+                  >
+                    <p className="text-[12px] text-ds-text-3 mb-2 truncate">
+                      {l.label}
+                    </p>
+                    <CostCenterAllocationBlock
+                      txAmountAbs={l.amount}
+                      isIncome={l.targetType === "INCOME"}
+                      accountPolicy={policy}
+                      value={l.costCenter ?? { mode: "NONE" }}
+                      onChange={(next) => updateLinkCostCenter(l.key, next)}
+                    />
+                  </div>
+                );
+              })}
+          </div>
+        )}
         {/* Content */}
         {tab === "compare" && (
           <div className="mt-4 space-y-4">

@@ -17,6 +17,7 @@ export interface LocalLink {
   folio?: number | null;
   /** Etiqueta corta para chips (folio o código de cesión). */
   shortLabel?: string;
+  costCenter?: import("../CostCenterAllocationBlock").CostCenterAssignment;
 }
 
 export interface FactoringCandidate {

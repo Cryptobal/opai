@@ -166,4 +166,151 @@ describe("ClassifyToFlowRowDialog", () => {
       expect(label.textContent).not.toContain("Aporte socios");
     });
   });
+
+  it("clasifica sin tocar el bloque de centro de costo (default NONE)", async () => {
+    render(
+      <ClassifyToFlowRowDialog
+        open
+        onOpenChange={() => {}}
+        tx={{ id: "tx-1", description: "Pago socio", amount: -2_000_000 }}
+        flowRows={FLOW_ROWS}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("classify-flow-row-select"));
+    fireEvent.click(screen.getByTestId("flow-row-option-row-devol"));
+    fireEvent.click(screen.getByTestId("classify-flow-row-confirm"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body));
+    expect(body.costCenter).toEqual({ mode: "NONE" });
+  });
+
+  it("Todas las activas carga el listado y habilita guardar", async () => {
+    const INST = [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        name: "Mall Centro",
+        accountId: "acc-1",
+        accountName: "Cliente A",
+        commune: "Santiago",
+        activeGuards: 2,
+        requiredGuards: 2,
+      },
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        name: "Bodega",
+        accountId: "acc-1",
+        accountName: "Cliente A",
+        commune: "Maipú",
+        activeGuards: 1,
+        requiredGuards: 1,
+      },
+    ];
+    fetchMock.mockImplementation((url: unknown) => {
+      if (String(url).includes("cost-allocation/installations")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: INST }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+    });
+
+    render(
+      <ClassifyToFlowRowDialog
+        open
+        onOpenChange={() => {}}
+        tx={{ id: "tx-1", description: "Arriendo radio", amount: -100_000 }}
+        flowRows={FLOW_ROWS}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("classify-flow-row-select"));
+    fireEvent.click(screen.getByTestId("flow-row-option-row-finiquito"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("cost-center-allocation-block")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Repartir" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("cost-center-all-active")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId("cost-center-all-active"));
+
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId("classify-flow-row-confirm") as HTMLButtonElement)
+          .disabled,
+      ).toBe(false);
+    });
+  });
+
+  it("guardar queda deshabilitado si el reparto MANUAL no cuadra", async () => {
+    const INST = [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        name: "Mall Centro",
+        accountId: "acc-1",
+        accountName: "Cliente A",
+        commune: "Santiago",
+        activeGuards: 2,
+        requiredGuards: 2,
+      },
+    ];
+    fetchMock.mockImplementation((url: unknown) => {
+      if (String(url).includes("cost-allocation/installations")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: INST }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+    });
+
+    render(
+      <ClassifyToFlowRowDialog
+        open
+        onOpenChange={() => {}}
+        tx={{ id: "tx-1", description: "Arriendo radio", amount: -100_000 }}
+        flowRows={FLOW_ROWS}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("classify-flow-row-select"));
+    fireEvent.click(screen.getByTestId("flow-row-option-row-finiquito"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("cost-center-allocation-block")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Repartir" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("cost-center-all-active")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId("cost-center-all-active"));
+
+    fireEvent.click(screen.getByTestId("cost-center-driver"));
+    await waitFor(() => {
+      expect(screen.getByText("Montos manuales")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText("Montos manuales"));
+
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId("classify-flow-row-confirm") as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+    });
+  });
 });

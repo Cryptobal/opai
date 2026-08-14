@@ -24,7 +24,7 @@ export async function getProfitability(
   const method = options.opexAllocationMethod ?? "by_revenue";
   const [sales, purchases, eerr] = await Promise.all([
     getSalesMatrix(tenantId, period, filters),
-    getPurchasesMatrix(tenantId, period, filters),
+    getPurchasesMatrix(tenantId, period, filters, { groupBy: "client" }),
     getIncomeStatement(tenantId, period, filters),
   ]);
 

@@ -18,6 +18,8 @@ import {
 } from "@/lib/ai/help-chat-tools-v2";
 import type { RolePermissions } from "@/lib/permissions";
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeBankAccount: { findMany: vi.fn() },
@@ -65,6 +67,14 @@ vi.mock("@/modules/finance/banking/bank-tx-link.service", async (importOriginal)
 
 vi.mock("@/modules/finance/banking/flow-row-account-plan.service", () => ({
   resolveAccountPlanIdForFlowRow: vi.fn(),
+}));
+
+vi.mock("@/modules/finance/banking/cost-allocation.service", () => ({
+  previewCostCenterAssignment: vi.fn(async () => ({
+    rows: [],
+    excluded: [],
+    total: 0,
+  })),
 }));
 
 import { prisma } from "@/lib/prisma";
@@ -283,6 +293,7 @@ describe("preview + classify flow row", () => {
       description: "TRF CARLOS IRIGOYEN",
       reconciliationStatus: "UNMATCHED",
       bankAccountId: "acc-1",
+      transactionDate: new Date("2026-08-01"),
     } as never);
     vi.mocked(prisma.financeBankTransactionLink.findMany).mockResolvedValue([]);
     vi.mocked(resolveAccountPlanIdForFlowRow).mockResolvedValue("plan-shared");
@@ -334,6 +345,70 @@ describe("preview + classify flow row", () => {
     );
   });
 
+  it("preview incluye tabla de reparto cuando hay costCenter SPLIT", async () => {
+    const { previewCostCenterAssignment } = await import(
+      "@/modules/finance/banking/cost-allocation.service"
+    );
+    vi.mocked(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "row-retiro",
+      name: "Retiro socios",
+      section: "FINANCIAMIENTO",
+      categoryId: "cat-shared",
+    } as never);
+    vi.mocked(prisma.financeBankTransaction.findFirst).mockResolvedValue({
+      id: "tx-1",
+      amount: -500000,
+      description: "TRF CARLOS IRIGOYEN",
+      reconciliationStatus: "UNMATCHED",
+      bankAccountId: "acc-1",
+      transactionDate: new Date("2026-08-01"),
+    } as never);
+    vi.mocked(prisma.financeBankTransactionLink.findMany).mockResolvedValue([]);
+    vi.mocked(resolveAccountPlanIdForFlowRow).mockResolvedValue("plan-shared");
+    vi.mocked(prisma.financeAccountPlan.findFirst).mockResolvedValue({
+      code: "2.1.01.003",
+      name: "Acreedores Varios",
+    } as never);
+    vi.mocked(previewCostCenterAssignment).mockResolvedValueOnce({
+      rows: [
+        {
+          installationId: "11111111-1111-4111-8111-111111111111",
+          installationName: "Mall Centro",
+          accountName: "Cliente A",
+          driverValue: 2,
+          weightPct: 1,
+          amount: 500000,
+        },
+      ],
+      excluded: [],
+      total: 500000,
+    });
+
+    const preview = (await toolPreviewClassifyBankToFlowRow("t1", "u1", permsFull, {
+      transactionId: "tx-1",
+      flowRowId: "row-retiro",
+      learnRule: "NONE",
+      costCenter: {
+        mode: "SPLIT",
+        driver: "EQUAL",
+        installations: [{ installationId: "11111111-1111-4111-8111-111111111111" }],
+      },
+    })) as {
+      ok: true;
+      data: {
+        summary: {
+          allocationPreview: { total: number; rows: Array<{ installationName: string }> };
+        };
+      };
+    };
+
+    expect(preview.ok).toBe(true);
+    expect(preview.data.summary.allocationPreview.total).toBe(500000);
+    expect(preview.data.summary.allocationPreview.rows[0]?.installationName).toBe(
+      "Mall Centro",
+    );
+  });
+
   it("re-clasifica MATCHED con link EXPENSE previo (MCP classify)", async () => {
     vi.mocked(prisma.financeFlowRow.findFirst).mockResolvedValue({
       id: "row-devol",
@@ -347,6 +422,7 @@ describe("preview + classify flow row", () => {
       description: "TRF CARLOS IRIGOYEN",
       reconciliationStatus: "MATCHED",
       bankAccountId: "acc-1",
+      transactionDate: new Date("2026-08-01"),
     } as never);
     vi.mocked(prisma.financeBankTransactionLink.findMany).mockResolvedValue([
       { targetType: "EXPENSE" },

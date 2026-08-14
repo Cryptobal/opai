@@ -27,6 +27,11 @@ vi.mock("../../accounting/journal-entry.service", () => ({
   createManualEntry: vi.fn(),
 }));
 
+vi.mock("../cost-allocation.service", () => ({
+  replaceLinkAllocations: vi.fn(),
+  loadAllocationsForLinks: vi.fn(async () => new Map()),
+}));
+
 import * as bankTxLinkService from "../bank-tx-link.service";
 
 const TENANT = "tenant-gard";
@@ -96,5 +101,68 @@ describe("reclassifyTransactionToFlowRow", () => {
       where: { id: TX_ID },
       data: { reconciliationStatus: "MATCHED" },
     });
+  });
+
+  it("SPLIT reemplaza allocations del link (no acumula)", async () => {
+    const { replaceLinkAllocations } = await import("../cost-allocation.service");
+    prismaMock.financeBankTransactionLink.findMany.mockResolvedValue([
+      {
+        id: LINK_ID,
+        targetType: "EXPENSE",
+        amount: new Decimal(100_000),
+      },
+    ]);
+    prismaMock.financeBankTransaction.findFirst.mockResolvedValue({
+      transactionDate: new Date("2026-08-01"),
+    });
+
+    const assignment = {
+      mode: "SPLIT" as const,
+      driver: "EQUAL" as const,
+      installations: [
+        { installationId: "11111111-1111-4111-8111-111111111111" },
+        { installationId: "22222222-2222-4222-8222-222222222222" },
+      ],
+    };
+
+    await bankTxLinkService.reclassifyTransactionToFlowRow(TENANT, TX_ID, null, {
+      targetType: "EXPENSE",
+      amount: 100_000,
+      accountPlanId: PLAN,
+      flowRowId: ROW_DEVOL,
+      costCenter: assignment,
+    });
+
+    expect(replaceLinkAllocations).toHaveBeenCalledTimes(1);
+    expect(replaceLinkAllocations).toHaveBeenCalledWith(
+      prismaMock,
+      expect.objectContaining({
+        tenantId: TENANT,
+        linkId: LINK_ID,
+        linkAmount: 100_000,
+        assignment,
+      }),
+    );
+  });
+
+  it("sin costCenter no toca allocations (retrocompat)", async () => {
+    const { replaceLinkAllocations } = await import("../cost-allocation.service");
+    vi.mocked(replaceLinkAllocations).mockClear();
+    prismaMock.financeBankTransactionLink.findMany.mockResolvedValue([
+      {
+        id: LINK_ID,
+        targetType: "EXPENSE",
+        amount: new Decimal(2_000_000),
+      },
+    ]);
+
+    await bankTxLinkService.reclassifyTransactionToFlowRow(TENANT, TX_ID, null, {
+      targetType: "EXPENSE",
+      amount: 2_000_000,
+      accountPlanId: PLAN,
+      flowRowId: ROW_DEVOL,
+    });
+
+    expect(replaceLinkAllocations).not.toHaveBeenCalled();
   });
 });

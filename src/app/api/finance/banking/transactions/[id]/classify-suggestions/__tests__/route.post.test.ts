@@ -90,6 +90,10 @@ vi.mock("@/modules/finance/banking/payroll-candidates.service", () => ({
   loadPayrollCandidates: vi.fn(),
 }));
 
+vi.mock("@/modules/finance/banking/cost-allocation.service", () => ({
+  inferCostCenterFromClassifySource: vi.fn(async () => null),
+}));
+
 vi.mock("@/modules/finance/banking/classify-flow-rows", () => ({
   resolvePayrollFlowRows: vi.fn(),
   resolveSupplierCategoryRow: vi.fn(),
@@ -263,5 +267,71 @@ describe("POST classify-suggestions — flowRowId estable (repro Carlos Irigoyen
     });
     expect(res.status).toBe(400);
     expect(reclassifyTransactionToFlowRowMock).not.toHaveBeenCalled();
+  });
+
+  it("acepta clasificar sin costCenter (retrocompatibilidad)", async () => {
+    const res = await makePost({
+      kind: "FLOW_ROW",
+      flowRowId: ROW_DEVOL,
+      learnRule: "NONE",
+    });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(json.data.classified).toBe(1);
+    expect(reclassifyTransactionToFlowRowMock).toHaveBeenCalledWith(
+      TENANT,
+      TX_ID,
+      USER,
+      expect.objectContaining({
+        flowRowId: ROW_DEVOL,
+        costCenter: undefined,
+      }),
+    );
+  });
+
+  it("rechaza SPLIT MANUAL que no cuadra con el monto", async () => {
+    const res = await makePost({
+      kind: "FLOW_ROW",
+      flowRowId: ROW_DEVOL,
+      learnRule: "NONE",
+      costCenter: {
+        mode: "SPLIT",
+        driver: "MANUAL",
+        installations: [
+          {
+            installationId: "11111111-1111-4111-8111-111111111111",
+            amount: 100,
+          },
+        ],
+      },
+    });
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(json.data.classified).toBe(0);
+    expect(json.data.failed).toBe(1);
+    expect(json.data.errors[0]?.message).toMatch(/no cuadra/i);
+    expect(reclassifyTransactionToFlowRowMock).not.toHaveBeenCalled();
+  });
+
+  it("rechaza cuando el servicio detecta instalación de otro tenant", async () => {
+    reclassifyTransactionToFlowRowMock.mockRejectedValueOnce(
+      new Error(
+        "Una o más instalaciones no existen o no pertenecen a la empresa",
+      ),
+    );
+    const res = await makePost({
+      kind: "FLOW_ROW",
+      flowRowId: ROW_DEVOL,
+      learnRule: "NONE",
+      costCenter: {
+        mode: "SINGLE",
+        installationId: "11111111-1111-4111-8111-111111111111",
+      },
+    });
+    const json = await res.json();
+    expect(json.data.classified).toBe(0);
+    expect(json.data.failed).toBe(1);
+    expect(json.data.errors[0]?.message).toMatch(/no pertenecen/i);
   });
 });

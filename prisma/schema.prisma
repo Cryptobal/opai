@@ -2554,6 +2554,7 @@ model CrmInstallation {
   atsJobPostings                      AtsJobPosting[]                      @relation("ats_job_installation")
   verificacionesFisicas               DocVerificacionFisica[]
   vraReports                          VraReport[]
+  bankLinkAllocations                 FinanceBankLinkAllocation[] @relation("BankLinkAllocationInstallation")
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -6660,7 +6661,8 @@ model FinanceCostCenter {
   installationId String? @map("installation_id") @db.Uuid
   accountId      String? @map("account_id") @db.Uuid
 
-  rendiciones FinanceRendicion[]
+  rendiciones         FinanceRendicion[]
+  bankLinkAllocations FinanceBankLinkAllocation[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -6917,7 +6919,9 @@ model FinanceAccountPlan {
   isActive       Boolean              @default(true) @map("is_active")
   acceptsEntries Boolean              @default(true) @map("accepts_entries")
   description    String?
-  taxCode        String?              @map("tax_code")
+  taxCode          String?                 @map("tax_code")
+  /// Prefill de UI al clasificar un movimiento. Nunca bloquea una operación.
+  costCenterPolicy FinanceCostCenterPolicy @default(OPTIONAL) @map("cost_center_policy")
 
   journalLines             FinanceJournalLine[]
   bankAccounts             FinanceBankAccount[]
@@ -8105,6 +8109,8 @@ model FinanceBankTransactionLink {
   createdById       String?                @map("created_by")
   createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  allocations FinanceBankLinkAllocation[]
+
   @@index([tenantId, bankTransactionId], map: "idx_finance_bank_link_tx")
   @@index([targetType, targetId], map: "idx_finance_bank_link_target")
   @@index([tenantId, matchedByRuleId], map: "idx_finance_bank_link_matched_rule")
@@ -8124,6 +8130,50 @@ enum FinanceLinkMatchSource {
   INFERRED
   MANUAL
 
+  @@schema("finance")
+}
+
+enum FinanceCostAllocationDriver {
+  MANUAL
+  EQUAL
+  ACTIVE_GUARDS
+  REQUIRED_GUARDS
+
+  @@schema("finance")
+}
+
+/// Prefill de UI para centro de costo al clasificar. Nunca es un bloqueo de API.
+enum FinanceCostCenterPolicy {
+  NONE
+  OPTIONAL
+  DIRECT
+  ALLOCABLE
+
+  @@schema("finance")
+}
+
+/// Distribución congelada de un vínculo bancario entre instalaciones.
+/// Σ amount = FinanceBankTransactionLink.amount. No participa del invariante
+/// de conciliación (Σ links = |movimiento|).
+model FinanceBankLinkAllocation {
+  id             String                       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String                       @map("tenant_id")
+  linkId         String                       @map("link_id") @db.Uuid
+  link           FinanceBankTransactionLink   @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  installationId String                       @map("installation_id") @db.Uuid
+  installation   CrmInstallation              @relation("BankLinkAllocationInstallation", fields: [installationId], references: [id], onDelete: Restrict)
+  costCenterId   String?                      @map("cost_center_id") @db.Uuid
+  costCenter     FinanceCostCenter?           @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  amount         Decimal                      @db.Decimal(14, 2)
+  weight         Decimal                      @db.Decimal(12, 6)
+  driver         FinanceCostAllocationDriver
+  driverValue    Decimal?                     @map("driver_value") @db.Decimal(12, 2)
+  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([linkId, installationId], map: "uq_finance_bank_link_alloc_link_inst")
+  @@index([tenantId, installationId], map: "idx_finance_bank_link_alloc_tenant_inst")
+  @@index([linkId], map: "idx_finance_bank_link_alloc_link")
+  @@map("finance_bank_link_allocations")
   @@schema("finance")
 }
 
