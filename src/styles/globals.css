@@ -2369,6 +2369,9 @@ html {
   88% { opacity: 1; }
   100% { transform: translateY(220%); opacity: 0; }
 }
+.terreno-scanline {
+  animation: terreno-scanline 2.4s ease-in-out infinite;
+}
 @media (prefers-reduced-motion: reduce) {
   .terreno-scanline { animation: none !important; }
 }
