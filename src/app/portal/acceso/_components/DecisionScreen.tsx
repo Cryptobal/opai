@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ResultMetaChip, ResultScreen, XlButton } from "@/components/opai/terreno";
 
 /** Copy fijo: no hay protocolo de lista negra en config/BD (H-A4). */
@@ -31,9 +32,14 @@ export function DecisionScreen({
   confirmLabel,
   onConfirm,
 }: DecisionScreenProps) {
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const screen = (
     <ResultScreen
-      className="fixed inset-0 z-50 min-h-dvh"
+      // Portal a body + z-[60] por encima de PlatformAwareBottomNav (z-50):
+      // el CTA no queda tapado por Inicio/Registro/En Sitio/Más.
+      className="fixed inset-0 z-[60] min-h-dvh"
       tone={authorized ? "ok" : "bad"}
       icon={
         authorized ? (
@@ -76,6 +82,11 @@ export function DecisionScreen({
       }
     />
   );
+
+  // Hasta hidratar, render en árbol; luego portal a body para escapar
+  // stacking contexts del shell (main overflow, etc.).
+  if (!mounted) return screen;
+  return createPortal(screen, document.body);
 }
 
 export { ResultMetaChip };

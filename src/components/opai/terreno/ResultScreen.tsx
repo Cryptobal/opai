@@ -79,7 +79,11 @@ export function ResultScreen({
           <div className="mt-5 flex max-w-sm flex-wrap items-center justify-center gap-2">{meta}</div>
         ) : null}
       </div>
-      {footer ? <div className="px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">{footer}</div> : null}
+      {footer ? (
+        <div className="shrink-0 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-2">
+          {footer}
+        </div>
+      ) : null}
     </div>
   );
 }
