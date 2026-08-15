@@ -121,8 +121,8 @@ export function DealLicitacionMilestones({
   if (!rows) return null;
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">Hitos</p>
+    <div className="space-y-2">
+      <p className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-ds-text-3">Hitos</p>
       <div className="flex flex-wrap gap-1.5">
         {rows.map((row) => {
           const defined = Boolean(row.eventId && row.date);
@@ -135,10 +135,10 @@ export function DealLicitacionMilestones({
               disabled={!canEdit}
               onClick={() => openEditor(row)}
               className={cn(
-                "inline-flex min-h-10 items-center gap-1 rounded-full border px-3 text-[12px] font-medium ds-tap",
+                "inline-flex min-h-10 items-center gap-1 rounded-full border px-3 text-[12px] font-medium ds-tap transition",
                 defined
-                  ? "border-ds-border-default bg-ds-surface-2 text-ds-text-1"
-                  : "border-dashed border-ds-border-default text-ds-text-3",
+                  ? "border-[rgba(var(--ds-glow-rgb),0.3)] bg-[var(--glass-fill-soft)] text-ds-text-1"
+                  : "border-dashed border-white/[0.14] text-ds-text-3 hover:text-ds-text-2",
               )}
             >
               {defined ? (

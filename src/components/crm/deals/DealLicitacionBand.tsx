@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { ChevronRight, MessageCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner, Surface, Tag } from "@/components/opai-ds";
@@ -8,6 +7,7 @@ import { formatDealDateCountdown, formatDealDateShort } from "@/components/crm/d
 import { openAnchoredChat } from "@/lib/ai/ai-command-event";
 import { cn } from "@/lib/utils";
 import { LICITACION_TIPO_CODIGOS, licitacionSlotState } from "@/modules/crm/documents/licitacion-corpus";
+import { JourneyStepper, PulseBar, TENDER_JOURNEY } from "@/components/workbench";
 import type { LicitacionTypeRow } from "./useDealLicitacionDocs";
 
 const SLOTS: Array<{ codigo: string; label: string; optional?: boolean }> = [
@@ -33,6 +33,9 @@ const DOT: Record<"ok" | "warn" | "neutral", string> = {
   neutral: "bg-ds-text-4",
 };
 
+/** Ventana de referencia (días) para el anillo de urgencia del countdown. */
+const URGENCY_WINDOW_DAYS = 14;
+
 export function DealLicitacionBand({
   dealId,
   dealTitle,
@@ -43,7 +46,7 @@ export function DealLicitacionBand({
   hasUnclassified,
   gate,
   onOpenDocumentos,
-  milestones,
+  journeyIndex = 0,
 }: {
   dealId: string;
   dealTitle: string;
@@ -54,25 +57,33 @@ export function DealLicitacionBand({
   hasUnclassified: boolean;
   gate: string | null;
   onOpenDocumentos: (tipoCodigo: string) => void;
-  milestones?: ReactNode;
+  /** Índice 0-based en TENDER_JOURNEY, calculado por el padre a partir de datos existentes. */
+  journeyIndex?: number;
 }) {
   const cd = formatDealDateCountdown(fechaEntrega);
   const short = formatDealDateShort(fechaEntrega);
-  const headerText = short
-    ? `⏱ entrega ${short}${cd ? ` · ${cd.text}` : ""}`
-    : "⏱ entrega sin fecha";
   const basesReady = types.some((t) => t.codigo === LICITACION_TIPO_CODIGOS.bases && t.extracted);
 
+  // Sin fecha de entrega: pulso neutro, sin countdown ni anillo (edge case del brief).
+  const pulseProgress = cd ? Math.max(0, Math.min(1, 1 - cd.days / URGENCY_WINDOW_DAYS)) : null;
+
   return (
-    <Surface elevation={1} padding="sm" className="space-y-2 lg:space-y-3 lg:p-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-[13px] font-semibold text-ds-text-1">
-          Documentos de licitación
-        </p>
-        <Tag variant={cd?.variant ?? "neutral"} size="sm">
-          {headerText}
-        </Tag>
+    <Surface elevation={1} padding="sm" className="space-y-3 lg:space-y-3.5 lg:p-4">
+      <div className="flex items-center gap-4">
+        <PulseBar
+          variant="tender"
+          neutral={!cd}
+          value={cd ? cd.text : "Sin fecha"}
+          subtitle={short ? `Entrega ${short}` : "Definir fecha de entrega"}
+          progress={pulseProgress}
+          className="min-w-[180px] shrink-0 !min-h-0 !px-0 !py-0"
+        />
+        <div className="min-w-0 flex-1">
+          <JourneyStepper steps={TENDER_JOURNEY} activeIndex={journeyIndex} />
+        </div>
       </div>
+
+      <p className="text-[13px] font-semibold text-ds-text-1">Documentos de licitación</p>
 
       {loading ? (
         <div className="flex items-center gap-2 text-[13px] text-ds-text-3">
@@ -147,8 +158,6 @@ export function DealLicitacionBand({
           </div>
         </>
       )}
-
-      {milestones}
 
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <Button

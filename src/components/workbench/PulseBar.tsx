@@ -17,6 +17,8 @@ export function PulseBar({
   subtitle,
   progress,
   actionsSlot,
+  /** Fuerza tono neutro (ej. tender sin fecha de entrega definida). */
+  neutral,
   className,
 }: {
   variant: PulseVariant;
@@ -28,10 +30,12 @@ export function PulseBar({
   /** 0–1 para anillo de countdown (tender) o gate. */
   progress?: number | null;
   actionsSlot?: ReactNode;
+  neutral?: boolean;
   className?: string;
 }) {
-  const tone =
-    variant === "tender"
+  const tone = neutral
+    ? "text-ds-text-3"
+    : variant === "tender"
       ? "text-status-warn-fg [text-shadow:0_0_22px_rgba(245,165,36,0.30)]"
       : "text-[var(--ds-glow)] [text-shadow:0_0_22px_rgba(var(--ds-glow-rgb),0.35)]";
 
