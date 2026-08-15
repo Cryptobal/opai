@@ -116,17 +116,74 @@ describe("economicOpeningFromBreakdown", () => {
         subtotalClp: 2_000_000,
       },
     ]);
-    expect(opening.salariesByRole).toEqual([
-      {
-        cargo: "Guardia de seguridad",
-        count: 2,
-        baseClp: 600_000,
-        gratificacionClp: 150_000,
-        colacionMovilizacionClp: 70_000,
-        leyesSocialesClp: 53_250,
-        costoEmpresaClp: 923_250,
-      },
+    expect(opening.salariesByRole?.[0]).toMatchObject({
+      cargo: "Guardia de seguridad",
+      count: 2,
+      baseClp: 600_000,
+      gratificacionClp: 150_000,
+      colacionMovilizacionClp: 70_000,
+      leyesSocialesClp: 53_250,
+      costoEmpresaClp: 923_250,
+    });
+    expect(opening.salariesByRole?.[0]?.components.map((c) => c.label)).toEqual(
+      expect.arrayContaining([
+        "Sueldo base",
+        "Gratificación legal",
+        "Colación",
+        "Movilización",
+        "Reforma previsional (empleador)",
+        "AFC (empleador)",
+        "Mutual",
+      ]),
+    );
+    expect(opening.salariesByRole?.[0]?.components.every((c) => c.amountClp > 0)).toBe(true);
+    expect(opening.directLines).toEqual([]);
+    expect(opening.indirectLines).toEqual([]);
+  });
+
+  it("apertura directos e indirectos ítem a ítem desde el breakdown", () => {
+    const opening = economicOpeningFromBreakdown({
+      positions: [],
+      totalLaborCost: 400,
+      holidayAdjustment: 10,
+      uniforms: 20,
+      exams: 5,
+      meals: 15,
+      vehicles: 30,
+      infrastructure: 10,
+      equipment: 40,
+      transport: 5,
+      systems: 5,
+      other: 10,
+      subtotalBase: 550,
+      marginPct: 12,
+      marginAmount: 80,
+      financial: 0,
+      financialRatePct: 0,
+      policy: 0,
+      policyRatePct: 0,
+      totalSalePrice: 630,
+      additionalLines: 0,
+      grandTotal: 630,
+      monthlyHoursStandard: 180,
+      currency: "CLP",
+    });
+    expect(opening.directLines).toEqual([
+      { label: "Ajuste festivos", amountClp: 10 },
+      { label: "Uniformes", amountClp: 20 },
+      { label: "Exámenes", amountClp: 5 },
+      { label: "Colación / alimentación", amountClp: 15 },
     ]);
+    expect(opening.indirectLines?.map((l) => l.label)).toEqual([
+      "Equipamiento",
+      "Traslados",
+      "Vehículos",
+      "Infraestructura",
+      "Sistemas",
+      "Otros",
+    ]);
+    expect(opening.rows.find((r) => r.key === "direct")?.amountClp).toBe(50);
+    expect(opening.rows.find((r) => r.key === "indirect")?.amountClp).toBe(100);
   });
 
   it("acepta líneas e instalaciones de las props de la cotización", () => {
@@ -200,6 +257,10 @@ describe("EconomicOpeningTable", () => {
           {
             cargo: "Guardia de seguridad",
             count: 2,
+            components: [
+              { label: "Sueldo base", amountClp: 600_000 },
+              { label: "Gratificación legal", amountClp: 150_000 },
+            ],
             baseClp: 600_000,
             gratificacionClp: 150_000,
             colacionMovilizacionClp: 70_000,
@@ -207,6 +268,8 @@ describe("EconomicOpeningTable", () => {
             costoEmpresaClp: 923_250,
           },
         ],
+        directLines: [{ label: "Uniformes", amountClp: 20_000 }],
+        indirectLines: [{ label: "Equipamiento", amountClp: 15_000 }],
       },
     );
 
@@ -215,9 +278,13 @@ describe("EconomicOpeningTable", () => {
     expect(screen.getByText("Cotización por servicios")).toBeInTheDocument();
     expect(screen.getByText("Apertura por instalación")).toBeInTheDocument();
     expect(screen.getByText("Sueldos por cargo")).toBeInTheDocument();
+    expect(screen.getAllByText("Costos directos").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Costos indirectos").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Estructura del precio")).toBeInTheDocument();
     expect(screen.getByText("Planta Norte")).toBeInTheDocument();
     expect(screen.getByText("Guardia de seguridad")).toBeInTheDocument();
+    expect(screen.getByText("Sueldo base")).toBeInTheDocument();
+    expect(screen.getByText("Uniformes")).toBeInTheDocument();
   });
 });
 

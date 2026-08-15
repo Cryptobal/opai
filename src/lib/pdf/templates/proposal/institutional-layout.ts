@@ -694,6 +694,7 @@ export async function renderInstitutionalProposalToBufferFromProps(
   const opening = economicOpeningFromQuote({
     breakdown: props.breakdown,
     ufFallback: props.ufValue ?? 0,
+    resourceBreakdown: props.resourceBreakdown,
     serviceLines: (props.installations?.length
       ? props.installations.flatMap((installation) =>
           installation.items.map((item) => ({
@@ -733,10 +734,49 @@ export async function renderInstitutionalProposalToBufferFromProps(
   const serviceLines = opening.serviceLines ?? [];
   const byInstallation = opening.byInstallation ?? [];
   const salariesByRole = opening.salariesByRole ?? [];
+  const directLines = opening.directLines ?? [];
+  const indirectLines = opening.indirectLines ?? [];
   const amount = (kind: 'uf' | 'clp', clp: number) =>
     kind === 'uf'
       ? formatOpeningUf(clp, opening.ufValue)
       : formatOpeningClp(clp);
+
+  const linesBlock = (
+    key: string,
+    title: string,
+    lines: typeof directLines,
+  ) => [
+    h(Text, { key: `${key}-title`, style: styles.h2 }, title),
+    lines.length === 0
+      ? h(Text, { key: `${key}-empty`, style: styles.note }, 'No aplica')
+      : h(View, { key: `${key}-table`, style: styles.table },
+          tableHeader([
+            { text: 'Concepto', width: '54%' },
+            { text: 'Cant.', width: '14%' },
+            { text: 'Monto mensual', width: '32%' },
+          ]),
+          ...lines.map((line, index) =>
+            tableRow(`${key}-${index}`, [
+              { text: line.label, width: '54%', strong: true },
+              {
+                text: line.quantity != null ? line.quantity.toLocaleString('es-CL') : '—',
+                width: '14%',
+                align: 'right' as const,
+              },
+              { text: formatOpeningClp(line.amountClp), width: '32%', align: 'right' as const, strong: true },
+            ], index),
+          ),
+          tableRow(`${key}-subtotal`, [
+            { text: 'Subtotal', width: '68%', strong: true },
+            {
+              text: formatOpeningClp(lines.reduce((sum, line) => sum + line.amountClp, 0)),
+              width: '32%',
+              align: 'right' as const,
+              strong: true,
+            },
+          ], lines.length),
+        ),
+  ];
 
   const EconomicChapter = () =>
     h(View, null,
@@ -785,31 +825,43 @@ export async function renderInstitutionalProposalToBufferFromProps(
       ...(salariesByRole.length > 0
         ? [
             h(Text, { key: 'economic-salaries-title', style: styles.h2 },
-              'Sueldos por cargo · valores por persona al mes'),
-            h(View, { key: 'economic-salaries-table', style: styles.table },
-              tableHeader([
-                { text: 'Cargo', width: '22%' },
-                { text: 'Pers.', width: '7%' },
-                { text: 'Base', width: '14%' },
-                { text: 'Gratificación', width: '14%' },
-                { text: 'Colación / mov.', width: '15%' },
-                { text: 'Leyes sociales', width: '14%' },
-                { text: 'Costo empresa', width: '14%' },
-              ]),
-              ...salariesByRole.map((salary, index) =>
-                tableRow(`salary-${index}`, [
-                  { text: salary.cargo, width: '22%', strong: true },
-                  { text: salary.count.toLocaleString('es-CL'), width: '7%', align: 'right' },
-                  { text: formatOpeningClp(salary.baseClp), width: '14%', align: 'right' },
-                  { text: formatOpeningClp(salary.gratificacionClp), width: '14%', align: 'right' },
-                  { text: formatOpeningClp(salary.colacionMovilizacionClp), width: '15%', align: 'right' },
-                  { text: formatOpeningClp(salary.leyesSocialesClp), width: '14%', align: 'right' },
-                  { text: formatOpeningClp(salary.costoEmpresaClp), width: '14%', align: 'right', strong: true },
-                ], index),
+              'Sueldos por cargo · componentes del snapshot (por persona/mes)'),
+            ...salariesByRole.flatMap((salary, salaryIndex) => [
+              h(Text, {
+                key: `salary-cargo-${salaryIndex}`,
+                style: [styles.tableCellStrong, { marginTop: salaryIndex === 0 ? 4 : 10 }],
+              }, `${salary.cargo} · ${salary.count.toLocaleString('es-CL')} persona(s)`),
+              h(View, {
+                key: `salary-table-${salaryIndex}`,
+                style: styles.table,
+                wrap: false,
+                break: salary.components.length > 6,
+              },
+                tableHeader([
+                  { text: 'Componente', width: '62%' },
+                  { text: 'Monto', width: '38%' },
+                ]),
+                ...salary.components.map((component, index) =>
+                  tableRow(`salary-${salaryIndex}-${index}`, [
+                    { text: component.label, width: '62%' },
+                    { text: formatOpeningClp(component.amountClp), width: '38%', align: 'right' },
+                  ], index),
+                ),
+                tableRow(`salary-${salaryIndex}-total`, [
+                  { text: 'Costo empresa', width: '62%', strong: true },
+                  {
+                    text: formatOpeningClp(salary.costoEmpresaClp),
+                    width: '38%',
+                    align: 'right',
+                    strong: true,
+                  },
+                ], salary.components.length, true),
               ),
-            ),
+            ]),
           ]
         : []),
+      ...linesBlock('direct', 'Costos directos', directLines),
+      ...linesBlock('indirect', 'Costos indirectos', indirectLines),
       h(Text, { style: styles.h2 }, 'Estructura del precio'),
       h(View, { style: styles.table },
         tableHeader([
