@@ -134,6 +134,18 @@ export async function generateProposalSectionsBatch(
       continue;
     }
 
+    // Dotación siempre desde puestos/servicios del costeo — nunca desde fijas.
+    if (isDotacionSection(original)) {
+      next = setSectionContent(next, original.id, buildDotacionContent(positions), {
+        sources: ["puestos"],
+        mark: "ia",
+      });
+      const updated = next.sections.find((section) => section.id === original.id);
+      if (updated) updated.origin = "auto";
+      progress.generated += 1;
+      continue;
+    }
+
     const fixed = findFixedSectionMatch(
       original.title,
       fixedSections,
@@ -146,17 +158,6 @@ export async function generateProposalSectionsBatch(
       });
       const updated = next.sections.find((section) => section.id === original.id);
       if (updated) updated.origin = "fija_empresa";
-      progress.generated += 1;
-      continue;
-    }
-
-    if (isDotacionSection(original)) {
-      next = setSectionContent(next, original.id, buildDotacionContent(positions), {
-        sources: ["puestos"],
-        mark: "ia",
-      });
-      const updated = next.sections.find((section) => section.id === original.id);
-      if (updated) updated.origin = "auto";
       progress.generated += 1;
       continue;
     }

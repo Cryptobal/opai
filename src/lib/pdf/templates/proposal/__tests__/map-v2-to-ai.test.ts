@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyProposalV2 } from "@/lib/cpq/proposal-sections/schema";
 import { setSectionContent } from "@/lib/cpq/proposal-sections/ops";
-import { mapV2ToProposalAI } from "../map-v2-to-ai";
+import { mapV2ToProposalAI, stripOrganigramRolesFromContent } from "../map-v2-to-ai";
 
 describe("mapV2ToProposalAI", () => {
   it("mapea identificación, resumen y comprensión a props del variant technical", () => {
@@ -54,5 +54,26 @@ describe("mapV2ToProposalAI", () => {
     ]);
     expect(ai.institutional?.quienesSomos).toContain("Gerencia General");
     expect(ai.institutional?.experienciaCertificaciones).toContain("OS-10");
+  });
+
+  it("stripOrganigramRolesFromContent deja narrativa y quita cargos duplicados", () => {
+    const roles = ["Gerencia General", "Supervisión de terreno"];
+    const stripped = stripOrganigramRolesFromContent(
+      [
+        "Gard Security es una empresa chilena de seguridad privada.",
+        "",
+        "Nuestra estructura de servicio se organiza por cargos (sin datos de tamaño):",
+        "",
+        "• Gerencia General",
+        "• Supervisión de terreno",
+        "",
+        "El organigrama operativo se adapta a cada servicio.",
+      ].join("\n"),
+      roles,
+    );
+    expect(stripped).toContain("Gard Security es una empresa");
+    expect(stripped).not.toContain("Gerencia General");
+    expect(stripped).not.toContain("Supervisión de terreno");
+    expect(stripped).not.toMatch(/estructura de servicio se organiza/i);
   });
 });

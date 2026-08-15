@@ -259,6 +259,7 @@ export function CpqQuoteDetail({
   const [portalVisibilitySaving, setPortalVisibilitySaving] = useState(false);
   const [sendingDotacion, setSendingDotacion] = useState(false);
   const [portalProposalOpen, setPortalProposalOpen] = useState(false);
+  const [preparingSend, setPreparingSend] = useState(false);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [whatsappSentTo, setWhatsappSentTo] = useState<string>("");
@@ -1149,7 +1150,7 @@ export function CpqQuoteDetail({
       toast.error(
         isLicitacionDeal
           ? "Para marcar como enviada usa el botón de la card Propuesta o la barra inferior."
-          : "Para marcar como enviada usa Enviar desde la card Propuesta o la barra inferior.",
+          : "Para marcar como enviada usa Enviar en la barra inferior (móvil) o superior (desktop).",
       );
       return;
     }
@@ -1773,8 +1774,9 @@ export function CpqQuoteDetail({
     (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
     Boolean(crmContext.accountId && crmContext.dealId);
 
-  /** Abre el modal de envío o muestra toast accionable (nunca click silencioso). */
-  const openPortalProposal = useCallback(() => {
+  /** CTA único de envío: calienta PDF final y abre el modal (autosuficiente). */
+  const openPortalProposal = useCallback(async () => {
+    if (preparingSend) return;
     if (!crmContext.contactId) {
       toast.error("Asigna un contacto antes de enviar la propuesta.");
       return;
@@ -1793,8 +1795,47 @@ export function CpqQuoteDetail({
       toast.error("Asigna un negocio antes de enviar la propuesta.");
       return;
     }
-    setPortalProposalOpen(true);
-  }, [crmContext.contactId, crmContext.dealId, contactForPortal]);
+    setPreparingSend(true);
+    try {
+      try {
+        await fetch(`/api/cpq/quotes/${quoteId}/proposal-pdf?mode=final`);
+      } catch {
+        // El servidor regenera al enviar si el warm falla.
+      }
+      setPortalProposalOpen(true);
+    } finally {
+      setPreparingSend(false);
+    }
+  }, [crmContext.contactId, crmContext.dealId, contactForPortal, preparingSend, quoteId]);
+
+  const canSendComercial = isCommercialSendEnabled({
+    quoteExists: Boolean(quote),
+    proposalReady,
+    hasLineItems: positions.length > 0 || (additionalLines?.length ?? 0) > 0,
+    hasAccount: Boolean(crmContext.accountId),
+    hasContact: Boolean(crmContext.contactId),
+    hasDeal: Boolean(crmContext.dealId),
+  });
+
+  const sendPortalButton = !isLicitacionDeal ? (
+    <Button
+      className="h-11 w-full gap-2 text-sm font-semibold"
+      disabled={!canSendComercial || preparingSend}
+      title={
+        preparingSend
+          ? "Preparando PDF…"
+          : !proposalReady
+            ? "Espera a que la propuesta tenga contenido"
+            : crmContext.contactId && !contactHasEmail
+              ? "El contacto no tiene email cargado"
+              : undefined
+      }
+      onClick={() => void openPortalProposal()}
+    >
+      {preparingSend ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+      {preparingSend ? "Preparando…" : quote?.status === "sent" ? "Reenviar" : "Enviar"}
+    </Button>
+  ) : null;
 
   const handleGeneratePdfPreview = async (): Promise<string | null> => {
     setPdfPreviewLoading(true);
@@ -2122,6 +2163,28 @@ export function CpqQuoteDetail({
             <MessageCircle className="h-4 w-4" />
             Abrir chat
           </Button>
+          {isLicitacionDeal ? (
+            <Button
+              type="button"
+              className="h-9 gap-2"
+              disabled={
+                quote.status === "sent" ||
+                changingStatus ||
+                markingSentLicitacion ||
+                !canMarkSentLicitacion
+              }
+              onClick={() => void handleMarkSentLicitacion()}
+            >
+              {markingSentLicitacion ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {quote.status === "sent" ? "Enviada" : "Marcar enviada"}
+            </Button>
+          ) : (
+            <div className="min-w-[7.5rem] [&_button]:h-9">{sendPortalButton}</div>
+          )}
           <Button
             type="button"
             size="icon"
@@ -2592,7 +2655,6 @@ export function CpqQuoteDetail({
           dealId={crmContext.dealId || quote.dealId}
           quoteStatus={quote.status}
           onMarkSentLicitacion={isLicitacionDeal ? () => void handleMarkSentLicitacion() : undefined}
-          onSendPortal={!isLicitacionDeal ? openPortalProposal : undefined}
           markingSent={markingSentLicitacion}
           economicOpening={economicOpeningFromCostSummary(costSummary, {
             currency: crmContext.currency || "CLP",
@@ -2882,12 +2944,12 @@ export function CpqQuoteDetail({
         }
         portalButton={(() => {
           // Licitación: el CTA principal marca enviada → Negociación (sin portal/mail).
-          // Cotización normal: conserva Enviar propuesta (portal + correo).
+          // Comercial: un solo Enviar autosuficiente (PDF + modal).
           if (isLicitacionDeal) {
             const alreadySent = quote?.status === "sent";
             return (
               <Button
-                className="w-full h-11 gap-2 text-sm font-semibold bg-status-ok hover:brightness-110 text-white"
+                className="h-11 w-full gap-2 text-sm font-semibold"
                 disabled={
                   alreadySent ||
                   changingStatus ||
@@ -2912,31 +2974,7 @@ export function CpqQuoteDetail({
               </Button>
             );
           }
-          const baseDisabled = !isCommercialSendEnabled({
-            quoteExists: Boolean(quote),
-            proposalReady,
-            hasLineItems: positions.length > 0 || (additionalLines?.length ?? 0) > 0,
-            hasAccount: Boolean(crmContext.accountId),
-            hasContact: Boolean(crmContext.contactId),
-            hasDeal: Boolean(crmContext.dealId),
-          });
-          return (
-            <Button
-              className="w-full h-11 gap-2 text-sm font-semibold bg-status-ok hover:brightness-110 text-white"
-              disabled={baseDisabled}
-              title={
-                !proposalReady
-                  ? "Espera a que la propuesta tenga contenido"
-                  : crmContext.contactId && !contactHasEmail
-                    ? "El contacto no tiene email cargado"
-                    : undefined
-              }
-              onClick={openPortalProposal}
-            >
-              <Send className="h-4 w-4" />
-              {quote?.status === "sent" ? "Reenviar" : "Enviar"}
-            </Button>
-          );
+          return sendPortalButton;
         })()}
       />
       )}

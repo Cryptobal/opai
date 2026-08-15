@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma';
 import { requireTenantModule } from '@/lib/require-module';
 import { loadQuoteProposal } from '@/lib/cpq/proposal-sections/persist';
 import { blockingErrors, validateProposalContent } from '@/lib/cpq/proposal-sections/validate';
+import { hasRealDotacion, loadDotacionPositions } from '@/lib/cpq/proposal-sections/build-dotacion';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -61,9 +62,10 @@ export async function GET(
             { status: 422 },
           );
         }
+        const positions = await loadDotacionPositions(id);
         const blocking = blockingErrors(
           validateProposalContent(content, {
-            hasDotacion: loaded.totalGuards > 0 || loaded.totalPositions > 0,
+            hasDotacion: hasRealDotacion(positions),
           }),
         );
         if (blocking.length) {
