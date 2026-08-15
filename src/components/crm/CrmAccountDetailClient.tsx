@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -236,6 +237,7 @@ type AccountDetail = {
   startDate?: string | null;
   endDate?: string | null;
   notes?: string | null;
+  useAsReference?: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;
   // ── Documento de Cobro ──
@@ -483,6 +485,7 @@ export function CrmAccountDetailClient({
     startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
     endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
     notes: stripAccountLogoMarker(account.notes),
+    useAsReference: account.useAsReference ?? false,
   });
 
   // ── Logo upload ──
@@ -578,6 +581,7 @@ export function CrmAccountDetailClient({
       startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
       endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
       notes: stripAccountLogoMarker(account.notes),
+      useAsReference: account.useAsReference ?? false,
     });
     setEditAccountOpen(true);
   };
@@ -604,6 +608,7 @@ export function CrmAccountDetailClient({
         notes: withAccountLogoMarker(accountForm.notes, accountLogoUrl),
         startDate: accountForm.startDate || null,
         endDate: accountForm.endDate || null,
+        useAsReference: accountForm.useAsReference,
       };
       const res = await fetch(`/api/crm/accounts/${account.id}`, {
         method: "PATCH",
@@ -2187,6 +2192,26 @@ export function CrmAccountDetailClient({
             <div className="space-y-1.5">
               <Label>Fecha término</Label>
               <DatePickerField value={accountForm.endDate || null} onChange={(ymd) => setAccountForm((p) => ({ ...p, endDate: (ymd ?? "") }))} triggerClassName={inputCn} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="flex min-h-11 items-center justify-between gap-3 rounded-ds-md border border-ds-border-subtle bg-ds-surface-2 px-3 py-2">
+                <span>
+                  <span className="block text-sm font-medium text-ds-text-1">
+                    Usar como referencia en propuestas
+                  </span>
+                  <span className="block text-[13px] text-ds-text-3">
+                    Permite incluir esta cuenta en la cartera institucional publicada.
+                  </span>
+                </span>
+                <Switch
+                  size="lg"
+                  checked={accountForm.useAsReference}
+                  onCheckedChange={(useAsReference) =>
+                    setAccountForm((current) => ({ ...current, useAsReference }))
+                  }
+                  aria-label="Usar como referencia en propuestas"
+                />
+              </label>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Notas</Label>

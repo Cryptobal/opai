@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { CpqCatalogConfig } from "@/components/cpq/CpqCatalogConfig";
 import { CpqSimpleCatalogConfig } from "@/components/cpq/CpqSimpleCatalogConfig";
 import { CpqTemplateConfig } from "@/components/cpq/CpqTemplateConfig";
+import { CpqInstitutionalConfig } from "@/components/cpq/CpqInstitutionalConfig";
 import { CpqCostCategoryConfig } from "@/components/cpq/CpqCostCategoryConfig";
 import { CpqDefaultsConfig } from "@/components/cpq/CpqDefaultsConfig";
 import {
@@ -143,7 +144,12 @@ export function CpqConfigTabs() {
           />
         )}
 
-        {activeTab === "templates" && <CpqTemplateConfig />}
+        {activeTab === "templates" && (
+          <div className="space-y-8">
+            <CpqTemplateConfig />
+            <CpqInstitutionalConfig />
+          </div>
+        )}
         {activeTab === "categorias" && <CpqCostCategoryConfig />}
         {activeTab === "defaults" && <CpqDefaultsConfig />}
       </div>
