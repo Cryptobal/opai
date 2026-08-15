@@ -124,8 +124,8 @@ export function ChipTabs({
             "transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]",
             "scroll-snap-align-center",
             isActive
-              ? "bg-[#2DD4A0] text-[#0F1419] font-semibold shadow-[0_2px_8px_rgba(45,212,160,0.25)]"
-              : "bg-white/[0.06] text-[#8899A6] font-medium active:bg-white/[0.1]"
+              ? "bg-[var(--ds-glow)] text-[var(--ds-glow-ink)] font-semibold shadow-[0_2px_8px_rgba(var(--ds-glow-rgb),0.25)]"
+              : "bg-white/[0.06] text-ds-text-3 font-medium active:bg-white/[0.1]"
           );
 
           const chipContent = (
@@ -134,7 +134,7 @@ export function ChipTabs({
                 <Icon
                   className={cn(
                     "h-4 w-4 shrink-0",
-                    isActive ? "text-[#0F1419]" : "text-[#8899A6]"
+                    isActive ? "text-[var(--ds-glow-ink)]" : "text-ds-text-3"
                   )}
                 />
               )}
@@ -148,8 +148,8 @@ export function ChipTabs({
                         ? "hidden"
                         : "bg-status-danger text-white"
                       : isActive
-                        ? "bg-[rgba(15,20,25,0.25)] text-[#0F1419]"
-                        : "bg-[rgba(45,212,160,0.2)] text-[#2DD4A0]"
+                        ? "bg-[rgba(6,37,29,0.25)] text-[var(--ds-glow-ink)]"
+                        : "bg-[rgba(var(--ds-glow-rgb),0.2)] text-[var(--ds-glow)]"
                   )}
                 >
                   {typeof tab.badge === "number" && tab.badge > 99

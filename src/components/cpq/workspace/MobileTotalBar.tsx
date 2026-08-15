@@ -1,13 +1,14 @@
 "use client";
 
 /**
- * Fila 1 del stack sticky móvil CPQ (~46px): estado · total · acciones.
- * El chip UF del día vive en la línea secundaria (no como pill aparte).
+ * Fila 1 del stack sticky móvil CPQ: PulseBar quote (estado · total · acciones).
+ * API estable para CpqQuoteDetail / QuoteWorkspace.
  */
 
 import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PulseBar } from "@/components/workbench";
 
 const formatCLP = (n: number) =>
   new Intl.NumberFormat("es-CL", {
@@ -40,12 +41,15 @@ export function MobileTotalBar({
   const totalUf = hasUf ? totalClp / (ufValue as number) : null;
   const isUf = (currency || "CLP").toUpperCase() === "UF";
 
-  const primary = isUf && totalUf != null
-    ? `${totalUf.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF`
-    : formatCLP(totalClp);
+  const primary =
+    totalClp == null || !Number.isFinite(totalClp)
+      ? "—"
+      : isUf && totalUf != null
+        ? `${totalUf.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF`
+        : formatCLP(totalClp);
 
   const secondaryParts: string[] = [];
-  if (isUf) {
+  if (isUf && Number.isFinite(totalClp)) {
     secondaryParts.push(formatCLP(totalClp));
   } else if (totalUf != null) {
     secondaryParts.push(
@@ -55,27 +59,24 @@ export function MobileTotalBar({
   if (hasUf) {
     secondaryParts.push(`UF ${formatCLP(ufValue as number)}`);
   }
+  if (saving) secondaryParts.push("guardando…");
   const secondary = secondaryParts.join(" · ");
 
   return (
-    <div className={cn("flex h-[46px] items-center gap-2 px-3", className)}>
-      {statusSlot ? <div className="shrink-0">{statusSlot}</div> : null}
-      <div className="flex min-w-0 flex-1 flex-col items-end justify-center leading-tight">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-mono text-[17px] font-extrabold tabular-nums text-status-ok-fg">
-            {primary}
-          </span>
-          {saving && (
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
-          )}
-        </div>
-        {secondary ? (
-          <span className="max-w-full truncate text-[11px] font-mono uppercase tracking-[0.08em] tabular-nums text-muted-foreground">
-            {secondary}
-          </span>
-        ) : null}
-      </div>
-      {actionsSlot ? <div className="shrink-0">{actionsSlot}</div> : null}
-    </div>
+    <PulseBar
+      variant="quote"
+      statusSlot={statusSlot}
+      value={
+        <span className="inline-flex items-center gap-1.5">
+          {primary}
+          {saving ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-ds-text-3" aria-hidden />
+          ) : null}
+        </span>
+      }
+      subtitle={secondary || undefined}
+      actionsSlot={actionsSlot}
+      className={cn(className)}
+    />
   );
 }

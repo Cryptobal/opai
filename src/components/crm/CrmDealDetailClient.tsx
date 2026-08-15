@@ -80,7 +80,8 @@ import { DealRail } from "./deals/DealRail";
 import { DealLicitacionFichaRows } from "./deals/DealLicitacionFichaRows";
 import { DealLicitacionMilestones } from "./deals/DealLicitacionMilestones";
 import { useDealLicitacionDocs } from "./deals/useDealLicitacionDocs";
-import { licitacionTipoLabel } from "@/modules/crm/documents/licitacion-corpus";
+import { licitacionTipoLabel, LICITACION_TIPO_CODIGOS } from "@/modules/crm/documents/licitacion-corpus";
+import { WorkbenchTopIsland } from "@/components/workbench";
 import type { DealInstallationRef } from "@/lib/crm/deal-installation";
 import { DealNextStepBanner } from "./deal/DealNextStepBanner";
 import { DealUnifiedTimeline } from "./deal/DealUnifiedTimeline";
@@ -2429,6 +2430,21 @@ export function CrmDealDetailClient({
                     ? "bg-status-warn-soft text-status-warn-fg"
                     : "bg-ds-surface-2 text-ds-text-3",
             };
+
+  // Journey de licitación (TENDER_JOURNEY): índice derivado de señales existentes
+  // (sin nuevo estado de negocio) — presentacional únicamente.
+  const licitacionJourneyIndex = (() => {
+    if (dealStatus === "won" || dealStatus === "lost" || currentStageIsAccepted) return 3;
+    if (sentLinkedQuotes.length > 0) return 2;
+    const qaUploaded = licitacionDocs.types.some(
+      (t) => t.codigo === LICITACION_TIPO_CODIGOS.qa && t.present,
+    );
+    if (qaUploaded) return 1;
+    return 0;
+  })();
+  const licitacionDocsTotal = licitacionDocs.types.length || 4;
+  const licitacionDocsDone = licitacionDocs.types.filter((t) => t.present).length;
+
   const headerExtra =
     licitacion.isLicitacion || primaryPhone ? (
       <div className="flex flex-wrap items-center gap-2">
@@ -2445,7 +2461,7 @@ export function CrmDealDetailClient({
         {primaryPhone && (
           <div className="flex items-center gap-1.5">
             <a href={`tel:+${whatsappPhone || primaryPhone}`} title="Llamar"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-ds-border-default bg-background text-foreground hover:bg-muted transition-colors">
               <Phone className="h-4 w-4" />
             </a>
             <a href={`https://wa.me/${whatsappPhone || primaryPhone}`} target="_blank" rel="noopener noreferrer" title="WhatsApp"
@@ -2469,6 +2485,13 @@ export function CrmDealDetailClient({
 
   return (
     <>
+      {licitacion.isLicitacion ? (
+        <WorkbenchTopIsland
+          eyebrow="Licitación"
+          title={dealTitle}
+          onBack={() => router.push("/crm/deals")}
+        />
+      ) : null}
       <EntityDetailLayout
         breadcrumb={["CRM", "Negocios", dealTitle]}
         breadcrumbHrefs={["/crm", "/crm/deals"]}
@@ -2547,9 +2570,7 @@ export function CrmDealDetailClient({
                     setFilesHighlightTipo(tipoCodigo);
                     setActiveTab("files");
                   }}
-                  milestones={
-                    <DealLicitacionMilestones dealId={deal.id} canEdit={canEdit} />
-                  }
+                  journeyIndex={licitacionJourneyIndex}
                 />
               </div>
             ) : null}
@@ -2560,6 +2581,19 @@ export function CrmDealDetailClient({
         onTabChange={setActiveTab}
         rightPanel={
           <DealRail
+            licitacion={
+              licitacion.isLicitacion
+                ? {
+                    fechaEntrega: licitacion.fechaEntrega,
+                    docsDone: licitacionDocsDone,
+                    docsTotal: licitacionDocsTotal,
+                    gate: licitacionDocs.gate,
+                    milestones: (
+                      <DealLicitacionMilestones dealId={deal.id} canEdit={canEdit} />
+                    ),
+                  }
+                : undefined
+            }
             ficha={{
               account: deal.account ? { id: deal.account.id, name: deal.account.name } : null,
               primaryContact:

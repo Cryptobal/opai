@@ -1,0 +1,1818 @@
+<!doctype html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OPAI · Workbench Comercial — Mockup Liquid Glass v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:#142033;--bg-2:#0f1a2b;--card:#1a2940;--card-2:#152238;
+      --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.14);
+      --text-1:#f4f7fb;--text-2:#c5d0df;--text-3:#8fa0b8;--text-4:#6b7d96;
+      --teal:#14a88a;--teal-b:#2dd4a0;--teal-soft:rgba(20,168,138,.14);--teal-border:rgba(45,212,160,.28);
+      --warn:#f5a524;--warn-soft:rgba(245,165,36,.14);--danger:#f05252;--danger-soft:rgba(240,82,82,.14);
+      --info:#5b9cf5;--info-soft:rgba(91,156,245,.14);--violet:#a78bfa;--violet-soft:rgba(167,139,250,.14);
+      --glass-fill:rgba(26,41,64,.62);--glass-fill-strong:rgba(26,41,64,.78);--glass-fill-soft:rgba(26,41,64,.38);
+      --glass-blur:18px;--glass-blur-strong:28px;--glass-border:rgba(255,255,255,.1);--glass-shadow:0 12px 40px rgba(0,0,0,.35);
+      --radius-sm:10px;--radius-md:16px;--radius-lg:22px;--radius-pill:999px;
+      --safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);
+      --dock-h:52px;--island-top-h:56px;--island-bottom-h:64px;--rail-w:180px;--rail-w-collapsed:56px;--centro-w:336px;
+      --font:"Inter",system-ui,-apple-system,sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0;height:100%}
+    body{font-family:var(--font);background:var(--bg);color:var(--text-1);-webkit-font-smoothing:antialiased;overflow:hidden}
+    .aurora{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+    .aurora .blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.45;animation:drift 18s ease-in-out infinite alternate}
+    .aurora .b1{width:420px;height:420px;background:rgba(20,168,138,.35);top:-8%;left:-6%}
+    .aurora .b2{width:360px;height:360px;background:rgba(91,156,245,.22);top:20%;right:-4%;animation-delay:-4s}
+    .aurora .b3{width:300px;height:300px;background:rgba(167,139,250,.18);bottom:8%;left:28%;animation-delay:-8s}
+    @keyframes drift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(24px,-18px) scale(1.06)}}
+    .noise{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+    .g,.g-strong,.g-soft,.g-pill,.g-shell{border:1px solid var(--glass-border);box-shadow:var(--glass-shadow)}
+    .g{background:var(--glass-fill);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));border-radius:var(--radius-md)}
+    .g-strong{background:var(--glass-fill-strong);backdrop-filter:blur(var(--glass-blur-strong));-webkit-backdrop-filter:blur(var(--glass-blur-strong));border-radius:var(--radius-lg)}
+    .g-soft{background:var(--glass-fill-soft);border-radius:var(--radius-sm);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+    .g-pill{background:var(--glass-fill-strong);backdrop-filter:blur(var(--glass-blur-strong));-webkit-backdrop-filter:blur(var(--glass-blur-strong));border-radius:var(--radius-pill)}
+    .g-shell{background:rgba(15,26,43,.72);backdrop-filter:blur(var(--glass-blur-strong));-webkit-backdrop-filter:blur(var(--glass-blur-strong));border-radius:var(--radius-lg);border:1px solid var(--border)}
+    .app{position:relative;z-index:2;display:flex;flex-direction:column;height:100dvh}
+    .dock{height:var(--dock-h);display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border);background:rgba(15,26,43,.88);backdrop-filter:blur(16px);flex-shrink:0}
+    .dock-brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:var(--text-1);min-width:200px}
+    .dock-brand .logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--teal),var(--teal-b));display:grid;place-items:center}
+    .dock-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .dock-label{font-size:11px;color:var(--text-4);text-transform:uppercase;letter-spacing:.06em;margin-right:4px}
+    .dock-pill{border:1px solid var(--border);background:var(--card-2);color:var(--text-3);font-size:12px;font-weight:500;padding:6px 12px;border-radius:var(--radius-pill);cursor:pointer;transition:all .18s ease}
+    .dock-pill:hover{color:var(--text-1);border-color:var(--border-strong)}
+    .dock-pill.active{background:var(--teal-soft);border-color:var(--teal-border);color:var(--teal-b)}
+    .dock-spacer{flex:1}.dock-meta{font-size:11px;color:var(--text-4)}
+    .stage-wrap{flex:1;min-height:0;display:grid;place-items:center;padding:20px;overflow:auto}
+    .stage{position:relative;transition:width .28s ease,height .28s ease;box-shadow:0 24px 80px rgba(0,0,0,.45);border-radius:28px;border:1px solid var(--border-strong);overflow:hidden;background:var(--bg-2)}
+    .stage.device-phone{width:390px;height:844px;border-radius:36px}
+    .stage.device-tablet{width:834px;height:1112px;border-radius:24px}
+    .stage.device-desktop{width:min(1280px,96vw);height:min(800px,78vh);border-radius:16px}
+    .frame-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:28px;background:#000;border-radius:0 0 16px 16px;z-index:30;display:none}
+    .stage.device-phone .frame-notch{display:block}
+    .workbench{position:absolute;inset:0;display:flex;flex-direction:column;container-type:inline-size}
+    .island-top{position:absolute;top:calc(12px + var(--safe-top));left:12px;right:12px;z-index:20;min-height:var(--island-top-h);padding:8px 12px;display:flex;align-items:center;gap:10px}
+    .island-bottom{position:absolute;bottom:calc(12px + var(--safe-bottom));left:12px;right:12px;z-index:20;min-height:var(--island-bottom-h);padding:8px 10px;display:flex;align-items:center;justify-content:space-around;gap:4px}
+    .island-title{font-size:14px;font-weight:600}.island-sub{font-size:12px;color:var(--text-3)}
+    .island-btn{width:40px;height:40px;border:none;background:transparent;color:var(--text-3);border-radius:12px;cursor:pointer;display:grid;place-items:center}
+    .island-btn.active{color:var(--teal-b);background:var(--teal-soft)}
+    .island-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--text-4);cursor:pointer;padding:6px 4px;border-radius:12px;border:none;background:transparent}
+    .island-nav-item.active{color:var(--teal-b)}.island-nav-item svg{width:20px;height:20px}
+    .pulse{display:flex;align-items:center;gap:10px;padding:10px 14px;margin:0 12px;position:relative;overflow:hidden}
+    .pulse .ping{position:relative;width:10px;height:10px;border-radius:50%;background:var(--teal-b);flex-shrink:0}
+    .pulse .ping::before{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--teal-b);opacity:.6;animation:ping 1.8s ease-out infinite}
+    .pulse .cring{position:absolute;left:18px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;border:1px solid var(--teal-border);animation:cring 2.4s ease-in-out infinite;pointer-events:none}
+    @keyframes ping{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.8);opacity:0}}
+    @keyframes cring{0%,100%{opacity:.15;transform:translateY(-50%) scale(.9)}50%{opacity:.45;transform:translateY(-50%) scale(1.15)}}
+    .pulse.c-teal{border-color:var(--teal-border);background:var(--teal-soft)}
+    .pulse.c-warn{border-color:rgba(245,165,36,.3);background:var(--warn-soft)}
+    .pulse.c-warn .ping{background:var(--warn)}.pulse.c-warn .ping::before{border-color:var(--warn)}
+    .pulse-text{font-size:13px;font-weight:500}.pulse-meta{font-size:12px;color:var(--text-3);margin-left:auto}
+    .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0}.chips::-webkit-scrollbar{display:none}
+    .chip{flex-shrink:0;font-size:12px;font-weight:500;padding:6px 12px;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--card-2);color:var(--text-3);cursor:pointer;white-space:nowrap;transition:all .15s ease}
+    .chip:hover{color:var(--text-1)}.chip.active{background:var(--teal-soft);border-color:var(--teal-border);color:var(--teal-b)}
+    .journey{display:flex;align-items:center;gap:0;padding:12px 16px;overflow-x:auto;scrollbar-width:none;margin:0 12px 12px}
+    .journey::-webkit-scrollbar{display:none}
+    .jstep{display:flex;align-items:center;gap:8px;flex-shrink:0;position:relative}
+    .jstep .dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border-strong);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--text-3);background:var(--card)}
+    .jstep.done .dot{border-color:var(--teal-border);color:var(--teal-b);background:var(--teal-soft)}
+    .jstep.active .dot{border-color:var(--teal-b);color:#0d1a14;background:var(--teal-b);animation:breathe 2.2s ease-in-out infinite}
+    .jstep .lbl{font-size:11px;color:var(--text-4);max-width:72px;line-height:1.2}
+    .jstep.active .lbl{color:var(--text-1);font-weight:600}
+    .jstep .line{width:32px;height:2px;background:var(--border);margin:0 4px}
+    .jstep.done .line{background:var(--teal-border)}
+    @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(45,212,160,.35)}50%{box-shadow:0 0 0 8px rgba(45,212,160,0)}}
+    .sec{margin:0 12px 12px;padding:14px 16px}
+    .sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;cursor:pointer;user-select:none}
+    .sec-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-2)}
+    .sec-chev{color:var(--text-4);transition:transform .2s}.sec.collapsed .sec-body{display:none}.sec.collapsed .sec-chev{transform:rotate(-90deg)}
+    .centro-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.42);z-index:40;opacity:0;pointer-events:none;transition:opacity .22s}
+    .centro-backdrop.open{opacity:1;pointer-events:auto}
+    .centro{position:absolute;z-index:50;background:var(--glass-fill-strong);backdrop-filter:blur(var(--glass-blur-strong));border:1px solid var(--glass-border);box-shadow:var(--glass-shadow);transition:transform .28s cubic-bezier(.32,.72,0,1),opacity .22s}
+    .centro.sheet-mobile{left:0;right:0;bottom:0;border-radius:22px 22px 0 0;max-height:78%;transform:translateY(100%)}
+    .centro.sheet-mobile.open{transform:translateY(0)}
+    .centro.sheet-desktop{top:0;right:0;bottom:0;width:var(--centro-w);transform:translateX(100%);border-radius:0}
+    .centro.sheet-desktop.open{transform:translateX(0)}
+    .cx{padding:16px;overflow-y:auto;max-height:100%}
+    .cx-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .cx-title{font-size:15px;font-weight:700}
+    .cx-close{width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--card-2);color:var(--text-2);cursor:pointer;display:grid;place-items:center}
+    .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    .kpi{padding:12px;border-radius:var(--radius-sm);position:relative;overflow:hidden}
+    .kpi::after{content:"";position:absolute;top:-20px;right:-20px;width:60px;height:60px;border-radius:50%;background:radial-gradient(circle,var(--glow,rgba(45,212,160,.2)) 0%,transparent 70%);pointer-events:none}
+    .kpi-lbl{font-size:11px;color:var(--text-4);text-transform:uppercase;letter-spacing:.04em}
+    .kpi-val{font-size:20px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+    .kpi-sub{font-size:11px;color:var(--text-3);margin-top:2px}
+    .toolbar{display:flex;align-items:center;gap:8px;padding:0 12px 10px;flex-wrap:wrap}
+    .srch{flex:1;min-width:140px;display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--card-2)}
+    .srch input{flex:1;border:none;background:transparent;color:var(--text-1);font-size:13px;outline:none;font-family:var(--font)}
+    .srch input::placeholder{color:var(--text-4)}.fpills{display:flex;gap:6px;flex-wrap:wrap}
+    .rcard{display:flex;gap:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+    .rcard:hover{border-color:var(--border-strong)}.rcard.active{border-color:var(--teal-border);background:rgba(20,168,138,.08)}
+    .rcard-av{width:40px;height:40px;border-radius:12px;flex-shrink:0;display:grid;place-items:center;font-weight:700;font-size:14px}
+    .rcard-body{flex:1;min-width:0}.rcard-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .rcard-sub{font-size:12px;color:var(--text-3);margin-top:2px}.rcard-meta{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+    .tag{font-size:10px;font-weight:600;padding:3px 8px;border-radius:var(--radius-pill);text-transform:uppercase;letter-spacing:.03em}
+    .tag-teal{background:var(--teal-soft);color:var(--teal-b)}.tag-warn{background:var(--warn-soft);color:var(--warn)}
+    .tag-info{background:var(--info-soft);color:var(--info)}.tag-violet{background:var(--violet-soft);color:var(--violet)}
+    .d-head{display:none;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:rgba(20,32,51,.6)}
+    .d-head h1{font-size:18px;font-weight:700;margin:0}.d-head-actions{display:flex;gap:8px}
+    .btn{font-size:13px;font-weight:600;padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--card-2);color:var(--text-1);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+    .btn-primary{background:var(--teal);border-color:var(--teal-b);color:#0a1612}.btn-ghost{background:transparent}
+    .wb{display:none;flex:1;min-height:0;grid-template-columns:var(--rail-w) 1fr var(--centro-w);transition:grid-template-columns .25s ease}
+    .wb.rail-collapsed{grid-template-columns:var(--rail-w-collapsed) 1fr var(--centro-w)}
+    .rail{border-right:1px solid var(--border);background:rgba(15,26,43,.5);overflow-y:auto;overflow-x:hidden}
+    .rail-toggle{width:100%;padding:12px;border:none;background:transparent;color:var(--text-4);cursor:pointer;border-bottom:1px solid var(--border)}
+    .rail-item{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;color:var(--text-3);cursor:pointer;border:none;background:transparent;width:100%;text-align:left}
+    .rail-item:hover{color:var(--text-1);background:rgba(255,255,255,.03)}
+    .rail-item.active{color:var(--teal-b);background:var(--teal-soft)}
+    .rail-item svg{width:18px;height:18px;flex-shrink:0}.rail-item span{white-space:nowrap;overflow:hidden}
+    .wb.rail-collapsed .rail-item span{display:none}
+    .main-col{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+    .main-scroll{flex:1;overflow-y:auto;padding-bottom:80px}
+    .centro-panel{border-left:1px solid var(--border);background:rgba(20,32,51,.4);overflow-y:auto}
+    .centro-panel .cx{max-height:none}
+    .panel{display:none}.panel.active{display:block}
+    .mobile-body{flex:1;overflow-y:auto;padding-top:calc(var(--island-top-h) + 24px);padding-bottom:calc(var(--island-bottom-h) + 24px)}
+    @container (min-width:640px){.kpis{grid-template-columns:repeat(4,1fr)}.toolbar{flex-wrap:nowrap}}
+    @container (min-width:1080px){
+      .mobile-only{display:none!important}.d-head,.wb{display:flex}.wb{display:grid}
+      .centro.sheet-mobile{display:none}.island-top,.island-bottom{display:none}
+      .mobile-body{padding:0;overflow:hidden;display:flex;flex-direction:column}
+      .pulse{margin:12px 20px 0}.journey{margin:0 20px 12px}
+    }
+    body[data-device=desktop] .stage.device-phone,body[data-device=desktop] .stage.device-tablet{display:none}
+    body[data-device=phone] .stage.device-tablet,body[data-device=phone] .stage.device-desktop{display:none}
+    body[data-device=tablet] .stage.device-phone,body[data-device=tablet] .stage.device-desktop{display:none}
+    @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.aurora .blob{animation:none}}
+    @media (prefers-reduced-transparency:reduce){.g,.g-strong,.g-soft,.g-pill,.g-shell,.centro,.island-top,.island-bottom{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:var(--card)!important}}
+    .icon{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .muted{color:var(--text-3)}.scroll-spy-target{scroll-margin-top:80px}
+    .ficha-hd{padding:16px}.ficha-hd h2{margin:0 0 4px;font-size:20px}.ficha-hd p{margin:0;font-size:13px;color:var(--text-3)}
+    .detail-grid{display:grid;gap:8px}.detail-row{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)}
+    .detail-row span:first-child{color:var(--text-4)}
+    .line-items{width:100%;border-collapse:collapse;font-size:12px}
+    .line-items th,.line-items td{padding:8px;text-align:left;border-bottom:1px solid var(--border)}
+    .line-items th{color:var(--text-4);font-weight:600;text-transform:uppercase;font-size:10px}
+    .hero-stat{text-align:center;padding:16px}.hero-stat .val{font-size:28px;font-weight:800;color:var(--teal-b)}.hero-stat .lbl{font-size:12px;color:var(--text-3)}
+    .doc-note{font-size:12px;color:var(--text-4);padding:12px 16px;line-height:1.5;border-top:1px solid var(--border);margin-top:8px}
+
+  /* OPAI Workbench Comercial — token reference line 0001: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0002: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0003: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0004: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0005: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0006: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0007: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0008: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0009: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0010: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0011: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0012: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0013: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0014: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0015: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0016: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0017: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0018: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0019: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0020: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0021: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0022: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0023: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0024: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0025: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0026: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0027: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0028: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0029: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0030: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0031: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0032: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0033: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0034: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0035: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0036: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0037: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0038: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0039: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0040: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0041: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0042: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0043: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0044: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0045: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0046: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0047: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0048: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0049: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0050: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0051: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0052: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0053: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0054: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0055: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0056: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0057: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0058: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0059: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0060: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0061: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0062: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0063: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0064: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0065: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0066: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0067: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0068: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0069: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0070: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0071: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0072: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0073: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0074: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0075: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0076: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0077: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0078: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0079: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0080: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0081: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0082: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0083: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0084: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0085: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0086: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0087: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0088: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0089: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0090: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0091: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0092: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0093: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0094: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0095: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0096: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0097: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0098: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0099: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0100: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0101: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0102: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0103: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0104: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0105: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0106: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0107: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0108: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0109: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0110: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0111: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0112: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0113: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0114: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0115: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0116: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0117: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0118: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0119: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0120: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0121: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0122: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0123: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0124: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0125: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0126: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0127: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0128: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0129: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0130: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0131: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0132: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0133: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0134: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0135: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0136: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0137: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0138: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0139: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0140: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0141: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0142: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0143: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0144: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0145: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0146: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0147: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0148: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0149: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0150: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0151: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0152: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0153: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0154: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0155: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0156: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0157: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0158: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0159: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0160: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0161: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0162: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0163: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0164: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0165: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0166: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0167: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0168: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0169: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0170: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0171: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0172: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0173: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0174: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0175: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0176: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0177: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0178: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0179: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0180: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0181: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0182: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0183: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0184: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0185: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0186: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0187: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0188: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0189: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0190: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0191: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0192: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0193: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0194: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0195: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0196: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0197: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0198: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0199: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0200: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0201: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0202: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0203: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0204: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0205: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0206: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0207: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0208: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0209: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0210: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0211: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0212: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0213: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0214: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0215: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0216: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0217: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0218: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+/* OPAI Workbench Comercial — token reference line 0219: glass-fill, teal brand, journey breathe, island-top floating chrome, Centro de control panel, PulseBar ping animation */
+  </style>
+</head>
+<body data-device="desktop" data-mode="comercial" data-vista="cot-ficha">
+  <div class="aurora" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+  <div class="noise" aria-hidden="true"></div>
+  
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V9.5z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01M8 14h.01M16 14h.01M12 14h.01"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></symbol>
+  <symbol id="i-tablet" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M12 18h.01"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-dollar" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+  <symbol id="i-gavel" viewBox="0 0 24 24"><path d="m14 13 7-7"/><path d="M3 21 9 15l5 5"/><path d="M6 18 2 22"/><path d="m16 5 3 3"/><path d="m11 10 3 3"/></symbol>
+</svg>
+
+  <div class="app g-shell">
+    <header class="dock" role="toolbar" aria-label="Mockup dock">
+      <div class="dock-brand">
+        <div class="logo"><svg class="icon" style="stroke:#0a1612"><use href="#i-zap"/></svg></div>
+        <span>Workbench Comercial</span>
+      </div>
+      <div class="dock-group">
+        <span class="dock-label">Modo</span>
+        <button type="button" class="dock-pill active" data-dock-mode="comercial">Comercial</button>
+        <button type="button" class="dock-pill" data-dock-mode="preview">Preview</button>
+      </div>
+      <div class="dock-group">
+        <span class="dock-label">Vista</span>
+        <button type="button" class="dock-pill" data-dock-vista="leads-lista">Leads lista</button>
+        <button type="button" class="dock-pill" data-dock-vista="leads-ficha">Leads ficha</button>
+        <button type="button" class="dock-pill" data-dock-vista="cot-lista">Cot lista</button>
+        <button type="button" class="dock-pill active" data-dock-vista="cot-ficha">Cot ficha</button>
+        <button type="button" class="dock-pill" data-dock-vista="lic-lista">Lic lista</button>
+        <button type="button" class="dock-pill" data-dock-vista="lic-ficha">Lic ficha</button>
+      </div>
+      <div class="dock-group">
+        <span class="dock-label">Device</span>
+        <button type="button" class="dock-pill" data-dock-device="phone"><svg class="icon icon-sm"><use href="#i-phone"/></svg> 390</button>
+        <button type="button" class="dock-pill" data-dock-device="tablet"><svg class="icon icon-sm"><use href="#i-tablet"/></svg> 834</button>
+        <button type="button" class="dock-pill active" data-dock-device="desktop"><svg class="icon icon-sm"><use href="#i-monitor"/></svg> Desktop</button>
+      </div>
+      <div class="dock-spacer"></div>
+      <div class="dock-meta">Mockup · Liquid Glass v2 · OPAI DS</div>
+    </header>
+    <div class="stage-wrap">
+      <div class="stage device-phone" data-frame="phone">
+    <div class="frame-notch"></div>
+    <div class="workbench" id="workbench">
+      <div class="island-top g-pill mobile-only">
+        <button type="button" class="island-btn" aria-label="Menú"><svg class="icon"><use href="#i-menu"/></svg></button>
+        <div style="flex:1;min-width:0">
+          <div class="island-title" id="islandTitle">Colegio San Damián</div>
+          <div class="island-sub" id="islandSub">Workbench Comercial · cot-ficha</div>
+        </div>
+        <button type="button" class="island-btn"><svg class="icon"><use href="#i-search"/></svg></button>
+        <button type="button" class="island-btn"><svg class="icon"><use href="#i-bell"/></svg></button>
+      </div>
+
+      <div class="d-head">
+        <div>
+          <h1>Workbench Comercial</h1>
+          <p class="muted" style="margin:4px 0 0;font-size:13px">Liquid Glass v2 · Mockup interactivo OPAI</p>
+        </div>
+        <div class="d-head-actions">
+          <button type="button" class="btn btn-ghost"><svg class="icon"><use href="#i-bell"/></svg> Alertas</button>
+          <button type="button" class="btn btn-primary"><svg class="icon"><use href="#i-send"/></svg> Enviar propuesta</button>
+        </div>
+      </div>
+
+      <div class="wb" id="wbGrid">
+        <aside class="rail" id="railNav">
+          <button type="button" class="rail-toggle" id="railToggle"><svg class="icon"><use href="#i-panel"/></svg> Colapsar</button>
+          <div style="padding:8px 0"><button type="button" class="rail-item" data-vista="leads-lista"><svg class="icon"><use href="#i-users"/></svg><span>Leads</span></button><button type="button" class="rail-item" data-vista="cot-lista"><svg class="icon"><use href="#i-file"/></svg><span>Cotizaciones</span></button><button type="button" class="rail-item" data-vista="lic-lista"><svg class="icon"><use href="#i-gavel"/></svg><span>Licitaciones</span></button><button type="button" class="rail-item" data-vista="cot-ficha"><svg class="icon"><use href="#i-building"/></svg><span>Ficha cot.</span></button></div>
+          <div style="border-top:1px solid var(--border);padding:8px 0" id="railSpy"><button type="button" class="rail-item" data-spy="sec-datos"><svg class="icon"><use href="#i-file"/></svg><span>Datos</span></button><button type="button" class="rail-item" data-spy="sec-puestos"><svg class="icon"><use href="#i-users"/></svg><span>Puestos</span></button><button type="button" class="rail-item" data-spy="sec-economico"><svg class="icon"><use href="#i-dollar"/></svg><span>Económico</span></button><button type="button" class="rail-item" data-spy="sec-docs"><svg class="icon"><use href="#i-file"/></svg><span>Docs</span></button></div>
+        </aside>
+        <div class="main-col">
+          <div class="main-scroll mobile-body" id="mainScroll">
+            
+    <div class="panel" id="panel-leads-lista" data-panel="leads-lista">
+      <div class="pulse g c-teal mobile-only">
+        <div class="ping"></div><div class="cring"></div>
+        <div class="pulse-text">3 leads sin tomar</div>
+        <div class="pulse-meta">Respuesta &lt; 5 min</div>
+      </div>
+      <div class="toolbar">
+        <div class="srch g-soft"><svg class="icon"><use href="#i-search"/></svg><input type="search" placeholder="Buscar leads, cuentas…" /></div>
+        <div class="fpills chips">
+          <button class="chip active" type="button">Todos</button>
+          <button class="chip" type="button">Sin tomar</button>
+          <button class="chip" type="button">Calientes</button>
+        </div>
+      </div>
+      <div style="padding:0 12px">
+        <div class="rcard g-soft" data-entity="Constructora Alborada">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">CA</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Constructora Alborada</div>
+            <div class="rcard-sub">Lead caliente · Edificio corporativo RM</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Nuevo</span><span class="muted">$48M pipeline</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft active" data-entity="Colegio San Damián">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">SD</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Colegio San Damián</div>
+            <div class="rcard-sub">CPQ-2026-047 · Propuesta enviada</div>
+            <div class="rcard-meta"><span class="tag tag-info">Cotización</span><span class="muted">12 guardias 4x4</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Hospital El Pino">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Licitación pública</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Plazo 18 ago</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Mall Plaza Rancagua">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">MR</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Mall Plaza Rancagua</div>
+            <div class="rcard-sub">Seguimiento · Vista portal hace 2h</div>
+            <div class="rcard-meta"><span class="tag tag-warn">Caliente</span><span class="muted">Sin respuesta 48h</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Etex Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">ET</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Etex Chile</div>
+            <div class="rcard-sub">Renovación contrato Q4</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Negocio</span><span class="muted">$22M anual</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Walmart Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">WM</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Walmart Chile</div>
+            <div class="rcard-sub">RFP seguridad perimetral</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">En evaluación</span></div>
+          </div>
+        </div></div>
+    </div>
+            
+    <div class="panel" id="panel-leads-ficha" data-panel="leads-ficha">
+      <div class="ficha-hd">
+        <h2>Constructora Alborada</h2>
+        <p>Lead · Edificio corporativo Las Condes · Ingresó hace 12 min</p>
+      </div>
+      <div class="journey g-soft"><div class="jstep active"><div class="dot">1</div><div class="lbl">Lead</div></div><div class="line"></div><div class="jstep"><div class="dot">2</div><div class="lbl">Calificar</div></div><div class="line"></div><div class="jstep"><div class="dot">3</div><div class="lbl">Cotizar</div></div><div class="line"></div><div class="jstep"><div class="dot">4</div><div class="lbl">Enviar</div></div><div class="line"></div><div class="jstep"><div class="dot">5</div><div class="lbl">Negociar</div></div><div class="line"></div><div class="jstep"><div class="dot">6</div><div class="lbl">Ganar</div></div></div>
+      <div class="sec g scroll-spy-target" id="sec-contacto">
+        <div class="sec-hd"><span class="sec-title">Contacto</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+        <div class="sec-body detail-grid">
+          <div class="detail-row"><span>Nombre</span><span>María González</span></div>
+          <div class="detail-row"><span>Cargo</span><span>Jefa de Facilities</span></div>
+          <div class="detail-row"><span>Teléfono</span><span>+56 9 8765 4321</span></div>
+          <div class="detail-row"><span>Email</span><span>m.gonzalez@alborada.cl</span></div>
+        </div>
+      </div>
+      <div class="sec g scroll-spy-target" id="sec-necesidad">
+        <div class="sec-hd"><span class="sec-title">Necesidad</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+        <div class="sec-body">
+          <p class="muted" style="font-size:13px;line-height:1.5">Seguridad 24/7 para edificio corporativo 18 pisos. Requiere control de acceso, rondas programadas y central de monitoreo. Inicio estimado octubre 2026.</p>
+        </div>
+      </div>
+      <div class="toolbar mobile-only">
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-zap"/></svg> Tomar lead</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-phone"/></svg> WhatsApp</button>
+        <button class="btn btn-ghost" type="button" id="openCentroMobile">Centro de control</button>
+      </div>
+    </div>
+            
+    <div class="panel" id="panel-cot-lista" data-panel="cot-lista">
+      <div class="toolbar">
+        <div class="srch g-soft"><svg class="icon"><use href="#i-search"/></svg><input type="search" placeholder="Buscar cotizaciones…" /></div>
+        <div class="fpills chips">
+          <button class="chip active" type="button">Borrador</button>
+          <button class="chip" type="button">Enviadas</button>
+          <button class="chip" type="button">Aceptadas</button>
+        </div>
+      </div>
+      <div style="padding:0 12px">
+        <div class="rcard g-soft" data-entity="Constructora Alborada">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">CA</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Constructora Alborada</div>
+            <div class="rcard-sub">Lead caliente · Edificio corporativo RM</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Nuevo</span><span class="muted">$48M pipeline</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft active" data-entity="Colegio San Damián">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">SD</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Colegio San Damián</div>
+            <div class="rcard-sub">CPQ-2026-047 · Propuesta enviada</div>
+            <div class="rcard-meta"><span class="tag tag-info">Cotización</span><span class="muted">12 guardias 4x4</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Hospital El Pino">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Licitación pública</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Plazo 18 ago</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Mall Plaza Rancagua">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">MR</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Mall Plaza Rancagua</div>
+            <div class="rcard-sub">Seguimiento · Vista portal hace 2h</div>
+            <div class="rcard-meta"><span class="tag tag-warn">Caliente</span><span class="muted">Sin respuesta 48h</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Etex Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">ET</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Etex Chile</div>
+            <div class="rcard-sub">Renovación contrato Q4</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Negocio</span><span class="muted">$22M anual</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Walmart Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">WM</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Walmart Chile</div>
+            <div class="rcard-sub">RFP seguridad perimetral</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">En evaluación</span></div>
+          </div>
+        </div></div>
+    </div>
+            
+    <div class="panel active" id="panel-cot-ficha" data-panel="cot-ficha">
+      <div class="pulse g c-teal">
+        <div class="ping"></div><div class="cring"></div>
+        <div class="pulse-text">Cliente viendo propuesta ahora</div>
+        <div class="pulse-meta">Vista #3 · hace 2 min</div>
+      </div>
+      <div class="ficha-hd">
+        <h2>Colegio San Damián</h2>
+        <p>CPQ-2026-047 · Borrador · 12 guardias · Vigencia 30 días</p>
+      </div>
+      <div class="journey g-soft"><div class="jstep done"><div class="dot">1</div><div class="lbl">Lead</div></div><div class="line"></div><div class="jstep done"><div class="dot">2</div><div class="lbl">Calificar</div></div><div class="line"></div><div class="jstep done"><div class="dot">3</div><div class="lbl">Cotizar</div></div><div class="line"></div><div class="jstep active"><div class="dot">4</div><div class="lbl">Enviar</div></div><div class="line"></div><div class="jstep"><div class="dot">5</div><div class="lbl">Negociar</div></div><div class="line"></div><div class="jstep"><div class="dot">6</div><div class="lbl">Ganar</div></div></div>
+      
+        <div class="sec g scroll-spy-target" id="sec-datos">
+          <div class="sec-hd"><span class="sec-title">Datos generales</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body"><div class="detail-row"><span>Cliente</span><span>Colegio San Damián</span></div><div class="detail-row"><span>Código</span><span>CPQ-2026-047</span></div></div>
+        </div>
+        <div class="sec g scroll-spy-target" id="sec-puestos">
+          <div class="sec-hd"><span class="sec-title">Puestos y dotación</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body">
+    <table class="line-items">
+      <thead><tr><th>Puesto</th><th>Turno</th><th>GGSS</th><th>$/mes</th></tr></thead>
+      <tbody>
+        <tr><td>Portería principal</td><td>4x4 día</td><td>4</td><td>$1.840.000</td></tr>
+        <tr><td>Perímetro norte</td><td>4x4 noche</td><td>4</td><td>$1.920.000</td></tr>
+        <tr><td>Acceso vehicular</td><td>5x2 día</td><td>2</td><td>$920.000</td></tr>
+        <tr><td>Supervisión</td><td>5x2</td><td>2</td><td>$1.100.000</td></tr>
+      </tbody>
+    </table></div>
+        </div>
+        <div class="sec g scroll-spy-target" id="sec-economico">
+          <div class="sec-hd"><span class="sec-title">Resumen económico</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body"><div class="hero-stat g-soft"><div class="val">$4.780.000</div><div class="lbl">Total mensual neto</div></div></div>
+        </div>
+        <div class="sec g scroll-spy-target" id="sec-docs">
+          <div class="sec-hd"><span class="sec-title">Documentos</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body"><div class="detail-row"><span>Cliente</span><span>Colegio San Damián</span></div><div class="detail-row"><span>Código</span><span>CPQ-2026-047</span></div></div>
+        </div>
+      <div class="toolbar mobile-only">
+        <button class="btn btn-primary" type="button" id="openCentroMobile2"><svg class="icon"><use href="#i-panel"/></svg> Centro de control</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-send"/></svg> Enviar</button>
+      </div>
+    </div>
+            
+    <div class="panel" id="panel-lic-lista" data-panel="lic-lista">
+      <div class="pulse g c-warn mobile-only">
+        <div class="ping"></div>
+        <div class="pulse-text">2 licitaciones con plazo esta semana</div>
+        <div class="pulse-meta">Hospital El Pino · 18 ago</div>
+      </div>
+      <div class="toolbar">
+        <div class="srch g-soft"><svg class="icon"><use href="#i-search"/></svg><input type="search" placeholder="Buscar licitaciones…" /></div>
+      </div>
+      <div style="padding:0 12px">
+        <div class="rcard g-soft active">
+          <div class="rcard-av g-soft" style="background:var(--violet-soft);color:var(--violet)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Servicio seguridad 24/7</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Cierre 18 ago 18:00</span></div>
+          </div>
+        </div>
+        
+        <div class="rcard g-soft" data-entity="Constructora Alborada">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">CA</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Constructora Alborada</div>
+            <div class="rcard-sub">Lead caliente · Edificio corporativo RM</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Nuevo</span><span class="muted">$48M pipeline</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft active" data-entity="Colegio San Damián">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">SD</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Colegio San Damián</div>
+            <div class="rcard-sub">CPQ-2026-047 · Propuesta enviada</div>
+            <div class="rcard-meta"><span class="tag tag-info">Cotización</span><span class="muted">12 guardias 4x4</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Hospital El Pino">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Licitación pública</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Plazo 18 ago</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Mall Plaza Rancagua">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">MR</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Mall Plaza Rancagua</div>
+            <div class="rcard-sub">Seguimiento · Vista portal hace 2h</div>
+            <div class="rcard-meta"><span class="tag tag-warn">Caliente</span><span class="muted">Sin respuesta 48h</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Etex Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">ET</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Etex Chile</div>
+            <div class="rcard-sub">Renovación contrato Q4</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Negocio</span><span class="muted">$22M anual</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Walmart Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">WM</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Walmart Chile</div>
+            <div class="rcard-sub">RFP seguridad perimetral</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">En evaluación</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+            
+    <div class="panel" id="panel-lic-ficha" data-panel="lic-ficha">
+      <div class="ficha-hd">
+        <h2>Hospital El Pino</h2>
+        <p>2481-45-LR26 · Licitación pública · Cierre 18 ago 2026 18:00</p>
+      </div>
+      <div class="journey g-soft"><div class="jstep done"><div class="dot">1</div><div class="lbl">Lead</div></div><div class="line"></div><div class="jstep done"><div class="dot">2</div><div class="lbl">Calificar</div></div><div class="line"></div><div class="jstep active"><div class="dot">3</div><div class="lbl">Cotizar</div></div><div class="line"></div><div class="jstep"><div class="dot">4</div><div class="lbl">Enviar</div></div><div class="line"></div><div class="jstep"><div class="dot">5</div><div class="lbl">Negociar</div></div><div class="line"></div><div class="jstep"><div class="dot">6</div><div class="lbl">Ganar</div></div></div>
+      <div class="sec g">
+        <div class="sec-hd"><span class="sec-title">Requisitos técnicos</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+        <div class="sec-body">
+          <p class="muted" style="font-size:13px;line-height:1.55">Servicio de vigilancia privada 24/7 para hospital público. 28 puestos en 3 turnos. Certificación OS10, rondas con trazabilidad OPAI, reportes DT. Plazo contrato 24 meses renovable.</p>
+        </div>
+      </div>
+      <div class="sec g">
+        <div class="sec-hd"><span class="sec-title">Documentos oferta</span></div>
+        <div class="sec-body detail-grid">
+          <div class="detail-row"><span>Anexo técnico</span><span style="color:var(--teal-b)">Completo</span></div>
+          <div class="detail-row"><span>Propuesta económica</span><span class="muted">En revisión</span></div>
+          <div class="detail-row"><span>Certificados</span><span>8/8</span></div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-gavel"/></svg> Generar oferta</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-file"/></svg> Checklist</button>
+      </div>
+    </div>
+            <div class="doc-note mobile-only">Workbench Comercial — referencia visual Liquid Glass v2. Datos de muestra: Constructora Alborada, Colegio San Damián CPQ-2026-047, Hospital El Pino 2481-45-LR26.</div>
+          </div>
+        </div>
+        <aside class="centro-panel mobile-only" style="display:block" id="centroDesktop">
+          <div class="cx">
+    <div class="cx-hd">
+      <div class="cx-title">Centro de control</div>
+      <button type="button" class="cx-close" id="centroClose" aria-label="Cerrar"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+    
+    <div class="kpis">
+      <div class="kpi g-soft" style="--glow:rgba(45,212,160,0.25)">
+        <div class="kpi-lbl">Margen</div><div class="kpi-val">18,4%</div><div class="kpi-sub">Meta 15%</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(91,156,245,0.25)">
+        <div class="kpi-lbl">Total neto</div><div class="kpi-val">$4,2M</div><div class="kpi-sub">UF 112,4</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(167,139,250,0.25)">
+        <div class="kpi-lbl">Guardias</div><div class="kpi-val">12</div><div class="kpi-sub">4x4 diurno</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(245,165,36,0.25)">
+        <div class="kpi-lbl">Vigencia</div><div class="kpi-val">30d</div><div class="kpi-sub">Vence 14 sep</div>
+      </div>
+    </div>
+    <div class="sec g-soft" style="margin-top:12px">
+      <div class="sec-hd"><span class="sec-title">Preparación envío</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+      <div class="sec-body detail-grid">
+        <div class="detail-row"><span>PDF propuesta</span><span style="color:var(--teal-b)">Listo</span></div>
+        <div class="detail-row"><span>Portal cliente</span><span>Activo</span></div>
+        <div class="detail-row"><span>Firma digital</span><span class="muted">Pendiente</span></div>
+        <button type="button" class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center"><svg class="icon"><use href="#i-send"/></svg> Enviar propuesta</button>
+      </div>
+    </div>
+    <div class="sec g-soft">
+      <div class="sec-hd"><span class="sec-title">Actividad reciente</span></div>
+      <div class="sec-body">
+        <div class="detail-row"><span>Hoy 10:42</span><span>Cliente abrió portal</span></div>
+        <div class="detail-row"><span>Ayer 16:20</span><span>Propuesta generada</span></div>
+        <div class="detail-row"><span>12 ago</span><span>Visita terreno</span></div>
+      </div>
+    </div></div>
+        </aside>
+      </div>
+
+      <div class="island-bottom g-pill mobile-only">
+        <button type="button" class="island-nav-item"><svg class="icon"><use href="#i-home"/></svg>Inicio</button>
+        <button type="button" class="island-nav-item active"><svg class="icon"><use href="#i-file"/></svg>Cotiz.</button>
+        <button type="button" class="island-nav-item"><svg class="icon"><use href="#i-users"/></svg>Leads</button>
+        <button type="button" class="island-nav-item"><svg class="icon"><use href="#i-gavel"/></svg>Lic.</button>
+        <button type="button" class="island-nav-item" id="openCentroNav"><svg class="icon"><use href="#i-panel"/></svg>Centro</button>
+      </div>
+
+      <div class="centro-backdrop" id="centroBackdrop"></div>
+      <div class="centro sheet-mobile g-strong" id="centroSheet"><div class="cx">
+    <div class="cx-hd">
+      <div class="cx-title">Centro de control</div>
+      <button type="button" class="cx-close" id="centroClose" aria-label="Cerrar"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+    
+    <div class="kpis">
+      <div class="kpi g-soft" style="--glow:rgba(45,212,160,0.25)">
+        <div class="kpi-lbl">Margen</div><div class="kpi-val">18,4%</div><div class="kpi-sub">Meta 15%</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(91,156,245,0.25)">
+        <div class="kpi-lbl">Total neto</div><div class="kpi-val">$4,2M</div><div class="kpi-sub">UF 112,4</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(167,139,250,0.25)">
+        <div class="kpi-lbl">Guardias</div><div class="kpi-val">12</div><div class="kpi-sub">4x4 diurno</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(245,165,36,0.25)">
+        <div class="kpi-lbl">Vigencia</div><div class="kpi-val">30d</div><div class="kpi-sub">Vence 14 sep</div>
+      </div>
+    </div>
+    <div class="sec g-soft" style="margin-top:12px">
+      <div class="sec-hd"><span class="sec-title">Preparación envío</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+      <div class="sec-body detail-grid">
+        <div class="detail-row"><span>PDF propuesta</span><span style="color:var(--teal-b)">Listo</span></div>
+        <div class="detail-row"><span>Portal cliente</span><span>Activo</span></div>
+        <div class="detail-row"><span>Firma digital</span><span class="muted">Pendiente</span></div>
+        <button type="button" class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center"><svg class="icon"><use href="#i-send"/></svg> Enviar propuesta</button>
+      </div>
+    </div>
+    <div class="sec g-soft">
+      <div class="sec-hd"><span class="sec-title">Actividad reciente</span></div>
+      <div class="sec-body">
+        <div class="detail-row"><span>Hoy 10:42</span><span>Cliente abrió portal</span></div>
+        <div class="detail-row"><span>Ayer 16:20</span><span>Propuesta generada</span></div>
+        <div class="detail-row"><span>12 ago</span><span>Visita terreno</span></div>
+      </div>
+    </div></div></div>
+    </div></div>
+      <div class="stage device-tablet" data-frame="tablet">
+    <div class="frame-notch"></div>
+    <div class="workbench" id="workbench">
+      <div class="island-top g-pill mobile-only">
+        <button type="button" class="island-btn" aria-label="Menú"><svg class="icon"><use href="#i-menu"/></svg></button>
+        <div style="flex:1;min-width:0">
+          <div class="island-title" id="islandTitle">Colegio San Damián</div>
+          <div class="island-sub" id="islandSub">Workbench Comercial · cot-ficha</div>
+        </div>
+        <button type="button" class="island-btn"><svg class="icon"><use href="#i-search"/></svg></button>
+        <button type="button" class="island-btn"><svg class="icon"><use href="#i-bell"/></svg></button>
+      </div>
+
+      <div class="d-head">
+        <div>
+          <h1>Workbench Comercial</h1>
+          <p class="muted" style="margin:4px 0 0;font-size:13px">Liquid Glass v2 · Mockup interactivo OPAI</p>
+        </div>
+        <div class="d-head-actions">
+          <button type="button" class="btn btn-ghost"><svg class="icon"><use href="#i-bell"/></svg> Alertas</button>
+          <button type="button" class="btn btn-primary"><svg class="icon"><use href="#i-send"/></svg> Enviar propuesta</button>
+        </div>
+      </div>
+
+      <div class="wb" id="wbGrid">
+        <aside class="rail" id="railNav">
+          <button type="button" class="rail-toggle" id="railToggle"><svg class="icon"><use href="#i-panel"/></svg> Colapsar</button>
+          <div style="padding:8px 0"><button type="button" class="rail-item" data-vista="leads-lista"><svg class="icon"><use href="#i-users"/></svg><span>Leads</span></button><button type="button" class="rail-item" data-vista="cot-lista"><svg class="icon"><use href="#i-file"/></svg><span>Cotizaciones</span></button><button type="button" class="rail-item" data-vista="lic-lista"><svg class="icon"><use href="#i-gavel"/></svg><span>Licitaciones</span></button><button type="button" class="rail-item" data-vista="cot-ficha"><svg class="icon"><use href="#i-building"/></svg><span>Ficha cot.</span></button></div>
+          <div style="border-top:1px solid var(--border);padding:8px 0" id="railSpy"><button type="button" class="rail-item" data-spy="sec-datos"><svg class="icon"><use href="#i-file"/></svg><span>Datos</span></button><button type="button" class="rail-item" data-spy="sec-puestos"><svg class="icon"><use href="#i-users"/></svg><span>Puestos</span></button><button type="button" class="rail-item" data-spy="sec-economico"><svg class="icon"><use href="#i-dollar"/></svg><span>Económico</span></button><button type="button" class="rail-item" data-spy="sec-docs"><svg class="icon"><use href="#i-file"/></svg><span>Docs</span></button></div>
+        </aside>
+        <div class="main-col">
+          <div class="main-scroll mobile-body" id="mainScroll">
+            
+    <div class="panel" id="panel-leads-lista" data-panel="leads-lista">
+      <div class="pulse g c-teal mobile-only">
+        <div class="ping"></div><div class="cring"></div>
+        <div class="pulse-text">3 leads sin tomar</div>
+        <div class="pulse-meta">Respuesta &lt; 5 min</div>
+      </div>
+      <div class="toolbar">
+        <div class="srch g-soft"><svg class="icon"><use href="#i-search"/></svg><input type="search" placeholder="Buscar leads, cuentas…" /></div>
+        <div class="fpills chips">
+          <button class="chip active" type="button">Todos</button>
+          <button class="chip" type="button">Sin tomar</button>
+          <button class="chip" type="button">Calientes</button>
+        </div>
+      </div>
+      <div style="padding:0 12px">
+        <div class="rcard g-soft" data-entity="Constructora Alborada">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">CA</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Constructora Alborada</div>
+            <div class="rcard-sub">Lead caliente · Edificio corporativo RM</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Nuevo</span><span class="muted">$48M pipeline</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft active" data-entity="Colegio San Damián">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">SD</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Colegio San Damián</div>
+            <div class="rcard-sub">CPQ-2026-047 · Propuesta enviada</div>
+            <div class="rcard-meta"><span class="tag tag-info">Cotización</span><span class="muted">12 guardias 4x4</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Hospital El Pino">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Licitación pública</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Plazo 18 ago</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Mall Plaza Rancagua">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">MR</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Mall Plaza Rancagua</div>
+            <div class="rcard-sub">Seguimiento · Vista portal hace 2h</div>
+            <div class="rcard-meta"><span class="tag tag-warn">Caliente</span><span class="muted">Sin respuesta 48h</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Etex Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">ET</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Etex Chile</div>
+            <div class="rcard-sub">Renovación contrato Q4</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Negocio</span><span class="muted">$22M anual</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Walmart Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">WM</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Walmart Chile</div>
+            <div class="rcard-sub">RFP seguridad perimetral</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">En evaluación</span></div>
+          </div>
+        </div></div>
+    </div>
+            
+    <div class="panel" id="panel-leads-ficha" data-panel="leads-ficha">
+      <div class="ficha-hd">
+        <h2>Constructora Alborada</h2>
+        <p>Lead · Edificio corporativo Las Condes · Ingresó hace 12 min</p>
+      </div>
+      <div class="journey g-soft"><div class="jstep active"><div class="dot">1</div><div class="lbl">Lead</div></div><div class="line"></div><div class="jstep"><div class="dot">2</div><div class="lbl">Calificar</div></div><div class="line"></div><div class="jstep"><div class="dot">3</div><div class="lbl">Cotizar</div></div><div class="line"></div><div class="jstep"><div class="dot">4</div><div class="lbl">Enviar</div></div><div class="line"></div><div class="jstep"><div class="dot">5</div><div class="lbl">Negociar</div></div><div class="line"></div><div class="jstep"><div class="dot">6</div><div class="lbl">Ganar</div></div></div>
+      <div class="sec g scroll-spy-target" id="sec-contacto">
+        <div class="sec-hd"><span class="sec-title">Contacto</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+        <div class="sec-body detail-grid">
+          <div class="detail-row"><span>Nombre</span><span>María González</span></div>
+          <div class="detail-row"><span>Cargo</span><span>Jefa de Facilities</span></div>
+          <div class="detail-row"><span>Teléfono</span><span>+56 9 8765 4321</span></div>
+          <div class="detail-row"><span>Email</span><span>m.gonzalez@alborada.cl</span></div>
+        </div>
+      </div>
+      <div class="sec g scroll-spy-target" id="sec-necesidad">
+        <div class="sec-hd"><span class="sec-title">Necesidad</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+        <div class="sec-body">
+          <p class="muted" style="font-size:13px;line-height:1.5">Seguridad 24/7 para edificio corporativo 18 pisos. Requiere control de acceso, rondas programadas y central de monitoreo. Inicio estimado octubre 2026.</p>
+        </div>
+      </div>
+      <div class="toolbar mobile-only">
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-zap"/></svg> Tomar lead</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-phone"/></svg> WhatsApp</button>
+        <button class="btn btn-ghost" type="button" id="openCentroMobile">Centro de control</button>
+      </div>
+    </div>
+            
+    <div class="panel" id="panel-cot-lista" data-panel="cot-lista">
+      <div class="toolbar">
+        <div class="srch g-soft"><svg class="icon"><use href="#i-search"/></svg><input type="search" placeholder="Buscar cotizaciones…" /></div>
+        <div class="fpills chips">
+          <button class="chip active" type="button">Borrador</button>
+          <button class="chip" type="button">Enviadas</button>
+          <button class="chip" type="button">Aceptadas</button>
+        </div>
+      </div>
+      <div style="padding:0 12px">
+        <div class="rcard g-soft" data-entity="Constructora Alborada">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">CA</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Constructora Alborada</div>
+            <div class="rcard-sub">Lead caliente · Edificio corporativo RM</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Nuevo</span><span class="muted">$48M pipeline</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft active" data-entity="Colegio San Damián">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">SD</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Colegio San Damián</div>
+            <div class="rcard-sub">CPQ-2026-047 · Propuesta enviada</div>
+            <div class="rcard-meta"><span class="tag tag-info">Cotización</span><span class="muted">12 guardias 4x4</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Hospital El Pino">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Licitación pública</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Plazo 18 ago</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Mall Plaza Rancagua">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">MR</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Mall Plaza Rancagua</div>
+            <div class="rcard-sub">Seguimiento · Vista portal hace 2h</div>
+            <div class="rcard-meta"><span class="tag tag-warn">Caliente</span><span class="muted">Sin respuesta 48h</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Etex Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">ET</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Etex Chile</div>
+            <div class="rcard-sub">Renovación contrato Q4</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Negocio</span><span class="muted">$22M anual</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Walmart Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">WM</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Walmart Chile</div>
+            <div class="rcard-sub">RFP seguridad perimetral</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">En evaluación</span></div>
+          </div>
+        </div></div>
+    </div>
+            
+    <div class="panel active" id="panel-cot-ficha" data-panel="cot-ficha">
+      <div class="pulse g c-teal">
+        <div class="ping"></div><div class="cring"></div>
+        <div class="pulse-text">Cliente viendo propuesta ahora</div>
+        <div class="pulse-meta">Vista #3 · hace 2 min</div>
+      </div>
+      <div class="ficha-hd">
+        <h2>Colegio San Damián</h2>
+        <p>CPQ-2026-047 · Borrador · 12 guardias · Vigencia 30 días</p>
+      </div>
+      <div class="journey g-soft"><div class="jstep done"><div class="dot">1</div><div class="lbl">Lead</div></div><div class="line"></div><div class="jstep done"><div class="dot">2</div><div class="lbl">Calificar</div></div><div class="line"></div><div class="jstep done"><div class="dot">3</div><div class="lbl">Cotizar</div></div><div class="line"></div><div class="jstep active"><div class="dot">4</div><div class="lbl">Enviar</div></div><div class="line"></div><div class="jstep"><div class="dot">5</div><div class="lbl">Negociar</div></div><div class="line"></div><div class="jstep"><div class="dot">6</div><div class="lbl">Ganar</div></div></div>
+      
+        <div class="sec g scroll-spy-target" id="sec-datos">
+          <div class="sec-hd"><span class="sec-title">Datos generales</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body"><div class="detail-row"><span>Cliente</span><span>Colegio San Damián</span></div><div class="detail-row"><span>Código</span><span>CPQ-2026-047</span></div></div>
+        </div>
+        <div class="sec g scroll-spy-target" id="sec-puestos">
+          <div class="sec-hd"><span class="sec-title">Puestos y dotación</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body">
+    <table class="line-items">
+      <thead><tr><th>Puesto</th><th>Turno</th><th>GGSS</th><th>$/mes</th></tr></thead>
+      <tbody>
+        <tr><td>Portería principal</td><td>4x4 día</td><td>4</td><td>$1.840.000</td></tr>
+        <tr><td>Perímetro norte</td><td>4x4 noche</td><td>4</td><td>$1.920.000</td></tr>
+        <tr><td>Acceso vehicular</td><td>5x2 día</td><td>2</td><td>$920.000</td></tr>
+        <tr><td>Supervisión</td><td>5x2</td><td>2</td><td>$1.100.000</td></tr>
+      </tbody>
+    </table></div>
+        </div>
+        <div class="sec g scroll-spy-target" id="sec-economico">
+          <div class="sec-hd"><span class="sec-title">Resumen económico</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body"><div class="hero-stat g-soft"><div class="val">$4.780.000</div><div class="lbl">Total mensual neto</div></div></div>
+        </div>
+        <div class="sec g scroll-spy-target" id="sec-docs">
+          <div class="sec-hd"><span class="sec-title">Documentos</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body"><div class="detail-row"><span>Cliente</span><span>Colegio San Damián</span></div><div class="detail-row"><span>Código</span><span>CPQ-2026-047</span></div></div>
+        </div>
+      <div class="toolbar mobile-only">
+        <button class="btn btn-primary" type="button" id="openCentroMobile2"><svg class="icon"><use href="#i-panel"/></svg> Centro de control</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-send"/></svg> Enviar</button>
+      </div>
+    </div>
+            
+    <div class="panel" id="panel-lic-lista" data-panel="lic-lista">
+      <div class="pulse g c-warn mobile-only">
+        <div class="ping"></div>
+        <div class="pulse-text">2 licitaciones con plazo esta semana</div>
+        <div class="pulse-meta">Hospital El Pino · 18 ago</div>
+      </div>
+      <div class="toolbar">
+        <div class="srch g-soft"><svg class="icon"><use href="#i-search"/></svg><input type="search" placeholder="Buscar licitaciones…" /></div>
+      </div>
+      <div style="padding:0 12px">
+        <div class="rcard g-soft active">
+          <div class="rcard-av g-soft" style="background:var(--violet-soft);color:var(--violet)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Servicio seguridad 24/7</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Cierre 18 ago 18:00</span></div>
+          </div>
+        </div>
+        
+        <div class="rcard g-soft" data-entity="Constructora Alborada">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">CA</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Constructora Alborada</div>
+            <div class="rcard-sub">Lead caliente · Edificio corporativo RM</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Nuevo</span><span class="muted">$48M pipeline</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft active" data-entity="Colegio San Damián">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">SD</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Colegio San Damián</div>
+            <div class="rcard-sub">CPQ-2026-047 · Propuesta enviada</div>
+            <div class="rcard-meta"><span class="tag tag-info">Cotización</span><span class="muted">12 guardias 4x4</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Hospital El Pino">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Licitación pública</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Plazo 18 ago</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Mall Plaza Rancagua">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">MR</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Mall Plaza Rancagua</div>
+            <div class="rcard-sub">Seguimiento · Vista portal hace 2h</div>
+            <div class="rcard-meta"><span class="tag tag-warn">Caliente</span><span class="muted">Sin respuesta 48h</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Etex Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">ET</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Etex Chile</div>
+            <div class="rcard-sub">Renovación contrato Q4</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Negocio</span><span class="muted">$22M anual</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Walmart Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">WM</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Walmart Chile</div>
+            <div class="rcard-sub">RFP seguridad perimetral</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">En evaluación</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+            
+    <div class="panel" id="panel-lic-ficha" data-panel="lic-ficha">
+      <div class="ficha-hd">
+        <h2>Hospital El Pino</h2>
+        <p>2481-45-LR26 · Licitación pública · Cierre 18 ago 2026 18:00</p>
+      </div>
+      <div class="journey g-soft"><div class="jstep done"><div class="dot">1</div><div class="lbl">Lead</div></div><div class="line"></div><div class="jstep done"><div class="dot">2</div><div class="lbl">Calificar</div></div><div class="line"></div><div class="jstep active"><div class="dot">3</div><div class="lbl">Cotizar</div></div><div class="line"></div><div class="jstep"><div class="dot">4</div><div class="lbl">Enviar</div></div><div class="line"></div><div class="jstep"><div class="dot">5</div><div class="lbl">Negociar</div></div><div class="line"></div><div class="jstep"><div class="dot">6</div><div class="lbl">Ganar</div></div></div>
+      <div class="sec g">
+        <div class="sec-hd"><span class="sec-title">Requisitos técnicos</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+        <div class="sec-body">
+          <p class="muted" style="font-size:13px;line-height:1.55">Servicio de vigilancia privada 24/7 para hospital público. 28 puestos en 3 turnos. Certificación OS10, rondas con trazabilidad OPAI, reportes DT. Plazo contrato 24 meses renovable.</p>
+        </div>
+      </div>
+      <div class="sec g">
+        <div class="sec-hd"><span class="sec-title">Documentos oferta</span></div>
+        <div class="sec-body detail-grid">
+          <div class="detail-row"><span>Anexo técnico</span><span style="color:var(--teal-b)">Completo</span></div>
+          <div class="detail-row"><span>Propuesta económica</span><span class="muted">En revisión</span></div>
+          <div class="detail-row"><span>Certificados</span><span>8/8</span></div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-gavel"/></svg> Generar oferta</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-file"/></svg> Checklist</button>
+      </div>
+    </div>
+            <div class="doc-note mobile-only">Workbench Comercial — referencia visual Liquid Glass v2. Datos de muestra: Constructora Alborada, Colegio San Damián CPQ-2026-047, Hospital El Pino 2481-45-LR26.</div>
+          </div>
+        </div>
+        <aside class="centro-panel mobile-only" style="display:block" id="centroDesktop">
+          <div class="cx">
+    <div class="cx-hd">
+      <div class="cx-title">Centro de control</div>
+      <button type="button" class="cx-close" id="centroClose" aria-label="Cerrar"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+    
+    <div class="kpis">
+      <div class="kpi g-soft" style="--glow:rgba(45,212,160,0.25)">
+        <div class="kpi-lbl">Margen</div><div class="kpi-val">18,4%</div><div class="kpi-sub">Meta 15%</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(91,156,245,0.25)">
+        <div class="kpi-lbl">Total neto</div><div class="kpi-val">$4,2M</div><div class="kpi-sub">UF 112,4</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(167,139,250,0.25)">
+        <div class="kpi-lbl">Guardias</div><div class="kpi-val">12</div><div class="kpi-sub">4x4 diurno</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(245,165,36,0.25)">
+        <div class="kpi-lbl">Vigencia</div><div class="kpi-val">30d</div><div class="kpi-sub">Vence 14 sep</div>
+      </div>
+    </div>
+    <div class="sec g-soft" style="margin-top:12px">
+      <div class="sec-hd"><span class="sec-title">Preparación envío</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+      <div class="sec-body detail-grid">
+        <div class="detail-row"><span>PDF propuesta</span><span style="color:var(--teal-b)">Listo</span></div>
+        <div class="detail-row"><span>Portal cliente</span><span>Activo</span></div>
+        <div class="detail-row"><span>Firma digital</span><span class="muted">Pendiente</span></div>
+        <button type="button" class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center"><svg class="icon"><use href="#i-send"/></svg> Enviar propuesta</button>
+      </div>
+    </div>
+    <div class="sec g-soft">
+      <div class="sec-hd"><span class="sec-title">Actividad reciente</span></div>
+      <div class="sec-body">
+        <div class="detail-row"><span>Hoy 10:42</span><span>Cliente abrió portal</span></div>
+        <div class="detail-row"><span>Ayer 16:20</span><span>Propuesta generada</span></div>
+        <div class="detail-row"><span>12 ago</span><span>Visita terreno</span></div>
+      </div>
+    </div></div>
+        </aside>
+      </div>
+
+      <div class="island-bottom g-pill mobile-only">
+        <button type="button" class="island-nav-item"><svg class="icon"><use href="#i-home"/></svg>Inicio</button>
+        <button type="button" class="island-nav-item active"><svg class="icon"><use href="#i-file"/></svg>Cotiz.</button>
+        <button type="button" class="island-nav-item"><svg class="icon"><use href="#i-users"/></svg>Leads</button>
+        <button type="button" class="island-nav-item"><svg class="icon"><use href="#i-gavel"/></svg>Lic.</button>
+        <button type="button" class="island-nav-item" id="openCentroNav"><svg class="icon"><use href="#i-panel"/></svg>Centro</button>
+      </div>
+
+      <div class="centro-backdrop" id="centroBackdrop"></div>
+      <div class="centro sheet-mobile g-strong" id="centroSheet"><div class="cx">
+    <div class="cx-hd">
+      <div class="cx-title">Centro de control</div>
+      <button type="button" class="cx-close" id="centroClose" aria-label="Cerrar"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+    
+    <div class="kpis">
+      <div class="kpi g-soft" style="--glow:rgba(45,212,160,0.25)">
+        <div class="kpi-lbl">Margen</div><div class="kpi-val">18,4%</div><div class="kpi-sub">Meta 15%</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(91,156,245,0.25)">
+        <div class="kpi-lbl">Total neto</div><div class="kpi-val">$4,2M</div><div class="kpi-sub">UF 112,4</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(167,139,250,0.25)">
+        <div class="kpi-lbl">Guardias</div><div class="kpi-val">12</div><div class="kpi-sub">4x4 diurno</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(245,165,36,0.25)">
+        <div class="kpi-lbl">Vigencia</div><div class="kpi-val">30d</div><div class="kpi-sub">Vence 14 sep</div>
+      </div>
+    </div>
+    <div class="sec g-soft" style="margin-top:12px">
+      <div class="sec-hd"><span class="sec-title">Preparación envío</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+      <div class="sec-body detail-grid">
+        <div class="detail-row"><span>PDF propuesta</span><span style="color:var(--teal-b)">Listo</span></div>
+        <div class="detail-row"><span>Portal cliente</span><span>Activo</span></div>
+        <div class="detail-row"><span>Firma digital</span><span class="muted">Pendiente</span></div>
+        <button type="button" class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center"><svg class="icon"><use href="#i-send"/></svg> Enviar propuesta</button>
+      </div>
+    </div>
+    <div class="sec g-soft">
+      <div class="sec-hd"><span class="sec-title">Actividad reciente</span></div>
+      <div class="sec-body">
+        <div class="detail-row"><span>Hoy 10:42</span><span>Cliente abrió portal</span></div>
+        <div class="detail-row"><span>Ayer 16:20</span><span>Propuesta generada</span></div>
+        <div class="detail-row"><span>12 ago</span><span>Visita terreno</span></div>
+      </div>
+    </div></div></div>
+    </div></div>
+      <div class="stage device-desktop" data-frame="desktop">
+    <div class="frame-notch"></div>
+    <div class="workbench" id="workbench">
+      <div class="island-top g-pill mobile-only">
+        <button type="button" class="island-btn" aria-label="Menú"><svg class="icon"><use href="#i-menu"/></svg></button>
+        <div style="flex:1;min-width:0">
+          <div class="island-title" id="islandTitle">Colegio San Damián</div>
+          <div class="island-sub" id="islandSub">Workbench Comercial · cot-ficha</div>
+        </div>
+        <button type="button" class="island-btn"><svg class="icon"><use href="#i-search"/></svg></button>
+        <button type="button" class="island-btn"><svg class="icon"><use href="#i-bell"/></svg></button>
+      </div>
+
+      <div class="d-head">
+        <div>
+          <h1>Workbench Comercial</h1>
+          <p class="muted" style="margin:4px 0 0;font-size:13px">Liquid Glass v2 · Mockup interactivo OPAI</p>
+        </div>
+        <div class="d-head-actions">
+          <button type="button" class="btn btn-ghost"><svg class="icon"><use href="#i-bell"/></svg> Alertas</button>
+          <button type="button" class="btn btn-primary"><svg class="icon"><use href="#i-send"/></svg> Enviar propuesta</button>
+        </div>
+      </div>
+
+      <div class="wb" id="wbGrid">
+        <aside class="rail" id="railNav">
+          <button type="button" class="rail-toggle" id="railToggle"><svg class="icon"><use href="#i-panel"/></svg> Colapsar</button>
+          <div style="padding:8px 0"><button type="button" class="rail-item" data-vista="leads-lista"><svg class="icon"><use href="#i-users"/></svg><span>Leads</span></button><button type="button" class="rail-item" data-vista="cot-lista"><svg class="icon"><use href="#i-file"/></svg><span>Cotizaciones</span></button><button type="button" class="rail-item" data-vista="lic-lista"><svg class="icon"><use href="#i-gavel"/></svg><span>Licitaciones</span></button><button type="button" class="rail-item" data-vista="cot-ficha"><svg class="icon"><use href="#i-building"/></svg><span>Ficha cot.</span></button></div>
+          <div style="border-top:1px solid var(--border);padding:8px 0" id="railSpy"><button type="button" class="rail-item" data-spy="sec-datos"><svg class="icon"><use href="#i-file"/></svg><span>Datos</span></button><button type="button" class="rail-item" data-spy="sec-puestos"><svg class="icon"><use href="#i-users"/></svg><span>Puestos</span></button><button type="button" class="rail-item" data-spy="sec-economico"><svg class="icon"><use href="#i-dollar"/></svg><span>Económico</span></button><button type="button" class="rail-item" data-spy="sec-docs"><svg class="icon"><use href="#i-file"/></svg><span>Docs</span></button></div>
+        </aside>
+        <div class="main-col">
+          <div class="main-scroll mobile-body" id="mainScroll">
+            
+    <div class="panel" id="panel-leads-lista" data-panel="leads-lista">
+      <div class="pulse g c-teal mobile-only">
+        <div class="ping"></div><div class="cring"></div>
+        <div class="pulse-text">3 leads sin tomar</div>
+        <div class="pulse-meta">Respuesta &lt; 5 min</div>
+      </div>
+      <div class="toolbar">
+        <div class="srch g-soft"><svg class="icon"><use href="#i-search"/></svg><input type="search" placeholder="Buscar leads, cuentas…" /></div>
+        <div class="fpills chips">
+          <button class="chip active" type="button">Todos</button>
+          <button class="chip" type="button">Sin tomar</button>
+          <button class="chip" type="button">Calientes</button>
+        </div>
+      </div>
+      <div style="padding:0 12px">
+        <div class="rcard g-soft" data-entity="Constructora Alborada">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">CA</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Constructora Alborada</div>
+            <div class="rcard-sub">Lead caliente · Edificio corporativo RM</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Nuevo</span><span class="muted">$48M pipeline</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft active" data-entity="Colegio San Damián">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">SD</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Colegio San Damián</div>
+            <div class="rcard-sub">CPQ-2026-047 · Propuesta enviada</div>
+            <div class="rcard-meta"><span class="tag tag-info">Cotización</span><span class="muted">12 guardias 4x4</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Hospital El Pino">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Licitación pública</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Plazo 18 ago</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Mall Plaza Rancagua">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">MR</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Mall Plaza Rancagua</div>
+            <div class="rcard-sub">Seguimiento · Vista portal hace 2h</div>
+            <div class="rcard-meta"><span class="tag tag-warn">Caliente</span><span class="muted">Sin respuesta 48h</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Etex Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">ET</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Etex Chile</div>
+            <div class="rcard-sub">Renovación contrato Q4</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Negocio</span><span class="muted">$22M anual</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Walmart Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">WM</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Walmart Chile</div>
+            <div class="rcard-sub">RFP seguridad perimetral</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">En evaluación</span></div>
+          </div>
+        </div></div>
+    </div>
+            
+    <div class="panel" id="panel-leads-ficha" data-panel="leads-ficha">
+      <div class="ficha-hd">
+        <h2>Constructora Alborada</h2>
+        <p>Lead · Edificio corporativo Las Condes · Ingresó hace 12 min</p>
+      </div>
+      <div class="journey g-soft"><div class="jstep active"><div class="dot">1</div><div class="lbl">Lead</div></div><div class="line"></div><div class="jstep"><div class="dot">2</div><div class="lbl">Calificar</div></div><div class="line"></div><div class="jstep"><div class="dot">3</div><div class="lbl">Cotizar</div></div><div class="line"></div><div class="jstep"><div class="dot">4</div><div class="lbl">Enviar</div></div><div class="line"></div><div class="jstep"><div class="dot">5</div><div class="lbl">Negociar</div></div><div class="line"></div><div class="jstep"><div class="dot">6</div><div class="lbl">Ganar</div></div></div>
+      <div class="sec g scroll-spy-target" id="sec-contacto">
+        <div class="sec-hd"><span class="sec-title">Contacto</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+        <div class="sec-body detail-grid">
+          <div class="detail-row"><span>Nombre</span><span>María González</span></div>
+          <div class="detail-row"><span>Cargo</span><span>Jefa de Facilities</span></div>
+          <div class="detail-row"><span>Teléfono</span><span>+56 9 8765 4321</span></div>
+          <div class="detail-row"><span>Email</span><span>m.gonzalez@alborada.cl</span></div>
+        </div>
+      </div>
+      <div class="sec g scroll-spy-target" id="sec-necesidad">
+        <div class="sec-hd"><span class="sec-title">Necesidad</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+        <div class="sec-body">
+          <p class="muted" style="font-size:13px;line-height:1.5">Seguridad 24/7 para edificio corporativo 18 pisos. Requiere control de acceso, rondas programadas y central de monitoreo. Inicio estimado octubre 2026.</p>
+        </div>
+      </div>
+      <div class="toolbar mobile-only">
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-zap"/></svg> Tomar lead</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-phone"/></svg> WhatsApp</button>
+        <button class="btn btn-ghost" type="button" id="openCentroMobile">Centro de control</button>
+      </div>
+    </div>
+            
+    <div class="panel" id="panel-cot-lista" data-panel="cot-lista">
+      <div class="toolbar">
+        <div class="srch g-soft"><svg class="icon"><use href="#i-search"/></svg><input type="search" placeholder="Buscar cotizaciones…" /></div>
+        <div class="fpills chips">
+          <button class="chip active" type="button">Borrador</button>
+          <button class="chip" type="button">Enviadas</button>
+          <button class="chip" type="button">Aceptadas</button>
+        </div>
+      </div>
+      <div style="padding:0 12px">
+        <div class="rcard g-soft" data-entity="Constructora Alborada">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">CA</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Constructora Alborada</div>
+            <div class="rcard-sub">Lead caliente · Edificio corporativo RM</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Nuevo</span><span class="muted">$48M pipeline</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft active" data-entity="Colegio San Damián">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">SD</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Colegio San Damián</div>
+            <div class="rcard-sub">CPQ-2026-047 · Propuesta enviada</div>
+            <div class="rcard-meta"><span class="tag tag-info">Cotización</span><span class="muted">12 guardias 4x4</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Hospital El Pino">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Licitación pública</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Plazo 18 ago</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Mall Plaza Rancagua">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">MR</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Mall Plaza Rancagua</div>
+            <div class="rcard-sub">Seguimiento · Vista portal hace 2h</div>
+            <div class="rcard-meta"><span class="tag tag-warn">Caliente</span><span class="muted">Sin respuesta 48h</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Etex Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">ET</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Etex Chile</div>
+            <div class="rcard-sub">Renovación contrato Q4</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Negocio</span><span class="muted">$22M anual</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Walmart Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">WM</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Walmart Chile</div>
+            <div class="rcard-sub">RFP seguridad perimetral</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">En evaluación</span></div>
+          </div>
+        </div></div>
+    </div>
+            
+    <div class="panel active" id="panel-cot-ficha" data-panel="cot-ficha">
+      <div class="pulse g c-teal">
+        <div class="ping"></div><div class="cring"></div>
+        <div class="pulse-text">Cliente viendo propuesta ahora</div>
+        <div class="pulse-meta">Vista #3 · hace 2 min</div>
+      </div>
+      <div class="ficha-hd">
+        <h2>Colegio San Damián</h2>
+        <p>CPQ-2026-047 · Borrador · 12 guardias · Vigencia 30 días</p>
+      </div>
+      <div class="journey g-soft"><div class="jstep done"><div class="dot">1</div><div class="lbl">Lead</div></div><div class="line"></div><div class="jstep done"><div class="dot">2</div><div class="lbl">Calificar</div></div><div class="line"></div><div class="jstep done"><div class="dot">3</div><div class="lbl">Cotizar</div></div><div class="line"></div><div class="jstep active"><div class="dot">4</div><div class="lbl">Enviar</div></div><div class="line"></div><div class="jstep"><div class="dot">5</div><div class="lbl">Negociar</div></div><div class="line"></div><div class="jstep"><div class="dot">6</div><div class="lbl">Ganar</div></div></div>
+      
+        <div class="sec g scroll-spy-target" id="sec-datos">
+          <div class="sec-hd"><span class="sec-title">Datos generales</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body"><div class="detail-row"><span>Cliente</span><span>Colegio San Damián</span></div><div class="detail-row"><span>Código</span><span>CPQ-2026-047</span></div></div>
+        </div>
+        <div class="sec g scroll-spy-target" id="sec-puestos">
+          <div class="sec-hd"><span class="sec-title">Puestos y dotación</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body">
+    <table class="line-items">
+      <thead><tr><th>Puesto</th><th>Turno</th><th>GGSS</th><th>$/mes</th></tr></thead>
+      <tbody>
+        <tr><td>Portería principal</td><td>4x4 día</td><td>4</td><td>$1.840.000</td></tr>
+        <tr><td>Perímetro norte</td><td>4x4 noche</td><td>4</td><td>$1.920.000</td></tr>
+        <tr><td>Acceso vehicular</td><td>5x2 día</td><td>2</td><td>$920.000</td></tr>
+        <tr><td>Supervisión</td><td>5x2</td><td>2</td><td>$1.100.000</td></tr>
+      </tbody>
+    </table></div>
+        </div>
+        <div class="sec g scroll-spy-target" id="sec-economico">
+          <div class="sec-hd"><span class="sec-title">Resumen económico</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body"><div class="hero-stat g-soft"><div class="val">$4.780.000</div><div class="lbl">Total mensual neto</div></div></div>
+        </div>
+        <div class="sec g scroll-spy-target" id="sec-docs">
+          <div class="sec-hd"><span class="sec-title">Documentos</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+          <div class="sec-body"><div class="detail-row"><span>Cliente</span><span>Colegio San Damián</span></div><div class="detail-row"><span>Código</span><span>CPQ-2026-047</span></div></div>
+        </div>
+      <div class="toolbar mobile-only">
+        <button class="btn btn-primary" type="button" id="openCentroMobile2"><svg class="icon"><use href="#i-panel"/></svg> Centro de control</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-send"/></svg> Enviar</button>
+      </div>
+    </div>
+            
+    <div class="panel" id="panel-lic-lista" data-panel="lic-lista">
+      <div class="pulse g c-warn mobile-only">
+        <div class="ping"></div>
+        <div class="pulse-text">2 licitaciones con plazo esta semana</div>
+        <div class="pulse-meta">Hospital El Pino · 18 ago</div>
+      </div>
+      <div class="toolbar">
+        <div class="srch g-soft"><svg class="icon"><use href="#i-search"/></svg><input type="search" placeholder="Buscar licitaciones…" /></div>
+      </div>
+      <div style="padding:0 12px">
+        <div class="rcard g-soft active">
+          <div class="rcard-av g-soft" style="background:var(--violet-soft);color:var(--violet)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Servicio seguridad 24/7</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Cierre 18 ago 18:00</span></div>
+          </div>
+        </div>
+        
+        <div class="rcard g-soft" data-entity="Constructora Alborada">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">CA</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Constructora Alborada</div>
+            <div class="rcard-sub">Lead caliente · Edificio corporativo RM</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Nuevo</span><span class="muted">$48M pipeline</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft active" data-entity="Colegio San Damián">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">SD</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Colegio San Damián</div>
+            <div class="rcard-sub">CPQ-2026-047 · Propuesta enviada</div>
+            <div class="rcard-meta"><span class="tag tag-info">Cotización</span><span class="muted">12 guardias 4x4</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Hospital El Pino">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">HP</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Hospital El Pino</div>
+            <div class="rcard-sub">2481-45-LR26 · Licitación pública</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">Plazo 18 ago</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Mall Plaza Rancagua">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">MR</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Mall Plaza Rancagua</div>
+            <div class="rcard-sub">Seguimiento · Vista portal hace 2h</div>
+            <div class="rcard-meta"><span class="tag tag-warn">Caliente</span><span class="muted">Sin respuesta 48h</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Etex Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">ET</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Etex Chile</div>
+            <div class="rcard-sub">Renovación contrato Q4</div>
+            <div class="rcard-meta"><span class="tag tag-teal">Negocio</span><span class="muted">$22M anual</span></div>
+          </div>
+        </div>
+
+        <div class="rcard g-soft" data-entity="Walmart Chile">
+          <div class="rcard-av g-soft" style="background:var(--teal-soft);color:var(--teal-b)">WM</div>
+          <div class="rcard-body">
+            <div class="rcard-title">Walmart Chile</div>
+            <div class="rcard-sub">RFP seguridad perimetral</div>
+            <div class="rcard-meta"><span class="tag tag-violet">Licitación</span><span class="muted">En evaluación</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+            
+    <div class="panel" id="panel-lic-ficha" data-panel="lic-ficha">
+      <div class="ficha-hd">
+        <h2>Hospital El Pino</h2>
+        <p>2481-45-LR26 · Licitación pública · Cierre 18 ago 2026 18:00</p>
+      </div>
+      <div class="journey g-soft"><div class="jstep done"><div class="dot">1</div><div class="lbl">Lead</div></div><div class="line"></div><div class="jstep done"><div class="dot">2</div><div class="lbl">Calificar</div></div><div class="line"></div><div class="jstep active"><div class="dot">3</div><div class="lbl">Cotizar</div></div><div class="line"></div><div class="jstep"><div class="dot">4</div><div class="lbl">Enviar</div></div><div class="line"></div><div class="jstep"><div class="dot">5</div><div class="lbl">Negociar</div></div><div class="line"></div><div class="jstep"><div class="dot">6</div><div class="lbl">Ganar</div></div></div>
+      <div class="sec g">
+        <div class="sec-hd"><span class="sec-title">Requisitos técnicos</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+        <div class="sec-body">
+          <p class="muted" style="font-size:13px;line-height:1.55">Servicio de vigilancia privada 24/7 para hospital público. 28 puestos en 3 turnos. Certificación OS10, rondas con trazabilidad OPAI, reportes DT. Plazo contrato 24 meses renovable.</p>
+        </div>
+      </div>
+      <div class="sec g">
+        <div class="sec-hd"><span class="sec-title">Documentos oferta</span></div>
+        <div class="sec-body detail-grid">
+          <div class="detail-row"><span>Anexo técnico</span><span style="color:var(--teal-b)">Completo</span></div>
+          <div class="detail-row"><span>Propuesta económica</span><span class="muted">En revisión</span></div>
+          <div class="detail-row"><span>Certificados</span><span>8/8</span></div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-primary" type="button"><svg class="icon"><use href="#i-gavel"/></svg> Generar oferta</button>
+        <button class="btn" type="button"><svg class="icon"><use href="#i-file"/></svg> Checklist</button>
+      </div>
+    </div>
+            <div class="doc-note mobile-only">Workbench Comercial — referencia visual Liquid Glass v2. Datos de muestra: Constructora Alborada, Colegio San Damián CPQ-2026-047, Hospital El Pino 2481-45-LR26.</div>
+          </div>
+        </div>
+        <aside class="centro-panel mobile-only" style="display:block" id="centroDesktop">
+          <div class="cx">
+    <div class="cx-hd">
+      <div class="cx-title">Centro de control</div>
+      <button type="button" class="cx-close" id="centroClose" aria-label="Cerrar"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+    
+    <div class="kpis">
+      <div class="kpi g-soft" style="--glow:rgba(45,212,160,0.25)">
+        <div class="kpi-lbl">Margen</div><div class="kpi-val">18,4%</div><div class="kpi-sub">Meta 15%</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(91,156,245,0.25)">
+        <div class="kpi-lbl">Total neto</div><div class="kpi-val">$4,2M</div><div class="kpi-sub">UF 112,4</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(167,139,250,0.25)">
+        <div class="kpi-lbl">Guardias</div><div class="kpi-val">12</div><div class="kpi-sub">4x4 diurno</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(245,165,36,0.25)">
+        <div class="kpi-lbl">Vigencia</div><div class="kpi-val">30d</div><div class="kpi-sub">Vence 14 sep</div>
+      </div>
+    </div>
+    <div class="sec g-soft" style="margin-top:12px">
+      <div class="sec-hd"><span class="sec-title">Preparación envío</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+      <div class="sec-body detail-grid">
+        <div class="detail-row"><span>PDF propuesta</span><span style="color:var(--teal-b)">Listo</span></div>
+        <div class="detail-row"><span>Portal cliente</span><span>Activo</span></div>
+        <div class="detail-row"><span>Firma digital</span><span class="muted">Pendiente</span></div>
+        <button type="button" class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center"><svg class="icon"><use href="#i-send"/></svg> Enviar propuesta</button>
+      </div>
+    </div>
+    <div class="sec g-soft">
+      <div class="sec-hd"><span class="sec-title">Actividad reciente</span></div>
+      <div class="sec-body">
+        <div class="detail-row"><span>Hoy 10:42</span><span>Cliente abrió portal</span></div>
+        <div class="detail-row"><span>Ayer 16:20</span><span>Propuesta generada</span></div>
+        <div class="detail-row"><span>12 ago</span><span>Visita terreno</span></div>
+      </div>
+    </div></div>
+        </aside>
+      </div>
+
+      <div class="island-bottom g-pill mobile-only">
+        <button type="button" class="island-nav-item"><svg class="icon"><use href="#i-home"/></svg>Inicio</button>
+        <button type="button" class="island-nav-item active"><svg class="icon"><use href="#i-file"/></svg>Cotiz.</button>
+        <button type="button" class="island-nav-item"><svg class="icon"><use href="#i-users"/></svg>Leads</button>
+        <button type="button" class="island-nav-item"><svg class="icon"><use href="#i-gavel"/></svg>Lic.</button>
+        <button type="button" class="island-nav-item" id="openCentroNav"><svg class="icon"><use href="#i-panel"/></svg>Centro</button>
+      </div>
+
+      <div class="centro-backdrop" id="centroBackdrop"></div>
+      <div class="centro sheet-mobile g-strong" id="centroSheet"><div class="cx">
+    <div class="cx-hd">
+      <div class="cx-title">Centro de control</div>
+      <button type="button" class="cx-close" id="centroClose" aria-label="Cerrar"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+    
+    <div class="kpis">
+      <div class="kpi g-soft" style="--glow:rgba(45,212,160,0.25)">
+        <div class="kpi-lbl">Margen</div><div class="kpi-val">18,4%</div><div class="kpi-sub">Meta 15%</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(91,156,245,0.25)">
+        <div class="kpi-lbl">Total neto</div><div class="kpi-val">$4,2M</div><div class="kpi-sub">UF 112,4</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(167,139,250,0.25)">
+        <div class="kpi-lbl">Guardias</div><div class="kpi-val">12</div><div class="kpi-sub">4x4 diurno</div>
+      </div>
+      <div class="kpi g-soft" style="--glow:rgba(245,165,36,0.25)">
+        <div class="kpi-lbl">Vigencia</div><div class="kpi-val">30d</div><div class="kpi-sub">Vence 14 sep</div>
+      </div>
+    </div>
+    <div class="sec g-soft" style="margin-top:12px">
+      <div class="sec-hd"><span class="sec-title">Preparación envío</span><svg class="icon sec-chev"><use href="#i-chevron"/></svg></div>
+      <div class="sec-body detail-grid">
+        <div class="detail-row"><span>PDF propuesta</span><span style="color:var(--teal-b)">Listo</span></div>
+        <div class="detail-row"><span>Portal cliente</span><span>Activo</span></div>
+        <div class="detail-row"><span>Firma digital</span><span class="muted">Pendiente</span></div>
+        <button type="button" class="btn btn-primary" style="width:100%;margin-top:8px;justify-content:center"><svg class="icon"><use href="#i-send"/></svg> Enviar propuesta</button>
+      </div>
+    </div>
+    <div class="sec g-soft">
+      <div class="sec-hd"><span class="sec-title">Actividad reciente</span></div>
+      <div class="sec-body">
+        <div class="detail-row"><span>Hoy 10:42</span><span>Cliente abrió portal</span></div>
+        <div class="detail-row"><span>Ayer 16:20</span><span>Propuesta generada</span></div>
+        <div class="detail-row"><span>12 ago</span><span>Visita terreno</span></div>
+      </div>
+    </div></div></div>
+    </div></div>
+    </div>
+  </div>
+  <script>
+(function(){
+  const body=document.body;
+  const panels=[...document.querySelectorAll('.panel')];
+  const dockPills={mode:[...document.querySelectorAll('[data-dock-mode]')],vista:[...document.querySelectorAll('[data-dock-vista]')],device:[...document.querySelectorAll('[data-dock-device]')]};
+  function setActive(group,el){dockPills[group].forEach(p=>p.classList.toggle('active',p===el));}
+
+  dockPills.mode.forEach(p=>p.addEventListener('click',()=>{setActive('mode',p);body.dataset.mode=p.dataset.dockMode;}));
+  dockPills.vista.forEach(p=>p.addEventListener('click',()=>{
+    setActive('vista',p);const v=p.dataset.dockVista;body.dataset.vista=v;
+    panels.forEach(pn=>pn.classList.toggle('active',pn.dataset.panel===v));
+    syncTitles(v);
+  }));
+  dockPills.device.forEach(p=>p.addEventListener('click',()=>{setActive('device',p);body.dataset.device=p.dataset.dockDevice;}));
+
+  function syncTitles(v){
+    const map={ 'leads-lista':['Leads','Lista'],'leads-ficha':['Leads','Constructora Alborada'],'cot-lista':['Cotizaciones','Lista'],'cot-ficha':['Cotizaciones','Colegio San Damián'],'lic-lista':['Licitaciones','Lista'],'lic-ficha':['Licitaciones','Hospital El Pino']};
+    const t=map[v]||['Workbench Comercial',''];
+    const title=document.getElementById('islandTitle');const sub=document.getElementById('islandSub');
+    if(title)title.textContent=t[1]||t[0];if(sub)sub.textContent='Workbench Comercial · '+v;
+    document.querySelectorAll('.rail-item').forEach(r=>r.classList.toggle('active',r.dataset.vista===v));
+  }
+
+  document.querySelectorAll('.sec-hd').forEach(hd=>{
+    hd.addEventListener('click',()=>hd.closest('.sec').classList.toggle('collapsed'));
+  });
+
+  document.querySelectorAll('.chip').forEach(ch=>{
+    ch.addEventListener('click',()=>{
+      const row=ch.closest('.chips');if(!row)return;
+      row.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+      ch.classList.add('active');
+    });
+  });
+
+  const rail=document.getElementById('wbGrid');
+  document.getElementById('railToggle')?.addEventListener('click',()=>rail?.classList.toggle('rail-collapsed'));
+  document.querySelectorAll('.rail-item').forEach(item=>{
+    item.addEventListener('click',()=>{
+      const v=item.dataset.vista;const pill=[...dockPills.vista].find(p=>p.dataset.dockVista===v);
+      if(pill)pill.click();
+    });
+  });
+
+  const backdrop=document.getElementById('centroBackdrop');
+  const sheetMobile=document.getElementById('centroSheet');
+  function openCentro(){backdrop?.classList.add('open');sheetMobile?.classList.add('open');}
+  function closeCentro(){backdrop?.classList.remove('open');sheetMobile?.classList.remove('open');}
+  document.getElementById('openCentroMobile')?.addEventListener('click',openCentro);
+  document.getElementById('openCentroMobile2')?.addEventListener('click',openCentro);
+  document.getElementById('centroClose')?.addEventListener('click',closeCentro);
+  backdrop?.addEventListener('click',closeCentro);
+
+  const mainScroll=document.getElementById('mainScroll');
+  const spyTargets=[...document.querySelectorAll('.scroll-spy-target')];
+  const railSpy=document.getElementById('railSpy');
+  if(mainScroll&&spyTargets.length){
+    mainScroll.addEventListener('scroll',()=>{
+      const y=mainScroll.scrollTop+100;let current=spyTargets[0];
+      spyTargets.forEach(t=>{if(t.offsetTop<=y)current=t;});
+      railSpy?.querySelectorAll('.rail-item').forEach(r=>{
+        r.classList.toggle('active',r.dataset.spy===current.id);
+      });
+    });
+  }
+
+  document.querySelectorAll('.island-nav-item').forEach((btn,i)=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.island-nav-item').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const vistas=['cot-ficha','leads-lista','lic-lista','cot-lista'];
+      const pill=[...dockPills.vista].find(p=>p.dataset.dockVista===vistas[i]);
+      if(pill)pill.click();
+    });
+  });
+
+  syncTitles(body.dataset.vista||'cot-ficha');
+})();
+
+  document.getElementById('openCentroNav')?.addEventListener('click',()=>{
+    document.getElementById('centroBackdrop')?.classList.add('open');
+    document.getElementById('centroSheet')?.classList.add('open');
+  });
+  </script>
+</body>
+</html>

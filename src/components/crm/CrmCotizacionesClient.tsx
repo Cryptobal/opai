@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState, Spinner, Stat } from "@/components/opai-ds";
+import { EmptyState, Spinner, Tag } from "@/components/opai-ds";
+import { WorkbenchEntityCard, WorkbenchKpiStrip } from "@/components/workbench";
 import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap, Layers, MoreVertical, Copy, Trash2, FolderTree } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
@@ -363,15 +364,18 @@ export function CrmCotizacionesClient({
   return (
     <div className="space-y-4">
       {/* KPI summary */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Total" value={String(counts.total)} />
-        <Stat label="Borradores" value={String(counts.draft)} variant="warn" />
-        <Stat label="Enviadas" value={String(counts.sent)} variant="brand" />
-        <Stat label="Aprobadas" value={String(counts.approved)} variant="ok" />
-      </div>
+      <WorkbenchKpiStrip
+        items={[
+          { id: "total", label: "Total", value: counts.total, tone: "brand" },
+          { id: "draft", label: "Borradores", value: counts.draft, tone: "warn" },
+          { id: "sent", label: "Enviadas", value: counts.sent, tone: "info" },
+          { id: "approved", label: "Aprobadas", value: counts.approved, tone: "ok" },
+        ]}
+      />
 
       {/* ── Toolbar ── */}
       <CrmToolbar
+        glass
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Buscar por código, cliente o negocio..."
@@ -777,131 +781,124 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes, actions }: { quote: Quot
   );
 }
 
-/* ── Card item ── */
+/* ── Card item — WorkbenchEntityCard v2 ── */
 function QuoteCardItem({ quote, ufValue, hasUnreadNotes, actions }: { quote: QuoteRow; ufValue: number; hasUnreadNotes?: boolean; actions?: ReactNode }) {
   const status = STATUS_MAP[quote.status] || STATUS_MAP.draft;
+  const statusTagVariant =
+    quote.status === "approved" ? "ok" : quote.status === "rejected" ? "danger" : quote.status === "sent" ? "info" : "warn";
   const salePriceClp = Number(quote.salePriceMonthly);
   const salePriceUf = ufValue > 0 ? formatUFSuffix(clpToUf(salePriceClp, ufValue)) : null;
   return (
-    <div className="relative rounded-lg border transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden">
-    {actions ? <div className="absolute right-1.5 top-1.5 z-10">{actions}</div> : null}
-    <Link
-      href={`/crm/cotizaciones/${quote.id}`}
-      className="block p-4 min-w-0 overflow-hidden"
-    >
-      <div className={`flex items-center justify-between gap-2 mb-2 ${actions ? "pr-8" : ""}`}>
-        <span className="flex items-center gap-1.5">
-          <span className="font-mono text-sm font-medium truncate">{quote.code}</span>
-          {hasUnreadNotes && (
-            <span className="relative shrink-0" title="Notas no leídas">
-              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
-            </span>
-          )}
-        </span>
-        <Badge variant="outline" className={`shrink-0 ${status.className}`}>
-          {status.label}
-        </Badge>
-      </div>
-      {/* Proposal, stage, follow-up & lead-origin badges */}
-      {(quote.proposal || quote.dealStageName || (quote.pendingFollowUps ?? 0) > 0 || quote.createdFromLeadId) && (
-        <div className="flex items-center gap-1.5 flex-wrap mb-1">
-          {quote.proposal && <ProposalBadge proposal={quote.proposal} />}
-          {quote.createdFromLeadId && (
-            <Link
-              href={`/crm/leads/${quote.createdFromLeadId}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-status-info-border text-status-info-fg hover:bg-status-info-soft transition-colors cursor-pointer">
-                <Zap className="h-3 w-3" />
-                Desde Lead
-              </Badge>
-            </Link>
-          )}
-          {quote.dealStageName && (
-            <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
-              {quote.dealStageColor && (
-                <span className="inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: quote.dealStageColor }} />
-              )}
-              {quote.dealStageName}
-            </Badge>
-          )}
-          {(quote.pendingFollowUps ?? 0) > 0 && (
-            <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-violet-500/30 text-violet-600 dark:text-violet-400">
-              <CalendarClock className="h-3 w-3" />
-              Seguimiento
-            </Badge>
-          )}
-        </div>
-      )}
-      {quote.name && (
-        <p className="text-sm font-medium truncate">{quote.name}</p>
-      )}
-      {quote.dealTitle && (
-        <p className="text-sm truncate">
-          {quote.dealId ? (
-            <Link
-              href={`/crm/deals/${quote.dealId}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-muted-foreground hover:text-status-info-fg hover:underline inline-flex items-center gap-1 transition-colors"
-            >
-              {quote.dealTitle}
-              <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Link>
-          ) : (
-            <span className="text-foreground">{quote.dealTitle}</span>
-          )}
-        </p>
-      )}
-      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-        {quote.accountId ? (
-          <Link
-            href={`/crm/accounts/${quote.accountId}`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-status-info-fg hover:text-status-ok-fg hover:underline transition-colors"
-          >
-            {quote.accountName || quote.clientName || "Sin cliente"}
-          </Link>
-        ) : (
-          <span>{quote.accountName || quote.clientName || "Sin cliente"}</span>
-        )}
-        {quote.contactName && (
+    <div className="relative min-w-0">
+      {actions ? <div className="absolute right-2 top-2 z-10">{actions}</div> : null}
+      <WorkbenchEntityCard
+        href={`/crm/cotizaciones/${quote.id}`}
+        className={actions ? "pr-11" : undefined}
+        icon={<FileText className="h-4 w-4" />}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            <span className="font-mono">{quote.code}</span>
+            {hasUnreadNotes && (
+              <span className="relative inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-status-danger" title="Notas no leídas" />
+            )}
+          </span>
+        }
+        subtitle={quote.name || quote.dealTitle || quote.accountName || quote.clientName || undefined}
+        statusSlot={
+          <Tag variant={statusTagVariant} size="sm" dot className="shrink-0">
+            {status.label}
+          </Tag>
+        }
+        chips={
           <>
-            <span>·</span>
-            <Link
-              href={`/crm/contacts/${quote.contactId}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-status-info-fg hover:text-status-info-fg hover:underline transition-colors block truncate w-full"
-              title={quote.contactName}
-            >
-              {quote.contactName}
-            </Link>
+            {quote.proposal && <ProposalBadge proposal={quote.proposal} />}
+            {quote.createdFromLeadId && (
+              <Link href={`/crm/leads/${quote.createdFromLeadId}`} onClick={(e) => e.stopPropagation()}>
+                <Tag variant="info" size="sm" icon={Zap}>
+                  Desde Lead
+                </Tag>
+              </Link>
+            )}
+            {quote.dealStageName && (
+              <Tag variant="neutral" size="sm">
+                {quote.dealStageColor && (
+                  <span className="inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: quote.dealStageColor }} />
+                )}
+                {quote.dealStageName}
+              </Tag>
+            )}
+            {(quote.pendingFollowUps ?? 0) > 0 && (
+              <Tag variant="brand" size="sm" icon={CalendarClock}>
+                Seguimiento
+              </Tag>
+            )}
           </>
-        )}
-      </p>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Guardias</p>
-          <p className="text-sm font-medium font-mono">{quote.totalGuards}</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">P. venta</p>
-          <p className="text-sm font-medium font-mono">{formatCLP(salePriceClp)}</p>
-          {salePriceUf ? (
-            <p className="text-[10px] font-semibold text-muted-foreground">{salePriceUf}</p>
-          ) : null}
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Margen</p>
-          <p className="text-sm font-medium font-mono text-status-ok-fg dark:text-status-ok-fg">
-            {quote.marginPct != null
-              ? `${formatNumber(quote.marginPct, { minDecimals: 1, maxDecimals: 1 })}%`
-              : "—"}
-          </p>
-        </div>
-      </div>
-      <CrmDates createdAt={quote.createdAt} updatedAt={quote.updatedAt} className="mt-2" />
-    </Link>
+        }
+        metrics={[
+          { label: "Guardias", value: quote.totalGuards },
+          {
+            label: "P. venta",
+            value: (
+              <span>
+                {formatCLP(salePriceClp)}
+                {salePriceUf ? <span className="ml-1 text-ds-text-3">({salePriceUf})</span> : null}
+              </span>
+            ),
+          },
+          {
+            label: "Margen",
+            value:
+              quote.marginPct != null
+                ? `${formatNumber(quote.marginPct, { minDecimals: 1, maxDecimals: 1 })}%`
+                : "—",
+            highlight: true,
+          },
+        ]}
+        footer={
+          <div className="min-w-0 space-y-1">
+            {(quote.dealTitle || quote.accountId || quote.accountName || quote.clientName || quote.contactName) && (
+              <p className="truncate text-[12px] text-ds-text-3">
+                {quote.dealId ? (
+                  <Link
+                    href={`/crm/deals/${quote.dealId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:text-status-info-fg hover:underline"
+                  >
+                    {quote.dealTitle}
+                  </Link>
+                ) : quote.dealTitle ? (
+                  <span>{quote.dealTitle}</span>
+                ) : null}
+                {(quote.dealTitle ? " · " : "") + ""}
+                {quote.accountId ? (
+                  <Link
+                    href={`/crm/accounts/${quote.accountId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:text-status-info-fg hover:underline"
+                  >
+                    {quote.accountName || quote.clientName || "Sin cliente"}
+                  </Link>
+                ) : (
+                  <span>{quote.accountName || quote.clientName || "Sin cliente"}</span>
+                )}
+                {quote.contactName ? (
+                  <>
+                    {" · "}
+                    <Link
+                      href={`/crm/contacts/${quote.contactId}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:text-status-info-fg hover:underline"
+                    >
+                      {quote.contactName}
+                    </Link>
+                  </>
+                ) : null}
+              </p>
+            )}
+            <CrmDates createdAt={quote.createdAt} updatedAt={quote.updatedAt} />
+          </div>
+        }
+      />
     </div>
   );
 }

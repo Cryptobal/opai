@@ -348,6 +348,13 @@
     --glass-blur-2: blur(18px) saturate(150%);
     --glass-blur-3: blur(20px) saturate(160%);
 
+    /* ── Workbench Comercial / Liquid Glass v2 ─────────────────
+       Glow teal brillante (firma del sistema). Una sola fuente;
+       chip-tabs, pulse, journey y pills lo consumen vía token. */
+    --ds-glow: #2DD4A0;
+    --ds-glow-rgb: 45, 212, 160;
+    --ds-glow-ink: #06251d;
+
     /* ── Shell móvil v3.1 — scroll edge effect ──────────────────
        Alto de los degradados de máscara del contenedor de scroll.
        --fade-top: punto donde el contenido pasa a opaco por debajo del
@@ -1139,6 +1146,103 @@ html {
 }
 @media (prefers-reduced-transparency: reduce) {
   .glass-ambient { display: none !important; }
+}
+
+/* Desktop: aurora al ~55% (Workbench Comercial v2) */
+@media (min-width: 1024px) {
+  .glass-ambient {
+    opacity: 0.55;
+  }
+}
+
+/* ── Workbench Comercial v2 — motion + ring utilities ────────── */
+@keyframes wb-breathe {
+  0%, 100% {
+    box-shadow:
+      var(--glass-specular),
+      0 4px 20px rgba(var(--ds-glow-rgb), 0.40);
+  }
+  50% {
+    box-shadow:
+      var(--glass-specular),
+      0 4px 26px rgba(var(--ds-glow-rgb), 0.58);
+  }
+}
+@keyframes wb-ring-ping {
+  0% { transform: scale(0.7); opacity: 0.8; }
+  75%, 100% { transform: scale(1.5); opacity: 0; }
+}
+@keyframes wb-sweep {
+  to { transform: rotate(360deg); }
+}
+
+.wb-breathe {
+  animation: wb-breathe 3.2s ease-in-out infinite;
+}
+.wb-ping {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ds-glow);
+  flex: none;
+}
+.wb-ping::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(var(--ds-glow-rgb), 0.6);
+  animation: wb-ring-ping 2.4s ease-out infinite;
+}
+
+/* Anillo SVG countdown / gate documental */
+.wb-cring {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  transform: rotate(-90deg);
+}
+.wb-cring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.wb-cring .wb-cring-track {
+  stroke: rgba(255, 255, 255, 0.10);
+}
+.wb-cring .wb-cring-prog {
+  stroke: hsl(var(--ds-warn));
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px rgba(245, 165, 36, 0.6));
+}
+.wb-cring.wb-cring-teal .wb-cring-prog {
+  stroke: var(--ds-glow);
+  filter: drop-shadow(0 0 5px rgba(var(--ds-glow-rgb), 0.6));
+}
+.wb-ring-big {
+  width: 76px;
+  height: 76px;
+  transform: rotate(-90deg);
+  flex: none;
+}
+.wb-ring-big circle {
+  fill: none;
+  stroke-width: 6;
+}
+.wb-ring-big .wb-cring-track {
+  stroke: rgba(255, 255, 255, 0.09);
+}
+.wb-ring-big .wb-cring-prog {
+  stroke: var(--ds-glow);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px rgba(var(--ds-glow-rgb), 0.5));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-breathe,
+  .wb-ping::after {
+    animation: none !important;
+  }
 }
 
 /* ── Isla nav: pill activo con glow teal ─────────────────────── */

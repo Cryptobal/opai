@@ -58,7 +58,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
+import { useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
+import {
+  PulseBar,
+  WorkbenchHeader,
+  WorkbenchTopIsland,
+} from "@/components/workbench";
+import { ControlCenterSheet, ControlCenterTrigger } from "@/components/cpq/workspace/ControlCenterSheet";
 import { openAnchoredChat } from "@/lib/ai/ai-command-event";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
@@ -67,7 +73,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber, timeAgo } from "@/lib/utils";
-import { Tag } from "@/components/opai-ds";
+import { Tag, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 import { FileAttachments } from "./FileAttachments";
@@ -893,6 +899,9 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
 
   // ─── Delete confirm state ───
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  // ─── Workbench v2: sheet móvil con el centro de conversión (solo UI) ───
+  const [conversionSheetOpen, setConversionSheetOpen] = useState(false);
 
   // ─── Catalogs ───
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
@@ -2338,107 +2347,191 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
     </div>
   );
 
+  // ─── Workbench v2: publica el nombre en el breadcrumb global (mismo
+  // comportamiento que EntityDetailLayout, ahora explícito acá). ───
+  useSetBreadcrumbTrailing(lead.companyName || fullName);
+
+  const statusTagVariant =
+    lead.status === "approved"
+      ? "ok"
+      : lead.status === "rejected"
+        ? "danger"
+        : lead.status === "in_review"
+          ? "info"
+          : "warn";
+
+  const leadPulseValue = cpqTotalGuards > 0 ? `${cpqTotalGuards.toLocaleString("es-CL")} guardias` : "—";
+  const leadPulseSubtitle = estSaleClp != null ? `${formatCurrency(estSaleClp)}/mes est.` : specServiceLabel || undefined;
+  const leadJourney = (
+    <LeadPipelineStepper status={lead.status} firstContactAt={lead.firstContactAt ?? null} />
+  );
+  const leadStatusTags = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Tag size="sm" variant="neutral">Lead</Tag>
+      <Tag size="sm" variant={statusTagVariant}>{statusInfo.label}</Tag>
+      <span className="text-[12px] text-ds-text-3">
+        {getSourceLabel(lead.source)} · {timeAgo(lead.createdAt)}
+      </span>
+    </div>
+  );
+
+  // Cluster de acciones de contacto — se reutiliza en el header desktop y en
+  // la fila móvil bajo la isla (misma lógica, dos puntos de montaje según
+  // breakpoint, igual patrón que `quoteJourney` en CpqQuoteDetail).
+  const contactActionsCluster = (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 w-8 sm:w-auto px-0 sm:px-3 sm:gap-1.5 text-ds-text-2"
+            disabled={markingContact}
+            title={lead.firstContactAt ? `Contactado · ${CONTACT_CHANNEL_LABELS[lead.firstContactChannel || ""] || lead.firstContactChannel || "—"}` : "Marcar contactado (si ya hablaste fuera de estos botones)"}
+          >
+            {markingContact ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : lead.firstContactAt ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-status-ok-fg" />
+            ) : (
+              <UserCheck className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden sm:inline text-xs">
+              {lead.firstContactAt
+                ? `Contactado · ${CONTACT_CHANNEL_LABELS[lead.firstContactChannel || ""] || lead.firstContactChannel || "—"}`
+                : "Marcar contactado"}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => handleMarkContacted("whatsapp")}>
+            <MessageCircle className="h-3.5 w-3.5 mr-2" /> Por WhatsApp
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleMarkContacted("phone")}>
+            <Phone className="h-3.5 w-3.5 mr-2" /> Por llamada
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleMarkContacted("email")}>
+            <Mail className="h-3.5 w-3.5 mr-2" /> Por email
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleMarkContacted("in_person")}>
+            <Handshake className="h-3.5 w-3.5 mr-2" /> En persona
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {/* Indicador de autosave: solo desktop para no saturar la cabecera mobile */}
+      <span className="hidden sm:inline-flex">{headerAutosaveIndicator}</span>
+      {lead.phone ? (
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          <a href={`tel:+${sanitizePhone(lead.phone || "")}`} title="Llamar"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
+            <Phone className="h-4 w-4" />
+          </a>
+          <button type="button" onClick={openWhatsAppLeadFirstContact} title="WhatsApp"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-status-ok-border bg-status-ok-soft text-status-ok-fg hover:brightness-110 transition-colors">
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+          </button>
+        </div>
+      ) : null}
+      <LeadHeaderCta
+        className="hidden lg:flex"
+        isEditable={false}
+        isApproved={lead.status === "approved"}
+        isRejected={lead.status === "rejected"}
+        duplicateChecked={duplicateChecked}
+        hasConflicts={hasConflicts}
+        approving={approving}
+        onReject={openRejectModal}
+        onVerifyAndApprove={approveLead}
+        onOpenDeal={onOpenConvertedDeal}
+      />
+      <button
+        type="button"
+        onClick={() =>
+          openAnchoredChat({
+            anchorType: "crm_lead",
+            anchorId: lead.id,
+            entityName: leadChatName,
+          })
+        }
+        title="Abrir chat"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-muted"
+      >
+        <MessageCircle className="h-4 w-4" />
+      </button>
+    </>
+  );
+
+  const leadConversionRailNode = (
+    <LeadConversionRail
+      status={lead.status}
+      preview={{
+        account: approveForm.accountName,
+        contact: [approveForm.contactFirstName, approveForm.contactLastName].filter(Boolean).join(" "),
+        deal: approveForm.dealTitle,
+      }}
+      duplicates={duplicates}
+      useExistingAccountId={useExistingAccountId}
+      onLinkExisting={(id) => {
+        setUseExistingAccountId(id);
+        setInstallationUseExisting({});
+      }}
+      onApprove={approveLead}
+      onReject={openRejectModal}
+      onReopen={() => void reopenLead()}
+      approving={approving}
+      reopening={reopening}
+      converted={lead.status === "approved" ? convertedEntities : null}
+      rejectionReason={rejectionInfo ? getRejectReasonLabel(rejectionInfo.reason) : null}
+      rejectionNote={rejectionInfo?.note ?? null}
+      source={getSourceLabel(lead.source)}
+      createdAt={
+        lead.createdAt
+          ? new Date(lead.createdAt).toLocaleDateString("es-CL", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : null
+      }
+      idleLabel={lead.firstContactAt ? "Contactado" : timeAgo(lead.createdAt)}
+    />
+  );
+
   return (
     <>
-      <EntityDetailLayout
-        breadcrumb={["CRM", "Prospectos", lead.companyName || fullName]}
-        breadcrumbHrefs={["/crm", "/crm/leads"]}
-        collapseOnScroll={false}
-        mobileMeta={
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Tag size="sm" variant="neutral">Lead</Tag>
-            <Tag
-              size="sm"
-              variant={
-                lead.status === "approved"
-                  ? "ok"
-                  : lead.status === "rejected"
-                    ? "danger"
-                    : lead.status === "in_review"
-                      ? "info"
-                      : "warn"
-              }
-            >
-              {statusInfo.label}
-            </Tag>
-            <span className="text-[12px] text-ds-text-3">
-              {getSourceLabel(lead.source)} · {timeAgo(lead.createdAt)}
-            </span>
-          </div>
+      {/* ── Workbench v2: isla superior móvil (< lg) ── */}
+      <WorkbenchTopIsland
+        eyebrow={`Lead · #${lead.id.slice(0, 8)}`}
+        title={lead.companyName || fullName}
+        onBack={() => router.push("/crm/leads")}
+        trailing={
+          <LeadOverflowMenu
+            isEditable={isEditable}
+            canSendPresentation={!!lead.email}
+            savingLead={savingLead}
+            onSendPresentation={openSendPresentation}
+            onSaveDraft={saveLeadDraft}
+            onDelete={() => setDeleteConfirm(true)}
+          />
         }
-        header={{
-          avatar: { initials: (lead.companyName || fullName).charAt(0).toUpperCase() },
-          title: lead.companyName || fullName,
-          subtitle: specServiceLabel || undefined,
-          status: statusInfo,
-          statusAdornment: <Tag size="sm" variant="neutral">Lead</Tag>,
-          actions: headerActions,
-          extra: (
+      />
+
+      <div className="min-w-0 pt-[calc(env(safe-area-inset-top)+64px)] lg:pt-0">
+        {/* ── Header desktop (lg+): icon + eyebrow/título + estado/acciones,
+             fila 2 con PulseBar + Journey ── */}
+        <WorkbenchHeader
+          icon={<Users className="h-[22px] w-[22px]" />}
+          eyebrow={`Lead · #${lead.id.slice(0, 8)}`}
+          title={lead.companyName || fullName}
+          statusSlot={
+            <div className="flex items-center gap-1.5">
+              <Tag size="sm" variant="neutral">Lead</Tag>
+              <Tag size="sm" variant={statusTagVariant}>{statusInfo.label}</Tag>
+            </div>
+          }
+          actions={
             <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 w-8 sm:w-auto px-0 sm:px-3 sm:gap-1.5 text-ds-text-2"
-                    disabled={markingContact}
-                    title={lead.firstContactAt ? `Contactado · ${CONTACT_CHANNEL_LABELS[lead.firstContactChannel || ""] || lead.firstContactChannel || "—"}` : "Marcar contactado (si ya hablaste fuera de estos botones)"}
-                  >
-                    {markingContact ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : lead.firstContactAt ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-status-ok-fg" />
-                    ) : (
-                      <UserCheck className="h-3.5 w-3.5" />
-                    )}
-                    <span className="hidden sm:inline text-xs">
-                      {lead.firstContactAt
-                        ? `Contactado · ${CONTACT_CHANNEL_LABELS[lead.firstContactChannel || ""] || lead.firstContactChannel || "—"}`
-                        : "Marcar contactado"}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => handleMarkContacted("whatsapp")}>
-                    <MessageCircle className="h-3.5 w-3.5 mr-2" /> Por WhatsApp
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleMarkContacted("phone")}>
-                    <Phone className="h-3.5 w-3.5 mr-2" /> Por llamada
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleMarkContacted("email")}>
-                    <Mail className="h-3.5 w-3.5 mr-2" /> Por email
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleMarkContacted("in_person")}>
-                    <Handshake className="h-3.5 w-3.5 mr-2" /> En persona
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {/* Indicador de autosave: solo desktop para no saturar la cabecera mobile */}
-              <span className="hidden sm:inline-flex">{headerAutosaveIndicator}</span>
-              {lead.phone ? (
-                <div className="flex items-center gap-1 sm:gap-1.5">
-                  <a href={`tel:+${sanitizePhone(lead.phone || "")}`} title="Llamar"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
-                    <Phone className="h-4 w-4" />
-                  </a>
-                  <button type="button" onClick={openWhatsAppLeadFirstContact} title="WhatsApp"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-status-ok-border bg-status-ok-soft text-status-ok-fg hover:brightness-110 transition-colors">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-                  </button>
-                </div>
-              ) : null}
-              <LeadHeaderCta
-                className="hidden lg:flex"
-                isEditable={false}
-                isApproved={lead.status === "approved"}
-                isRejected={lead.status === "rejected"}
-                duplicateChecked={duplicateChecked}
-                hasConflicts={hasConflicts}
-                approving={approving}
-                onReject={openRejectModal}
-                onVerifyAndApprove={approveLead}
-                onOpenDeal={onOpenConvertedDeal}
-              />
+              {contactActionsCluster}
               <LeadOverflowMenu
                 isEditable={isEditable}
                 canSendPresentation={!!lead.email}
@@ -2448,64 +2541,52 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
                 onDelete={() => setDeleteConfirm(true)}
               />
             </div>
-          ),
-        }}
-        tabs={[]}
-        activeTab=""
-        onTabChange={() => {}}
-        pipelineBar={
-          <LeadPipelineStepper
-            status={lead.status}
-            firstContactAt={lead.firstContactAt ?? null}
-          />
-        }
-        rightPanel={
-          <LeadConversionRail
-            status={lead.status}
-            preview={{
-              account: approveForm.accountName,
-              contact: [approveForm.contactFirstName, approveForm.contactLastName].filter(Boolean).join(" "),
-              deal: approveForm.dealTitle,
-            }}
-            duplicates={duplicates}
-            useExistingAccountId={useExistingAccountId}
-            onLinkExisting={(id) => {
-              setUseExistingAccountId(id);
-              setInstallationUseExisting({});
-            }}
-            onApprove={approveLead}
-            onReject={openRejectModal}
-            onReopen={() => void reopenLead()}
-            approving={approving}
-            reopening={reopening}
-            converted={lead.status === "approved" ? convertedEntities : null}
-            rejectionReason={rejectionInfo ? getRejectReasonLabel(rejectionInfo.reason) : null}
-            rejectionNote={rejectionInfo?.note ?? null}
-            source={getSourceLabel(lead.source)}
-            createdAt={
-              lead.createdAt
-                ? new Date(lead.createdAt).toLocaleDateString("es-CL", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : null
-            }
-            idleLabel={lead.firstContactAt ? "Contactado" : timeAgo(lead.createdAt)}
-          />
-        }
-      >
-        {singlePageContent}
-        <details className="group mt-3 rounded-2xl border border-ds-border-subtle bg-card">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
-            Documentos
-            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
-          </summary>
-          <div className="px-4 pb-4">
-            <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Documentos" />
+          }
+          pulse={<PulseBar variant="lead" value={leadPulseValue} subtitle={leadPulseSubtitle} />}
+          journey={leadJourney}
+        />
+
+        {/* ── Mobile (< lg): stack sticky — pulse + meta + acciones de contacto ── */}
+        <div className="sticky top-[var(--app-island-bottom)] z-[25] -mx-4 sm:-mx-6 lg:hidden mb-3">
+          <div className="mx-2.5 overflow-hidden rounded-[22px] border border-[var(--glass-border)] opai-glass-strong shadow-[var(--glass-specular),var(--glass-shadow)]">
+            <PulseBar
+              variant="lead"
+              value={leadPulseValue}
+              subtitle={leadPulseSubtitle}
+              actionsSlot={
+                <ControlCenterTrigger label="Centro de conversión" onClick={() => setConversionSheetOpen(true)} />
+              }
+            />
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.07] px-3 py-2">
+              {leadStatusTags}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.07] px-3 py-2">
+              {contactActionsCluster}
+            </div>
           </div>
-        </details>
-      </EntityDetailLayout>
+        </div>
+
+        {/* ── Journey: primer bloque no-sticky en móvil ── */}
+        <div className="lg:hidden mb-3">{leadJourney}</div>
+
+        {/* ── Contenido principal + Centro de conversión (rail desktop) ── */}
+        <div className="lg:flex lg:items-start">
+          <div className="min-w-0 flex-1">
+            {singlePageContent}
+            <details className="group mt-3 rounded-2xl border border-ds-border-subtle bg-card">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
+                Documentos
+                <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+              </summary>
+              <div className="px-4 pb-4">
+                <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Documentos" />
+              </div>
+            </details>
+          </div>
+          <div className="hidden lg:block">{leadConversionRailNode}</div>
+        </div>
+      </div>
+
       <LeadActionBar
         isEditable={isEditable}
         isApproved={lead.status === "approved"}
@@ -2519,6 +2600,17 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
         onOpenDeal={onOpenConvertedDeal}
         onReopen={() => void reopenLead()}
       />
+
+      {/* ── Sheet móvil: Centro de conversión (mismo contenido que el rail
+           desktop, montado bajo demanda vía Radix Sheet) ── */}
+      <ControlCenterSheet
+        open={conversionSheetOpen}
+        onOpenChange={setConversionSheetOpen}
+        title="Centro de conversión"
+        description="Aprobación, duplicados y datos de origen del lead"
+      >
+        {leadConversionRailNode}
+      </ControlCenterSheet>
 
       {/* ── Approval Success Modal ── */}
       <Dialog open={!!approvalResult} onOpenChange={(open) => { if (!open) { setApprovalResult(null); router.push("/crm/leads"); } }}>

@@ -22,8 +22,9 @@ import { CrmLead } from "@/types";
 import { Plus, Loader2, ChevronRight, UserPlus, Phone, Mail, Trash2, Check, X, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { StatusTag } from "@/components/ops/StatusTag";
-import { EmptyState, Stat, Tag } from "@/components/opai-ds";
-import { cn } from "@/lib/utils";
+import { EmptyState, Tag } from "@/components/opai-ds";
+import { WorkbenchEntityCard, WorkbenchKpiStrip, type WorkbenchKpiItem } from "@/components/workbench";
+import { formatDateShort } from "@/lib/utils";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import { LeadSourceBadge } from "./LeadSourceBadge";
@@ -308,27 +309,23 @@ export function CrmLeadsClient({
         <p className="text-xs text-muted-foreground">{initialFilterLabel}</p>
       )}
 
-      {/* ── Stat strip clickeable: filtra la lista ── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {([
-          { key: "all" as const, label: "Total", value: counts.total, variant: "default" as const },
-          { key: "pending" as const, label: "Pendientes", value: counts.pending, variant: "warn" as const },
-          { key: "approved" as const, label: "Aprobados", value: counts.approved, variant: "ok" as const },
-          { key: "rejected" as const, label: "Rechazados", value: counts.rejected, variant: "danger" as const },
-        ]).map((stat) => (
-          <Stat
-            key={stat.key}
-            label={stat.label}
-            value={String(stat.value)}
-            variant={stat.variant}
-            onClick={() => setStatusFilter(stat.key)}
-            className={cn(statusFilter === stat.key && "ring-1 ring-primary/40")}
-          />
-        ))}
-      </div>
+      {/* ── KPI strip clickeable: filtra la lista ── */}
+      <WorkbenchKpiStrip
+        items={([
+          { id: "all", label: "Total", value: counts.total, tone: "brand" },
+          { id: "pending", label: "Pendientes", value: counts.pending, tone: "warn" },
+          { id: "approved", label: "Aprobados", value: counts.approved, tone: "ok" },
+          { id: "rejected", label: "Rechazados", value: counts.rejected, tone: "danger" },
+        ] satisfies WorkbenchKpiItem[]).map((item) => ({
+          ...item,
+          selected: statusFilter === item.id,
+          onClick: () => setStatusFilter(item.id as LeadStatusFilter),
+        }))}
+      />
 
       {/* ── Toolbar ── */}
       <CrmToolbar
+        glass
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Buscar por empresa, contacto o email..."
@@ -425,39 +422,36 @@ export function CrmLeadsClient({
               compact
             />
           ) : view === "cards" ? (
-            /* ═══ Cards View — familia visual de Cotizaciones ═══ */
+            /* ═══ Cards View — WorkbenchEntityCard v2 ═══ */
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredLeads.map((lead) => {
                 const meta = lead.metadata as Record<string, unknown> | undefined;
                 const totalGuards = (meta?.totalGuards as number) || 0;
                 const rejectionInfo = getLeadRejectionInfo(lead.metadata);
                 const status = LEAD_STATUS_MAP[lead.status] || LEAD_STATUS_MAP.pending;
+                const statusTagVariant =
+                  lead.status === "approved"
+                    ? "ok"
+                    : lead.status === "rejected"
+                      ? "danger"
+                      : lead.status === "in_review"
+                        ? "info"
+                        : "warn";
                 const isPending = lead.status === "pending" || lead.status === "in_review";
                 return (
-                  <Link
+                  <WorkbenchEntityCard
                     key={lead.id}
                     href={`/crm/leads/${lead.id}`}
-                    className="flex flex-col rounded-lg border border-border transition-colors hover:border-primary/30 hover:bg-accent/30 group min-w-0 overflow-hidden"
-                  >
-                    <div className="flex-1 p-4">
-                      {/* Header: empresa + chip estado con dot */}
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-medium text-sm truncate">{lead.companyName || "Empresa sin nombre"}</p>
-                        <Badge variant="outline" className={`shrink-0 ${status.className}`}>
-                          <span className="inline-flex h-1.5 w-1.5 rounded-full mr-1 bg-current" />
-                          {status.label}
-                        </Badge>
-                      </div>
-
-                      {/* Contacto · email */}
-                      <p className="mt-1 text-xs text-muted-foreground truncate">
-                        {leadDisplayName(lead)}
-                        {lead.email ? ` · ${lead.email}` : ""}
-                        {!lead.email && lead.phone ? ` · ${lead.phone}` : ""}
-                      </p>
-
-                      {/* Chips: origen / comuna / correo de rechazo */}
-                      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    icon={<UserPlus className="h-4 w-4" />}
+                    title={lead.companyName || "Empresa sin nombre"}
+                    subtitle={`${leadDisplayName(lead)}${lead.email ? ` · ${lead.email}` : !lead.email && lead.phone ? ` · ${lead.phone}` : ""}`}
+                    statusSlot={
+                      <Tag variant={statusTagVariant} size="sm" dot className="shrink-0">
+                        {status.label}
+                      </Tag>
+                    }
+                    chips={
+                      <>
                         <LeadSourceBadge source={lead.source} />
                         {lead.commune && (
                           <Tag variant="neutral" size="sm" icon={MapPin}>
@@ -469,85 +463,61 @@ export function CrmLeadsClient({
                             {rejectionInfo.emailSent ? "Correo enviado" : "Sin correo enviado"}
                           </Tag>
                         )}
-                      </div>
-
-                      {/* Rejection note */}
-                      {lead.status === "rejected" && rejectionInfo?.note && (
-                        <p className="mt-2 rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground line-clamp-3">
-                          Observación: {rejectionInfo.note}
-                        </p>
-                      )}
-
-                      {/* Métricas con hairline superior */}
-                      <div className="mt-3 grid grid-cols-3 gap-2 border-t border-ds-border-subtle pt-2 text-center">
-                        <div className="min-w-0">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Guardias</p>
-                          <p className="truncate text-sm font-medium font-mono">
-                            {totalGuards > 0 ? totalGuards : "—"}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Servicio</p>
-                          <p className="truncate text-[12px] font-medium">
-                            {lead.serviceType || "—"}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recibido</p>
-                          <div className="flex justify-center">
-                            <CrmDates createdAt={lead.createdAt} />
+                      </>
+                    }
+                    metrics={[
+                      { label: "Guardias", value: totalGuards > 0 ? totalGuards : "—" },
+                      { label: "Servicio", value: lead.serviceType || "—" },
+                      { label: "Recibido", value: formatDateShort(lead.createdAt) },
+                    ]}
+                    footer={
+                      <div className="flex items-center justify-between gap-2">
+                        {isPending && canEditLeads ? (
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              className="h-8 gap-1 bg-status-ok text-white hover:brightness-110"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                router.push(`/crm/leads/${lead.id}`);
+                              }}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              Aprobar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1 border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
+                              onClick={(e) => openRejectDialog(e, lead.id)}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                              Rechazar
+                            </Button>
                           </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer: acciones inline (solo pendientes con permiso de edición) */}
-                    <div className="flex items-center justify-between gap-2 border-t border-ds-border-subtle px-4 py-2">
-                      {isPending && canEditLeads ? (
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            size="sm"
-                            className="h-8 gap-1 bg-status-ok text-white hover:brightness-110"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              router.push(`/crm/leads/${lead.id}`);
-                            }}
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                            Aprobar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 gap-1 border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
-                            onClick={(e) => openRejectDialog(e, lead.id)}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                            Rechazar
-                          </Button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">
-                          {isPending ? "Revisar en la ficha" : ""}
-                        </span>
-                      )}
-                      <div className="flex items-center gap-1">
-                        {lead.status !== "approved" && canDeleteLead && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            onClick={(e) => handleDeleteLead(e, lead.id)}
-                            title="Eliminar lead"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        ) : (
+                          <span className="text-[12px] text-ds-text-3">
+                            {isPending ? "Revisar en la ficha" : ""}
+                          </span>
                         )}
-                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                        <div className="flex items-center gap-1">
+                          {lead.status !== "approved" && canDeleteLead && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-ds-text-3 hover:text-status-danger-fg hover:bg-status-danger-soft"
+                              onClick={(e) => handleDeleteLead(e, lead.id)}
+                              title="Eliminar lead"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <ChevronRight className="h-4 w-4 text-ds-text-3 transition-colors" />
+                        </div>
                       </div>
-                    </div>
-                  </Link>
+                    }
+                  />
                 );
               })}
             </div>

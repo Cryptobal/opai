@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FilterPills, type FilterOption } from "@/components/shared/FilterPills";
 import { SortSelect, type SortOption, DEFAULT_SORT_OPTIONS } from "@/components/shared/SortSelect";
 import { ViewToggle, type ViewMode } from "@/components/shared/ViewToggle";
+import { cn } from "@/lib/utils";
 
 interface SelectAllConfig {
   checked: boolean;
@@ -39,6 +40,13 @@ interface CrmToolbarProps {
 
   /* ── Action button (right side) ── */
   actionSlot?: React.ReactNode;
+
+  /**
+   * Vestido "liquid glass" v2 (Workbench Comercial) — search pill translúcida
+   * + filter pills en shell glass. Opt-in y retrocompatible: los consumidores
+   * que no lo pasan conservan el look clásico (Cuentas, Contactos).
+   */
+  glass?: boolean;
 }
 
 export function CrmToolbar({
@@ -56,19 +64,33 @@ export function CrmToolbar({
   onViewChange,
   selectAll,
   actionSlot,
+  glass = false,
 }: CrmToolbarProps) {
   const hasFilters = !!(filters && filters.length > 0 && activeFilter !== undefined && onFilterChange);
+  const filterPillsGlassClass = glass
+    ? "rounded-full border-[var(--glass-border)] bg-[var(--glass-fill-soft)] p-1"
+    : undefined;
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
       {/* Search */}
       <div className="relative w-full min-w-0 sm:min-w-[280px] sm:flex-1">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Search
+          className={cn(
+            "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none",
+            glass ? "text-ds-text-3" : "text-muted-foreground",
+          )}
+        />
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
-          className="pl-9 h-10 sm:h-9 bg-background text-foreground border-input"
+          className={cn(
+            "pl-9 h-10 sm:h-9",
+            glass
+              ? "rounded-full border-[var(--glass-border)] bg-[var(--glass-fill-soft)] text-ds-text-1 placeholder:text-ds-text-4 focus-visible:ring-[rgba(var(--ds-glow-rgb),0.4)]"
+              : "bg-background text-foreground border-input",
+          )}
         />
       </div>
 
@@ -81,6 +103,7 @@ export function CrmToolbar({
             options={filters!}
             active={activeFilter!}
             onChange={onFilterChange!}
+            className={filterPillsGlassClass}
           />
         </div>
       )}
@@ -115,6 +138,7 @@ export function CrmToolbar({
               options={filters!}
               active={activeFilter!}
               onChange={onFilterChange!}
+              className={filterPillsGlassClass}
             />
           </div>
         )}
