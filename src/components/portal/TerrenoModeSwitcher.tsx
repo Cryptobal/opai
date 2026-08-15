@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Clock, Shield, DoorOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +8,8 @@ import { cn } from "@/lib/utils";
  * Barra de modos Terreno (marcación / rondas / acceso).
  * Siempre visible en los tres portales: vive en el layout, en flujo (sticky),
  * sin gates de Capacitor / query / localStorage que la ocultaban.
+ *
+ * Publica `--terreno-switcher-h` para que TruthBar se ancle debajo al scrollear.
  */
 
 type Mode = "marcacion" | "rondas" | "acceso";
@@ -28,6 +31,26 @@ interface TerrenoModeSwitcherProps {
 }
 
 export function TerrenoModeSwitcher({ active }: TerrenoModeSwitcherProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+
+    const publish = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--terreno-switcher-h", `${h}px`);
+    };
+
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--terreno-switcher-h");
+    };
+  }, []);
+
   function switchTo(href: string) {
     // Full navigation keeps each portal's own shell/SW scope clean.
     window.location.href = href;
@@ -35,6 +58,7 @@ export function TerrenoModeSwitcher({ active }: TerrenoModeSwitcherProps) {
 
   return (
     <div
+      ref={rootRef}
       className="sticky top-0 z-50 border-b border-ds-border-subtle bg-ds-surface-1/95 px-3 py-2 backdrop-blur-sm"
       data-terreno-mode-switcher=""
     >
