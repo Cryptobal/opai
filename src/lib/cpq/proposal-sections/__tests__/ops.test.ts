@@ -230,6 +230,30 @@ describe("matriz de cumplimiento", () => {
     expect(rows.some((r) => r.ref.includes("3.1") && r.level === "CUMPLE")).toBe(true);
     expect(rows.some((r) => r.level === "EXCLUIDO")).toBe(true);
   });
+
+  it("en comercial sin refs autogenera Cap. NN por sección del cuerpo", () => {
+    let c = emptyProposalV2("comercial");
+    c = addSection(c, { title: "Alcance del servicio", content: "Cobertura 24/7 con OS-10." });
+    c = addSection(c, { title: "Plan de contingencia", content: "" });
+    const rows = deriveComplianceMatrix(c);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => /^Cap\.\s\d{2}$/.test(r.ref))).toBe(true);
+    expect(rows.some((r) => r.requirement === "Alcance del servicio" && r.level === "CUMPLE")).toBe(
+      true,
+    );
+    expect(rows.some((r) => r.requirement === "Plan de contingencia" && r.level === "PARCIAL")).toBe(
+      true,
+    );
+    expect(rows.some((r) => r.sectionTitle?.toLowerCase().includes("oferta económica"))).toBe(
+      false,
+    );
+  });
+
+  it("licitación sin refs no inventa filas comerciales", () => {
+    const c = emptyProposalV2("licitacion");
+    const rows = deriveComplianceMatrix(c);
+    expect(rows).toEqual([]);
+  });
 });
 
 describe("validaciones pre-PDF", () => {

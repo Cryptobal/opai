@@ -106,6 +106,11 @@ export function CotizacionCard({
               <span className="text-xs text-zinc-600">
                 {cotizacion.totalPositions} puesto{cotizacion.totalPositions !== 1 ? "s" : ""} · {cotizacion.totalGuards} guardia{cotizacion.totalGuards !== 1 ? "s" : ""}
               </span>
+              {cotizacion.sentAt && (
+                <span className="text-xs text-muted-foreground">
+                  Enviada el {formatDate(cotizacion.sentAt)}
+                </span>
+              )}
               {cotizacion.validUntil && (
                 <span className="text-xs text-muted-foreground">
                   Válida hasta {formatDate(cotizacion.validUntil)}
@@ -172,6 +177,11 @@ export function CotizacionCard({
                 </span>
               )}
             </span>
+            {cotizacion.sentAt && (
+              <span className="text-xs text-muted-foreground">
+                Enviada el {formatDate(cotizacion.sentAt)}
+              </span>
+            )}
             {cotizacion.validUntil && (
               <span className="text-xs text-muted-foreground">
                 Válida hasta {formatDate(cotizacion.validUntil)}

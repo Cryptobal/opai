@@ -727,6 +727,7 @@ export async function buildQuotationProps(
     installationName: quote.installation?.name ?? '',
     quoteName: quote.name,
     quoteCode: quote.code,
+    suffix: 'Cotización',
   });
 
   return { ...props, fileName };

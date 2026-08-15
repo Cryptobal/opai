@@ -1166,12 +1166,16 @@ export async function buildProposalProps(
     props.proposalSections = sections;
     props.proposalStatus = proposalContent.status || quote.proposalStatus;
     props.complianceMatrix = matrix;
+    // Cinturón y tirantes: pdfMode final nunca lleva BORRADOR (el flujo
+    // comercial puede enviar sin haber transicionado proposalStatus aún).
     props.watermark =
-      ['borrador', 'en_revision'].includes(
-        proposalContent.status || quote.proposalStatus || '',
-      ) || opts?.pdfMode === 'draft'
-      ? 'BORRADOR'
-      : null;
+      opts?.pdfMode === 'final'
+        ? null
+        : ['borrador', 'en_revision'].includes(
+              proposalContent.status || quote.proposalStatus || '',
+            ) || opts?.pdfMode === 'draft'
+          ? 'BORRADOR'
+          : null;
     props.licitacionNumber = isLicitacion
       ? extractLicitacionNumber([
           deal?.isLicitacion ? deal.title : null,
@@ -1195,6 +1199,7 @@ export async function buildProposalProps(
     installationName: installation?.name ?? '',
     quoteName: quote.name,
     quoteCode: quote.code,
+    suffix: 'Propuesta Técnica',
   });
 
   return { ...props, fileName };

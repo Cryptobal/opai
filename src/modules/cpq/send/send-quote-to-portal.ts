@@ -27,6 +27,9 @@ import { buildPortalClienteInviteUrl } from "@/lib/portal-cliente-url";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 import { enqueueQuotePdfToDrive } from "@/lib/google-workspace/drive-enqueue-hooks";
+import { isProposalContentV2 } from "@/lib/cpq/proposal-sections/schema";
+import { setProposalDocStatus } from "@/lib/cpq/proposal-sections/ops";
+import type { Prisma } from "@prisma/client";
 
 export interface SendQuoteToPortalOptions {
   quoteId: string;
@@ -453,10 +456,31 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   }
 
   // Update quote status + visibilidad en portal del cliente
+  const sentAtPayload =
+    quote.sentAt == null ? { sentAt: new Date() } : {};
   await prisma.cpqQuote.updateMany({
     where: { id: quoteId, tenantId },
-    data: { status: "sent", visibleInClientPortal: true },
+    data: { status: "sent", visibleInClientPortal: true, ...sentAtPayload },
   });
+
+  // Flujo comercial: transicionar propuesta v2 a "enviada" (espejo licitación).
+  // No bloquea el envío si falla la metadata.
+  if (isProposalContentV2(quote.proposalAiContent)) {
+    try {
+      const sent = setProposalDocStatus(quote.proposalAiContent, "enviada", {
+        userId,
+      });
+      await prisma.cpqQuote.updateMany({
+        where: { id: quoteId, tenantId },
+        data: {
+          proposalStatus: "enviada",
+          proposalAiContent: sent as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch {
+      // El envío de cotización ya ocurrió; no revertimos por fallo de metadata.
+    }
+  }
 
   // Send email
   const tenantConfig = await getTenantCompanyConfig(tenantId);

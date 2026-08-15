@@ -519,6 +519,11 @@ export async function sendBundleToPortal(
     where: { id: { in: quoteIds }, tenantId },
     data: quoteUpdate,
   });
+  // Primer envío: sentAt solo si aún es null (reenvíos no lo sobrescriben).
+  await prisma.cpqQuote.updateMany({
+    where: { id: { in: quoteIds }, tenantId, sentAt: null },
+    data: { sentAt: now },
+  });
   await prisma.cpqProposalBundle.update({
     where: { id: bundleId },
     data: { status: "sent", sentAt: now },

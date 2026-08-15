@@ -631,24 +631,162 @@ export async function renderInstitutionalProposalToBufferFromProps(
     h(View, { key: `${number}-rule`, style: styles.titleRule }),
   ];
 
+  /** Inline `**negrita**` → Text children (sin librerías). */
+  const inlineMarkdown = (text: string, keyPrefix: string): Array<import('react').ReactNode> => {
+    const parts: Array<import('react').ReactNode> = [];
+    const re = /\*\*(.+?)\*\*/g;
+    let last = 0;
+    let match: RegExpExecArray | null;
+    let i = 0;
+    while ((match = re.exec(text)) !== null) {
+      if (match.index > last) {
+        parts.push(text.slice(last, match.index));
+      }
+      parts.push(
+        h(Text, { key: `${keyPrefix}-b-${i}`, style: { fontFamily: F.sans, fontWeight: 700 } }, match[1]),
+      );
+      last = match.index + match[0].length;
+      i += 1;
+    }
+    if (last < text.length) parts.push(text.slice(last));
+    return parts.length > 0 ? parts : [text];
+  };
+
+  const splitPipeCells = (line: string): string[] => {
+    const trimmed = line.trim().replace(/^\|/, '').replace(/\|$/, '');
+    const cells: string[] = [];
+    let cur = '';
+    for (let i = 0; i < trimmed.length; i += 1) {
+      if (trimmed[i] === '\\' && trimmed[i + 1] === '|') {
+        cur += '|';
+        i += 1;
+        continue;
+      }
+      if (trimmed[i] === '|') {
+        cells.push(cur.trim());
+        cur = '';
+        continue;
+      }
+      cur += trimmed[i];
+    }
+    cells.push(cur.trim());
+    return cells;
+  };
+
+  const isTableSeparator = (line: string): boolean => {
+    if (!line.includes('|') || !/-{3,}/.test(line)) return false;
+    const cells = splitPipeCells(line);
+    return cells.length > 0 && cells.every((c) => /^:?-{3,}:?$/.test(c.trim()));
+  };
+
+  const separatorAlignments = (line: string): Array<'left' | 'right' | 'center'> =>
+    splitPipeCells(line).map((c) => {
+      const t = c.trim();
+      const left = t.startsWith(':');
+      const right = t.endsWith(':');
+      if (left && right) return 'center';
+      if (right) return 'right';
+      return 'left';
+    });
+
+  /**
+   * Mini-renderer markdown: ### subtítulos, tablas pipe, **negrita**,
+   * bullets (`*`/`-` al inicio de línea, no `**negrita**`).
+   */
   const contentNodes = (
     value: string,
     keyPrefix: string,
   ): Array<import('react').ReactNode> => {
-    const blocks = value
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    return blocks.map((line, index) => {
-      const bullet = /^[•●▪◦*\-–—]\s*/.test(line);
-      const clean = line.replace(/^[•●▪◦*\-–—]\s*/, '').trim();
-      return bullet
-        ? h(View, { key: `${keyPrefix}-b-${index}`, style: styles.bulletRow },
+    const rawLines = value.replace(/\r\n/g, '\n').split('\n');
+    const nodes: Array<import('react').ReactNode> = [];
+    let i = 0;
+    let block = 0;
+
+    while (i < rawLines.length) {
+      const raw = rawLines[i] ?? '';
+      const line = raw.trim();
+      if (!line) {
+        i += 1;
+        continue;
+      }
+
+      // Heading ### / ## / #
+      const heading = /^(#{1,3})\s+(.+)$/.exec(line);
+      if (heading) {
+        nodes.push(
+          h(Text, { key: `${keyPrefix}-h-${block}`, style: styles.h2 }, heading[2]!.trim()),
+        );
+        block += 1;
+        i += 1;
+        continue;
+      }
+
+      // Pipe table: header + separator + rows
+      if (line.includes('|') && i + 1 < rawLines.length && isTableSeparator((rawLines[i + 1] ?? '').trim())) {
+        const headers = splitPipeCells(line);
+        const aligns = separatorAlignments((rawLines[i + 1] ?? '').trim());
+        i += 2;
+        const rows: string[][] = [];
+        while (i < rawLines.length) {
+          const rowLine = (rawLines[i] ?? '').trim();
+          if (!rowLine || !rowLine.includes('|') || isTableSeparator(rowLine)) break;
+          rows.push(splitPipeCells(rowLine));
+          i += 1;
+        }
+        const colCount = Math.max(headers.length, ...rows.map((r) => r.length), 1);
+        const widths = Array.from({ length: colCount }, () => `${(100 / colCount).toFixed(2)}%`);
+        const tableKey = `${keyPrefix}-tbl-${block}`;
+        nodes.push(
+          h(View, { key: tableKey, style: styles.table },
+            tableHeader(
+              headers.map((text, idx) => ({
+                text: text || ' ',
+                width: widths[idx]!,
+              })),
+            ),
+            ...rows.map((cells, rowIndex) =>
+              tableRow(
+                `${tableKey}-r-${rowIndex}`,
+                Array.from({ length: colCount }, (_, colIndex) => ({
+                  text: cells[colIndex] ?? '',
+                  width: widths[colIndex]!,
+                  strong: colIndex === 0,
+                  align: (aligns[colIndex] ?? 'left') as 'left' | 'right' | 'center',
+                })),
+                rowIndex,
+              ),
+            ),
+          ),
+        );
+        block += 1;
+        continue;
+      }
+
+      // Bullet: solo si * / - / • etc. van seguidos de espacio (no **negrita**)
+      const bulletMatch = /^([•●▪◦])\s+(.+)$/.exec(line)
+        ?? /^([*\-–—])\s+(?!\*)(.+)$/.exec(line);
+      if (bulletMatch) {
+        const clean = bulletMatch[2]!.trim();
+        nodes.push(
+          h(View, { key: `${keyPrefix}-b-${block}`, style: styles.bulletRow },
             h(Text, { style: styles.bulletMark }, '●'),
-            h(Text, { style: styles.bulletText }, clean),
-          )
-        : h(Text, { key: `${keyPrefix}-p-${index}`, style: styles.body }, clean);
-    });
+            h(Text, { style: styles.bulletText }, ...inlineMarkdown(clean, `${keyPrefix}-bt-${block}`)),
+          ),
+        );
+        block += 1;
+        i += 1;
+        continue;
+      }
+
+      nodes.push(
+        h(Text, { key: `${keyPrefix}-p-${block}`, style: styles.body },
+          ...inlineMarkdown(line, `${keyPrefix}-p-${block}`)),
+      );
+      block += 1;
+      i += 1;
+    }
+
+    return nodes;
   };
 
   const tableHeader = (cells: Array<{ text: string; width: string }>) =>
@@ -740,6 +878,7 @@ export async function renderInstitutionalProposalToBufferFromProps(
     kind === 'uf'
       ? formatOpeningUf(clp, opening.ufValue)
       : formatOpeningClp(clp);
+  const primaryLabel = primaryColumn === 'uf' ? '(UF)' : '(CLP)';
 
   const linesBlock = (
     key: string,
@@ -753,7 +892,7 @@ export async function renderInstitutionalProposalToBufferFromProps(
           tableHeader([
             { text: 'Concepto', width: '54%' },
             { text: 'Cant.', width: '14%' },
-            { text: 'Monto mensual', width: '32%' },
+            { text: `Monto mensual (CLP)`, width: '32%' },
           ]),
           ...lines.map((line, index) =>
             tableRow(`${key}-${index}`, [
@@ -788,15 +927,15 @@ export async function renderInstitutionalProposalToBufferFromProps(
               tableHeader([
                 { text: 'Servicio', width: '46%' },
                 { text: 'Cant.', width: '10%' },
-                { text: 'Valor unitario', width: '22%' },
-                { text: 'Subtotal mensual', width: '22%' },
+                { text: `Valor unitario ${primaryLabel}`, width: '22%' },
+                { text: `Subtotal mensual ${primaryLabel}`, width: '22%' },
               ]),
               ...serviceLines.map((line, index) =>
                 tableRow(`service-${index}`, [
                   { text: line.description, width: '46%', strong: true },
                   { text: line.quantity.toLocaleString('es-CL'), width: '10%', align: 'right' },
-                  { text: formatOpeningClp(line.unitPriceClp), width: '22%', align: 'right' },
-                  { text: formatOpeningClp(line.subtotalClp), width: '22%', align: 'right', strong: true },
+                  { text: amount(primaryColumn, line.unitPriceClp), width: '22%', align: 'right' },
+                  { text: amount(primaryColumn, line.subtotalClp), width: '22%', align: 'right', strong: true },
                 ], index),
               ),
             ),
@@ -810,13 +949,13 @@ export async function renderInstitutionalProposalToBufferFromProps(
               tableHeader([
                 { text: 'Instalación', width: '52%' },
                 { text: 'Dotación', width: '16%' },
-                { text: 'Monto mensual neto', width: '32%' },
+                { text: `Monto mensual neto ${primaryLabel}`, width: '32%' },
               ]),
               ...byInstallation.map((installation, index) =>
                 tableRow(`installation-${index}`, [
                   { text: installation.name, width: '52%', strong: true },
                   { text: installation.guards.toLocaleString('es-CL'), width: '16%', align: 'right' },
-                  { text: formatOpeningClp(installation.amountClp), width: '32%', align: 'right', strong: true },
+                  { text: amount(primaryColumn, installation.amountClp), width: '32%', align: 'right', strong: true },
                 ], index),
               ),
             ),
@@ -839,7 +978,7 @@ export async function renderInstitutionalProposalToBufferFromProps(
               },
                 tableHeader([
                   { text: 'Componente', width: '62%' },
-                  { text: 'Monto', width: '38%' },
+                  { text: 'Monto (CLP)', width: '38%' },
                 ]),
                 ...salary.components.map((component, index) =>
                   tableRow(`salary-${salaryIndex}-${index}`, [
@@ -886,13 +1025,13 @@ export async function renderInstitutionalProposalToBufferFromProps(
               tableHeader([
                 { text: 'Ítem', width: '72%' },
                 { text: 'Cantidad', width: '10%' },
-                { text: 'Valor', width: '18%' },
+                { text: `Valor ${primaryLabel}`, width: '18%' },
               ]),
               ...props.oneTimeItems.map((item, index) =>
                 tableRow(`one-time-${index}`, [
                   { text: item.description, width: '72%', strong: true },
                   { text: item.quantity.toLocaleString('es-CL'), width: '10%', align: 'right' },
-                  { text: item.subtotalFormatted, width: '18%', align: 'right', strong: true },
+                  { text: amount(primaryColumn, item.subtotal), width: '18%', align: 'right', strong: true },
                 ], index),
               ),
             ),
@@ -1110,13 +1249,20 @@ export async function renderInstitutionalProposalToBufferFromProps(
 
   const offerer = props.offerer;
   const representative = offerer?.legalRepresentative;
-  const offererRows = [
+  const isLicitacionVariant = props.variant === 'licitacion';
+  // Comercial: sin datos personales del representante. Licitación: tabla formal
+  // completa (requisito de bases) pero la firma solo muestra razón social.
+  const offererRows: Array<[string, string]> = [
     ['Razón social', offerer?.legalName || props.companyConfig.companyName],
     ['Nombre comercial', offerer?.commercialName || brand],
     ['RUT', offerer?.rut || '—'],
     ['Domicilio', offerer?.address || '—'],
-    ['Representante legal', representative?.name || '—'],
-    ['RUT representante', representative?.rut || '—'],
+    ...(isLicitacionVariant
+      ? ([
+          ['Representante legal', representative?.name || '—'],
+          ['RUT representante', representative?.rut || '—'],
+        ] as Array<[string, string]>)
+      : []),
     ['Contacto', offerer?.email || props.companyConfig.email || '—'],
   ];
   const offererPage = h(Page, { key: 'offerer', size: 'A4', style: styles.page },
@@ -1138,16 +1284,14 @@ export async function renderInstitutionalProposalToBufferFromProps(
         ),
       ),
     ),
-    h(View, { style: styles.signature },
-      h(View, { style: styles.signatureLine }),
-      h(Text, { style: styles.signatureName },
-        representative?.name || 'Representante legal'),
-      h(Text, { style: styles.signatureRole },
-        `Representante legal · ${offerer?.legalName || brand}`),
-      representative?.rut
-        ? h(Text, { style: styles.signatureRole }, `RUT ${representative.rut}`)
-        : null,
-    ),
+    isLicitacionVariant
+      ? h(View, { style: styles.signature },
+          h(View, { style: styles.signatureLine }),
+          h(Text, { style: styles.signatureName },
+            offerer?.legalName || brand),
+          h(Text, { style: styles.signatureRole }, 'Razón social'),
+        )
+      : null,
   );
 
   const doc = h(Document, {

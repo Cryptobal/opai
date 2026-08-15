@@ -66,7 +66,7 @@ const fixture: ProposalProps = {
   offerer: {
     commercialName: "Proveedor Security",
     legalName: "Proveedor Security SpA",
-    rut: "76.000.000-0",
+    rut: "76.123.456-7",
     address: "Santiago, Chile",
     legalRepresentative: {
       name: "Representante Legal",
@@ -98,6 +98,13 @@ const fixture: ProposalProps = {
       order: 0,
       title: "Resumen ejecutivo",
       content: "Una propuesta preventiva, trazable y medible.",
+    },
+    {
+      id: "dotacion",
+      order: 1.5,
+      title: "Dotación",
+      content:
+        "### Turnos\n\n| Cargo | Cantidad |\n| --- | ---: |\n| Guardia | **4** |\n\n*Dotación total:** 4 personas",
     },
     {
       id: "who",

@@ -139,6 +139,7 @@ export async function GET() {
       status: q.status,
       monthlyCost,
       validUntil: q.validUntil,
+      sentAt: q.sentAt,
       totalPositions: q.positions.length,
       totalGuards: q.positions.reduce((s, p) => s + (p.numGuards ?? 0), 0),
       currency,
