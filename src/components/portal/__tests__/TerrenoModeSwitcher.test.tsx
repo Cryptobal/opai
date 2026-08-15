@@ -7,11 +7,17 @@ import { TerrenoModeSwitcher } from "../TerrenoModeSwitcher";
 
 describe("TerrenoModeSwitcher", () => {
   const originalLocation = window.location;
+  const assign = vi.fn();
 
   beforeEach(() => {
+    assign.mockReset();
     Object.defineProperty(window, "location", {
       configurable: true,
-      value: { ...originalLocation, href: "http://localhost/portal/acceso" },
+      value: {
+        ...originalLocation,
+        href: "http://localhost/portal/acceso",
+        assign,
+      },
       writable: true,
     });
   });
@@ -36,13 +42,12 @@ describe("TerrenoModeSwitcher", () => {
   it("navigates when tapping a non-active mode", () => {
     render(<TerrenoModeSwitcher active="acceso" />);
     fireEvent.click(screen.getByRole("tab", { name: "Rondas" }));
-    expect(window.location.href).toBe("/portal/rondas");
+    expect(assign).toHaveBeenCalledWith("/portal/rondas");
   });
 
   it("does not navigate when tapping the active mode", () => {
     render(<TerrenoModeSwitcher active="acceso" />);
-    const before = window.location.href;
     fireEvent.click(screen.getByRole("tab", { name: "Acceso" }));
-    expect(window.location.href).toBe(before);
+    expect(assign).not.toHaveBeenCalled();
   });
 });

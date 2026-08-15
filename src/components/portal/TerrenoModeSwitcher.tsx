@@ -10,6 +10,12 @@ import { cn } from "@/lib/utils";
  * sin gates de Capacitor / query / localStorage que la ocultaban.
  *
  * Publica `--terreno-switcher-h` para que TruthBar se ancle debajo al scrollear.
+ *
+ * Navegación: full page load (cada portal tiene shell/SW propio). Los manifests
+ * de marcación / rondas / acceso comparten `scope: "/portal"` (igual que
+ * Terreno) para que, en iOS PWA standalone, cambiar de modo NO salga al Safari
+ * con chrome (URL bar + toolbar). Scopes por-portal (`/portal/acceso`, etc.)
+ * provocaban exactamente ese salto al cruzar con `location.href`.
  */
 
 type Mode = "marcacion" | "rondas" | "acceso";
@@ -52,8 +58,9 @@ export function TerrenoModeSwitcher({ active }: TerrenoModeSwitcherProps) {
   }, []);
 
   function switchTo(href: string) {
-    // Full navigation keeps each portal's own shell/SW scope clean.
-    window.location.href = href;
+    // Full navigation keeps each portal's own shell/SW registration clean.
+    // Manifest navigation scope is shared (`/portal`) so iOS standalone holds.
+    window.location.assign(href);
   }
 
   return (

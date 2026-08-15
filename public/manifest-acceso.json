@@ -4,7 +4,7 @@
   "id": "/portal/acceso",
   "description": "Control de acceso e ingreso — Opai",
   "start_url": "/portal/acceso",
-  "scope": "/portal/acceso",
+  "scope": "/portal",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#060a13",

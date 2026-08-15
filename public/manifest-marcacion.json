@@ -4,7 +4,7 @@
   "id": "/portal/marcacion",
   "description": "Marcación de asistencia con Face ID — Opai",
   "start_url": "/portal/marcacion",
-  "scope": "/portal/marcacion",
+  "scope": "/portal",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#060a13",

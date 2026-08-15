@@ -4,7 +4,7 @@
   "id": "/portal/rondas",
   "description": "Portal de rondas — Gard Security",
   "start_url": "/portal/rondas",
-  "scope": "/portal/rondas",
+  "scope": "/portal",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#060a13",
