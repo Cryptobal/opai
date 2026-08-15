@@ -67,13 +67,15 @@ export function validateProposalContent(
     }
   }
 
-  const { approved, total } = approvedCount(content);
-  if (!allSectionsApproved(content)) {
-    out.push({
-      code: "secciones_pendientes",
-      level: "error",
-      message: `${approved} de ${total} secciones aprobadas. El PDF final exige el 100%.`,
-    });
+  if (content.mode === "licitacion") {
+    const { approved, total } = approvedCount(content);
+    if (!allSectionsApproved(content)) {
+      out.push({
+        code: "secciones_pendientes",
+        level: "error",
+        message: `${approved} de ${total} secciones aprobadas. El PDF final de licitación exige el 100%.`,
+      });
+    }
   }
 
   if (content.mode === "licitacion") {
