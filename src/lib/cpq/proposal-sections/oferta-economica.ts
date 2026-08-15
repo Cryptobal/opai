@@ -31,6 +31,7 @@ export function makeOfertaEconomicaSection(order = 0): ProposalSection {
     sources: ["costeo"],
     content: "",
     kind: OFERTA_ECONOMICA_KIND,
+    origin: "auto",
   };
 }
 

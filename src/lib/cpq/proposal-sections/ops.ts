@@ -83,7 +83,15 @@ export function assertInvariants(content: ProposalContentV2): void {
 
 export function addSection(
   content: ProposalContentV2,
-  input: { title: string; content?: string; ref?: string | null; afterId?: string; sources?: string[] },
+  input: {
+    title: string;
+    content?: string;
+    ref?: string | null;
+    afterId?: string;
+    sources?: string[];
+    origin?: ProposalSection["origin"];
+    fixedKey?: string;
+  },
 ): ProposalContentV2 {
   const title = input.title.trim();
   if (!title) throw new ProposalIndexError("El título de la sección no puede estar vacío");
@@ -97,6 +105,8 @@ export function addSection(
     status: "ia",
     sources: input.sources ?? [],
     content: input.content ?? "",
+    origin: input.origin ?? "ia",
+    fixedKey: input.fixedKey,
   };
   let insertAt = secs.length;
   if (input.afterId) {
@@ -268,7 +278,9 @@ export function replaceIndex(
     content?: string;
     sources?: string[];
     invariant?: InvariantKey;
-    kind?: typeof OFERTA_ECONOMICA_KIND;
+    kind?: typeof OFERTA_ECONOMICA_KIND | "dotacion";
+    origin?: ProposalSection["origin"];
+    fixedKey?: string;
   }>,
 ): ProposalContentV2 {
   const next = clone(content);
@@ -276,6 +288,7 @@ export function replaceIndex(
     next.sections.filter((s) => s.invariant).map((s) => [s.invariant!, s]),
   );
   const prevAuto = next.sections.find(isAutoSection);
+  const prevDotacion = next.sections.find((s) => s.kind === "dotacion");
   const built: ProposalSection[] = [];
   const seenInv = new Set<InvariantKey>();
   let sawAuto = false;
@@ -283,7 +296,21 @@ export function replaceIndex(
   for (const row of incoming) {
     if (row.kind === OFERTA_ECONOMICA_KIND) {
       sawAuto = true;
-      built.push(prevAuto ? { ...prevAuto, sources: [...prevAuto.sources] } : makeOfertaEconomicaSection());
+      built.push(prevAuto ? { ...prevAuto, sources: [...prevAuto.sources], origin: "auto" } : makeOfertaEconomicaSection());
+      continue;
+    }
+    if (row.kind === "dotacion") {
+      built.push({
+        id: prevDotacion?.id ?? newSectionId(),
+        order: 0,
+        title: row.title.trim() || "Dotación propuesta",
+        ref: row.ref ?? null,
+        status: prevDotacion?.status ?? "ia",
+        sources: row.sources ?? prevDotacion?.sources ?? ["costeo", "puestos"],
+        content: row.content ?? prevDotacion?.content ?? "",
+        kind: "dotacion",
+        origin: "auto",
+      });
       continue;
     }
     const inv = row.invariant;
@@ -304,6 +331,8 @@ export function replaceIndex(
               "Pendiente: se completará con lo no cubierto por las bases y la cotización."
             : "",
         invariant: inv,
+        origin: row.origin ?? prev?.origin ?? (inv === "matriz" ? "auto" : "ia"),
+        fixedKey: row.fixedKey ?? prev?.fixedKey,
       });
     } else {
       built.push({
@@ -314,6 +343,8 @@ export function replaceIndex(
         status: "ia",
         sources: row.sources ?? [],
         content: row.content ?? "",
+        origin: row.origin ?? "ia",
+        fixedKey: row.fixedKey,
       });
     }
   }
@@ -385,8 +416,11 @@ export function setProposalDocStatus(
     next.approvedBy = actor?.userId ?? null;
     next.approvedAt = new Date().toISOString();
   } else if (status === "enviada") {
-    if (next.status !== "aprobada") {
-      throw new ProposalIndexError("Solo se puede marcar enviada una propuesta aprobada.");
+    if (content.mode === "licitacion" && next.status !== "aprobada") {
+      throw new ProposalIndexError("Solo se puede marcar enviada una propuesta de licitación aprobada.");
+    }
+    if (content.mode === "comercial" && next.status === "borrador") {
+      next.status = "en_revision";
     }
     next.status = "enviada";
     next.sentBy = actor?.userId ?? null;

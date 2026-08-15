@@ -8,7 +8,9 @@ describe("mapV2ToProposalAI", () => {
     let content = emptyProposalV2("comercial");
     const ident = content.sections.find((s) => /identific/i.test(s.title))!;
     const resumen = content.sections.find((s) => /resumen/i.test(s.title))!;
-    const analisis = content.sections.find((s) => /an[aá]lisis/i.test(s.title))!;
+    const analisis = content.sections.find(
+      (s) => /an[aá]lisis/i.test(s.title) || /comprensi[oó]n del servicio/i.test(s.title),
+    )!;
     content = setSectionContent(content, ident.id, "Acme SpA — faena norte");
     content = setSectionContent(content, resumen.id, "Resumen ejecutivo v2");
     content = setSectionContent(content, analisis.id, "Análisis de necesidades v2");

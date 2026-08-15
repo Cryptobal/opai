@@ -155,6 +155,20 @@ describe("validaciones pre-PDF", () => {
     expect(v.some((x) => x.code === "secciones_pendientes")).toBe(true);
   });
 
+  it("en comercial no exige 100% de secciones aprobadas", () => {
+    const c = emptyProposalV2("comercial");
+    const v = validateProposalContent(c, { hasDotacion: true });
+    expect(v.some((x) => x.code === "secciones_pendientes")).toBe(false);
+  });
+
+  it("índice comercial institucional tiene 12+ capítulos y origen fija", () => {
+    const c = emptyProposalV2("comercial");
+    expect(c.sections.length).toBeGreaterThanOrEqual(12);
+    expect(c.sections.some((s) => s.fixedKey === "quienes_somos")).toBe(true);
+    expect(c.sections.some((s) => s.kind === "dotacion")).toBe(true);
+    expect(c.sections.some((s) => s.origin === "fija_empresa")).toBe(true);
+  });
+
   it("advierte montos en modo licitación sin bloquear", () => {
     let c = emptyProposalV2("licitacion");
     const ident = c.sections[0]!;

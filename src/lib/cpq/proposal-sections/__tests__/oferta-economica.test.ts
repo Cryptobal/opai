@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { economicOpeningFromBreakdown, formatOpeningPct } from "@/lib/cpq/economic-opening";
-import { detectHeadingsFromCorpus } from "../propose-index";
+import {
+  detectHeadingsFromCorpus,
+  mergeInstitutionalWithBases,
+  proposeCommercialInstitutionalIndex,
+} from "../propose-index";
 
 describe("economicOpeningFromBreakdown", () => {
   it("arma la apertura con ceros si no hay costeo", () => {
@@ -47,9 +51,10 @@ describe("economicOpeningFromBreakdown", () => {
   });
 });
 
-describe("índice de licitación incluye oferta económica", () => {
-  it("detectHeadingsFromCorpus inserta la auto antes de la matriz", () => {
-    const items = detectHeadingsFromCorpus({
+describe("índice institucional + bases", () => {
+  it("mergeInstitutionalWithBases inserta la auto antes de la matriz", () => {
+    const institutional = proposeCommercialInstitutionalIndex().items;
+    const bases = detectHeadingsFromCorpus({
       dealId: "d1",
       chunks: [],
       truncated: false,
@@ -57,9 +62,11 @@ describe("índice de licitación incluye oferta económica", () => {
       basesError: null,
       banner: "",
     });
+    const items = mergeInstitutionalWithBases(institutional, bases);
     const ofertaIdx = items.findIndex((i) => i.kind === "oferta_economica");
     const matrizIdx = items.findIndex((i) => i.invariant === "matriz");
     expect(ofertaIdx).toBeGreaterThan(-1);
     expect(ofertaIdx).toBeLessThan(matrizIdx);
+    expect(items.some((i) => i.fixedKey === "quienes_somos")).toBe(true);
   });
 });

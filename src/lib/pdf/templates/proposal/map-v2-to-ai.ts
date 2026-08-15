@@ -16,7 +16,9 @@ export function mapV2ToProposalAI(content: ProposalContentV2): ProposalAIContent
     findInvariant(content, "identificacion")?.content.trim() ||
     sectionByTitle(content, /identific/i);
   const resumen = sectionByTitle(content, /resumen/i);
-  const analisis = sectionByTitle(content, /an[aá]lisis/i);
+  const analisis =
+    sectionByTitle(content, /an[aá]lisis/i) ||
+    sectionByTitle(content, /comprensi[oó]n del servicio/i);
   return {
     descripcionBreve: ident || resumen || "Propuesta comercial",
     resumenEjecutivo: resumen || ident || "",
