@@ -36,8 +36,13 @@ export function validateProposalContent(
   if (ctx?.hasDotacion === false) {
     out.push({
       code: "sin_dotacion",
-      level: "error",
-      message: "La cotización no tiene puestos/dotación CPQ. Agrégalos antes de generar el PDF final.",
+      // Comercial: Dotación puede quedar con nota y la oferta con líneas existentes.
+      // Licitación: sigue bloqueando el PDF final sin puestos cotizados.
+      level: content.mode === "licitacion" ? "error" : "warning",
+      message:
+        content.mode === "licitacion"
+          ? "La cotización no tiene puestos/dotación CPQ. Agrégalos antes de generar el PDF final."
+          : "La cotización no tiene puestos/dotación CPQ. La sección Dotación quedará con nota hasta que exista costeo.",
     });
   }
 

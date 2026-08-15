@@ -239,8 +239,15 @@ describe("validaciones pre-PDF", () => {
     c = setSectionContent(c, excl.id, "   ");
     const v = validateProposalContent(c, { hasDotacion: false });
     expect(v.some((x) => x.code === "exclusiones_vacias" && x.level === "error")).toBe(true);
-    expect(v.some((x) => x.code === "sin_dotacion")).toBe(true);
+    expect(v.some((x) => x.code === "sin_dotacion" && x.level === "error")).toBe(true);
     expect(v.some((x) => x.code === "secciones_pendientes")).toBe(true);
+  });
+
+  it("en comercial sin dotación solo advierte (no bloquea PDF)", () => {
+    const c = emptyProposalV2("comercial");
+    const v = validateProposalContent(c, { hasDotacion: false });
+    expect(v.some((x) => x.code === "sin_dotacion" && x.level === "warning")).toBe(true);
+    expect(v.some((x) => x.code === "secciones_pendientes")).toBe(false);
   });
 
   it("advierte montos en modo licitación sin bloquear", () => {
