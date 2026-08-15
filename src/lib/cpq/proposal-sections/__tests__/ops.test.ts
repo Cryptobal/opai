@@ -22,6 +22,11 @@ import {
 } from "../ops";
 import { deriveComplianceMatrix } from "../compliance-matrix";
 import { validateProposalContent } from "../validate";
+import {
+  buildInstitutionalIndexItems,
+  composeCommercialIndex,
+  detectHeadingsFromCorpus,
+} from "../propose-index";
 
 describe("proposal-sections schema / migrador v1→v2", () => {
   it("reconoce v1 y migra conservando legacyV1", () => {
@@ -54,6 +59,33 @@ describe("proposal-sections schema / migrador v1→v2", () => {
     expect(v2.sections[0]?.invariant).toBe("identificacion");
     expect(v2.sections[0]?.content).toBe("Acme SpA");
     expect(v2.sections.some((s) => s.title === "Resumen ejecutivo")).toBe(true);
+  });
+
+  it("crea la plantilla institucional completa con orígenes en ambos modos", () => {
+    const comercial = emptyProposalV2("comercial");
+    const licitacion = emptyProposalV2("licitacion");
+    expect(comercial.sections.map((s) => s.title)).toEqual([
+      "Identificación",
+      "Resumen ejecutivo",
+      "Quiénes somos y organigrama",
+      "Comprensión del servicio",
+      "Dotación",
+      "Uniformes y EPP",
+      "Capacitación",
+      "OPAI y SLA",
+      "Supervisión y contingencias",
+      "Enfoque preventivo",
+      "Carta Gantt",
+      "Experiencia y certificaciones",
+      "Matriz de cumplimiento",
+      "Exclusiones y supuestos",
+      "Oferta económica — apertura completa",
+    ]);
+    expect(licitacion.sections.at(-1)?.invariant).toBe("matriz");
+    expect(comercial.sections.find((s) => s.title === "Dotación")?.origin).toBe("auto");
+    expect(comercial.sections.find((s) => s.title === "Capacitación")?.origin).toBe(
+      "fija_empresa",
+    );
   });
 });
 
@@ -125,6 +157,52 @@ describe("ops de índice e invariantes", () => {
     expect(next.sections.some((s) => s.invariant === "matriz")).toBe(true);
     expect(next.sections.some((s) => s.title === "CCTV nuevo")).toBe(true);
   });
+
+  it("replaceIndex conserva el origen propuesto", () => {
+    const c = emptyProposalV2("licitacion");
+    const next = replaceIndex(c, [
+      { title: "CCTV nuevo", ref: "§4.1", origin: "bases" },
+    ]);
+    expect(next.sections.find((s) => s.title === "CCTV nuevo")?.origin).toBe("bases");
+  });
+});
+
+describe("composición de índice institucional", () => {
+  it("expone el cuerpo institucional y compone el índice comercial", () => {
+    const institutional = buildInstitutionalIndexItems();
+    expect(institutional[0]).toMatchObject({ title: "Resumen ejecutivo", origin: "ia" });
+    expect(institutional.find((s) => s.title === "OPAI y SLA")?.origin).toBe("fija_empresa");
+    expect(composeCommercialIndex().map((s) => s.title)).toEqual(
+      emptyProposalV2("comercial").sections.map((s) => s.title),
+    );
+  });
+
+  it("agrega capítulos de bases tras el cuerpo institucional y deduplica títulos similares", () => {
+    const items = detectHeadingsFromCorpus({
+      dealId: "d1",
+      chunks: [
+        {
+          fileId: "f1",
+          fileName: "bases.pdf",
+          kind: "bases",
+          tipoCodigo: "bases_tecnicas",
+          status: "ok",
+          text: "1. Capacitación del personal\n2. Control de acceso especializado",
+          truncated: false,
+        },
+      ],
+      truncated: false,
+      hasBases: true,
+      basesError: null,
+      banner: "",
+    });
+    expect(items.filter((s) => s.title.toLowerCase().includes("capacitación"))).toHaveLength(1);
+    const base = items.find((s) => s.title === "Control de acceso especializado");
+    expect(base?.origin).toBe("bases");
+    expect(items.indexOf(base!)).toBeGreaterThan(
+      items.findIndex((s) => s.title === "Experiencia y certificaciones"),
+    );
+  });
 });
 
 describe("matriz de cumplimiento", () => {
@@ -178,6 +256,19 @@ describe("validaciones pre-PDF", () => {
     expect(approved.status).toBe("aprobada");
     expect(approved.approvedBy).toBe("u1");
     const sent = setProposalDocStatus(approved, "enviada", { userId: "u1" });
+    expect(sent.status).toBe("enviada");
+    expect(sent.sentBy).toBe("u1");
+  });
+
+  it("modo comercial no exige aprobación de secciones para PDF, aprobación ni envío", () => {
+    const c = emptyProposalV2("comercial");
+    const validations = validateProposalContent(c, { hasDotacion: true });
+    expect(validations.some((x) => x.code === "secciones_pendientes")).toBe(false);
+
+    const approved = setProposalDocStatus(c, "aprobada", { userId: "u1" });
+    expect(approved.status).toBe("aprobada");
+
+    const sent = setProposalDocStatus(c, "enviada", { userId: "u1" });
     expect(sent.status).toBe("enviada");
     expect(sent.sentBy).toBe("u1");
   });

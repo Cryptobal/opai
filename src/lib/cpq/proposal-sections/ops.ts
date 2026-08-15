@@ -7,6 +7,7 @@ import type {
   InvariantKey,
   ProposalContentV2,
   ProposalSection,
+  ProposalSectionOrigin,
   ProposalSectionStatus,
 } from "./schema";
 import { INVARIANT_TITLES, OFERTA_ECONOMICA_KIND, newSectionId } from "./schema";
@@ -97,6 +98,7 @@ export function addSection(
     status: "ia",
     sources: input.sources ?? [],
     content: input.content ?? "",
+    origin: "ia",
   };
   let insertAt = secs.length;
   if (input.afterId) {
@@ -136,6 +138,7 @@ export function mergeSections(
     status: "editada",
     sources: [...new Set([...a.sources, ...b.sources])],
     content: [a.content.trim(), b.content.trim()].filter(Boolean).join("\n\n"),
+    origin: a.origin === b.origin ? a.origin : "ia",
   };
   next.sections = reindex(
     sorted(next)
@@ -269,6 +272,7 @@ export function replaceIndex(
     sources?: string[];
     invariant?: InvariantKey;
     kind?: typeof OFERTA_ECONOMICA_KIND;
+    origin?: ProposalSectionOrigin;
   }>,
 ): ProposalContentV2 {
   const next = clone(content);
@@ -283,7 +287,10 @@ export function replaceIndex(
   for (const row of incoming) {
     if (row.kind === OFERTA_ECONOMICA_KIND) {
       sawAuto = true;
-      built.push(prevAuto ? { ...prevAuto, sources: [...prevAuto.sources] } : makeOfertaEconomicaSection());
+      const auto = prevAuto
+        ? { ...prevAuto, sources: [...prevAuto.sources] }
+        : makeOfertaEconomicaSection();
+      built.push({ ...auto, origin: row.origin ?? auto.origin ?? "auto" });
       continue;
     }
     const inv = row.invariant;
@@ -304,6 +311,10 @@ export function replaceIndex(
               "Pendiente: se completará con lo no cubierto por las bases y la cotización."
             : "",
         invariant: inv,
+        origin:
+          row.origin ??
+          prev?.origin ??
+          (inv === "matriz" ? "auto" : "ia"),
       });
     } else {
       built.push({
@@ -314,6 +325,7 @@ export function replaceIndex(
         status: "ia",
         sources: row.sources ?? [],
         content: row.content ?? "",
+        origin: row.origin ?? "ia",
       });
     }
   }
@@ -336,6 +348,7 @@ export function replaceIndex(
                 ? "Pendiente: se completará con lo no cubierto por las bases y la cotización."
                 : "",
             invariant: key,
+            origin: key === "matriz" ? "auto" : "ia",
           };
       if (key === "identificacion") built.unshift(fallback);
       else built.push(fallback);
@@ -343,7 +356,9 @@ export function replaceIndex(
   }
 
   if (!sawAuto) {
-    const auto = prevAuto ? { ...prevAuto, sources: [...prevAuto.sources] } : makeOfertaEconomicaSection();
+    const auto = prevAuto
+      ? { ...prevAuto, sources: [...prevAuto.sources], origin: prevAuto.origin ?? "auto" }
+      : makeOfertaEconomicaSection();
     const matrizIdx = built.findIndex((s) => s.invariant === "matriz");
     if (matrizIdx >= 0) built.splice(matrizIdx, 0, auto);
     else built.push(auto);
@@ -374,7 +389,7 @@ export function setProposalDocStatus(
 ): ProposalContentV2 {
   const next = clone(content);
   if (status === "aprobada") {
-    if (!allSectionsApproved(next)) {
+    if (next.mode === "licitacion" && !allSectionsApproved(next)) {
       throw new ProposalIndexError("No se puede aprobar: faltan secciones por aprobar.");
     }
     const excl = next.sections.find((s) => s.invariant === "exclusiones");
@@ -385,7 +400,7 @@ export function setProposalDocStatus(
     next.approvedBy = actor?.userId ?? null;
     next.approvedAt = new Date().toISOString();
   } else if (status === "enviada") {
-    if (next.status !== "aprobada") {
+    if (next.mode === "licitacion" && next.status !== "aprobada") {
       throw new ProposalIndexError("Solo se puede marcar enviada una propuesta aprobada.");
     }
     next.status = "enviada";

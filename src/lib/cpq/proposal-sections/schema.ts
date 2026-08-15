@@ -17,6 +17,9 @@ export type ProposalDocStatus = (typeof PROPOSAL_STATUSES)[number];
 export const SECTION_STATUSES = ["ia", "editada", "aprobada"] as const;
 export type ProposalSectionStatus = (typeof SECTION_STATUSES)[number];
 
+export const SECTION_ORIGINS = ["fija_empresa", "ia", "auto", "bases", "vacia"] as const;
+export type ProposalSectionOrigin = (typeof SECTION_ORIGINS)[number];
+
 export const INVARIANT_KEYS = ["identificacion", "exclusiones", "matriz"] as const;
 export type InvariantKey = (typeof INVARIANT_KEYS)[number];
 
@@ -30,6 +33,20 @@ export const INVARIANT_TITLES: Record<InvariantKey, string> = {
   matriz: "Matriz de cumplimiento",
 };
 
+const INSTITUTIONAL_TITLES = {
+  resumen: "Resumen ejecutivo",
+  quienes: "Quiénes somos y organigrama",
+  comprension: "Comprensión del servicio",
+  dotacion: "Dotación",
+  uniformes: "Uniformes y EPP",
+  capacitacion: "Capacitación",
+  opai: "OPAI y SLA",
+  supervision: "Supervisión y contingencias",
+  preventivo: "Enfoque preventivo",
+  gantt: "Carta Gantt",
+  experiencia: "Experiencia y certificaciones",
+} as const;
+
 export const sectionSchema = z.object({
   id: z.string().min(1),
   order: z.number().int(),
@@ -40,6 +57,7 @@ export const sectionSchema = z.object({
   content: z.string(),
   invariant: z.enum(INVARIANT_KEYS).optional(),
   kind: z.enum(SECTION_KINDS).optional(),
+  origin: z.enum(SECTION_ORIGINS).optional(),
 });
 
 export type ProposalSection = z.infer<typeof sectionSchema>;
@@ -95,6 +113,7 @@ function section(
     order?: number;
     status?: ProposalSectionStatus;
     sources?: string[];
+    origin?: ProposalSectionOrigin;
   },
 ): ProposalSection {
   return {
@@ -107,6 +126,7 @@ function section(
     content,
     invariant: opts?.invariant,
     kind: opts?.kind,
+    origin: opts?.origin,
   };
 }
 
@@ -122,30 +142,40 @@ export function emptyProposalV2(
   const oferta = section(ECONOMIC_OPENING_TITLE, "", {
     kind: OFERTA_ECONOMICA_KIND,
     sources: ["costeo"],
+    origin: "auto",
+  });
+  const identificacion = section(INVARIANT_TITLES.identificacion, "", {
+    invariant: "identificacion",
+    origin: "ia",
+  });
+  const institutional = [
+    section(INSTITUTIONAL_TITLES.resumen, "", { origin: "ia" }),
+    section(INSTITUTIONAL_TITLES.quienes, "", { origin: "fija_empresa" }),
+    section(INSTITUTIONAL_TITLES.comprension, "", { origin: "ia" }),
+    section(INSTITUTIONAL_TITLES.dotacion, "", { origin: "auto", sources: ["puestos"] }),
+    section(INSTITUTIONAL_TITLES.uniformes, "", { origin: "fija_empresa" }),
+    section(INSTITUTIONAL_TITLES.capacitacion, "", { origin: "fija_empresa" }),
+    section(INSTITUTIONAL_TITLES.opai, "", { origin: "fija_empresa" }),
+    section(INSTITUTIONAL_TITLES.supervision, "", { origin: "fija_empresa" }),
+    section(INSTITUTIONAL_TITLES.preventivo, "", { origin: "fija_empresa" }),
+    section(INSTITUTIONAL_TITLES.gantt, "", { origin: "ia" }),
+    section(INSTITUTIONAL_TITLES.experiencia, "", { origin: "fija_empresa" }),
+  ];
+  const exclusiones = section(
+    INVARIANT_TITLES.exclusiones,
+    mode === "licitacion"
+      ? "Pendiente: se completará con lo no cubierto por las bases y la cotización."
+      : "Pendiente de completar.",
+    { invariant: "exclusiones", origin: "ia" },
+  );
+  const matriz = section(INVARIANT_TITLES.matriz, "", {
+    invariant: "matriz",
+    origin: "auto",
   });
   const sections =
     mode === "licitacion"
-      ? reindex([
-          section(INVARIANT_TITLES.identificacion, "", { invariant: "identificacion" }),
-          section(
-            INVARIANT_TITLES.exclusiones,
-            "Pendiente: se completará con lo no cubierto por las bases y la cotización.",
-            { invariant: "exclusiones" },
-          ),
-          oferta,
-          section(INVARIANT_TITLES.matriz, "", { invariant: "matriz" }),
-        ])
-      : reindex([
-          section("Identificación", ""),
-          section("Resumen ejecutivo", ""),
-          section("Análisis de necesidades", ""),
-          section(
-            INVARIANT_TITLES.exclusiones,
-            "Pendiente de completar.",
-            { invariant: "exclusiones" },
-          ),
-          oferta,
-        ]);
+      ? reindex([identificacion, ...institutional, exclusiones, oferta, matriz])
+      : reindex([identificacion, ...institutional, matriz, exclusiones, oferta]);
 
   return {
     version: 2,
@@ -180,7 +210,7 @@ export function migrateV1ToV2(
 
   if (mode === "comercial") {
     const resumenSec = base.sections.find((s) => s.title === "Resumen ejecutivo");
-    const analisisSec = base.sections.find((s) => s.title === "Análisis de necesidades");
+    const analisisSec = base.sections.find((s) => s.title === INSTITUTIONAL_TITLES.comprension);
     if (resumenSec) resumenSec.content = resumen;
     if (analisisSec) {
       analisisSec.content = [analisis, sectores.length ? `Sectores: ${sectores.join(", ")}` : ""]

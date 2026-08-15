@@ -5,8 +5,14 @@
 import { z } from "zod";
 import { aiService } from "@/lib/ai-service";
 import type { InvariantKey } from "./schema";
-import { INVARIANT_TITLES, OFERTA_ECONOMICA_KIND } from "./schema";
+import { INVARIANT_TITLES, OFERTA_ECONOMICA_KIND, SECTION_ORIGINS } from "./schema";
 import { ECONOMIC_OPENING_TITLE } from "@/lib/cpq/economic-opening";
+import {
+  FIXED_BODY_KEYS,
+  FIXED_EXPERIENCIA_KEY,
+  FIXED_QUIENES_KEY,
+  GARD_FIXED_SECTION_SEEDS,
+} from "@/lib/cpq/fixed-sections";
 import type { LicitacionCorpus } from "@/modules/crm/documents/licitacion-ingest.service";
 import { formatCorpusForPrompt } from "@/modules/crm/documents/licitacion-ingest.service";
 
@@ -17,6 +23,7 @@ export const proposedIndexItemSchema = z.object({
   invariant: z.enum(["identificacion", "exclusiones", "matriz"]).optional(),
   kind: z.enum(["oferta_economica"]).optional(),
   sources: z.array(z.string()).optional(),
+  origin: z.enum(SECTION_ORIGINS).optional(),
 });
 
 export type ProposedIndexItem = z.infer<typeof proposedIndexItemSchema>;
@@ -36,38 +43,100 @@ export type CpqIndexContext = {
   installationName?: string | null;
 };
 
+const fixedSeedsByKey = new Map(GARD_FIXED_SECTION_SEEDS.map((seed) => [seed.key, seed]));
+
+function fixedIndexItem(key: (typeof GARD_FIXED_SECTION_SEEDS)[number]["key"]): ProposedIndexItem {
+  const seed = fixedSeedsByKey.get(key);
+  if (!seed) throw new Error(`Sección fija institucional no configurada: ${key}`);
+  return {
+    title: seed.title,
+    origin: "fija_empresa",
+    rationale: "Sección institucional fija de la empresa",
+  };
+}
+
+/** Cuerpo institucional común a propuestas comerciales y licitaciones. */
+export function buildInstitutionalIndexItems(): ProposedIndexItem[] {
+  return [
+    {
+      title: "Resumen ejecutivo",
+      origin: "ia",
+      rationale: "Síntesis generada para la propuesta",
+    },
+    fixedIndexItem(FIXED_QUIENES_KEY),
+    {
+      title: "Comprensión del servicio",
+      origin: "ia",
+      rationale: "Comprensión específica del alcance solicitado",
+    },
+    {
+      title: "Dotación",
+      origin: "auto",
+      sources: ["puestos"],
+      rationale: "Dotación automática desde los puestos de la cotización",
+    },
+    ...FIXED_BODY_KEYS.map(fixedIndexItem),
+    {
+      title: "Carta Gantt",
+      origin: "ia",
+      rationale: "Plan de implementación generado para la propuesta",
+    },
+    fixedIndexItem(FIXED_EXPERIENCIA_KEY),
+  ];
+}
+
+function identificacionItem(): ProposedIndexItem {
+  return {
+    title: INVARIANT_TITLES.identificacion,
+    invariant: "identificacion",
+    origin: "ia",
+    rationale: "Invariante de portada",
+  };
+}
+
+function exclusionesItem(): ProposedIndexItem {
+  return {
+    title: INVARIANT_TITLES.exclusiones,
+    invariant: "exclusiones",
+    origin: "ia",
+    rationale: "Invariante: lo no cubierto / no sustentado en bases",
+  };
+}
+
+function matrizItem(): ProposedIndexItem {
+  return {
+    title: INVARIANT_TITLES.matriz,
+    invariant: "matriz",
+    origin: "auto",
+    rationale: "Anexo autogenerado de cumplimiento",
+  };
+}
+
+function ofertaItem(): ProposedIndexItem {
+  return {
+    title: ECONOMIC_OPENING_TITLE,
+    kind: OFERTA_ECONOMICA_KIND,
+    origin: "auto",
+    rationale: "Apertura económica automática desde el costeo vigente",
+    sources: ["costeo"],
+  };
+}
+
 function ensureInvariants(items: ProposedIndexItem[]): ProposedIndexItem[] {
   const has = (k: InvariantKey) => items.some((i) => i.invariant === k);
   const out = [...items];
   if (!has("identificacion")) {
-    out.unshift({
-      title: INVARIANT_TITLES.identificacion,
-      invariant: "identificacion",
-      rationale: "Invariante de portada",
-    });
+    out.unshift(identificacionItem());
   }
   if (!has("exclusiones")) {
-    out.push({
-      title: INVARIANT_TITLES.exclusiones,
-      invariant: "exclusiones",
-      rationale: "Invariante: lo no cubierto / no sustentado en bases",
-    });
+    out.push(exclusionesItem());
   }
   if (!has("matriz")) {
-    out.push({
-      title: INVARIANT_TITLES.matriz,
-      invariant: "matriz",
-      rationale: "Anexo autogenerado de cumplimiento",
-    });
+    out.push(matrizItem());
   }
   if (!out.some((i) => i.kind === OFERTA_ECONOMICA_KIND)) {
     const matrizIdx = out.findIndex((i) => i.invariant === "matriz");
-    const oferta = {
-      title: ECONOMIC_OPENING_TITLE,
-      kind: OFERTA_ECONOMICA_KIND,
-      rationale: "Apertura económica automática desde el costeo vigente",
-      sources: ["costeo"],
-    } satisfies ProposedIndexItem;
+    const oferta = ofertaItem();
     if (matrizIdx >= 0) out.splice(matrizIdx, 0, oferta);
     else out.push(oferta);
   }
@@ -79,11 +148,82 @@ function ensureInvariants(items: ProposedIndexItem[]): ProposedIndexItem[] {
   return out;
 }
 
+/** Índice base para propuestas comerciales, sin capítulos provenientes de bases. */
+export function composeCommercialIndex(): ProposedIndexItem[] {
+  return [
+    identificacionItem(),
+    ...buildInstitutionalIndexItems(),
+    matrizItem(),
+    exclusionesItem(),
+    ofertaItem(),
+  ];
+}
+
+function normalizedTitle(title: string): string {
+  return title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/^\s*(?:\d+(?:\.\d+)*|[ivxlcdm]+)[.)\s:-]+/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function titlesAreSimilar(a: string, b: string): boolean {
+  const left = normalizedTitle(a);
+  const right = normalizedTitle(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  if (Math.min(left.length, right.length) >= 6 && (left.includes(right) || right.includes(left))) {
+    return true;
+  }
+  const leftTokens = new Set(left.split(" "));
+  const rightTokens = new Set(right.split(" "));
+  const intersection = [...leftTokens].filter((token) => rightTokens.has(token)).length;
+  const union = new Set([...leftTokens, ...rightTokens]).size;
+  return union > 0 && intersection / union >= 0.6;
+}
+
+function mergeSimilarItems(
+  institutional: ProposedIndexItem[],
+  bases: ProposedIndexItem[],
+): ProposedIndexItem[] {
+  const merged = institutional.map((item) => ({
+    ...item,
+    sources: item.sources ? [...item.sources] : undefined,
+  }));
+  for (const base of bases) {
+    const existing = merged.find((item) => titlesAreSimilar(item.title, base.title));
+    if (existing) {
+      existing.ref ??= base.ref;
+      existing.sources = [...new Set([...(existing.sources ?? []), ...(base.sources ?? [])])];
+      continue;
+    }
+    merged.push({
+      ...base,
+      origin: "bases",
+      sources: base.sources ? [...base.sources] : undefined,
+    });
+  }
+  return merged;
+}
+
+function composeLicitacionIndex(basesItems: ProposedIndexItem[]): ProposedIndexItem[] {
+  const bases = basesItems
+    .filter((item) => !item.invariant && item.kind !== OFERTA_ECONOMICA_KIND)
+    .map((item) => ({ ...item, origin: "bases" as const }));
+  return ensureInvariants([
+    identificacionItem(),
+    ...mergeSimilarItems(buildInstitutionalIndexItems(), bases),
+    exclusionesItem(),
+    ofertaItem(),
+    matrizItem(),
+  ]);
+}
+
 /** Heurística sin IA: títulos tipo "1. …" / "CAPÍTULO" detectados en bases. */
 export function detectHeadingsFromCorpus(corpus: LicitacionCorpus): ProposedIndexItem[] {
-  const items: ProposedIndexItem[] = [
-    { title: INVARIANT_TITLES.identificacion, invariant: "identificacion" },
-  ];
+  const items: ProposedIndexItem[] = [];
   const seen = new Set<string>();
   const heading =
     /^(?:#{1,3}\s+|(?:\d+(?:\.\d+){0,3})[.)]\s+|(?:capítulo|capitulo|título|titulo|anexo|sección|seccion)\s+[\dIVXLC]+[.:)]?\s+)/i;
@@ -101,13 +241,12 @@ export function detectHeadingsFromCorpus(corpus: LicitacionCorpus): ProposedInde
         ref: t.match(/^\d+(?:\.\d+){0,3}/)?.[0] ?? null,
         sources: [chunk.fileName],
         rationale: "Detectado en bases (sin IA)",
+        origin: "bases",
       });
       if (items.length >= 18) break;
     }
   }
-  items.push({ title: INVARIANT_TITLES.exclusiones, invariant: "exclusiones" });
-  items.push({ title: INVARIANT_TITLES.matriz, invariant: "matriz" });
-  return ensureInvariants(items);
+  return composeLicitacionIndex(items);
 }
 
 export async function proposeLicitacionIndex(opts: {
@@ -157,7 +296,7 @@ Responde SOLO JSON válido:
       };
     }
     return {
-      items: ensureInvariants(parsed.data.items),
+      items: composeLicitacionIndex(parsed.data.items),
       truncatedCorpus: opts.corpus.truncated,
       fallback: false,
       warning: opts.corpus.truncated
