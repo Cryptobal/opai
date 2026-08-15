@@ -18,6 +18,10 @@ import { resolveAccountLogo } from '@/lib/crm/account-logo';
 import type { ProposalAIContent } from './proposal-ai';
 import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from '@/types/cpq-breakdown';
 import { resolveLaborCharges } from '@/lib/cpq/labor-breakdown-fallback';
+import {
+  getProposalIndicators,
+  listReferenceAccounts,
+} from '@/lib/cpq/fixed-sections';
 
 export interface ProposalProps {
   /**
@@ -131,6 +135,21 @@ export interface ProposalProps {
   };
   /** Métricas de resultados configurables por tenant (vacío = se omiten, nunca inventar) */
   proposalMetrics?: Array<{ value: string; label: string }>;
+  /** Indicadores publicables (setting cpq.proposalIndicators, solo visibles). */
+  proposalIndicators?: Array<{ label: string; value: string }>;
+  /** Organigrama solo cargos (sin nombres de personas). */
+  orgRoles?: string[];
+  /** Cartera de referencias (cuentas con useAsReference). */
+  referenceAccounts?: Array<{ name: string; industry?: string | null; city?: string | null }>;
+  /** Identificación del oferente para firma. */
+  offerer?: {
+    legalName?: string | null;
+    rut?: string | null;
+    legalRepName?: string | null;
+    legalRepRut?: string | null;
+  };
+  /** N° de licitación del negocio (si aplica). */
+  licitacionNumber?: string | null;
   regimeExplanation: string;
   breakdown?: QuoteBreakdownData;
   resourceBreakdown?: ResourceBreakdownCategory[];
@@ -982,8 +1001,11 @@ export async function buildProposalProps(
     includedItems: (quote.includedItems ?? []).filter((t) => t.trim().length > 0),
   };
 
-  if (quote.proposalMode === 'licitacion') {
-    const content = readProposalContent(quote.proposalAiContent, 'licitacion');
+  if (v2Content) {
+    const content = readProposalContent(
+      quote.proposalAiContent,
+      quote.proposalMode === 'licitacion' ? 'licitacion' : 'comercial',
+    );
     const matrix = deriveComplianceMatrix(content);
     props.variant = 'licitacion';
     props.watermark = opts?.pdfMode === 'final' ? null : 'BORRADOR';
@@ -1007,9 +1029,49 @@ export async function buildProposalProps(
       })),
       status: content.status,
     };
-  } else if (v2Content) {
-    props.variant = 'technical';
-    props.watermark = opts?.pdfMode === 'final' ? null : 'BORRADOR';
+  }
+
+  // Indicadores, cartera, organigrama, oferente
+  try {
+    const [indicators, refs] = await Promise.all([
+      getProposalIndicators(tenantId),
+      listReferenceAccounts(tenantId),
+    ]);
+    props.proposalIndicators = indicators
+      .filter((i) => i.visible && i.value.trim())
+      .map((i) => ({ label: i.label, value: i.value.trim() }));
+    props.referenceAccounts = refs.map((a) => ({
+      name: a.name,
+      industry: a.industry,
+      city: a.city ?? a.commune,
+    }));
+  } catch (err) {
+    console.error('[Proposal] indicators/refs failed:', err);
+  }
+
+  props.orgRoles = [
+    'Gerencia General',
+    'Gerencia de Operaciones',
+    'Jefatura de Terreno',
+    'Supervisión de Turno',
+    'Centro de Control Operacional (CCO)',
+    'Guardia de Seguridad',
+  ];
+  props.offerer = {
+    legalName: companyConfig.razonSocial || companyConfig.companyName || null,
+    rut: companyConfig.rut || null,
+    legalRepName: companyConfig.repLegalNombre || null,
+    legalRepRut: companyConfig.repLegalRut || null,
+  };
+
+  if (quote.dealId) {
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: quote.dealId, tenantId },
+      select: { isLicitacion: true, title: true },
+    });
+    if (deal?.isLicitacion) {
+      props.licitacionNumber = deal.title || null;
+    }
   }
 
   const fileName = buildCpqQuotePdfFileName({
