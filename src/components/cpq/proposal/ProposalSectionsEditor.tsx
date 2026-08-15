@@ -69,7 +69,6 @@ export function ProposalSectionsEditor({
   dealId,
   quoteStatus,
   onMarkSentLicitacion,
-  onSendPortal,
   markingSent,
   economicOpening,
   onProposalStatusChange,
@@ -81,7 +80,6 @@ export function ProposalSectionsEditor({
   dealId?: string | null;
   quoteStatus?: string;
   onMarkSentLicitacion?: () => void;
-  onSendPortal?: () => void;
   markingSent?: boolean;
   economicOpening?: EconomicOpening | null;
   onProposalStatusChange?: (status: ProposalContentV2["status"], approved: boolean) => void;
@@ -99,7 +97,6 @@ export function ProposalSectionsEditor({
   const [failedIds, setFailedIds] = useState<Set<string>>(() => new Set());
   const [addOpen, setAddOpen] = useState(false);
   const [addTitle, setAddTitle] = useState("");
-  const [preparingSend, setPreparingSend] = useState(false);
   const autoGenStartedRef = useRef(false);
   const dataRef = useRef<Payload | null>(null);
 
@@ -309,22 +306,6 @@ export function ProposalSectionsEditor({
     if (result) toast.success("Sección guardada como fija de empresa.");
   }
 
-  async function handleSendComercial() {
-    if (!onSendPortal || preparingSend) return;
-    setPreparingSend(true);
-    try {
-      // Warm PDF final (comercial no exige aprobación); el envío genera adjuntos en servidor.
-      try {
-        await fetch(`/api/cpq/quotes/${quoteId}/proposal-pdf?mode=final`);
-      } catch {
-        // No bloquear el modal de envío si el warm falla; el server regenera al enviar.
-      }
-      onSendPortal();
-    } finally {
-      setPreparingSend(false);
-    }
-  }
-
   const sections = data?.content.sections ?? [];
   const ordered = [...sections].sort((a, b) => a.order - b.order);
   const sheetSection =
@@ -340,8 +321,6 @@ export function ProposalSectionsEditor({
   const hasContent = sections.some(
     (section) => isAutoSection(section) || Boolean(section.content.trim()),
   );
-  const canSendComercial =
-    mode === "comercial" && hasContent && !readOnly && !alreadySent && Boolean(onSendPortal);
   const canMarkLicitacion =
     mode === "licitacion" &&
     proposalApproved &&
@@ -546,41 +525,21 @@ export function ProposalSectionsEditor({
           {!readOnly ? (
             <div className="sticky bottom-0 z-10 -mx-1 space-y-2 border-t border-ds-border-subtle bg-ds-surface-1/95 px-1 pt-3 backdrop-blur-sm">
               {mode === "comercial" ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 w-full sm:h-9"
-                    asChild
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full sm:h-9"
+                  asChild
+                >
+                  <a
+                    href={`/api/cpq/quotes/${quoteId}/proposal-pdf?mode=final`}
+                    target="_blank"
+                    rel="noreferrer"
                   >
-                    <a
-                      href={`/api/cpq/quotes/${quoteId}/proposal-pdf?mode=final`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Ver PDF
-                    </a>
-                  </Button>
-                  <Button
-                    type="button"
-                    className="h-11 w-full gap-2 text-sm font-semibold"
-                    disabled={!canSendComercial || preparingSend || busy}
-                    onClick={() => void handleSendComercial()}
-                  >
-                    {preparingSend ? <Spinner size="sm" /> : <Send className="h-4 w-4" />}
-                    {preparingSend
-                      ? "Preparando envío…"
-                      : alreadySent
-                        ? "Ya enviada"
-                        : "Enviar propuesta"}
-                  </Button>
-                  {!hasContent ? (
-                    <p className="text-[12px] text-ds-text-3">
-                      La propuesta aún no tiene contenido para enviar.
-                    </p>
-                  ) : null}
-                </>
+                    <FileText className="h-4 w-4" />
+                    Ver PDF
+                  </a>
+                </Button>
               ) : (
                 <Button
                   type="button"

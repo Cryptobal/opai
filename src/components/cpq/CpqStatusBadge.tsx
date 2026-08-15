@@ -44,8 +44,8 @@ export function CpqStatusBadge({
   const title =
     status === "draft"
       ? isLicitacion
-                    ? "Usa «Marcar enviada» en la card Propuesta"
-                    : "Para marcar como enviada usa Enviar propuesta (portal) en la card Propuesta"
+        ? "Usa «Marcar enviada» en la barra de acciones"
+        : "Para marcar como enviada usa el botón Enviar de la barra"
       : status === "sent"
         ? "Clic para marcar como borrador (editar)"
         : undefined;
