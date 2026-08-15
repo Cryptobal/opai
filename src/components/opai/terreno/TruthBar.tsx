@@ -44,10 +44,10 @@ export function TruthBar({
       role="status"
       aria-live="polite"
       className={cn(
-        "sticky top-0 z-40 flex flex-wrap items-center gap-1.5 border-b border-ds-border-subtle bg-ds-surface-1/95 px-3 py-1.5 backdrop-blur-sm",
+        "sticky z-40 flex flex-wrap items-center gap-1.5 border-b border-ds-border-subtle bg-ds-surface-1/95 px-3 py-1.5 backdrop-blur-sm",
         className,
       )}
-      style={{ paddingTop: "max(0.375rem, env(safe-area-inset-top))" }}
+      style={{ top: "var(--terreno-switcher-h, 0px)" }}
     >
       <span
         className={cn(
