@@ -18,6 +18,8 @@ export interface QuoteSummary {
   status: string;
   monthlyCost: number;
   validUntil: string | null;
+  /** Primer envío al portal (ISO). Null en cotizaciones legacy sin sentAt. */
+  sentAt?: string | null;
   totalPositions: number;
   totalGuards: number;
   currency: string;

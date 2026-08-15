@@ -1556,6 +1556,8 @@ model CpqQuote {
   paymentDayMode        String    @default("SPECIFIC_DAY") @map("payment_day_mode")
   realAnnualIncrement   Int       @default(3) @map("real_annual_increment") // % incremento real anual (cláusula Reajuste)
   includedItems         String[]  @default([]) @map("included_items")
+  /// Primer envío al portal / marcado enviado (licitación). No se sobrescribe en reenvíos.
+  sentAt                DateTime? @map("sent_at") @db.Timestamptz(6)
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 

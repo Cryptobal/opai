@@ -141,7 +141,10 @@ export async function markQuoteSentLicitacion(opts: {
 
   await prisma.cpqQuote.updateMany({
     where: { id: quoteId, tenantId },
-    data: { status: "sent" },
+    data: {
+      status: "sent",
+      ...(quote.sentAt == null ? { sentAt: new Date() } : {}),
+    },
   });
 
   if (isV2Licitacion && isProposalContentV2(proposalAiContent)) {
