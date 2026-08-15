@@ -11,6 +11,8 @@ export interface TruthBarProps {
   online: boolean;
   queueCount?: number;
   extra?: ReactNode;
+  /** Acciones a la derecha (ej. SOS). No se envuelve en chip. */
+  trailing?: ReactNode;
   className?: string;
 }
 
@@ -27,6 +29,7 @@ export function TruthBar({
   online,
   queueCount = 0,
   extra,
+  trailing,
   className,
 }: TruthBarProps) {
   const gpsChip =
@@ -77,6 +80,8 @@ export function TruthBar({
           {extra}
         </span>
       ) : null}
+
+      {trailing ? <div className="ml-auto flex shrink-0 items-center gap-1.5">{trailing}</div> : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { MapPin } from "lucide-react";
 import { FaceCameraCapture } from "./FaceCameraCapture";
 import { FaceRegistrationFlow } from "./FaceRegistrationFlow";
@@ -18,6 +18,104 @@ interface MarcacionScreenProps {
   installationId: string;
   installationName: string;
   isOnline: boolean;
+}
+
+/**
+ * Shell estable a nivel de módulo. Si se define dentro de MarcacionScreen,
+ * cada tick del reloj (o cualquier setState) crea un tipo de componente nuevo,
+ * React remonta el árbol y el teclado móvil cierra el input de RUT/PIN.
+ */
+function MarcacionShell({
+  children,
+  gpsStatus,
+  gpsAccuracyM,
+  online,
+  queueCount,
+}: {
+  children: ReactNode;
+  gpsStatus: GpsChipStatus;
+  gpsAccuracyM?: number | null;
+  online: boolean;
+  queueCount: number;
+}) {
+  return (
+    <div className="flex min-h-dvh flex-col bg-background">
+      <TruthBar
+        gpsStatus={gpsStatus}
+        gpsAccuracyM={gpsAccuracyM}
+        online={online}
+        queueCount={queueCount}
+      />
+      {children}
+    </div>
+  );
+}
+
+function GpsDeniedModal({
+  open,
+  message,
+  onRetry,
+}: {
+  open: boolean;
+  message: string | null;
+  onRetry: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
+      <div className="max-w-sm rounded-2xl border border-status-danger-border bg-ds-surface-1 p-6 text-center">
+        <p className="mb-2 text-lg font-semibold text-ds-text-1">
+          No se pudo obtener tu ubicación
+        </p>
+        <p className="mb-6 text-sm text-ds-text-3">
+          Verifica que la ubicación esté activada en tu dispositivo y que hayas
+          dado permiso a la app.
+        </p>
+        {message && <p className="mb-4 text-[12px] text-status-danger-fg">{message}</p>}
+        <XlButton variant="teal" size="md" onClick={onRetry}>
+          Reintentar
+        </XlButton>
+      </div>
+    </div>
+  );
+}
+
+/** Reloj en componente hijo: el tick no remonta el formulario de RUT. */
+function LiveClock() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const clockParts = new Intl.DateTimeFormat("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const hour = clockParts.find((p) => p.type === "hour")?.value ?? "00";
+  const minute = clockParts.find((p) => p.type === "minute")?.value ?? "00";
+  const second = clockParts.find((p) => p.type === "second")?.value ?? "00";
+  const dateStr = now
+    .toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })
+    .toUpperCase();
+
+  return (
+    <>
+      <p className="text-center font-mono text-[12px] font-medium uppercase tracking-[0.18em] text-ds-text-3">
+        {dateStr}
+      </p>
+      <p
+        className="mt-1 text-center font-mono font-bold tabular-nums leading-none text-ds-text-1"
+        style={{ fontSize: "clamp(56px, 17vw, 72px)" }}
+      >
+        {hour}:{minute}
+        <span className="text-ds-text-3">:{second}</span>
+      </p>
+    </>
+  );
 }
 
 type MarcaTipo = "entrada" | "salida";
@@ -110,7 +208,6 @@ export function MarcacionScreen({
   const [lastMarca, setLastMarca] = useState<MarcaResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [queueCount, setQueueCount] = useState(0);
 
   // PIN fallback state
@@ -126,12 +223,6 @@ export function MarcacionScreen({
   const [showGpsModal, setShowGpsModal] = useState(false);
 
   const rutInputRef = useRef<HTMLInputElement>(null);
-
-  // Clock
-  useEffect(() => {
-    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -249,11 +340,15 @@ export function MarcacionScreen({
     }
   }, [mode]);
 
-  // Focus RUT input on mount and after reset
+  // Focus RUT only when entering the step (kiosk). Do not re-focus on every
+  // parent re-render — that fights the soft keyboard on mobile Safari.
   useEffect(() => {
-    if (mode === "rut-entry") {
-      setTimeout(() => rutInputRef.current?.focus(), 100);
-    }
+    if (mode !== "rut-entry") return;
+    const id = window.setTimeout(() => {
+      const el = rutInputRef.current;
+      if (el && document.activeElement !== el) el.focus();
+    }, 100);
+    return () => window.clearTimeout(id);
   }, [mode]);
 
   // ── Step 1: RUT lookup ──────────────────────────────────────────────────
@@ -455,19 +550,6 @@ export function MarcacionScreen({
     [pin, guardiaInfo, rutInput, deviceToken, installationId, geoPosition, isOnline, pinFallbackReason]
   );
 
-  const clockParts = new Intl.DateTimeFormat("es-CL", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(currentTime);
-  const hour = clockParts.find((p) => p.type === "hour")?.value ?? "00";
-  const minute = clockParts.find((p) => p.type === "minute")?.value ?? "00";
-  const second = clockParts.find((p) => p.type === "second")?.value ?? "00";
-  const dateStr = currentTime
-    .toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })
-    .toUpperCase();
-
   const truthGps = ((): { status: GpsChipStatus; meters?: number | null } => {
     if (mode !== "face-verify" && mode !== "pin-fallback") {
       return { status: "off" };
@@ -485,51 +567,29 @@ export function MarcacionScreen({
     setPin("");
   }
 
-  const GpsModal = () =>
-    showGpsModal ? (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
-        <div className="max-w-sm rounded-2xl border border-status-danger-border bg-ds-surface-1 p-6 text-center">
-          <p className="mb-2 text-lg font-semibold text-ds-text-1">
-            No se pudo obtener tu ubicación
-          </p>
-          <p className="mb-6 text-sm text-ds-text-3">
-            Verifica que la ubicación esté activada en tu dispositivo y que hayas
-            dado permiso a la app.
-          </p>
-          {gpsError && <p className="mb-4 text-[12px] text-status-danger-fg">{gpsError}</p>}
-          <XlButton
-            variant="teal"
-            size="md"
-            onClick={() => {
-              setShowGpsModal(false);
-              setGpsStatus("idle");
-              requestGps();
-            }}
-          >
-            Reintentar
-          </XlButton>
-        </div>
-      </div>
-    ) : null;
+  const shellProps = {
+    gpsStatus: truthGps.status,
+    gpsAccuracyM: truthGps.meters,
+    online: isOnline,
+    queueCount,
+  } as const;
 
-  function Shell({ children }: { children: React.ReactNode }) {
-    return (
-      <div className="flex min-h-dvh flex-col bg-background">
-        <TruthBar
-          gpsStatus={truthGps.status}
-          gpsAccuracyM={truthGps.meters}
-          online={isOnline}
-          queueCount={queueCount}
-        />
-        {children}
-      </div>
-    );
-  }
+  const gpsModal = (
+    <GpsDeniedModal
+      open={showGpsModal}
+      message={gpsError}
+      onRetry={() => {
+        setShowGpsModal(false);
+        setGpsStatus("idle");
+        requestGps();
+      }}
+    />
+  );
 
   // ── Face registration flow ──────────────────────────────────────────────
   if (mode === "face-register" && guardiaInfo) {
     return (
-      <Shell>
+      <MarcacionShell {...shellProps}>
         <FaceRegistrationFlow
           installationId={installationId}
           prefillRut={rutInput}
@@ -541,21 +601,21 @@ export function MarcacionScreen({
           }}
           onCancel={() => setMode("face-verify")}
         />
-      </Shell>
+      </MarcacionShell>
     );
   }
 
   // ── Processing spinner ──────────────────────────────────────────────────
   if (mode === "processing") {
     return (
-      <Shell>
+      <MarcacionShell {...shellProps}>
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-ds-border-default border-t-primary" />
             <p className="mt-4 text-ds-text-2">Verificando identidad...</p>
           </div>
         </div>
-      </Shell>
+      </MarcacionShell>
     );
   }
 
@@ -575,7 +635,7 @@ export function MarcacionScreen({
           : `GPS dentro de rango${dist != null ? ` · ${dist}m` : ""}`;
 
     return (
-      <Shell>
+      <MarcacionShell {...shellProps}>
         <ResultScreen
           tone={tone}
           icon={
@@ -609,14 +669,14 @@ export function MarcacionScreen({
             )
           }
         />
-      </Shell>
+      </MarcacionShell>
     );
   }
 
   // ── Error screen ────────────────────────────────────────────────────────
   if (mode === "error") {
     return (
-      <Shell>
+      <MarcacionShell {...shellProps}>
         <ResultScreen
           tone="bad"
           icon={
@@ -632,25 +692,16 @@ export function MarcacionScreen({
             </XlButton>
           }
         />
-      </Shell>
+      </MarcacionShell>
     );
   }
 
   // ── Step 1: RUT entry ───────────────────────────────────────────────────
   if (mode === "rut-entry") {
     return (
-      <Shell>
+      <MarcacionShell {...shellProps}>
         <div className="flex flex-1 flex-col justify-center px-4 pb-8">
-          <p className="text-center font-mono text-[12px] font-medium uppercase tracking-[0.18em] text-ds-text-3">
-            {dateStr}
-          </p>
-          <p
-            className="mt-1 text-center font-mono font-bold tabular-nums leading-none text-ds-text-1"
-            style={{ fontSize: "clamp(56px, 17vw, 72px)" }}
-          >
-            {hour}:{minute}
-            <span className="text-ds-text-3">:{second}</span>
-          </p>
+          <LiveClock />
           <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-ds-text-2">
             <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden />
             {installationName}
@@ -704,7 +755,7 @@ export function MarcacionScreen({
             </div>
           )}
         </div>
-      </Shell>
+      </MarcacionShell>
     );
   }
 
@@ -714,8 +765,8 @@ export function MarcacionScreen({
     const gpsReady = gpsStatus === "ok" && geoPosition != null;
 
     return (
-      <Shell>
-        <GpsModal />
+      <MarcacionShell {...shellProps}>
+        {gpsModal}
         <div className="flex flex-1 flex-col px-4 pb-6">
           <div className="my-4 flex items-center gap-3">
             {guardiaInfo.photoUrl ? (
@@ -789,7 +840,7 @@ export function MarcacionScreen({
             </button>
           </div>
         </div>
-      </Shell>
+      </MarcacionShell>
     );
   }
 
@@ -799,8 +850,8 @@ export function MarcacionScreen({
     const gpsReady = gpsStatus === "ok" && geoPosition != null;
 
     return (
-      <Shell>
-        <GpsModal />
+      <MarcacionShell {...shellProps}>
+        {gpsModal}
         <div className="flex flex-1 flex-col justify-center px-4 pb-8">
           <div className="mb-6 rounded-xl border border-status-warn-border bg-status-warn-soft p-3 text-center">
             <p className="text-sm font-medium text-status-warn-fg">
@@ -862,7 +913,7 @@ export function MarcacionScreen({
             Volver a Face ID
           </button>
         </div>
-      </Shell>
+      </MarcacionShell>
     );
   }
 
