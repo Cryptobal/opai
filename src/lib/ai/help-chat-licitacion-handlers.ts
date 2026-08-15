@@ -17,6 +17,7 @@ import {
 import { proposeLicitacionIndex } from "@/lib/cpq/proposal-sections/propose-index";
 import { generateProposalSection } from "@/lib/cpq/proposal-sections/generate-section";
 import { loadQuoteProposal, saveQuoteProposal } from "@/lib/cpq/proposal-sections/persist";
+import { hasRealDotacion, loadDotacionPositions } from "@/lib/cpq/proposal-sections/build-dotacion";
 import { resolveQuoteForDeal } from "@/lib/cpq/proposal-sections/resolve-quote";
 import {
   addSection,
@@ -472,8 +473,9 @@ export async function aiTool_licitacion_estado(
   const action = asStr(args, "action") ?? "get";
   if (action === "get") {
     const matrix = deriveComplianceMatrix(content);
+    const positions = await loadDotacionPositions(target.quoteId);
     const validations = validateProposalContent(content, {
-      hasDotacion: quote.totalGuards > 0 || quote.totalPositions > 0,
+      hasDotacion: hasRealDotacion(positions),
     });
     return {
       ok: true,
@@ -509,8 +511,9 @@ export async function aiTool_licitacion_estado(
       return { ok: false, error: "Estado inválido (borrador | en_revision | aprobada)." };
     }
     if (st === "aprobada") {
+      const positions = await loadDotacionPositions(target.quoteId);
       const v = validateProposalContent(content, {
-        hasDotacion: quote.totalGuards > 0 || quote.totalPositions > 0,
+        hasDotacion: hasRealDotacion(positions),
       });
       if (v.some((x) => x.level === "error")) {
         return { ok: false, error: v.filter((x) => x.level === "error").map((x) => x.message).join(" ") };

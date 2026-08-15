@@ -41,11 +41,22 @@ import {
   listFixedSections,
   saveFixedSectionAsNew,
 } from "@/lib/cpq/fixed-sections";
-import { generateProposalSectionsBatch } from "@/lib/cpq/proposal-sections/generate-batch";
+import { generateProposalSectionsBatch, isDotacionSection } from "@/lib/cpq/proposal-sections/generate-batch";
+import {
+  buildDotacionContent,
+  countDotacionGuards,
+  hasRealDotacion,
+  isEmptyDotacionContent,
+  loadDotacionPositions,
+} from "@/lib/cpq/proposal-sections/build-dotacion";
 
 export const maxDuration = 300;
 
-async function validationCtx(tenantId: string, quote: { dealId: string | null; totalGuards: number; totalPositions: number }) {
+async function validationCtx(
+  tenantId: string,
+  quote: { dealId: string | null; id: string },
+  positionsCount?: { hasDotacion: boolean },
+) {
   let fechaEntrega: string | null = null;
   if (quote.dealId) {
     const deal = await prisma.crmDeal.findFirst({
@@ -54,11 +65,40 @@ async function validationCtx(tenantId: string, quote: { dealId: string | null; t
     });
     fechaEntrega = deal?.fechaEntrega ? deal.fechaEntrega.toISOString().slice(0, 10) : null;
   }
+  const hasDotacion =
+    positionsCount?.hasDotacion ??
+    hasRealDotacion(await loadDotacionPositions(quote.id));
   return {
-    hasDotacion: quote.totalGuards > 0 || quote.totalPositions > 0,
+    hasDotacion,
     fechaEntrega,
     fechaCierreBases: null as string | null,
   };
+}
+
+/** Regenera Dotación si dice “sin puestos” pero el costeo tiene turnos reales. */
+async function healStaleDotacion(opts: {
+  tenantId: string;
+  quoteId: string;
+  content: ProposalContentV2;
+}): Promise<ProposalContentV2> {
+  const section = opts.content.sections.find((item) => isDotacionSection(item));
+  if (!section || section.status === "editada") return opts.content;
+  if (!isEmptyDotacionContent(section.content)) return opts.content;
+
+  const positions = await loadDotacionPositions(opts.quoteId);
+  if (!hasRealDotacion(positions)) return opts.content;
+
+  const next = setSectionContent(opts.content, section.id, buildDotacionContent(positions), {
+    sources: ["puestos"],
+    mark: "ia",
+  });
+  const updated = next.sections.find((item) => item.id === section.id);
+  if (updated) updated.origin = "auto";
+  return saveQuoteProposal({
+    tenantId: opts.tenantId,
+    quoteId: opts.quoteId,
+    content: next,
+  });
 }
 
 export async function GET(
@@ -74,8 +114,18 @@ export async function GET(
     if (forbidden) return forbidden;
 
     const { id } = await params;
-    const { quote, content, dealIsLicitacion } = await loadQuoteProposal({ tenantId: ctx.tenantId, quoteId: id });
-    const vCtx = await validationCtx(ctx.tenantId, quote);
+    const loaded = await loadQuoteProposal({ tenantId: ctx.tenantId, quoteId: id });
+    const positions = await loadDotacionPositions(id);
+    const content = await healStaleDotacion({
+      tenantId: ctx.tenantId,
+      quoteId: id,
+      content: loaded.content,
+    });
+    const quote = loaded.quote;
+    const dealIsLicitacion = loaded.dealIsLicitacion;
+    const vCtx = await validationCtx(ctx.tenantId, quote, {
+      hasDotacion: hasRealDotacion(positions),
+    });
     const validations = validateProposalContent(content, vCtx);
     let gate: string | null = null;
     if (content.mode === "licitacion" && quote.dealId) {
@@ -205,21 +255,7 @@ export async function PATCH(
         }
       }
 
-      const positions = await prisma.cpqPosition.findMany({
-        where: { quoteId: quote.id },
-        select: {
-          customName: true,
-          weekdays: true,
-          startTime: true,
-          endTime: true,
-          numGuards: true,
-          numPuestos: true,
-          puestoTrabajo: { select: { name: true } },
-          cargo: { select: { name: true } },
-          rol: { select: { name: true } },
-        },
-        orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
-      });
+      const positions = await loadDotacionPositions(quote.id);
 
       const batch = await generateProposalSectionsBatch({
         content: next,
@@ -250,7 +286,19 @@ export async function PATCH(
       });
       section.origin = "fija_empresa";
     } else if (action === "regenerate") {
-      if (content.mode === "licitacion") {
+      const section = next.sections.find((s) => s.id === sectionId);
+      if (!section) {
+        return NextResponse.json({ success: false, error: "Sección no encontrada" }, { status: 404 });
+      }
+      if (isDotacionSection(section)) {
+        const positions = await loadDotacionPositions(quote.id);
+        next = setSectionContent(next, sectionId, buildDotacionContent(positions), {
+          sources: ["puestos"],
+          mark: "ia",
+        });
+        const updated = next.sections.find((item) => item.id === sectionId);
+        if (updated) updated.origin = "auto";
+      } else if (content.mode === "licitacion") {
         if (!quote.dealId) {
           return NextResponse.json(
             { success: false, error: "La cotización no tiene negocio. Vincúlala antes de generar." },
@@ -262,10 +310,7 @@ export async function PATCH(
         if (gate) {
           return NextResponse.json({ success: false, error: gate }, { status: 422 });
         }
-        const section = next.sections.find((s) => s.id === sectionId);
-        if (!section) {
-          return NextResponse.json({ success: false, error: "Sección no encontrada" }, { status: 404 });
-        }
+        const positions = await loadDotacionPositions(quote.id);
         const generated = await generateProposalSection({
           tenantId: ctx.tenantId,
           section,
@@ -275,7 +320,7 @@ export async function PATCH(
             code: quote.code,
             name: quote.name,
             clientName: quote.clientName,
-            staffingSummary: `${quote.totalGuards} guardias / ${quote.totalPositions} puestos`,
+            staffingSummary: `${countDotacionGuards(positions)} guardias / ${positions.length} puestos`,
           },
           mode: "licitacion",
         });
@@ -289,10 +334,6 @@ export async function PATCH(
           updated.ref = generated.ref;
         }
       } else {
-        const section = next.sections.find((s) => s.id === sectionId);
-        if (!section) {
-          return NextResponse.json({ success: false, error: "Sección no encontrada" }, { status: 404 });
-        }
         const generated = await generateProposalSection({
           tenantId: ctx.tenantId,
           section,
