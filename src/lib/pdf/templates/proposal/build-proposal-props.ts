@@ -18,6 +18,27 @@ import { resolveAccountLogo } from '@/lib/crm/account-logo';
 import type { ProposalAIContent } from './proposal-ai';
 import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from '@/types/cpq-breakdown';
 import { resolveLaborCharges } from '@/lib/cpq/labor-breakdown-fallback';
+import {
+  getProposalIndicators,
+  listReferenceAccounts,
+} from '@/lib/cpq/fixed-sections';
+
+export type ProposalSectionSnapshot = {
+  id: string;
+  order: number;
+  title: string;
+  ref?: string | null;
+  content: string;
+  invariant?: string;
+  kind?: string;
+};
+
+export type ProposalComplianceRow = {
+  ref: string;
+  requirement: string;
+  sectionTitle: string | null;
+  level: string;
+};
 
 export interface ProposalProps {
   /**
@@ -30,23 +51,16 @@ export interface ProposalProps {
   variant?: 'technical' | 'institutional' | 'licitacion';
   /** Marca de agua (PDF borrador de licitación). */
   watermark?: string | null;
-  /** Contenido v2 + matriz (solo variante licitacion). */
+  /** Contenido v2 compartido por las variantes comercial y licitación. */
+  proposalSections?: ProposalSectionSnapshot[];
+  proposalStatus?: string | null;
+  complianceMatrix?: ProposalComplianceRow[];
+  /** Número/ID de licitación cuando se pudo identificar de forma explícita. */
+  licitacionNumber?: string;
+  /** Contenido v2 + matriz (contrato histórico de la variante licitación). */
   licitacion?: {
-    sections: Array<{
-      id: string;
-      order: number;
-      title: string;
-      ref?: string | null;
-      content: string;
-      invariant?: string;
-      kind?: string;
-    }>;
-    matrix: Array<{
-      ref: string;
-      requirement: string;
-      sectionTitle: string | null;
-      level: string;
-    }>;
+    sections: ProposalSectionSnapshot[];
+    matrix: ProposalComplianceRow[];
     status: string;
   };
   companyName: string;
@@ -121,6 +135,29 @@ export interface ProposalProps {
     brandingLogoFull?: string;
     brandingLogoIcon?: string;
   };
+  offerer?: {
+    commercialName: string;
+    legalName: string;
+    rut: string;
+    address: string;
+    city?: string;
+    website?: string;
+    phone?: string;
+    email?: string;
+    legalRepresentative?: {
+      name: string;
+      rut?: string;
+      email?: string;
+    };
+  };
+  referenceAccounts?: Array<{
+    id: string;
+    name: string;
+    industry?: string | null;
+    segment?: string | null;
+    commune?: string | null;
+    city?: string | null;
+  }>;
   clientLogosWithNames: Array<{ name: string; url: string }>;
 
   companyStats: {
@@ -175,6 +212,22 @@ const PAYMENT_LABELS: Record<string, string> = {
   anticipado: 'Pago anticipado',
 };
 
+function extractLicitacionNumber(values: Array<string | null | undefined>): string | undefined {
+  for (const value of values) {
+    if (!value) continue;
+    const candidates = [
+      /licitaci[oó]n(?:\s+(?:p[uú]blica|privada))?\s*(?:n(?:[°ºo.]|ro\.?)?\s*)?[:#-]?\s*([a-z0-9./-]*\d[a-z0-9./-]*)/i,
+      /\b(?:id|n(?:[°ºo.]|ro\.?))\s*[:#-]\s*([a-z0-9./-]*\d[a-z0-9./-]*)/i,
+    ];
+    for (const pattern of candidates) {
+      const match = value.match(pattern);
+      const token = match?.[1]?.replace(/[.,;:]+$/, '').trim();
+      if (token && token.length >= 2) return token;
+    }
+  }
+  return undefined;
+}
+
 export async function buildProposalProps(
   quotationId: string,
   tenantId: string,
@@ -202,16 +255,23 @@ export async function buildProposalProps(
   if (!quote) throw new Error('Quote not found');
 
   const account = quote.accountId
-    ? await prisma.crmAccount.findUnique({
-        where: { id: quote.accountId },
+    ? await prisma.crmAccount.findFirst({
+        where: { id: quote.accountId, tenantId },
         select: { name: true, logoUrl: true, industry: true, segment: true },
       })
     : null;
 
   const contact = quote.contactId
-    ? await prisma.crmContact.findUnique({
-        where: { id: quote.contactId },
+    ? await prisma.crmContact.findFirst({
+        where: { id: quote.contactId, tenantId },
         select: { firstName: true, lastName: true, roleTitle: true },
+      })
+    : null;
+
+  const deal = quote.dealId
+    ? await prisma.crmDeal.findFirst({
+        where: { id: quote.dealId, tenantId },
+        select: { title: true, notes: true, isLicitacion: true },
       })
     : null;
 
@@ -429,7 +489,56 @@ export async function buildProposalProps(
 
   const proposalDate = new Date().toLocaleDateString('es-CL');
 
-  const companyConfig = await getTenantCompanyConfig(tenantId);
+  const [companyConfig, configuredIndicators, referenceAccounts] = await Promise.all([
+    getTenantCompanyConfig(tenantId),
+    getProposalIndicators(tenantId),
+    listReferenceAccounts(tenantId),
+  ]);
+
+  const providerNames = [
+    companyConfig.razonSocial,
+    companyConfig.companyName,
+    companyConfig.commercialName,
+  ].filter(
+    (name): name is string =>
+      Boolean(name?.trim()) &&
+      name !== 'Mi Empresa' &&
+      name !== 'Empresa Sin Configurar',
+  );
+  const providerRut =
+    companyConfig.rut && companyConfig.rut !== '11.111.111-1'
+      ? companyConfig.rut
+      : '';
+  const providerAccount =
+    providerNames.length > 0 || providerRut
+      ? await prisma.crmAccount.findFirst({
+          where: {
+            tenantId,
+            OR: [
+              ...(providerRut ? [{ rut: providerRut }] : []),
+              ...providerNames.map((name) => ({
+                name: { equals: name, mode: 'insensitive' as const },
+              })),
+              ...providerNames.map((name) => ({
+                legalName: { equals: name, mode: 'insensitive' as const },
+              })),
+            ],
+          },
+          select: {
+            id: true,
+            legalName: true,
+            legalRepresentativeName: true,
+            legalRepresentativeRut: true,
+          },
+        })
+      : null;
+  const providerRepresentative = providerAccount
+    ? await prisma.accountRepresentanteLegal.findFirst({
+        where: { tenantId, accountId: providerAccount.id },
+        select: { nombre: true, rut: true, email: true },
+        orderBy: { createdAt: 'asc' },
+      })
+    : null;
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || '';
   const abs = (url: string | undefined | null): string => {
@@ -497,7 +606,7 @@ export async function buildProposalProps(
     : null;
   const cached = quote.proposalAiContent as ProposalAIContent | null | undefined;
 
-  if (v2Content && quote.proposalMode !== "licitacion") {
+  if (v2Content) {
     aiContent = mapV2ToProposalAI(v2Content);
   } else if (cached && typeof cached === "object" && cached.descripcionBreve) {
     aiContent = cached;
@@ -963,56 +1072,122 @@ export async function buildProposalProps(
       brandingLogoFull: abs(companyConfig.brandingLogoFull) || undefined,
       brandingLogoIcon: abs(companyConfig.brandingLogoIcon) || undefined,
     },
+    offerer: {
+      commercialName: companyConfig.commercialName || companyConfig.companyName,
+      legalName:
+        providerAccount?.legalName ||
+        companyConfig.razonSocial ||
+        companyConfig.companyName,
+      rut: providerRut,
+      address: [companyConfig.direccion, companyConfig.comuna, companyConfig.ciudad]
+        .filter((part, index, all) => Boolean(part?.trim()) && all.indexOf(part) === index)
+        .join(', '),
+      city: [companyConfig.comuna, companyConfig.ciudad]
+        .filter((part, index, all) => Boolean(part?.trim()) && all.indexOf(part) === index)
+        .join(', ') || undefined,
+      website: companyConfig.website || undefined,
+      phone: companyConfig.phone || companyConfig.telefono || undefined,
+      email: companyConfig.email || undefined,
+      legalRepresentative:
+        providerRepresentative?.nombre ||
+        providerAccount?.legalRepresentativeName ||
+        companyConfig.repLegalNombre
+          ? {
+              name:
+                providerRepresentative?.nombre ||
+                providerAccount?.legalRepresentativeName ||
+                companyConfig.repLegalNombre,
+              rut:
+                providerRepresentative?.rut ||
+                providerAccount?.legalRepresentativeRut ||
+                companyConfig.repLegalRut ||
+                undefined,
+              email: providerRepresentative?.email || undefined,
+            }
+          : undefined,
+    },
+    referenceAccounts,
     clientLogosWithNames: clientesConLogo
       .map((c) => ({ name: c.name, url: c.logo ? abs(c.logo) : '' })),
 
+    // Se conserva la forma del contrato para consumidores históricos, pero
+    // estas cifras ya no se renderizan como KPIs institucionales. Los únicos
+    // indicadores autorizados son los configurados explícitamente abajo.
     companyStats: {
-      yearsInOperation: companyConfig.proposalYearsInOperation || '',
-      activeGuards: companyConfig.proposalActiveGuards || '',
-      protectedFacilities: companyConfig.proposalProtectedFacilities || '',
-      regionsCount: companyConfig.proposalRegionsCount || '',
+      yearsInOperation: '',
+      activeGuards: '',
+      protectedFacilities: '',
+      regionsCount: '',
     },
-    proposalMetrics: [
-      { value: companyConfig.proposalMetricIncidentReduction, label: 'Reducción de incidentes' },
-      { value: companyConfig.proposalMetricRoundsCompliance, label: 'Cumplimiento de rondas' },
-      { value: companyConfig.proposalMetricDocumented, label: 'Documentado' },
-      { value: companyConfig.proposalMetricRenewalRate, label: 'Tasa de renovación' },
-      { value: companyConfig.proposalMetricSatisfaction, label: 'Satisfacción (de 5.0)' },
-    ].filter((m) => m.value && m.value.trim().length > 0),
+    proposalMetrics: configuredIndicators
+      .filter(
+        (indicator) =>
+          indicator.visible &&
+          indicator.label.trim().length > 0 &&
+          indicator.value.trim().length > 0,
+      )
+      .map((indicator) => ({
+        value: indicator.value.trim(),
+        label: indicator.label.trim(),
+      })),
     regimeExplanation,
     breakdown,
     resourceBreakdown,
     includedItems: (quote.includedItems ?? []).filter((t) => t.trim().length > 0),
   };
 
-  if (quote.proposalMode === 'licitacion') {
-    const content = readProposalContent(quote.proposalAiContent, 'licitacion');
-    const matrix = deriveComplianceMatrix(content);
-    props.variant = 'licitacion';
-    props.watermark = opts?.pdfMode === 'final' ? null : 'BORRADOR';
+  const isLicitacion =
+    quote.proposalMode === 'licitacion' || v2Content?.mode === 'licitacion';
+  const proposalContent = isLicitacion
+    ? readProposalContent(quote.proposalAiContent, 'licitacion')
+    : v2Content;
+
+  if (proposalContent) {
+    const sections: ProposalSectionSnapshot[] = [...proposalContent.sections]
+      .sort((a, b) => a.order - b.order)
+      .map((section) => ({
+        id: section.id,
+        order: section.order,
+        title: section.title,
+        ref: section.ref,
+        content: section.content,
+        invariant: section.invariant,
+        kind: section.kind,
+      }));
+    const matrix: ProposalComplianceRow[] = deriveComplianceMatrix(proposalContent)
+      .map((row) => ({
+        ref: row.ref,
+        requirement: row.requirement,
+        sectionTitle: row.sectionTitle,
+        level: row.level,
+      }));
+
+    props.variant = isLicitacion ? 'licitacion' : 'technical';
+    props.proposalSections = sections;
+    props.proposalStatus = proposalContent.status || quote.proposalStatus;
+    props.complianceMatrix = matrix;
+    props.watermark =
+      ['borrador', 'en_revision'].includes(
+        proposalContent.status || quote.proposalStatus || '',
+      ) || opts?.pdfMode === 'draft'
+      ? 'BORRADOR'
+      : null;
+    props.licitacionNumber = isLicitacion
+      ? extractLicitacionNumber([
+          deal?.isLicitacion ? deal.title : null,
+          deal?.isLicitacion ? deal.notes : null,
+          quote.name,
+          sections.find((section) => section.invariant === 'identificacion')?.content,
+        ])
+      : undefined;
+  }
+
+  if (isLicitacion && proposalContent) {
     props.licitacion = {
-      sections: [...content.sections]
-        .sort((a, b) => a.order - b.order)
-        .map((s) => ({
-          id: s.id,
-          order: s.order,
-          title: s.title,
-          ref: s.ref,
-          content: s.content,
-          invariant: s.invariant,
-          kind: s.kind,
-        })),
-      matrix: matrix.map((r) => ({
-        ref: r.ref,
-        requirement: r.requirement,
-        sectionTitle: r.sectionTitle,
-        level: r.level,
-      })),
-      status: content.status,
+      sections: props.proposalSections ?? [],
+      matrix: props.complianceMatrix ?? [],
+      status: proposalContent.status,
     };
-  } else if (v2Content) {
-    props.variant = 'technical';
-    props.watermark = opts?.pdfMode === 'final' ? null : 'BORRADOR';
   }
 
   const fileName = buildCpqQuotePdfFileName({

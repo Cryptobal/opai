@@ -14,6 +14,17 @@ import {
 export async function renderLicitacionProposalToBufferFromProps(
   props: ProposalProps,
 ): Promise<Buffer> {
+  if (
+    (props.proposalSections && props.proposalSections.length > 0) ||
+    (props.licitacion?.sections && props.licitacion.sections.length > 0)
+  ) {
+    const { renderInstitutionalProposalToBufferFromProps } = await import(
+      './institutional-layout'
+    );
+    return renderInstitutionalProposalToBufferFromProps(props);
+  }
+
+  // Fallback de compatibilidad para props históricos sin contenido v2.
   // eslint-disable-next-line no-eval
   const nodeRequire = eval('require') as NodeRequire;
   const React = nodeRequire('react') as typeof import('react');

@@ -47,6 +47,12 @@ export async function renderProposalToBufferFromProps(
     const { renderLicitacionProposalToBufferFromProps } = await import('./render-licitacion');
     return renderLicitacionProposalToBufferFromProps(props);
   }
+  if (props.proposalSections && props.proposalSections.length > 0) {
+    const { renderInstitutionalProposalToBufferFromProps } = await import(
+      './institutional-layout'
+    );
+    return renderInstitutionalProposalToBufferFromProps(props);
+  }
 
   // eslint-disable-next-line no-eval
   const nodeRequire = eval('require') as NodeRequire;
