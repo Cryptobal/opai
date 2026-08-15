@@ -19,6 +19,7 @@ import { seedOnboardingEmailTemplates } from './seeds/onboarding-email-templates
 import { seedInventoryData } from './seeds/inventory-initial-data';
 import { seedTiposDocOperacional } from './seeds/docs-operacionales-tipos-seed';
 import { seedPricingCatalog } from './seeds/pricing-catalog-seed';
+import { seedCpqProposalInstitutional } from './seeds/cpq-proposal-institutional-seed';
 
 const prisma = new PrismaClient();
 
@@ -112,6 +113,8 @@ async function main() {
   await seedPayrollData();
   // 5. Seed CPQ data
   await seedCpqData();
+  // 5b. Seed propuesta institucional (secciones fijas + indicadores)
+  await seedCpqProposalInstitutional(prisma, tenant.id);
   // 6. Seed CRM data
   await seedCrmData(tenant.id);
 
