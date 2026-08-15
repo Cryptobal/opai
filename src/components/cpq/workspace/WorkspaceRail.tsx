@@ -81,7 +81,11 @@ export function WorkspaceRail({
     <nav
       aria-label="Secciones de la cotización"
       data-collapsed={collapsed ? "true" : "false"}
-      className={cn("sticky self-start space-y-0.5", topOffsetClassName, className)}
+      className={cn(
+        "sticky self-start space-y-0.5 rounded-[18px] border border-white/[0.06] bg-[var(--glass-fill-soft)] p-2 shadow-[var(--glass-specular)]",
+        topOffsetClassName,
+        className,
+      )}
     >
       {onCollapsedChange ? (
         <button
@@ -120,16 +124,16 @@ export function WorkspaceRail({
             aria-label={section.label}
             aria-current={active ? "true" : undefined}
             className={cn(
-              "flex w-full items-center rounded-md text-left text-[13px] transition-colors",
+              "flex w-full items-center rounded-xl text-left text-[13px] transition-colors",
               collapsed
                 ? "h-10 justify-center px-0 sm:h-9"
-                : "gap-2 px-2.5 py-1.5",
+                : "gap-2.5 px-2.5 py-2",
               active
-                ? "bg-primary/10 font-semibold text-primary"
-                : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                ? "bg-[rgba(20,168,138,0.10)] font-semibold text-[var(--ds-glow)] shadow-[inset_0_0_0_1px_rgba(var(--ds-glow-rgb),0.22)]"
+                : "text-ds-text-3 hover:bg-white/[0.05] hover:text-ds-text-1",
             )}
           >
-            <Icon className="h-4 w-4 shrink-0" aria-hidden />
+            <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden />
             {!collapsed ? <span className="truncate">{section.label}</span> : null}
           </button>
         );

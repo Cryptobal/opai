@@ -65,15 +65,15 @@ export function SectionChips({
             aria-selected={active}
             onClick={() => onNavigate(section.id)}
             className={cn(
-              "h-8 shrink-0 rounded-full border px-3 text-[12px] transition-colors",
+              "inline-flex h-[30px] shrink-0 items-center gap-1.5 rounded-full border px-3 text-[12px] transition",
               active
-                ? "border-primary bg-primary font-semibold text-primary-foreground"
-                : "border-border/60 bg-ds-surface-2/70 font-medium text-muted-foreground hover:text-foreground active:bg-ds-surface-3",
+                ? "border-transparent bg-[linear-gradient(180deg,var(--ds-glow),hsl(var(--primary)))] font-bold text-[var(--ds-glow-ink)] shadow-[0_4px_16px_rgba(20,168,138,0.45),inset_0_1px_0_rgba(255,255,255,0.35)]"
+                : "border-white/[0.07] bg-[var(--glass-fill-soft)] font-medium text-ds-text-3 shadow-[var(--glass-specular)] hover:text-ds-text-1 active:scale-95",
             )}
           >
             {section.label}
             {typeof count === "number" && count > 0 ? (
-              <span className="ml-1 font-mono text-[10.5px] uppercase tracking-[0.08em] opacity-85">
+              <span className="font-mono text-[12px] opacity-85">
                 {count}
               </span>
             ) : null}

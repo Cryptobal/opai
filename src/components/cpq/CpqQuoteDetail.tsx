@@ -58,7 +58,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, CheckCircle2, Briefcase, Phone, PencilLine, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen, Unlink } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, CheckCircle2, Briefcase, Phone, PencilLine, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen, Unlink, FileText } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -94,6 +94,13 @@ import { ConvertToBundleButton } from "@/components/cpq/workspace/ConvertToBundl
 import { ControlCenterSheet, ControlCenterTrigger } from "@/components/cpq/workspace/ControlCenterSheet";
 import type { QuoteFormState, WorkspaceSectionId } from "@/components/cpq/workspace/types";
 import { useQuoteDeleteFlow } from "@/components/cpq/useQuoteDeleteFlow";
+import {
+  JourneyStepper,
+  QUOTE_JOURNEY,
+  WorkbenchTopIsland,
+  WorkbenchIslandIconButton,
+} from "@/components/workbench";
+import { PulseBar } from "@/components/workbench/PulseBar";
 
 type ActivityEvent = {
   id: string;
@@ -1762,6 +1769,15 @@ export function CpqQuoteDetail({
   const selectedDealTitle = selectedDeal?.title || "Sin negocio";
   const selectedDealStageName = selectedDeal?.stageName?.trim() || null;
   const isLicitacionDeal = Boolean(selectedDeal?.isLicitacion);
+  const quoteJourneyIndex =
+    quote?.status === "approved"
+      ? 2
+      : quote?.status === "sent"
+        ? 1
+        : 0;
+  const quoteJourney = (
+    <JourneyStepper steps={QUOTE_JOURNEY} activeIndex={quoteJourneyIndex} />
+  );
   const contactForPortal = crmContext.contactId
     ? crmContacts.find((x) => x.id === crmContext.contactId) ?? null
     : null;
@@ -1916,13 +1932,30 @@ export function CpqQuoteDetail({
 
   return (
     <div className="cpq-touch-inputs space-y-3 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.75rem)] -mb-28 lg:mb-0 lg:pb-4 overflow-x-clip min-w-0">
+      {!embedded ? (
+        <WorkbenchTopIsland
+          eyebrow="Cotización"
+          title={quote.code || quote.name || "—"}
+          onBack={() => router.push("/crm/cotizaciones")}
+          trailing={
+            <WorkbenchIslandIconButton
+              label="Más acciones"
+              onClick={() => setStickyActionSheetOpen(true)}
+            >
+              <MoreVertical className="h-[18px] w-[18px]" />
+            </WorkbenchIslandIconButton>
+          }
+        />
+      ) : null}
+
       {/* -- Mobile sticky stack: total → pestañas (multi) → chips.
            top = --app-island-bottom (MobileIsland: safe + 8 + 48).
            z-[25] bajo la isla (z-30) y la bottom bar (z-50). */}
       <div
-        className="sticky top-[var(--app-island-bottom)] z-[25] -mx-4 sm:-mx-6 lg:-mx-8 lg:hidden opai-liquid-glass-bar-top mb-3"
+        className="sticky top-[var(--app-island-bottom)] z-[25] -mx-4 sm:-mx-6 lg:-mx-8 lg:hidden mb-3"
         style={mobileTabsSlot ? { ["--cpq-sticky-h" as string]: "7.75rem" } : undefined}
       >
+        <div className="mx-2.5 overflow-hidden rounded-[22px] border border-[var(--glass-border)] opai-glass-strong shadow-[var(--glass-specular),var(--glass-shadow)]">
         <MobileTotalBar
           totalClp={mobileTotalClpOverride ?? billingMonthlyTotal}
           currency={crmContext.currency || "CLP"}
@@ -1948,14 +1981,12 @@ export function CpqQuoteDetail({
           }
           actionsSlot={
             !embedded ? (
-              <button
-                type="button"
-                aria-label="Más acciones"
+              <WorkbenchIslandIconButton
+                label="Más acciones"
                 onClick={() => setStickyActionSheetOpen(true)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border/70 bg-ds-surface-2/70 text-muted-foreground transition-colors hover:bg-ds-surface-3 hover:text-foreground"
               >
-                <MoreVertical className="h-4 w-4" />
-              </button>
+                <MoreVertical className="h-[18px] w-[18px]" />
+              </WorkbenchIslandIconButton>
             ) : null
           }
         />
@@ -1964,8 +1995,9 @@ export function CpqQuoteDetail({
           onNavigate={openAndScrollTo}
           activeId={activeSectionId}
           counts={sectionCounts}
-          className="border-t border-border/40"
+          className="border-t border-white/[0.07]"
         />
+        </div>
       </div>
 
       {embedded ? (
@@ -2035,21 +2067,26 @@ export function CpqQuoteDetail({
            hacia el viewport (html/body usan clip). En multi (embedded) la provee
            el workspace con totales consolidados. */}
       {!embedded && (
-      <div className="hidden lg:flex sticky top-[var(--app-topbar-offset)] z-30 items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/95 backdrop-blur-md px-4 py-3 shadow-md">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/crm/cotizaciones" className="shrink-0">
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+      <div className="hidden lg:block sticky top-[var(--app-topbar-offset)] z-30 mb-1 rounded-[20px] border border-[var(--glass-border)] bg-[var(--glass-fill)] px-5 pb-4 pt-[18px] shadow-[var(--glass-specular),0_10px_34px_rgba(0,0,0,0.32)] backdrop-blur-md">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <span
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] text-[var(--ds-glow)] bg-[linear-gradient(180deg,rgba(var(--ds-glow-rgb),0.18),rgba(20,168,138,0.06))] shadow-[inset_0_0_0_1px_rgba(var(--ds-glow-rgb),0.25),0_6px_18px_rgba(20,168,138,0.2)]"
+            aria-hidden
+          >
+            <FileText className="h-[22px] w-[22px]" />
+          </span>
+          <Link href="/crm/cotizaciones" className="sr-only">
+            Volver a cotizaciones
           </Link>
           <div className="min-w-0">
+            <p className="text-[12px] font-extrabold uppercase tracking-[0.16em] text-ds-text-3">
+              Cotización · {quote.code}
+            </p>
             <div className="flex items-center gap-2 min-w-0">
-              <h1 className="truncate text-base font-bold tracking-tight" title={quote.code}>{quote.code}</h1>
-              {quote.name && (
-                <span className="truncate text-sm font-medium text-muted-foreground" title={quote.name}>
-                  {quote.name}
-                </span>
-              )}
+              <h1 className="truncate font-display text-[21px] font-extrabold tracking-tight" title={quote.name || quote.code}>
+                {quote.name || quote.code}
+              </h1>
               <CpqStatusBadge
                 status={quote.status}
                 changing={changingStatus || markingSentLicitacion}
@@ -2268,6 +2305,26 @@ export function CpqQuoteDetail({
           </div>
         </div>
       </div>
+      <div className="mt-3.5 flex items-center gap-4 border-t border-white/[0.07] pt-3.5">
+        <PulseBar
+          variant="quote"
+          value={
+            <CpqDualCurrencyAmount
+              clp={billingMonthlyTotal}
+              currency={crmContext.currency || "CLP"}
+              ufValue={ufValue}
+              size="sm"
+              align="left"
+              inline
+              primaryClassName="text-[19px] font-extrabold text-[var(--ds-glow)]"
+            />
+          }
+          subtitle={headerPersistLabel}
+          className="min-w-[190px] shrink-0 !min-h-0 !px-0 !py-0"
+        />
+        <div className="min-w-0 flex-1">{quoteJourney}</div>
+      </div>
+      </div>
       )}
 
       {/* -- Detail workspace --
@@ -2276,10 +2333,10 @@ export function CpqQuoteDetail({
            para ensanchar Datos / Condiciones / Desglose / Puestos. */}
       <div
         className={cn(
-          "xl:grid xl:gap-3 xl:items-start",
+          "xl:grid xl:gap-5 xl:items-start",
           workspaceRailCollapsed
-            ? "xl:grid-cols-[48px_minmax(0,1fr)]"
-            : "xl:grid-cols-[168px_minmax(0,1fr)]",
+            ? "xl:grid-cols-[56px_minmax(0,1fr)]"
+            : "xl:grid-cols-[180px_minmax(0,1fr)]",
         )}
       >
       <WorkspaceRail
@@ -2308,13 +2365,14 @@ export function CpqQuoteDetail({
         className={cn(
           "grid gap-3 min-w-0 lg:items-start",
           controlCenterOpen && !embedded
-            ? "lg:grid-cols-[minmax(0,1fr)_340px]"
+            ? "lg:grid-cols-[minmax(0,1fr)_336px]"
             : "lg:grid-cols-1"
         )}
       >
       <div className="space-y-2 min-w-0">
+      <div className="lg:hidden mb-2">{quoteJourney}</div>
       {/* -- Section: Datos (scroll-mt: visible bajo el stack sticky al navegar) -- */}
-      <Card id="sec-datos" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
+      <Card id="sec-datos" className="overflow-visible rounded-[18px] border-[var(--glass-border)] bg-[var(--glass-fill)] shadow-[var(--glass-specular),0_8px_30px_rgba(0,0,0,0.30)] scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Datos</h2>
@@ -2793,15 +2851,15 @@ export function CpqQuoteDetail({
       <aside className="hidden lg:block min-w-0">
         {/* Centro de control: contraíble desde la barra sticky o desde este header.
             KPIs clave viven también en la barra superior sticky. */}
-        <div className="space-y-3">
-          <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
-            <div className="border-b border-border/50 bg-muted/20 px-4 py-3">
+        <div className="sticky top-[calc(var(--app-topbar-offset)+1rem)] space-y-3 max-h-[calc(100dvh-8rem)] overflow-y-auto">
+          <Card className="overflow-hidden rounded-[18px] border-[var(--glass-border)] bg-[var(--glass-fill)] shadow-[var(--glass-specular),0_8px_30px_rgba(0,0,0,0.30)]">
+            <div className="border-b border-white/[0.07] px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="text-[12px] font-extrabold uppercase tracking-[0.14em] text-ds-text-3">
                     Centro de control
                   </p>
-                  <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
+                  <p className="mt-0.5 truncate text-sm font-semibold text-ds-text-1">
                     Resumen comercial
                   </p>
                 </div>

@@ -12,7 +12,7 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const HEADER_CLASS =
-  "flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors";
+  "flex w-full items-center justify-between gap-2.5 min-h-[52px] border-b border-white/[0.07] px-3.5 py-3 text-left transition-colors hover:bg-white/[0.04]";
 
 export function SectionCard({
   id,
@@ -46,15 +46,21 @@ export function SectionCard({
 }) {
   const headerContent = (
     <>
-      <div className="flex items-center gap-2 min-w-0">
-        {icon}
-        <h2 className="text-sm font-semibold text-primary shrink-0">{title}</h2>
+      <div className="flex min-w-0 items-center gap-2.5">
+        {icon ? (
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] bg-[rgba(20,168,138,0.10)] text-[var(--ds-glow)] shadow-[inset_0_0_0_1px_rgba(var(--ds-glow-rgb),0.20)]">
+            {icon}
+          </span>
+        ) : null}
+        <h2 className="shrink-0 text-[13.5px] font-semibold tracking-tight text-ds-text-1">
+          {title}
+        </h2>
         {!open && summary}
         {headerExtra}
       </div>
       <ChevronDown
         className={cn(
-          "h-4 w-4 text-muted-foreground transition-transform shrink-0",
+          "h-4 w-4 shrink-0 text-ds-text-3 transition-transform",
           open && "rotate-180",
         )}
       />
@@ -64,7 +70,10 @@ export function SectionCard({
   return (
     <Card
       id={id}
-      className={cn("rounded-xl border-border/70 bg-card/85 shadow-sm", cardClassName)}
+      className={cn(
+        "overflow-hidden rounded-[18px] border-[var(--glass-border)] bg-[var(--glass-fill)] shadow-[var(--glass-specular),0_8px_30px_rgba(0,0,0,0.30)]",
+        cardClassName,
+      )}
     >
       {headerAs === "div" ? (
         <div
