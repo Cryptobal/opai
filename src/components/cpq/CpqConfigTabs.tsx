@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { CpqCatalogConfig } from "@/components/cpq/CpqCatalogConfig";
 import { CpqSimpleCatalogConfig } from "@/components/cpq/CpqSimpleCatalogConfig";
 import { CpqTemplateConfig } from "@/components/cpq/CpqTemplateConfig";
+import { CpqFixedSectionsConfig } from "@/components/cpq/CpqFixedSectionsConfig";
 import { CpqCostCategoryConfig } from "@/components/cpq/CpqCostCategoryConfig";
 import { CpqDefaultsConfig } from "@/components/cpq/CpqDefaultsConfig";
 import {
@@ -26,6 +27,7 @@ import {
   FileText,
   FolderTree,
   SlidersHorizontal,
+  BookMarked,
 } from "lucide-react";
 
 const TABS = [
@@ -58,6 +60,12 @@ const TABS = [
     label: "Templates de Propuesta",
     icon: FileText,
     description: "Secciones y formato de propuestas comerciales",
+  },
+  {
+    id: "fijas",
+    label: "Biblioteca fija",
+    icon: BookMarked,
+    description: "Secciones institucionales e indicadores del PDF",
   },
   {
     id: "categorias",
@@ -144,6 +152,7 @@ export function CpqConfigTabs() {
         )}
 
         {activeTab === "templates" && <CpqTemplateConfig />}
+        {activeTab === "fijas" && <CpqFixedSectionsConfig />}
         {activeTab === "categorias" && <CpqCostCategoryConfig />}
         {activeTab === "defaults" && <CpqDefaultsConfig />}
       </div>

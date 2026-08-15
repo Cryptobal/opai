@@ -236,6 +236,7 @@ type AccountDetail = {
   startDate?: string | null;
   endDate?: string | null;
   notes?: string | null;
+  useAsReference?: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;
   // ── Documento de Cobro ──
@@ -483,6 +484,7 @@ export function CrmAccountDetailClient({
     startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
     endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
     notes: stripAccountLogoMarker(account.notes),
+    useAsReference: Boolean(account.useAsReference),
   });
 
   // ── Logo upload ──
@@ -578,6 +580,7 @@ export function CrmAccountDetailClient({
       startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
       endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
       notes: stripAccountLogoMarker(account.notes),
+      useAsReference: Boolean(account.useAsReference),
     });
     setEditAccountOpen(true);
   };
@@ -604,6 +607,7 @@ export function CrmAccountDetailClient({
         notes: withAccountLogoMarker(accountForm.notes, accountLogoUrl),
         startDate: accountForm.startDate || null,
         endDate: accountForm.endDate || null,
+        useAsReference: Boolean(accountForm.useAsReference),
       };
       const res = await fetch(`/api/crm/accounts/${account.id}`, {
         method: "PATCH",
@@ -2197,6 +2201,22 @@ export function CrmAccountDetailClient({
                 placeholder="Notas sobre esta cuenta..."
               />
             </div>
+            <label className="flex min-h-11 items-start gap-2 sm:col-span-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={Boolean(accountForm.useAsReference)}
+                onChange={(e) =>
+                  setAccountForm((p) => ({ ...p, useAsReference: e.target.checked }))
+                }
+                className="mt-1 h-4 w-4"
+              />
+              <span>
+                <span className="font-medium">Usar como referencia en propuestas</span>
+                <span className="block text-muted-foreground text-xs mt-0.5">
+                  Si está activo, esta cuenta puede aparecer en la cartera de referencias del PDF institucional.
+                </span>
+              </span>
+            </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditAccountOpen(false)}>Cancelar</Button>

@@ -175,6 +175,8 @@ export const updateAccountSchema = z.object({
   // Contacto destinatario de los recordatorios de cobranza. null = cascada
   // por `recibeCobranza` → contacto principal.
   contactoCobranzaId: z.string().uuid("contactoCobranzaId inválido").optional().nullable(),
+  /// Usar esta cuenta como referencia en propuestas institucionales.
+  useAsReference: z.boolean().optional(),
 });
 
 // ── Contact ──
