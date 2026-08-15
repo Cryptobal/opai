@@ -119,6 +119,7 @@ export const createAccountSchema = z.object({
     .enum(["prospect", "client_active", "client_inactive", "active", "inactive"])
     .default("prospect"),
   isActive: z.boolean().default(false),
+  useAsReference: z.boolean().default(false),
   website: websiteField,
   address: z.string().trim().max(500).optional().nullable(),
   commune: z.string().trim().max(200).optional().nullable(),
@@ -154,6 +155,7 @@ export const updateAccountSchema = z.object({
   segment: z.string().trim().max(100).optional().nullable(),
   status: z.enum(["prospect", "client_active", "client_inactive", "active", "inactive"]).optional(),
   isActive: z.boolean().optional(),
+  useAsReference: z.boolean().optional(),
   website: websiteField,
   address: z.string().trim().max(500).optional().nullable(),
   commune: z.string().trim().max(200).optional().nullable(),

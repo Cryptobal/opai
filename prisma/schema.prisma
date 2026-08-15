@@ -1717,6 +1717,24 @@ model CpqProposalTemplate {
   @@schema("cpq")
 }
 
+/// Biblioteca de secciones fijas (institucionales) reutilizables en propuestas.
+model CpqFixedSection {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  key       String   @db.VarChar(80)
+  title     String   @db.VarChar(200)
+  content   String   @db.Text
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, key], map: "uq_cpq_fixed_section_tenant_key")
+  @@index([tenantId, isActive, sortOrder], map: "idx_cpq_fixed_sections_tenant_active_sort")
+  @@map("fixed_sections")
+  @@schema("cpq")
+}
+
 model CpqIncludesSuggestion {
   id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId    String?  @map("tenant_id")
@@ -2385,6 +2403,8 @@ model CrmAccount {
   /// aunque tenga contactos con recibeCesion. El operador puede sobreescribir
   /// por operación desde el modal de cesión.
   cesionNotificarDeudor Boolean               @default(true) @map("cesion_notificar_deudor")
+  /// Si true, la cuenta aparece en el capítulo «Experiencia / cartera» de propuestas institucionales.
+  useAsReference        Boolean               @default(false) @map("use_as_reference")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -2407,6 +2427,7 @@ model CrmAccount {
   @@index([createdAt(sort: Desc)], map: "idx_crm_accounts_created_desc")
   @@index([tenantId, contactoEstadoPagoId], map: "idx_crm_accounts_contacto_estado_pago")
   @@index([tenantId, contactoCobranzaId], map: "idx_crm_accounts_contacto_cobranza")
+  @@index([tenantId, useAsReference], map: "idx_crm_accounts_use_as_reference")
   @@map("accounts")
   @@schema("crm")
 }

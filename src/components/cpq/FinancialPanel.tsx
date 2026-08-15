@@ -168,6 +168,7 @@ export function buildBreakdownData(
     return {
       id: pos.id,
       name: pos.customName || pos.puestoTrabajo?.name || "Puesto",
+      cargoName: pos.cargo?.name ?? null,
       numGuards: pos.numGuards,
       numPuestos: pos.numPuestos,
       totalGuardsInPosition: totalGuardsInPos,
@@ -178,6 +179,8 @@ export function buildBreakdownData(
       pensionReformEmployer,
       afcEmployer,
       mutualEmployer,
+      mealAllowance: getNum("meal_allowance"),
+      transportAllowance: getNum("transport_allowance"),
       vacationProvision,
       severanceProvision,
       totalLaborCost: costClp,

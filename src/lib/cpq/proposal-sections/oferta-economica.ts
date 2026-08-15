@@ -31,6 +31,7 @@ export function makeOfertaEconomicaSection(order = 0): ProposalSection {
     sources: ["costeo"],
     content: "",
     kind: OFERTA_ECONOMICA_KIND,
+    origin: "auto",
   };
 }
 
@@ -44,12 +45,13 @@ export function ensureOfertaEconomica(content: ProposalContentV2): ProposalConte
   const without = content.sections.filter((s) => !isAutoSection(s));
   const matrizIdx = without.findIndex((s) => s.invariant === "matriz");
   const insertAt = matrizIdx >= 0 ? matrizIdx : without.length;
-  const auto = existing
+  const auto: ProposalSection = existing
     ? {
         ...existing,
         title: OFERTA_ECONOMICA_TITLE,
         kind: OFERTA_ECONOMICA_KIND,
         sources: existing.sources.length ? existing.sources : ["costeo"],
+        origin: "auto",
       }
     : makeOfertaEconomicaSection();
   const next = [...without.slice(0, insertAt), auto, ...without.slice(insertAt)];

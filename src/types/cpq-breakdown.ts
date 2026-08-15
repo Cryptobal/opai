@@ -22,6 +22,8 @@ export interface ResourceBreakdownCategory {
 export interface PositionBreakdownItem {
   id: string;
   name: string;
+  /** Cargo contractual; si falta se usa `name` para la apertura salarial. */
+  cargoName?: string | null;
   numGuards: number;
   numPuestos: number;
   /** Total guards working this position (numGuards × numPuestos) */
@@ -36,6 +38,9 @@ export interface PositionBreakdownItem {
   pensionReformEmployer: number;
   afcEmployer: number;
   mutualEmployer: number;
+  /** Haberes no imponibles totales de la posición. */
+  mealAllowance?: number;
+  transportAllowance?: number;
   vacationProvision: number;
   severanceProvision: number;
   /** = monthlyPositionCost from DB */

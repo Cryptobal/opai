@@ -31,7 +31,13 @@ import {
   setSectionContent,
   unapproveSection,
 } from "@/lib/cpq/proposal-sections/ops";
-import { readProposalContent, type ProposalContentV2 } from "@/lib/cpq/proposal-sections/schema";
+import {
+  OFERTA_ECONOMICA_KIND,
+  readProposalContent,
+  SECTION_ORIGINS,
+  type ProposalContentV2,
+  type ProposalSectionOrigin,
+} from "@/lib/cpq/proposal-sections/schema";
 import { deriveComplianceMatrix, formatComplianceMatrixText } from "@/lib/cpq/proposal-sections/compliance-matrix";
 import { validateProposalContent } from "@/lib/cpq/proposal-sections/validate";
 
@@ -249,6 +255,11 @@ export async function aiTool_licitacion_aplicar_indice(
       invariant:
         it.invariant === "identificacion" || it.invariant === "exclusiones" || it.invariant === "matriz"
           ? it.invariant
+          : undefined,
+      kind: it.kind === OFERTA_ECONOMICA_KIND ? OFERTA_ECONOMICA_KIND : undefined,
+      origin:
+        typeof it.origin === "string" && (SECTION_ORIGINS as readonly string[]).includes(it.origin)
+          ? (it.origin as ProposalSectionOrigin)
           : undefined,
     })),
   );

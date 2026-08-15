@@ -43,6 +43,24 @@ export interface ProposalAIContent {
   resumenEjecutivo: string;
   analisisNecesidades: string;
   sectoresRelevantes: string[];
+  /** Capítulos institucionales curados en el editor v2. */
+  institutional?: {
+    quienesSomos?: string;
+    comprensionServicio?: string;
+    dotacion?: string;
+    uniformesEpp?: string;
+    capacitacion?: string;
+    opaiSla?: string;
+    supervisionContingencias?: string;
+    enfoquePreventivo?: string;
+    cartaGantt?: string;
+    experienciaCertificaciones?: string;
+    exclusiones?: string;
+  };
+  /** Cargos extraídos de «Quiénes somos»; nunca incluye cifras de dotación. */
+  organigramRoles?: string[];
+  /** Certificaciones declaradas en el capítulo de experiencia. */
+  certifications?: string[];
 }
 
 /**

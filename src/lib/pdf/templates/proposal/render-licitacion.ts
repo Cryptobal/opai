@@ -4,7 +4,7 @@
  */
 import type { ProposalProps } from './build-proposal-props';
 import {
-  economicOpeningFromBreakdown,
+  economicOpeningFromQuote,
   formatOpeningClp,
   formatOpeningPct,
   formatOpeningUf,
@@ -14,6 +14,17 @@ import {
 export async function renderLicitacionProposalToBufferFromProps(
   props: ProposalProps,
 ): Promise<Buffer> {
+  if (
+    (props.proposalSections && props.proposalSections.length > 0) ||
+    (props.licitacion?.sections && props.licitacion.sections.length > 0)
+  ) {
+    const { renderInstitutionalProposalToBufferFromProps } = await import(
+      './institutional-layout'
+    );
+    return renderInstitutionalProposalToBufferFromProps(props);
+  }
+
+  // Fallback de compatibilidad para props históricos sin contenido v2.
   // eslint-disable-next-line no-eval
   const nodeRequire = eval('require') as NodeRequire;
   const React = nodeRequire('react') as typeof import('react');
@@ -142,13 +153,98 @@ export async function renderLicitacionProposalToBufferFromProps(
     Footer(),
   );
 
-  const opening = economicOpeningFromBreakdown(props.breakdown ?? null, props.ufValue ?? 0);
+  const opening = economicOpeningFromQuote({
+    breakdown: props.breakdown,
+    ufFallback: props.ufValue ?? 0,
+    serviceLines: props.items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unitPriceClp:
+        item.quantity > 0 ? item.subtotal / item.quantity : item.unitPrice,
+      subtotalClp: item.subtotal,
+    })),
+    installations: props.installations?.length
+      ? props.installations.map((installation) => ({
+          name: installation.name,
+          guards: installation.staffingCount,
+          amountClp: installation.monthly,
+        }))
+      : props.installationName && props.installationName !== '-'
+        ? [{
+            name: props.installationName,
+            guards: props.staffingCount,
+            amountClp: props.totalNeto,
+          }]
+        : [],
+  });
   const [primaryCol, secondaryCol] = openingAmountColumns(opening.currency);
   const fmtAmt = (kind: 'uf' | 'clp', clp: number) =>
     kind === 'uf' ? formatOpeningUf(clp, opening.ufValue) : formatOpeningClp(clp);
 
   function EconomicTable() {
     return h(View, null,
+      ...(opening.serviceLines ?? []).length > 0
+        ? [
+            h(Text, { key: 'services-title', style: { ...styles.h1, fontSize: 10, marginTop: 8 } }, 'Cotización por servicios'),
+            h(View, { key: 'services-head', style: styles.tableHeader },
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '46%' } }, 'Servicio'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '12%', textAlign: 'right' } }, 'Cant.'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '21%', textAlign: 'right' } }, 'Valor unitario'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '21%', textAlign: 'right' } }, 'Subtotal mensual'),
+            ),
+            ...(opening.serviceLines ?? []).map((line, index) =>
+              h(View, { key: `service-${index}`, style: styles.tableRow },
+                h(Text, { style: { fontSize: 8, width: '46%' } }, line.description),
+                h(Text, { style: { fontSize: 8, width: '12%', textAlign: 'right' } }, line.quantity.toLocaleString('es-CL')),
+                h(Text, { style: { fontSize: 8, width: '21%', textAlign: 'right' } }, formatOpeningClp(line.unitPriceClp)),
+                h(Text, { style: { fontSize: 8, width: '21%', textAlign: 'right', fontWeight: 600 } }, formatOpeningClp(line.subtotalClp)),
+              ),
+            ),
+          ]
+        : [],
+      ...(opening.byInstallation ?? []).length > 0
+        ? [
+            h(Text, { key: 'installations-title', style: { ...styles.h1, fontSize: 10, marginTop: 12 } }, 'Apertura por instalación'),
+            h(View, { key: 'installations-head', style: styles.tableHeader },
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '50%' } }, 'Instalación'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '18%', textAlign: 'right' } }, 'Dotación'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '32%', textAlign: 'right' } }, 'Monto mensual neto'),
+            ),
+            ...(opening.byInstallation ?? []).map((installation, index) =>
+              h(View, { key: `installation-${index}`, style: styles.tableRow },
+                h(Text, { style: { fontSize: 8, width: '50%' } }, installation.name),
+                h(Text, { style: { fontSize: 8, width: '18%', textAlign: 'right' } }, installation.guards.toLocaleString('es-CL')),
+                h(Text, { style: { fontSize: 8, width: '32%', textAlign: 'right', fontWeight: 600 } }, formatOpeningClp(installation.amountClp)),
+              ),
+            ),
+          ]
+        : [],
+      ...(opening.salariesByRole ?? []).length > 0
+        ? [
+            h(Text, { key: 'salaries-title', style: { ...styles.h1, fontSize: 10, marginTop: 12 } }, 'Sueldos por cargo · valores por persona al mes'),
+            h(View, { key: 'salaries-head', style: styles.tableHeader },
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '22%', fontSize: 6 } }, 'Cargo'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '7%', fontSize: 6, textAlign: 'right' } }, 'Pers.'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '14%', fontSize: 6, textAlign: 'right' } }, 'Base'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '14%', fontSize: 6, textAlign: 'right' } }, 'Gratificación'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '15%', fontSize: 6, textAlign: 'right' } }, 'Colación/mov.'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '14%', fontSize: 6, textAlign: 'right' } }, 'Leyes sociales'),
+              h(Text, { style: { ...styles.tableHeaderTxt, width: '14%', fontSize: 6, textAlign: 'right' } }, 'Costo empresa'),
+            ),
+            ...(opening.salariesByRole ?? []).map((salary) =>
+              h(View, { key: `salary-${salary.cargo}`, style: styles.tableRow },
+                h(Text, { style: { fontSize: 6.5, width: '22%' } }, salary.cargo),
+                h(Text, { style: { fontSize: 6.5, width: '7%', textAlign: 'right' } }, salary.count.toLocaleString('es-CL')),
+                h(Text, { style: { fontSize: 6.5, width: '14%', textAlign: 'right' } }, formatOpeningClp(salary.baseClp)),
+                h(Text, { style: { fontSize: 6.5, width: '14%', textAlign: 'right' } }, formatOpeningClp(salary.gratificacionClp)),
+                h(Text, { style: { fontSize: 6.5, width: '15%', textAlign: 'right' } }, formatOpeningClp(salary.colacionMovilizacionClp)),
+                h(Text, { style: { fontSize: 6.5, width: '14%', textAlign: 'right' } }, formatOpeningClp(salary.leyesSocialesClp)),
+                h(Text, { style: { fontSize: 6.5, width: '14%', textAlign: 'right', fontWeight: 600 } }, formatOpeningClp(salary.costoEmpresaClp)),
+              ),
+            ),
+          ]
+        : [],
+      h(Text, { style: { ...styles.h1, fontSize: 10, marginTop: 12 } }, 'Estructura del precio'),
       h(View, { style: styles.tableHeader },
         h(Text, { style: { ...styles.tableHeaderTxt, width: '40%' } }, 'Concepto'),
         h(Text, { style: { ...styles.tableHeaderTxt, width: '20%', textAlign: 'right' } }, primaryCol === 'uf' ? 'UF' : 'CLP'),

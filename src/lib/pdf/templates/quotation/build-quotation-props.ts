@@ -392,6 +392,7 @@ export async function buildQuotationProps(
           id: string;
           customName?: string | null;
           puestoTrabajo?: { name: string } | null;
+          cargo?: { name: string } | null;
           numGuards: number;
           numPuestos?: number;
           monthlyPositionCost: unknown;
@@ -435,6 +436,7 @@ export async function buildQuotationProps(
           return {
             id: pos.id,
             name: pos.customName || pos.puestoTrabajo?.name || 'Puesto',
+            cargoName: pos.cargo?.name ?? null,
             numGuards: pos.numGuards,
             numPuestos: pos.numPuestos ?? 1,
             totalGuardsInPosition: totalGuardsInPos,
@@ -445,6 +447,8 @@ export async function buildQuotationProps(
             pensionReformEmployer: getNum('pension_reform_employer'),
             afcEmployer: getNestedNum('afc_employer', 'total'),
             mutualEmployer: getNestedNum('work_injury_employer', 'amount'),
+            mealAllowance: getNum('meal_allowance'),
+            transportAllowance: getNum('transport_allowance'),
             vacationProvision: getNum('vacation_provision'),
             severanceProvision: getNum('severance_provision'),
             totalLaborCost: costClp,

@@ -170,6 +170,7 @@ export async function POST(request: NextRequest) {
         type: legacy.type,
         status: legacy.status,
         isActive: legacy.isActive,
+        useAsReference: body.useAsReference,
         website: body.website || null,
         address: body.address || null,
         commune: body.commune || null,
@@ -187,6 +188,7 @@ export async function POST(request: NextRequest) {
         type: account.type,
         status: account.status,
         isActive: account.isActive,
+        useAsReference: account.useAsReference,
       },
       createdBy: ctx.userId,
     });

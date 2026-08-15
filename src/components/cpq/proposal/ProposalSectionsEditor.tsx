@@ -1,9 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileDown, MessageCircle, Sparkles } from "lucide-react";
+import { FileDown, MessageCircle, Plus, Sparkles } from "lucide-react";
 import { EmptyState, IconBubble, Spinner, Surface, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { openAnchoredChat } from "@/lib/ai/ai-command-event";
 import { toast } from "sonner";
 import type { ProposalContentV2 } from "@/lib/cpq/proposal-sections/schema";
@@ -21,6 +31,12 @@ type Payload = {
   gate: string | null;
   needsConversion?: boolean;
   quote: { id: string; code: string; dealId: string | null };
+};
+
+type PatchPayload = {
+  content: ProposalContentV2;
+  validations: ProposalValidation[];
+  progress?: { generated: number; failed: number; skipped: number };
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -58,6 +74,11 @@ export function ProposalSectionsEditor({
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Payload | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [generatingAll, setGeneratingAll] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addTitle, setAddTitle] = useState("");
+  const [regenerateId, setRegenerateId] = useState<string | null>(null);
+  const [regenerateInstruction, setRegenerateInstruction] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -87,7 +108,7 @@ export function ProposalSectionsEditor({
   }, [load]);
 
   async function patch(body: Record<string, unknown>) {
-    if (!data) return;
+    if (!data) return null;
     setBusy(true);
     try {
       const res = await fetch(`/api/cpq/quotes/${quoteId}/proposal-sections`, {
@@ -97,24 +118,34 @@ export function ProposalSectionsEditor({
       });
       const json = (await res.json().catch(() => ({}))) as {
         success?: boolean;
-        data?: { content: ProposalContentV2; validations: ProposalValidation[] };
+        data?: PatchPayload;
         error?: string;
         code?: string;
       };
       if (json.code === "conflict") {
         toast.error(json.error);
         await load();
-        return;
+        return null;
       }
       if (!res.ok || !json.success || !json.data) {
         toast.error(json.error || "No se pudo guardar");
-        return;
+        return null;
       }
+      const patched = json.data;
       setData((prev) =>
         prev
-          ? { ...prev, content: json.data!.content, validations: json.data!.validations, gate: prev.gate, needsConversion: false }
+          ? { ...prev, content: patched.content, validations: patched.validations, gate: prev.gate, needsConversion: false }
           : prev,
       );
+      setActiveId((current) =>
+        patched.content.sections.some((item) => item.id === current)
+          ? current
+          : patched.content.sections[0]?.id ?? null,
+      );
+      return patched;
+    } catch {
+      toast.error("No se pudo guardar la propuesta");
+      return null;
     } finally {
       setBusy(false);
     }
@@ -130,6 +161,84 @@ export function ProposalSectionsEditor({
     if (!ok) return;
     await patch({ action: "convert_to_licitacion" });
     await load();
+  }
+
+  async function generateAll() {
+    setGeneratingAll(true);
+    try {
+      const result = await patch({ action: "generate_all" });
+      if (!result) return;
+      const summary = result.progress;
+      toast.success(
+        summary
+          ? `Propuesta generada: ${summary.generated} secciones, ${summary.failed} pendientes, ${summary.skipped} automáticas.`
+          : "Propuesta generada.",
+      );
+    } finally {
+      setGeneratingAll(false);
+    }
+  }
+
+  async function addNewSection() {
+    const title = addTitle.trim();
+    if (!title || !data) return;
+    const previousIds = new Set(data.content.sections.map((item) => item.id));
+    const result = await patch({ action: "add", title });
+    if (!result) return;
+    const created = result.content.sections.find((item) => !previousIds.has(item.id));
+    if (created) setActiveId(created.id);
+    setAddTitle("");
+    setAddOpen(false);
+  }
+
+  async function regenerateWithInstruction() {
+    if (!regenerateId) return;
+    const result = await patch({
+      action: "regenerate",
+      sectionId: regenerateId,
+      instruction: regenerateInstruction,
+    });
+    if (!result) return;
+    setActiveId(regenerateId);
+    setRegenerateInstruction("");
+    setRegenerateId(null);
+    toast.success("Sección regenerada.");
+  }
+
+  async function removeProposalSection(sectionId: string, title: string) {
+    const ok = await confirmDialog({
+      title: "¿Eliminar esta sección?",
+      description: `Se eliminará «${title}» de la propuesta. Esta acción no se puede deshacer.`,
+      confirmLabel: "Eliminar",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    await patch({ action: "remove", sectionId });
+  }
+
+  async function moveSection(sectionId: string, direction: "up" | "down") {
+    if (!data) return;
+    const ordered = [...data.content.sections].sort((a, b) => a.order - b.order);
+    const index = ordered.findIndex((item) => item.id === sectionId);
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || target < 0 || target >= ordered.length) return;
+    [ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!];
+    await patch({ action: "reorder", order: ordered.map((item) => item.id) });
+  }
+
+  async function moveSectionToExclusiones(sectionId: string, title: string) {
+    const ok = await confirmDialog({
+      title: "¿Mover a Exclusiones?",
+      description: `El contenido de «${title}» se agregará a Exclusiones y la sección se quitará del índice.`,
+      confirmLabel: "Mover",
+    });
+    if (!ok) return;
+    await patch({ action: "move_exclusiones", sectionId });
+  }
+
+  async function saveAsFixed(sectionId: string) {
+    const result = await patch({ action: "save_as_fixed", sectionId });
+    if (result) toast.success("Sección guardada como fija de empresa.");
   }
 
   const section = data?.content.sections.find((s) => s.id === activeId) ?? data?.content.sections[0];
@@ -166,22 +275,54 @@ export function ProposalSectionsEditor({
             </div>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 sm:h-9 shrink-0"
-          onClick={() =>
-            openAnchoredChat({
-              anchorType: "cpq_quote",
-              anchorId: quoteId,
-              entityName: quoteLabel,
-            })
-          }
-        >
-          <MessageCircle className="h-4 w-4" />
-          Abrir chat
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {!readOnly ? (
+            <>
+              <Button
+                type="button"
+                className="h-10 sm:h-9"
+                disabled={loading || busy || licitacionGate}
+                onClick={() => void generateAll()}
+              >
+                {generatingAll ? <Spinner size="sm" /> : <Sparkles className="h-4 w-4" />}
+                {generatingAll ? "Generando propuesta…" : "Generar propuesta"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 sm:h-9"
+                disabled={loading || busy}
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Agregar sección
+              </Button>
+            </>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 sm:h-9"
+            onClick={() =>
+              openAnchoredChat({
+                anchorType: "cpq_quote",
+                anchorId: quoteId,
+                entityName: quoteLabel,
+              })
+            }
+          >
+            <MessageCircle className="h-4 w-4" />
+            Abrir chat
+          </Button>
+        </div>
       </div>
+
+      {generatingAll ? (
+        <div className="flex items-center gap-2 rounded-xl border border-status-info-border bg-status-info-soft px-3 py-2 text-[13px] text-status-info-fg">
+          <Spinner size="sm" />
+          Generando todas las secciones. Esto puede tardar unos minutos…
+        </div>
+      ) : null}
 
       {data?.needsConversion ? (
         <div className="flex flex-col gap-2 rounded-lg border border-status-warn-border bg-status-warn-soft px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
@@ -234,7 +375,29 @@ export function ProposalSectionsEditor({
         <>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
             <div className="min-w-0 overflow-x-auto lg:overflow-visible">
-              <ProposalSectionList sections={data.content.sections} activeId={section.id} onSelect={setActiveId} />
+              <ProposalSectionList
+                sections={data.content.sections}
+                activeId={section.id}
+                onSelect={setActiveId}
+                readOnly={Boolean(readOnly)}
+                busy={busy}
+                onRegenerate={(item) => {
+                  setRegenerateInstruction("");
+                  setRegenerateId(item.id);
+                }}
+                onToggleApproval={(item) =>
+                  void patch({
+                    action: item.status === "aprobada" ? "unapprove" : "approve",
+                    sectionId: item.id,
+                  })
+                }
+                onMove={(item, direction) => void moveSection(item.id, direction)}
+                onRemove={(item) => void removeProposalSection(item.id, item.title)}
+                onMoveExclusiones={(item) =>
+                  void moveSectionToExclusiones(item.id, item.title)
+                }
+                onSaveAsFixed={(item) => void saveAsFixed(item.id)}
+              />
             </div>
             <ProposalSectionPanel
               key={section.id}
@@ -243,19 +406,23 @@ export function ProposalSectionsEditor({
               busy={busy}
               opening={economicOpening}
               onSave={(content, title) => {
-                void patch({ action: "set_content", sectionId: section.id, content });
-                if (title !== section.title && !section.invariant) {
-                  void patch({ action: "rename", sectionId: section.id, title });
-                }
+                void patch({ action: "set_content", sectionId: section.id, content, title });
               }}
               onApprove={() => void patch({ action: "approve", sectionId: section.id })}
               onUnapprove={() => void patch({ action: "unapprove", sectionId: section.id })}
               onRegenerate={(instruction) =>
                 void patch({ action: "regenerate", sectionId: section.id, instruction })
               }
+              onSaveAsFixed={() => void saveAsFixed(section.id)}
+              onDelete={() => void removeProposalSection(section.id, section.title)}
             />
           </div>
           <ProposalValidations items={data.validations} />
+          <p className="text-[12px] text-ds-text-3">
+            {mode === "licitacion"
+              ? "Para enviar una licitación debes aprobar todas las secciones."
+              : "En modo comercial puedes generar el PDF y enviar la propuesta sin aprobar el 100% de las secciones."}
+          </p>
           {!readOnly && data.content.status !== "aprobada" && data.content.status !== "enviada" ? (
             <Button
               type="button"
@@ -287,7 +454,7 @@ export function ProposalSectionsEditor({
         <p className="text-[12px] text-ds-text-3">
           {mode === "licitacion"
             ? "Licitación: se envía la propuesta técnica (con oferta económica) y se marca la cotización como enviada. No hay portal ni correo."
-            : "Comercial: se envía la cotización PDF y la propuesta técnica (con oferta económica) por portal o correo."}
+            : "Comercial: PDF y envío están disponibles aunque queden secciones sin aprobar."}
         </p>
         <div className="hidden lg:block space-y-2">
         {mode === "licitacion" && onMarkSentLicitacion ? (
@@ -304,7 +471,7 @@ export function ProposalSectionsEditor({
           <Button
             type="button"
             className="h-10 sm:h-9"
-            disabled={alreadySent || !proposalApproved || Boolean(readOnly)}
+            disabled={alreadySent || Boolean(readOnly)}
             onClick={onSendPortal}
           >
             Enviar propuesta (portal)
@@ -312,6 +479,114 @@ export function ProposalSectionsEditor({
         ) : null}
         </div>
       </div>
+
+      <Dialog
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) setAddTitle("");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void addNewSection();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Agregar sección</DialogTitle>
+              <DialogDescription>
+                Crea una sección vacía para redactarla o generarla con IA.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="proposal-section-title">Título</Label>
+              <Input
+                id="proposal-section-title"
+                autoFocus
+                value={addTitle}
+                onChange={(event) => setAddTitle(event.target.value)}
+                placeholder="Ej. Plan de implementación"
+                className="h-10 sm:h-9"
+                disabled={busy}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 sm:h-9"
+                onClick={() => setAddOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                className="h-10 sm:h-9"
+                disabled={busy || !addTitle.trim()}
+              >
+                {busy ? <Spinner size="sm" /> : <Plus className="h-4 w-4" />}
+                Agregar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(regenerateId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRegenerateId(null);
+            setRegenerateInstruction("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void regenerateWithInstruction();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Regenerar sección</DialogTitle>
+              <DialogDescription>
+                Indica qué debe cambiar. Si la dejas vacía, se regenerará con los datos disponibles.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="proposal-regenerate-instruction">Instrucción</Label>
+              <Input
+                id="proposal-regenerate-instruction"
+                autoFocus
+                value={regenerateInstruction}
+                onChange={(event) => setRegenerateInstruction(event.target.value)}
+                placeholder="Ej. Enfatiza la continuidad operacional"
+                className="h-10 sm:h-9"
+                disabled={busy}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 sm:h-9"
+                onClick={() => setRegenerateId(null)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" className="h-10 sm:h-9" disabled={busy}>
+                {busy ? <Spinner size="sm" /> : <Sparkles className="h-4 w-4" />}
+                Regenerar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Surface>
   );
 }

@@ -11,7 +11,6 @@ import { buildContentDisposition } from '@/lib/pdf/cpq-quote-pdf-filename';
 import { prisma } from '@/lib/prisma';
 import { requireTenantModule } from '@/lib/require-module';
 import { loadQuoteProposal } from '@/lib/cpq/proposal-sections/persist';
-import { allSectionsApproved } from '@/lib/cpq/proposal-sections/ops';
 import { blockingErrors, validateProposalContent } from '@/lib/cpq/proposal-sections/validate';
 
 export const runtime = 'nodejs';
@@ -50,10 +49,8 @@ export async function GET(
 
     if (pdfMode === 'final') {
       const { quote: loaded, content } = await loadQuoteProposal({ tenantId, quoteId: id });
-      const isV2 = content.version === 2;
       const needsApprovalGate =
-        quote.proposalMode === 'licitacion' ||
-        (quote.proposalMode === 'comercial' && isV2);
+        quote.proposalMode === 'licitacion' || content.mode === 'licitacion';
       if (needsApprovalGate) {
         if (content.status !== 'aprobada' && loaded.proposalStatus !== 'aprobada') {
           return NextResponse.json(
@@ -64,27 +61,16 @@ export async function GET(
             { status: 422 },
           );
         }
-        if (!allSectionsApproved(content)) {
+        const blocking = blockingErrors(
+          validateProposalContent(content, {
+            hasDotacion: loaded.totalGuards > 0 || loaded.totalPositions > 0,
+          }),
+        );
+        if (blocking.length) {
           return NextResponse.json(
-            {
-              success: false,
-              error: 'El PDF final exige el 100% de las secciones aprobadas.',
-            },
+            { success: false, error: blocking[0]!.message },
             { status: 422 },
           );
-        }
-        if (quote.proposalMode === 'licitacion') {
-          const blocking = blockingErrors(
-            validateProposalContent(content, {
-              hasDotacion: loaded.totalGuards > 0 || loaded.totalPositions > 0,
-            }),
-          );
-          if (blocking.length) {
-            return NextResponse.json(
-              { success: false, error: blocking[0]!.message },
-              { status: 422 },
-            );
-          }
         }
       }
     }

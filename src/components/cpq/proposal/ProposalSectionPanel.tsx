@@ -9,6 +9,7 @@ import type { ProposalSection } from "@/lib/cpq/proposal-sections/schema";
 import { isAutoSection } from "@/lib/cpq/proposal-sections/oferta-economica";
 import type { EconomicOpening } from "@/lib/cpq/economic-opening";
 import { EconomicOpeningTable } from "./EconomicOpeningTable";
+import { Save, Trash2 } from "lucide-react";
 
 export function ProposalSectionPanel({
   section,
@@ -20,6 +21,8 @@ export function ProposalSectionPanel({
   onApprove,
   onUnapprove,
   onRegenerate,
+  onSaveAsFixed,
+  onDelete,
 }: {
   section: ProposalSection;
   readOnly: boolean;
@@ -30,6 +33,8 @@ export function ProposalSectionPanel({
   onApprove: () => void;
   onUnapprove: () => void;
   onRegenerate: (instruction: string) => void;
+  onSaveAsFixed: () => void;
+  onDelete: () => void;
 }) {
   const [title, setTitle] = useState(section.title);
   const [content, setContent] = useState(section.content);
@@ -116,7 +121,29 @@ export function ProposalSectionPanel({
           >
             Regenerar
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 sm:h-9"
+            disabled={busy}
+            onClick={onSaveAsFixed}
+          >
+            <Save className="h-4 w-4" />
+            Guardar como fija
+          </Button>
         </div>
+      ) : null}
+      {!readOnly && !section.invariant ? (
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-10 sm:h-9 text-status-danger-fg hover:text-status-danger-fg"
+          disabled={busy}
+          onClick={onDelete}
+        >
+          <Trash2 className="h-4 w-4" />
+          Eliminar sección
+        </Button>
       ) : null}
     </div>
   );

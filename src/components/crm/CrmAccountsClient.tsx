@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -40,6 +41,7 @@ type AccountFormState = {
   industry: string;
   website: string;
   type: "prospect" | "client";
+  useAsReference: boolean;
 };
 
 const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
@@ -140,6 +142,7 @@ const DEFAULT_FORM: AccountFormState = {
   industry: "",
   website: "",
   type: "prospect",
+  useAsReference: false,
 };
 
 type LifecycleFilter = "client_active" | "prospect" | "client_inactive" | "all";
@@ -483,6 +486,26 @@ export function CrmAccountsClient({
                     placeholder="https://www.empresa.cl"
                     className={inputClassName}
                   />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="flex min-h-11 items-center justify-between gap-3 rounded-ds-md border border-ds-border-subtle bg-ds-surface-2 px-3 py-2">
+                    <span>
+                      <span className="block text-sm font-medium text-ds-text-1">
+                        Usar como referencia en propuestas
+                      </span>
+                      <span className="block text-[13px] text-ds-text-3">
+                        Autoriza publicar esta cuenta en la cartera institucional.
+                      </span>
+                    </span>
+                    <Switch
+                      size="lg"
+                      checked={form.useAsReference}
+                      onCheckedChange={(useAsReference) =>
+                        setForm((current) => ({ ...current, useAsReference }))
+                      }
+                      aria-label="Usar como referencia en propuestas"
+                    />
+                  </label>
                 </div>
               </div>
               <DialogFooter>
