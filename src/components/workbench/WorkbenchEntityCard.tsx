@@ -23,6 +23,8 @@ export function WorkbenchEntityCard({
   statusSlot,
   chips,
   metrics,
+  /** Slot inferior opcional (acciones inline) — separado por hairline, dentro del área clickeable. */
+  footer,
   className,
 }: {
   href: string;
@@ -32,6 +34,7 @@ export function WorkbenchEntityCard({
   statusSlot?: ReactNode;
   chips?: ReactNode;
   metrics?: WorkbenchMetric[];
+  footer?: ReactNode;
   className?: string;
 }) {
   return (
@@ -90,6 +93,9 @@ export function WorkbenchEntityCard({
             </div>
           ))}
         </div>
+      ) : null}
+      {footer ? (
+        <div className="mt-2.5 border-t border-white/[0.08] pt-2.5">{footer}</div>
       ) : null}
     </Link>
   );

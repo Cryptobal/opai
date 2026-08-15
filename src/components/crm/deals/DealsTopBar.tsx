@@ -1,9 +1,10 @@
 "use client";
 
 import { Search, Plus } from "lucide-react";
-import { Stat, StatGrid } from "@/components/opai-ds";
+import { WorkbenchKpiStrip } from "@/components/workbench";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { formatClpCompact } from "@/lib/crm/deal-metrics";
 import type { DealsPipelineSummary } from "@/lib/crm/deals-pipeline-summary";
 
@@ -42,12 +43,15 @@ export function DealsTopBar({
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-3" />
             <Input
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Buscar título, cuenta o contacto…"
-              className="h-10 pl-9 sm:h-9"
+              className={cn(
+                "h-10 rounded-full border-[var(--glass-border)] bg-[var(--glass-fill-soft)] pl-9 text-ds-text-1",
+                "placeholder:text-ds-text-4 focus-visible:ring-[rgba(var(--ds-glow-rgb),0.4)] sm:h-9",
+              )}
               aria-label="Buscar negocios"
             />
           </div>
@@ -64,29 +68,29 @@ export function DealsTopBar({
       </div>
 
       <div className="hidden sm:block">
-        <StatGrid cols={2} lgCols={4}>
-          <Stat
-            label="Pipeline abierto"
-            value={formatClpCompact(open.clp)}
-            hint={`${open.count} negocio${open.count !== 1 ? "s" : ""}`}
-            variant="brand"
-          />
-          <Stat label="Negocios" value={open.count} animate />
-          <div className="hidden min-[1000px]:block">
-            <Stat
-              label="Ponderado"
-              value={formatClpCompact(open.weightedClp)}
-              hint="Probabilidad del deal o fallback por etapa"
-            />
-          </div>
-          <div className="hidden min-[1180px]:block">
-            <Stat
-              label="Puestos en juego"
-              value={open.guards.toLocaleString("es-CL")}
-              hint="Guardias en cotización activa"
-            />
-          </div>
-        </StatGrid>
+        <WorkbenchKpiStrip
+          items={[
+            {
+              id: "open-clp",
+              label: "Pipeline abierto",
+              value: formatClpCompact(open.clp),
+              tone: "brand",
+            },
+            { id: "count", label: "Negocios", value: open.count, tone: "brand" },
+            {
+              id: "weighted",
+              label: "Ponderado",
+              value: formatClpCompact(open.weightedClp),
+              tone: "info",
+            },
+            {
+              id: "guards",
+              label: "Puestos en juego",
+              value: open.guards.toLocaleString("es-CL"),
+              tone: "ok",
+            },
+          ]}
+        />
       </div>
     </div>
   );
