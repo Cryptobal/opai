@@ -66,7 +66,7 @@ const fixture: ProposalProps = {
   offerer: {
     commercialName: "Proveedor Security",
     legalName: "Proveedor Security SpA",
-    rut: "76.000.000-0",
+    rut: "76.123.456-7",
     address: "Santiago, Chile",
     legalRepresentative: {
       name: "Representante Legal",
