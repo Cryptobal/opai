@@ -50,11 +50,8 @@ export async function GET(
 
     if (pdfMode === 'final') {
       const { quote: loaded, content } = await loadQuoteProposal({ tenantId, quoteId: id });
-      const isV2 = content.version === 2;
-      const needsApprovalGate =
-        quote.proposalMode === 'licitacion' ||
-        (quote.proposalMode === 'comercial' && isV2);
-      if (needsApprovalGate) {
+      // Gate de aprobación 100%: solo licitación (comercial envía libre).
+      if (content.mode === 'licitacion' || quote.proposalMode === 'licitacion') {
         if (content.status !== 'aprobada' && loaded.proposalStatus !== 'aprobada') {
           return NextResponse.json(
             {
@@ -73,18 +70,29 @@ export async function GET(
             { status: 422 },
           );
         }
-        if (quote.proposalMode === 'licitacion') {
-          const blocking = blockingErrors(
-            validateProposalContent(content, {
-              hasDotacion: loaded.totalGuards > 0 || loaded.totalPositions > 0,
-            }),
+        const blocking = blockingErrors(
+          validateProposalContent(content, {
+            hasDotacion: loaded.totalGuards > 0 || loaded.totalPositions > 0,
+          }),
+        );
+        if (blocking.length) {
+          return NextResponse.json(
+            { success: false, error: blocking[0]!.message },
+            { status: 422 },
           );
-          if (blocking.length) {
-            return NextResponse.json(
-              { success: false, error: blocking[0]!.message },
-              { status: 422 },
-            );
-          }
+        }
+      } else {
+        // Comercial: solo bloquea exclusiones vacías / sin dotación (no exige aprobaciones).
+        const blocking = blockingErrors(
+          validateProposalContent(content, {
+            hasDotacion: loaded.totalGuards > 0 || loaded.totalPositions > 0,
+          }),
+        ).filter((e) => e.code !== 'secciones_pendientes');
+        if (blocking.length) {
+          return NextResponse.json(
+            { success: false, error: blocking[0]!.message },
+            { status: 422 },
+          );
         }
       }
     }

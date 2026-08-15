@@ -27,17 +27,24 @@ import {
 } from "@/lib/cpq/proposal-sections/ops";
 import { validateProposalContent } from "@/lib/cpq/proposal-sections/validate";
 import { generateProposalSection } from "@/lib/cpq/proposal-sections/generate-section";
+import {
+  applyFixedLibraryContent,
+  buildDotacionContent,
+  generateAllSections,
+  needsCommercialAutogen,
+} from "@/lib/cpq/proposal-sections/generate-all";
 import { deriveComplianceMatrix } from "@/lib/cpq/proposal-sections/compliance-matrix";
 import {
   buildLicitacionCorpus,
   licitacionGenerationGate,
 } from "@/modules/crm/documents/licitacion-ingest.service";
 import type { ProposalContentV2, ProposalDocStatus } from "@/lib/cpq/proposal-sections/schema";
-import { emptyProposalV2, PROPOSAL_STATUSES } from "@/lib/cpq/proposal-sections/schema";
+import { DOTACION_KIND, emptyProposalV2, PROPOSAL_STATUSES } from "@/lib/cpq/proposal-sections/schema";
 import { isAutoSection } from "@/lib/cpq/proposal-sections/oferta-economica";
 import { needsManualConvertToLicitacion } from "@/lib/cpq/proposal-sections/mode";
+import { saveFixedSectionFromProposal } from "@/lib/cpq/fixed-sections";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 async function validationCtx(tenantId: string, quote: { dealId: string | null; totalGuards: number; totalPositions: number }) {
   let fechaEntrega: string | null = null;
@@ -55,6 +62,21 @@ async function validationCtx(tenantId: string, quote: { dealId: string | null; t
   };
 }
 
+function cpqCtx(quote: {
+  code: string;
+  name: string | null;
+  clientName: string | null;
+  totalGuards: number;
+  totalPositions: number;
+}) {
+  return {
+    code: quote.code,
+    name: quote.name,
+    clientName: quote.clientName,
+    staffingSummary: `${quote.totalGuards} guardias / ${quote.totalPositions} puestos`,
+  };
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -68,7 +90,26 @@ export async function GET(
     if (forbidden) return forbidden;
 
     const { id } = await params;
-    const { quote, content, dealIsLicitacion } = await loadQuoteProposal({ tenantId: ctx.tenantId, quoteId: id });
+    let { quote, content, dealIsLicitacion } = await loadQuoteProposal({ tenantId: ctx.tenantId, quoteId: id });
+
+    // Al abrir comercial por primera vez: copiar fijas de biblioteca al instante.
+    if (content.mode === "comercial" && needsCommercialAutogen(content)) {
+      content = await applyFixedLibraryContent(ctx.tenantId, content);
+      const dot = content.sections.find((s) => s.kind === DOTACION_KIND);
+      if (dot && !dot.content.trim()) {
+        const body = await buildDotacionContent({ tenantId: ctx.tenantId, quoteId: id });
+        content = setSectionContent(content, dot.id, body, {
+          sources: ["costeo", "puestos"],
+          mark: "ia",
+        });
+      }
+      content = await saveQuoteProposal({
+        tenantId: ctx.tenantId,
+        quoteId: id,
+        content: { ...content, generating: false },
+      });
+    }
+
     const vCtx = await validationCtx(ctx.tenantId, quote);
     const validations = validateProposalContent(content, vCtx);
     let gate: string | null = null;
@@ -83,6 +124,7 @@ export async function GET(
         content,
         validations,
         gate,
+        autoGeneratePending: needsCommercialAutogen(content),
         needsConversion: needsManualConvertToLicitacion({ dealIsLicitacion, content }),
         matrix: deriveComplianceMatrix(content),
         quote: {
@@ -125,16 +167,18 @@ export async function PATCH(
 
     const { quote, content } = await loadQuoteProposal({ tenantId: ctx.tenantId, quoteId: id });
     let next: ProposalContentV2 = content;
+    let savedFixed: { id: string; key: string; title: string } | null = null;
 
     if (action === "set_content") {
       next = setSectionContent(next, sectionId, typeof body.content === "string" ? body.content : "");
     } else if (action === "rename") {
       next = renameSection(next, sectionId, typeof body.title === "string" ? body.title : "");
-    } else if (action === "add") {
+    } else if (action === "add" || action === "add-section") {
       next = addSection(next, {
         title: typeof body.title === "string" ? body.title : "",
         content: typeof body.content === "string" ? body.content : "",
         afterId: typeof body.afterId === "string" ? body.afterId : undefined,
+        origin: "ia",
       });
     } else if (action === "remove") {
       next = removeSection(next, sectionId);
@@ -164,7 +208,7 @@ export async function PATCH(
         return NextResponse.json({ success: false, error: "Estado inválido" }, { status: 400 });
       }
       next = setProposalDocStatus(next, status as ProposalDocStatus, { userId: ctx.userId });
-    } else if (action === "regenerate") {
+    } else if (action === "generate_all" || action === "generate-all") {
       if (content.mode === "licitacion") {
         if (!quote.dealId) {
           return NextResponse.json(
@@ -177,38 +221,66 @@ export async function PATCH(
         if (gate) {
           return NextResponse.json({ success: false, error: gate }, { status: 422 });
         }
-        const section = next.sections.find((s) => s.id === sectionId);
-        if (!section) {
-          return NextResponse.json({ success: false, error: "Sección no encontrada" }, { status: 404 });
+        next = await generateAllSections({
+          tenantId: ctx.tenantId,
+          quoteId: id,
+          content: next,
+          cpq: cpqCtx(quote),
+          corpus,
+          instruction: typeof body.instruction === "string" ? body.instruction : undefined,
+        });
+      } else {
+        next = await generateAllSections({
+          tenantId: ctx.tenantId,
+          quoteId: id,
+          content: next,
+          cpq: cpqCtx(quote),
+          corpus: null,
+          instruction: typeof body.instruction === "string" ? body.instruction : undefined,
+        });
+      }
+    } else if (action === "regenerate") {
+      const section = next.sections.find((s) => s.id === sectionId);
+      if (!section) {
+        return NextResponse.json({ success: false, error: "Sección no encontrada" }, { status: 404 });
+      }
+      if (isAutoSection(section)) {
+        return NextResponse.json(
+          { success: false, error: "La oferta económica se genera sola desde el costeo." },
+          { status: 400 },
+        );
+      }
+
+      let corpus = null as Awaited<ReturnType<typeof buildLicitacionCorpus>> | null;
+      if (content.mode === "licitacion") {
+        if (!quote.dealId) {
+          return NextResponse.json(
+            { success: false, error: "La cotización no tiene negocio. Vincúlala antes de generar." },
+            { status: 400 },
+          );
         }
+        corpus = await buildLicitacionCorpus(ctx.tenantId, quote.dealId);
+        const gate = licitacionGenerationGate(corpus.hasBases, corpus.basesError);
+        if (gate) {
+          return NextResponse.json({ success: false, error: gate }, { status: 422 });
+        }
+      }
+
+      if (section.kind === DOTACION_KIND) {
+        const bodyDot = await buildDotacionContent({ tenantId: ctx.tenantId, quoteId: id });
+        next = setSectionContent(next, sectionId, bodyDot, {
+          sources: ["costeo", "puestos"],
+          mark: "ia",
+        });
+      } else if (section.origin === "fija_empresa" && !body.instruction) {
+        next = await applyFixedLibraryContent(ctx.tenantId, next);
+      } else {
         const generated = await generateProposalSection({
           tenantId: ctx.tenantId,
           section,
           instruction: typeof body.instruction === "string" ? body.instruction : undefined,
           corpus,
-          cpq: {
-            code: quote.code,
-            name: quote.name,
-            clientName: quote.clientName,
-            staffingSummary: `${quote.totalGuards} guardias / ${quote.totalPositions} puestos`,
-          },
-          mode: "licitacion",
-        });
-        next = setSectionContent(next, sectionId, generated.content, {
-          sources: generated.sources,
-          mark: generated.fallback ? undefined : "ia",
-        });
-      } else {
-        const section = next.sections.find((s) => s.id === sectionId);
-        if (!section) {
-          return NextResponse.json({ success: false, error: "Sección no encontrada" }, { status: 404 });
-        }
-        const generated = await generateProposalSection({
-          tenantId: ctx.tenantId,
-          section,
-          instruction: typeof body.instruction === "string" ? body.instruction : undefined,
-          corpus: null,
-          cpq: { code: quote.code, name: quote.name, clientName: quote.clientName },
+          cpq: cpqCtx(quote),
           mode: content.mode,
         });
         next = setSectionContent(next, sectionId, generated.content, {
@@ -216,6 +288,31 @@ export async function PATCH(
           mark: generated.fallback ? undefined : "ia",
         });
       }
+    } else if (action === "save_as_fixed" || action === "save-as-fixed") {
+      const section = next.sections.find((s) => s.id === sectionId);
+      if (!section) {
+        return NextResponse.json({ success: false, error: "Sección no encontrada" }, { status: 404 });
+      }
+      if (isAutoSection(section) || section.invariant) {
+        return NextResponse.json(
+          { success: false, error: "No se puede guardar como fija una invariante ni la oferta económica." },
+          { status: 400 },
+        );
+      }
+      const saved = await saveFixedSectionFromProposal(ctx.tenantId, {
+        title: section.title,
+        content: section.content,
+        key: section.fixedKey,
+      });
+      savedFixed = { id: saved.id, key: saved.key, title: saved.title };
+      next = {
+        ...next,
+        sections: next.sections.map((s) =>
+          s.id === sectionId
+            ? { ...s, origin: "fija_empresa" as const, fixedKey: saved.key, sources: ["biblioteca"] }
+            : s,
+        ),
+      };
     } else if (action === "convert_to_licitacion") {
       next = emptyProposalV2("licitacion", { legacyV1: content.legacyV1 ?? content });
     } else {
@@ -235,6 +332,8 @@ export async function PATCH(
         content: saved,
         validations: validateProposalContent(saved, vCtx),
         matrix: deriveComplianceMatrix(saved),
+        autoGeneratePending: false,
+        savedFixed,
       },
     });
   } catch (error) {

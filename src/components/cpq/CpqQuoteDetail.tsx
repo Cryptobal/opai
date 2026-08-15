@@ -322,6 +322,7 @@ export function CpqQuoteDetail({
   const [crmDealsReloadKey, setCrmDealsReloadKey] = useState(0);
   const [markingSentLicitacion, setMarkingSentLicitacion] = useState(false);
   const [proposalApproved, setProposalApproved] = useState(false);
+  const [proposalMode, setProposalMode] = useState<"comercial" | "licitacion">("comercial");
   const [crmContext, setCrmContext] = useState({
     accountId: "" as string,
     installationId: "" as string,
@@ -2565,7 +2566,10 @@ export function CpqQuoteDetail({
             currency: crmContext.currency || "CLP",
             ufValue: ufValue ?? 0,
           })}
-          onProposalStatusChange={(_status, approved) => setProposalApproved(approved)}
+          onProposalStatusChange={(_status, approved, mode) => {
+            setProposalApproved(approved);
+            if (mode) setProposalMode(mode);
+          }}
         />
       </div>
 
@@ -2869,7 +2873,7 @@ export function CpqQuoteDetail({
           }
           const baseDisabled =
             !quote ||
-            !proposalApproved ||
+            (proposalMode === "licitacion" && !proposalApproved) ||
             (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
             !crmContext.accountId ||
             !crmContext.contactId ||
