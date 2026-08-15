@@ -68,11 +68,11 @@ export function validateProposalContent(
   }
 
   const { approved, total } = approvedCount(content);
-  if (!allSectionsApproved(content)) {
+  if (content.mode === "licitacion" && !allSectionsApproved(content)) {
     out.push({
       code: "secciones_pendientes",
       level: "error",
-      message: `${approved} de ${total} secciones aprobadas. El PDF final exige el 100%.`,
+      message: `${approved} de ${total} secciones aprobadas. El PDF final exige el 100% en licitación.`,
     });
   }
 
