@@ -94,9 +94,19 @@ describe("ops de índice e invariantes", () => {
     let c = emptyProposalV2("licitacion");
     c = addSection(c, { title: "Suministro de cámaras" });
     expect(c.sections[0]?.invariant).toBe("identificacion");
-    expect(c.sections.some((s) => s.title === "Suministro de cámaras")).toBe(true);
+    expect(c.sections.find((s) => s.title === "Suministro de cámaras")?.origin).toBe(
+      "vacia",
+    );
     expect(c.sections.some((s) => s.invariant === "exclusiones")).toBe(true);
     expect(c.sections.some((s) => s.invariant === "matriz")).toBe(true);
+  });
+
+  it("marca como IA una sección agregada con contenido inicial", () => {
+    const c = addSection(emptyProposalV2("comercial"), {
+      title: "Plan de trabajo",
+      content: "Contenido inicial",
+    });
+    expect(c.sections.find((s) => s.title === "Plan de trabajo")?.origin).toBe("ia");
   });
 
   it("rechaza eliminar / fusionar / renombrar invariantes", () => {

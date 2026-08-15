@@ -90,6 +90,7 @@ export function addSection(
   if (!title) throw new ProposalIndexError("El título de la sección no puede estar vacío");
   const next = clone(content);
   const secs = sorted(next);
+  const initialContent = input.content ?? "";
   const neu: ProposalSection = {
     id: newSectionId(),
     order: 0,
@@ -97,8 +98,8 @@ export function addSection(
     ref: input.ref ?? null,
     status: "ia",
     sources: input.sources ?? [],
-    content: input.content ?? "",
-    origin: "ia",
+    content: initialContent,
+    origin: initialContent.trim() ? "ia" : "vacia",
   };
   let insertAt = secs.length;
   if (input.afterId) {

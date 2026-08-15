@@ -1639,6 +1639,48 @@ export function CpqQuoteDetail({
     return map;
   }, [positions, salePriceMonthly]);
 
+  const economicBreakdown = costSummary
+    ? buildBreakdownData(
+        costSummary,
+        costCategoryBreakdown,
+        positions,
+        positionSalePrices,
+        marginPct,
+        marginAmount,
+        salePriceMonthly,
+        additionalLinesTotal,
+        monthlyHours,
+        crmContext.currency || "UF",
+        ufValue,
+      )
+    : null;
+  const economicServiceLines = [
+    ...positions.map((position) => {
+      const quantity = Math.max(1, position.numGuards) * Math.max(1, position.numPuestos);
+      const subtotalClp = positionSalePrices.get(position.id) ?? 0;
+      return {
+        description: position.customName || position.puestoTrabajo?.name || "Puesto",
+        quantity,
+        unitPriceClp: quantity > 0 ? subtotalClp / quantity : subtotalClp,
+        subtotalClp,
+      };
+    }),
+    ...additionalLines
+      .filter((line) => (line.recurrencia ?? "mensual") !== "unico")
+      .map((line) => {
+        const quantity = Math.max(1, Number(line.cantidad || 1));
+        const subtotalClp = lineSellPrice(line);
+        return {
+          description: line.nombre,
+          quantity,
+          unitPriceClp: subtotalClp / quantity,
+          subtotalClp,
+        };
+      }),
+  ];
+  const economicInstallationName =
+    crmInstallations.find((installation) => installation.id === crmContext.installationId)?.name ?? "";
+
   const positionHourlyRates = useMemo(() => {
     const map = new Map<string, number>();
     for (const pos of positions) {
@@ -2292,19 +2334,7 @@ export function CpqQuoteDetail({
         {secDesglose && costSummary && (
           <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
             <QuoteBreakdownPanel
-              data={buildBreakdownData(
-                costSummary,
-                costCategoryBreakdown,
-                positions,
-                positionSalePrices,
-                marginPct,
-                marginAmount,
-                salePriceMonthly,
-                additionalLinesTotal,
-                monthlyHours,
-                crmContext.currency || "UF",
-                ufValue,
-              )}
+              data={economicBreakdown!}
               variant="default"
             />
           </div>
@@ -2564,6 +2594,17 @@ export function CpqQuoteDetail({
           economicOpening={economicOpeningFromCostSummary(costSummary, {
             currency: crmContext.currency || "CLP",
             ufValue: ufValue ?? 0,
+            breakdown: economicBreakdown,
+            serviceLines: economicServiceLines,
+            byInstallation: economicInstallationName
+              ? [{
+                  name: economicInstallationName,
+                  guards: costSummary?.totalGuards ?? 0,
+                  amountClp:
+                    costSummary?.salePriceMonthly ??
+                    salePriceMonthly + additionalLinesTotal,
+                }]
+              : [],
           })}
           onProposalStatusChange={(_status, approved) => setProposalApproved(approved)}
         />
