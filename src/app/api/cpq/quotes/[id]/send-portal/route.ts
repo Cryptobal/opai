@@ -27,8 +27,11 @@ export async function POST(
     const followUpDecision = (body?.followUp as { include: boolean; targetStageId: string | null; skipAll?: boolean } | undefined);
     const ccEmails: string[] = Array.isArray(body?.ccEmails) ? body.ccEmails.filter(Boolean) : [];
     const bccEmails: string[] = Array.isArray(body?.bccEmails) ? body.bccEmails.filter(Boolean) : [];
-    const includeProposalPdf = Boolean(body?.includeProposalPdf);
-    const includeQuotationPdf = Boolean(body?.includeQuotationPdf);
+    // Por defecto adjuntar ambos PDFs (envío autosuficiente); el modal puede desmarcarlos.
+    const includeProposalPdf =
+      body?.includeProposalPdf === undefined ? true : Boolean(body.includeProposalPdf);
+    const includeQuotationPdf =
+      body?.includeQuotationPdf === undefined ? true : Boolean(body.includeQuotationPdf);
     const recipientContactId =
       typeof body?.recipientContactId === "string" && body.recipientContactId.length > 0
         ? body.recipientContactId

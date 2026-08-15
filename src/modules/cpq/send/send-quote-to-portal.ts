@@ -537,7 +537,11 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   const proposalPdfApplies = includeProposalPdf && quote.positions.length > 0;
   if (proposalPdfApplies) {
     try {
-      const { fileName: proposalFileName, ...proposalProps } = await buildProposalProps(quoteId, tenantId);
+      const { fileName: proposalFileName, ...proposalProps } = await buildProposalProps(
+        quoteId,
+        tenantId,
+        { pdfMode: "final" },
+      );
       const proposalBuffer = await renderProposalToBufferFromProps(proposalProps);
       attachments.push({
         filename: proposalFileName,
