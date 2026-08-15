@@ -58,7 +58,7 @@ export const GUARD_TOUR_STEPS: GuardTourStep[] = [
   {
     title: "Boton de panico",
     description:
-      "Si estas en peligro, toca el boton rojo 'Panico' en la barra de abajo y mantenlo presionado 5 segundos. Central recibe tu alerta con tu ubicacion exacta al instante.",
+      "Si estas en peligro, mantén el botón rojo SOS (arriba a la derecha) durante 2 segundos. Luego confirma en la pantalla de alerta. Central recibe tu ubicación al instante. Está lejos del chat para evitar falsas alarmas.",
     icon: "AlertTriangle",
     bgColor: "from-red-900/40 to-red-950/20",
   },

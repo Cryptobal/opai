@@ -23,6 +23,7 @@ import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { PortalBottomNav } from "./PortalBottomNav";
 import type { PortalTab } from "./PortalBottomNav";
 import { PanicoModal } from "./PanicoModal";
+import { SosHoldButton } from "./SosHoldButton";
 import { PortalPerfil } from "./PortalPerfil";
 import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
 import { DEVICE_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
@@ -555,10 +556,6 @@ export function RondasPortalClient() {
   };
 
   const handleBottomNav = (tab: PortalTab) => {
-    if (tab === "panico") {
-      setShowPanicoModal(true);
-      return;
-    }
     if (tab === "incidente") {
       setScreen("incidente");
       return;
@@ -568,6 +565,10 @@ export function RondasPortalClient() {
     }
     setScreen(tab);
   };
+
+  const openPanicFromSos = useCallback(() => {
+    setShowPanicoModal(true);
+  }, []);
 
   // --- Render ---
 
@@ -598,6 +599,14 @@ export function RondasPortalClient() {
         gpsStatus="off"
         online={!isOffline}
         queueCount={queueCount}
+        trailing={
+          session ? (
+            <SosHoldButton
+              onArmed={openPanicFromSos}
+              disabled={panicBanner === "active" || showPanicoModal}
+            />
+          ) : null
+        }
       />
 
       {panicBanner !== "off" && (

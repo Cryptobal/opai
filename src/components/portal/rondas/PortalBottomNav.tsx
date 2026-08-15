@@ -1,9 +1,9 @@
 "use client";
 
-import { MapPin, MessageCircle, FileWarning, AlertTriangle, User } from "lucide-react";
+import { MapPin, MessageCircle, FileWarning, User } from "lucide-react";
 import { PlatformAwareBottomNav, type NavItem } from "@/components/opai/portal-shell";
 
-export type PortalTab = "mis-rondas" | "chat" | "incidente" | "panico" | "perfil";
+export type PortalTab = "mis-rondas" | "chat" | "incidente" | "perfil";
 
 interface PortalBottomNavProps {
   activeScreen: string;
@@ -13,7 +13,6 @@ interface PortalBottomNavProps {
 const tabs: NavItem<PortalTab>[] = [
   { id: "mis-rondas", label: "Rondas", icon: MapPin },
   { id: "chat", label: "Chat", icon: MessageCircle },
-  { id: "panico", label: "Pánico", icon: AlertTriangle, variant: "danger", elevated: true },
   { id: "incidente", label: "Incidente", icon: FileWarning, variant: "warning" },
   { id: "perfil", label: "Perfil", icon: User },
 ];
