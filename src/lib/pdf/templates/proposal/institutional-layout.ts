@@ -9,6 +9,7 @@ import type {
   ProposalProps,
   ProposalSectionSnapshot,
 } from './build-proposal-props';
+import { stripOrganigramRolesFromContent } from './map-v2-to-ai';
 import {
   economicOpeningFromQuote,
   formatOpeningClp,
@@ -990,6 +991,10 @@ export async function renderInstitutionalProposalToBufferFromProps(
     const isWho = /qui[eé]nes somos|organigrama/i.test(section.title);
     const isExperience = /experiencia|certificaci[oó]n/i.test(section.title);
     if (isExperience) portfolioRendered = references.length > 0;
+    const bodyContent =
+      isWho && organigramRoles.length > 0
+        ? stripOrganigramRolesFromContent(section.content, organigramRoles)
+        : section.content;
     return h(Page, {
       key: `section-${section.id}`,
       size: 'A4',
@@ -1003,11 +1008,11 @@ export async function renderInstitutionalProposalToBufferFromProps(
         : null,
       section.kind === 'oferta_economica'
         ? h(View, null,
-            ...contentNodes(section.content, `economic-${section.id}`),
+            ...contentNodes(bodyContent, `economic-${section.id}`),
             h(EconomicChapter),
           )
         : h(View, null,
-            ...contentNodes(section.content, section.id),
+            ...contentNodes(bodyContent, section.id),
             isWho ? h(Organigram) : null,
             isExperience ? h(Certifications) : null,
             isExperience ? h(Portfolio) : null,

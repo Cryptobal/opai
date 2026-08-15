@@ -43,6 +43,35 @@ function extractOrganigramRoles(value: string): string[] {
   )].slice(0, 18);
 }
 
+/**
+ * Quita del cuerpo las viñetas de cargo que se imprimen en el organigrama,
+ * para no duplicar «Quiénes somos» (narrativa + misma lista).
+ */
+export function stripOrganigramRolesFromContent(
+  content: string,
+  roles: readonly string[],
+): string {
+  if (!content.trim() || roles.length === 0) return content;
+  const roleSet = new Set(
+    roles.map((role) => withoutHeadcount(role).toLowerCase()).filter(Boolean),
+  );
+  const introHints =
+    /estructura de servicio|organiza por cargos|organigrama operativo|estructura institucional/i;
+  return content
+    .split(/\r?\n/)
+    .filter((raw) => {
+      const trimmed = raw.trim();
+      if (!trimmed) return true;
+      if (introHints.test(trimmed) && trimmed.length < 120) return false;
+      const bullet = trimmed.replace(/^[•●▪◦*\-–—]\s*/, "");
+      const normalized = withoutHeadcount(bullet).toLowerCase();
+      return !roleSet.has(normalized);
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function extractCertifications(value: string): string[] {
   const certificationWords =
     /\b(?:certific|acredit|os[\s-]?10|iso|normativ|cumplimiento|ley|decreto|resoluci)\w*/i;
