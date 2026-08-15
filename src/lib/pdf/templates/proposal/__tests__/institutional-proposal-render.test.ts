@@ -100,6 +100,13 @@ const fixture: ProposalProps = {
       content: "Una propuesta preventiva, trazable y medible.",
     },
     {
+      id: "dotacion",
+      order: 1.5,
+      title: "Dotación",
+      content:
+        "### Turnos\n\n| Cargo | Cantidad |\n| --- | ---: |\n| Guardia | **4** |\n\n*Dotación total:** 4 personas",
+    },
+    {
       id: "who",
       order: 1,
       title: "Quiénes somos y organigrama",

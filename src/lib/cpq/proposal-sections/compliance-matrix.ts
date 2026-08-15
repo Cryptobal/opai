@@ -1,6 +1,10 @@
 /**
  * Matriz de cumplimiento derivada del JSON v2 (nunca de salida directa de IA).
  * Cada fila: requisito citado (ref) → sección → CUMPLE | PARCIAL | EXCLUIDO.
+ *
+ * En modo comercial las secciones no llevan `ref` a bases: si no hay filas por
+ * ref, se autogenera una fila por capítulo del cuerpo (excluyendo invariantes
+ * y la sección auto de oferta económica).
  */
 import type { ProposalContentV2, ProposalSection } from "./schema";
 
@@ -33,7 +37,7 @@ function splitRefs(ref: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-export function deriveComplianceMatrix(content: ProposalContentV2): ComplianceRow[] {
+function deriveFromRefs(content: ProposalContentV2): ComplianceRow[] {
   const rows: ComplianceRow[] = [];
   const seen = new Set<string>();
   const excl = content.sections.find((s) => s.invariant === "exclusiones");
@@ -73,6 +77,33 @@ export function deriveComplianceMatrix(content: ProposalContentV2): ComplianceRo
   }
 
   return rows;
+}
+
+/** Fallback comercial: una fila por capítulo del cuerpo sin refs a bases. */
+function deriveCommercialFallback(content: ProposalContentV2): ComplianceRow[] {
+  const body = [...content.sections]
+    .filter(
+      (s) =>
+        !s.invariant &&
+        s.kind !== "oferta_economica" &&
+        s.title.trim().length > 0,
+    )
+    .sort((a, b) => a.order - b.order);
+
+  return body.map((section, index) => ({
+    ref: `Cap. ${String(index + 1).padStart(2, "0")}`,
+    requirement: section.title,
+    sectionId: section.id,
+    sectionTitle: section.title,
+    level: levelFor(section, false),
+  }));
+}
+
+export function deriveComplianceMatrix(content: ProposalContentV2): ComplianceRow[] {
+  const fromRefs = deriveFromRefs(content);
+  if (fromRefs.length > 0) return fromRefs;
+  if (content.mode === "comercial") return deriveCommercialFallback(content);
+  return [];
 }
 
 export function formatComplianceMatrixText(rows: ComplianceRow[]): string {
