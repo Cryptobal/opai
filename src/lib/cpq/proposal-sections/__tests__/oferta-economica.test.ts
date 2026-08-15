@@ -11,12 +11,34 @@ describe("economicOpeningFromBreakdown", () => {
     const opening = economicOpeningFromBreakdown(null);
     expect(opening.rows).toHaveLength(5);
     expect(opening.rows.every((r) => r.amountClp === 0)).toBe(true);
+    expect(opening.services).toEqual([]);
+    expect(opening.salariesByCargo).toEqual([]);
     expect(opening.note).toMatch(/IVA/);
   });
 
   it("usa el margen configurado y el total de venta", () => {
     const opening = economicOpeningFromBreakdown({
-      positions: [],
+      positions: [
+        {
+          id: "p1",
+          name: "Portería",
+          numGuards: 2,
+          numPuestos: 1,
+          totalGuardsInPosition: 2,
+          baseSalary: 800000,
+          gratification: 200000,
+          totalImponible: 1000000,
+          sisEmployer: 0,
+          pensionReformEmployer: 35000,
+          afcEmployer: 24000,
+          mutualEmployer: 12000,
+          vacationProvision: 10000,
+          severanceProvision: 5000,
+          totalLaborCost: 400,
+          salePrice: 500,
+          hourlyRateSale: 1,
+        },
+      ],
       totalLaborCost: 400,
       holidayAdjustment: 10,
       uniforms: 20,
@@ -47,6 +69,9 @@ describe("economicOpeningFromBreakdown", () => {
     expect(opening.rows.find((r) => r.key === "indirect")?.amountClp).toBe(100);
     expect(opening.rows.find((r) => r.key === "margin")?.pct).toBe(12);
     expect(opening.rows.find((r) => r.key === "sale")?.amountClp).toBe(630);
+    expect(opening.services[0]?.name).toBe("Portería");
+    expect(opening.salariesByCargo[0]?.cargo).toBe("Portería");
+    expect(opening.installations).toHaveLength(1);
     expect(formatOpeningPct(12)).toMatch(/12[,.]0%/);
   });
 });
