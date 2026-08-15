@@ -41,74 +41,9 @@ import {
   listFixedSections,
   saveFixedSectionAsNew,
 } from "@/lib/cpq/fixed-sections";
-import { buildDotacionContent } from "@/lib/cpq/proposal-sections/build-dotacion";
+import { generateProposalSectionsBatch } from "@/lib/cpq/proposal-sections/generate-batch";
 
 export const maxDuration = 300;
-
-function normalizeTitle(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function titleTokens(value: string): Set<string> {
-  return new Set(normalizeTitle(value).split(/\s+/).filter((token) => token.length > 1));
-}
-
-function tokenSimilarity(left: string, right: string): number {
-  const a = titleTokens(left);
-  const b = titleTokens(right);
-  if (!a.size || !b.size) return 0;
-  const intersection = [...a].filter((token) => b.has(token)).length;
-  const jaccard = intersection / new Set([...a, ...b]).size;
-  const overlap =
-    a.size > 1 && b.size > 1 ? intersection / Math.min(a.size, b.size) : 0;
-  return Math.max(jaccard, overlap);
-}
-
-function findFixedSectionMatch<T extends { key: string; title: string }>(
-  title: string,
-  rows: readonly T[],
-  preferFixed: boolean,
-): T | undefined {
-  const normalized = normalizeTitle(title);
-  const exact = rows.find(
-    (row) =>
-      normalizeTitle(row.title) === normalized ||
-      normalizeTitle(row.key) === normalized,
-  );
-  if (exact) return exact;
-
-  const ranked = rows
-    .map((row) => ({ row, score: tokenSimilarity(title, row.title) }))
-    .sort((a, b) => b.score - a.score);
-  const best = ranked[0];
-  return best && best.score >= (preferFixed ? 0.4 : 0.7) ? best.row : undefined;
-}
-
-function isDotacionSection(section: { title: string; origin?: string }): boolean {
-  return titleTokens(section.title).has("dotacion");
-}
-
-function appendGenerationGaps(content: ProposalContentV2, gaps: readonly string[]): ProposalContentV2 {
-  const exclusion = content.sections.find((section) => section.invariant === "exclusiones");
-  if (!exclusion) return content;
-
-  const previous = exclusion.content.trim();
-  const newGaps = [...new Set(gaps.map((gap) => gap.trim()).filter(Boolean))].filter(
-    (gap) => !previous.includes(gap),
-  );
-  const gapBlock = newGaps.length
-    ? `Brechas detectadas durante la generación:\n${newGaps.map((gap) => `• ${gap}`).join("\n")}`
-    : "";
-  const body =
-    [previous, gapBlock].filter(Boolean).join("\n\n") ||
-    "Sin exclusiones adicionales identificadas; validar antes del envío.";
-  return setSectionContent(content, exclusion.id, body);
-}
 
 async function validationCtx(tenantId: string, quote: { dealId: string | null; totalGuards: number; totalPositions: number }) {
   let fechaEntrega: string | null = null;
@@ -243,7 +178,8 @@ export async function PATCH(
         return NextResponse.json({ success: false, error: "Estado inválido" }, { status: 400 });
       }
       next = setProposalDocStatus(next, status as ProposalDocStatus, { userId: ctx.userId });
-    } else if (action === "generate_all") {
+    } else if (action === "generate_all" || action === "generate_missing") {
+      const onlyMissing = action === "generate_missing";
       await ensureFixedSectionsSeeded(ctx.tenantId);
       const fixedSections = await listFixedSections(ctx.tenantId, { activeOnly: true });
 
@@ -259,6 +195,13 @@ export async function PATCH(
         const gate = licitacionGenerationGate(corpus.hasBases, corpus.basesError);
         if (gate) {
           return NextResponse.json({ success: false, error: gate }, { status: 422 });
+        }
+      }
+
+      if (onlyMissing && sectionId) {
+        const target = next.sections.find((item) => item.id === sectionId);
+        if (!target) {
+          return NextResponse.json({ success: false, error: "Sección no encontrada" }, { status: 404 });
         }
       }
 
@@ -278,73 +221,18 @@ export async function PATCH(
         orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
       });
 
-      const gaps: string[] = [];
-      progress = { generated: 0, failed: 0, skipped: 0 };
-      for (const original of [...next.sections].sort((a, b) => a.order - b.order)) {
-        if (isAutoSection(original)) {
-          progress.skipped += 1;
-          continue;
-        }
-
-        const fixed = findFixedSectionMatch(
-          original.title,
-          fixedSections,
-          original.origin === "fija_empresa",
-        );
-        if (fixed) {
-          next = setSectionContent(next, original.id, fixed.content, {
-            sources: [`fija:${fixed.key}`],
-            mark: "ia",
-          });
-          const updated = next.sections.find((section) => section.id === original.id);
-          if (updated) updated.origin = "fija_empresa";
-          progress.generated += 1;
-          continue;
-        }
-
-        if (isDotacionSection(original)) {
-          next = setSectionContent(next, original.id, buildDotacionContent(positions), {
-            sources: ["puestos"],
-            mark: "ia",
-          });
-          const updated = next.sections.find((section) => section.id === original.id);
-          if (updated) updated.origin = "auto";
-          progress.generated += 1;
-          continue;
-        }
-
-        const generated = await generateProposalSection({
-          tenantId: ctx.tenantId,
-          section: original,
-          corpus,
-          cpq: {
-            code: quote.code,
-            name: quote.name,
-            clientName: quote.clientName,
-            staffingSummary: `${quote.totalGuards} guardias / ${quote.totalPositions} puestos`,
-          },
-          mode: content.mode,
-        });
-        const previous =
-          original.invariant === "exclusiones" ? original.content.trim() : "";
-        const generatedBody =
-          previous && !generated.content.includes(previous)
-            ? [previous, generated.content.trim()].filter(Boolean).join("\n\n")
-            : generated.content;
-        next = setSectionContent(next, original.id, generatedBody, {
-          sources: generated.sources,
-          mark: generated.fallback ? undefined : "ia",
-        });
-        const updated = next.sections.find((section) => section.id === original.id);
-        if (updated && !generated.fallback) {
-          updated.origin = content.mode === "licitacion" ? "bases" : "ia";
-          updated.ref = generated.ref;
-        }
-        gaps.push(...generated.gaps);
-        if (generated.fallback) progress.failed += 1;
-        else progress.generated += 1;
-      }
-      next = appendGenerationGaps(next, gaps);
+      const batch = await generateProposalSectionsBatch({
+        content: next,
+        tenantId: ctx.tenantId,
+        quote,
+        fixedSections,
+        positions,
+        corpus,
+        onlyMissing,
+        sectionId: onlyMissing && sectionId ? sectionId : null,
+      });
+      next = batch.content;
+      progress = batch.progress;
     } else if (action === "save_as_fixed") {
       const section = next.sections.find((item) => item.id === sectionId);
       if (!section) {

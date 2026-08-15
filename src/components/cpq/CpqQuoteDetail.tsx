@@ -32,6 +32,7 @@ import {
   cpqBreakdownAmount,
 } from "@/components/cpq/cpqBreakdownLayout";
 import { economicOpeningFromCostSummary } from "@/lib/cpq/economic-opening";
+import { isCommercialSendEnabled } from "@/lib/cpq/proposal-sections/send-gates";
 import { cn, formatNumber } from "@/lib/utils";
 import type {
   CpqQuote,
@@ -322,6 +323,8 @@ export function CpqQuoteDetail({
   const [crmDealsReloadKey, setCrmDealsReloadKey] = useState(0);
   const [markingSentLicitacion, setMarkingSentLicitacion] = useState(false);
   const [proposalApproved, setProposalApproved] = useState(false);
+  /** Comercial: propuesta con contenido listo para enviar (sin exigir estado aprobada). */
+  const [proposalReady, setProposalReady] = useState(false);
   const [crmContext, setCrmContext] = useState({
     accountId: "" as string,
     installationId: "" as string,
@@ -2607,6 +2610,7 @@ export function CpqQuoteDetail({
               : [],
           })}
           onProposalStatusChange={(_status, approved) => setProposalApproved(approved)}
+          onProposalReadyChange={setProposalReady}
         />
       </div>
 
@@ -2908,21 +2912,24 @@ export function CpqQuoteDetail({
               </Button>
             );
           }
-          const baseDisabled =
-            !quote ||
-            !proposalApproved ||
-            (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
-            !crmContext.accountId ||
-            !crmContext.contactId ||
-            !crmContext.dealId;
+          const baseDisabled = !isCommercialSendEnabled({
+            quoteExists: Boolean(quote),
+            proposalReady,
+            hasLineItems: positions.length > 0 || (additionalLines?.length ?? 0) > 0,
+            hasAccount: Boolean(crmContext.accountId),
+            hasContact: Boolean(crmContext.contactId),
+            hasDeal: Boolean(crmContext.dealId),
+          });
           return (
             <Button
               className="w-full h-11 gap-2 text-sm font-semibold bg-status-ok hover:brightness-110 text-white"
               disabled={baseDisabled}
               title={
-                crmContext.contactId && !contactHasEmail
-                  ? "El contacto no tiene email cargado"
-                  : undefined
+                !proposalReady
+                  ? "Espera a que la propuesta tenga contenido"
+                  : crmContext.contactId && !contactHasEmail
+                    ? "El contacto no tiene email cargado"
+                    : undefined
               }
               onClick={openPortalProposal}
             >

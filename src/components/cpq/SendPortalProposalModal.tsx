@@ -100,8 +100,8 @@ export function SendPortalProposalModal({
   const [ccManual, setCcManual] = useState("");
   const [bccManual, setBccManual] = useState("");
   const [emailSubject, setEmailSubject] = useState(defaultEmailSubject);
-  const [includeQuotationPdf, setIncludeQuotationPdf] = useState(false);
-  const [includeProposalPdf, setIncludeProposalPdf] = useState(false);
+  const [includeQuotationPdf, setIncludeQuotationPdf] = useState(true);
+  const [includeProposalPdf, setIncludeProposalPdf] = useState(hasGuards);
   const [sending, setSending] = useState(false);
   const [quoteAttachments, setQuoteAttachments] = useState<
     { id: string; fileName: string; mimeType: string; size: number }[]
@@ -162,10 +162,10 @@ export function SendPortalProposalModal({
     setCcManual("");
     setBccManual("");
     setEmailSubject(defaultEmailSubject);
-    setIncludeQuotationPdf(false);
-    setIncludeProposalPdf(false);
+    setIncludeQuotationPdf(true);
+    setIncludeProposalPdf(hasGuards);
     setSelectedAttachmentIds(new Set());
-  }, [open, quoteContact.id, defaultEmailSubject]);
+  }, [open, quoteContact.id, defaultEmailSubject, hasGuards]);
 
   useEffect(() => {
     if (!open || !quoteId) return;
