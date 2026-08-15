@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Building2, Users, Briefcase, AlertTriangle, CheckCircle2, XCircle, RotateCcw, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Surface, Tag } from "@/components/opai-ds";
+import { Tag } from "@/components/opai-ds";
 
 type DuplicateAccount = { id: string; name: string; rut?: string | null };
 
@@ -13,6 +13,12 @@ type Converted = {
   deal?: { id: string; title: string } | null;
 };
 
+/**
+ * LeadConversionRail — Centro de conversión (workbench v2, 336px glass).
+ * Mismo contenido/handlers que la versión anterior; solo cambia el
+ * revestimiento visual (glass cards) y el ancho (316→336px) para alinearse
+ * con el resto de los centros de control del workbench comercial.
+ */
 export function LeadConversionRail({
   status,
   preview,
@@ -51,9 +57,9 @@ export function LeadConversionRail({
   const editable = status === "pending" || status === "in_review";
 
   return (
-    <div className="mb-4 space-y-4 lg:mb-0 lg:ml-6 lg:w-[316px] lg:shrink-0 lg:self-start lg:sticky lg:top-[var(--app-topbar-offset)] lg:max-h-[calc(100dvh-var(--app-topbar-offset))] lg:overflow-y-auto">
-      <Surface elevation={1} padding="md" className="space-y-3">
-        <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
+    <div className="mb-4 space-y-3.5 lg:mb-0 lg:ml-6 lg:w-[336px] lg:shrink-0 lg:self-start lg:sticky lg:top-[var(--app-topbar-offset)] lg:max-h-[calc(100dvh-var(--app-topbar-offset))] lg:overflow-y-auto">
+      <div className="space-y-3 rounded-[18px] border border-[var(--glass-border)] bg-[var(--glass-fill)] p-4 shadow-[var(--glass-specular),0_8px_30px_rgba(0,0,0,0.30)] sm:p-[18px]">
+        <p className="text-[12px] font-extrabold uppercase tracking-[0.14em] text-ds-text-3">
           Aprobar y convertir
         </p>
 
@@ -64,7 +70,7 @@ export function LeadConversionRail({
             <PreviewRow icon={Briefcase} label="Negocio" value={preview.deal || "—"} hint="Pipeline comercial" />
 
             {duplicates.length > 0 ? (
-              <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
+              <div className="rounded-[14px] border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
                 <p className="flex items-center gap-1.5 text-[13px] font-medium text-status-warn-fg">
                   <AlertTriangle className="h-4 w-4" /> Posible duplicado
                 </p>
@@ -138,16 +144,16 @@ export function LeadConversionRail({
             </Button>
           </div>
         ) : null}
-      </Surface>
+      </div>
 
-      <Surface elevation={1} padding="md" className="space-y-2">
-        <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
+      <div className="space-y-2 rounded-[18px] border border-[var(--glass-border)] bg-[var(--glass-fill)] p-4 shadow-[var(--glass-specular),0_8px_30px_rgba(0,0,0,0.30)] sm:p-[18px]">
+        <p className="text-[12px] font-extrabold uppercase tracking-[0.14em] text-ds-text-3">
           Origen y calidad
         </p>
         <MetaRow label="Fuente" value={source || "—"} />
         <MetaRow label="Recibido" value={createdAt || "—"} />
         <MetaRow label="Tiempo sin contactar" value={idleLabel || "—"} />
-      </Surface>
+      </div>
     </div>
   );
 }
@@ -164,7 +170,7 @@ function PreviewRow({
   hint: string;
 }) {
   return (
-    <div className="flex items-start gap-2.5 rounded-lg border border-ds-border-subtle bg-ds-surface-2 px-3 py-2">
+    <div className="flex items-start gap-2.5 rounded-[14px] border border-white/[0.07] bg-[var(--glass-fill-soft)] px-3 py-2">
       <Icon className="mt-0.5 h-4 w-4 text-ds-text-3" />
       <div className="min-w-0">
         <p className="text-[12px] text-ds-text-3">{label}</p>
@@ -179,7 +185,7 @@ function CreatedLink({ href, label, name }: { href: string; label: string; name:
   return (
     <Link
       href={href}
-      className="flex items-center gap-2 rounded-lg border border-ds-border-subtle px-3 py-2 hover:bg-ds-surface-2"
+      className="flex items-center gap-2 rounded-[14px] border border-white/[0.07] bg-[var(--glass-fill-soft)] px-3 py-2 transition hover:bg-white/[0.09]"
     >
       <div className="min-w-0 flex-1">
         <p className="text-[12px] text-ds-text-3">{label}</p>
