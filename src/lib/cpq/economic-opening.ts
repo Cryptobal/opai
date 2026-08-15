@@ -23,16 +23,109 @@ export type EconomicOpening = {
   note: string;
   currency: string;
   ufValue: number;
+  serviceLines?: Array<{
+    description: string;
+    quantity: number;
+    unitPriceClp: number;
+    subtotalClp: number;
+  }>;
+  byInstallation?: Array<{
+    name: string;
+    guards: number;
+    amountClp: number;
+  }>;
+  salariesByRole?: Array<{
+    cargo: string;
+    count: number;
+    baseClp: number;
+    gratificacionClp: number;
+    colacionMovilizacionClp: number;
+    leyesSocialesClp: number;
+    costoEmpresaClp: number;
+  }>;
 };
+
+type EconomicOpeningDetails = Pick<
+  EconomicOpening,
+  "serviceLines" | "byInstallation" | "salariesByRole"
+>;
 
 function pctOf(part: number, whole: number): number | null {
   if (!(whole > 0)) return 0;
   return (part / whole) * 100;
 }
 
+function serviceLinesFromBreakdown(
+  positions: QuoteBreakdownData["positions"],
+): NonNullable<EconomicOpening["serviceLines"]> {
+  return positions.map((position) => {
+    const quantity = Math.max(0, position.totalGuardsInPosition);
+    return {
+      description: position.name,
+      quantity,
+      unitPriceClp: quantity > 0 ? position.salePrice / quantity : position.salePrice,
+      subtotalClp: position.salePrice,
+    };
+  });
+}
+
+function salariesFromBreakdown(
+  positions: QuoteBreakdownData["positions"],
+): NonNullable<EconomicOpening["salariesByRole"]> {
+  type SalaryAccumulator = {
+    cargo: string;
+    count: number;
+    baseClp: number;
+    gratificacionClp: number;
+    colacionMovilizacionClp: number;
+    leyesSocialesClp: number;
+    costoEmpresaClp: number;
+  };
+
+  const byRole = new Map<string, SalaryAccumulator>();
+  for (const position of positions) {
+    const cargo = position.cargoName?.trim() || position.name;
+    const count = Math.max(0, position.totalGuardsInPosition);
+    if (count === 0) continue;
+
+    const current = byRole.get(cargo) ?? {
+      cargo,
+      count: 0,
+      baseClp: 0,
+      gratificacionClp: 0,
+      colacionMovilizacionClp: 0,
+      leyesSocialesClp: 0,
+      costoEmpresaClp: 0,
+    };
+    current.count += count;
+    current.baseClp += position.baseSalary;
+    current.gratificacionClp += position.gratification;
+    current.colacionMovilizacionClp +=
+      (position.mealAllowance ?? 0) + (position.transportAllowance ?? 0);
+    current.leyesSocialesClp +=
+      position.sisEmployer +
+      (position.pensionReformEmployer ?? 0) +
+      position.afcEmployer +
+      position.mutualEmployer;
+    current.costoEmpresaClp += position.totalLaborCost;
+    byRole.set(cargo, current);
+  }
+
+  return Array.from(byRole.values()).map((role) => ({
+    cargo: role.cargo,
+    count: role.count,
+    baseClp: role.baseClp / role.count,
+    gratificacionClp: role.gratificacionClp / role.count,
+    colacionMovilizacionClp: role.colacionMovilizacionClp / role.count,
+    leyesSocialesClp: role.leyesSocialesClp / role.count,
+    costoEmpresaClp: role.costoEmpresaClp / role.count,
+  }));
+}
+
 export function economicOpeningFromBreakdown(
   bd: QuoteBreakdownData | null | undefined,
   ufFallback = 0,
+  details?: EconomicOpeningDetails,
 ): EconomicOpening {
   const labor = bd?.totalLaborCost ?? 0;
   const direct =
@@ -60,6 +153,21 @@ export function economicOpeningFromBreakdown(
     sale,
     currency: bd?.currency ?? "CLP",
     ufValue,
+    serviceLines: details?.serviceLines ?? serviceLinesFromBreakdown(bd?.positions ?? []),
+    byInstallation: details?.byInstallation ?? [],
+    salariesByRole: details?.salariesByRole ?? salariesFromBreakdown(bd?.positions ?? []),
+  });
+}
+
+export function economicOpeningFromQuote(input: {
+  breakdown?: QuoteBreakdownData | null;
+  ufFallback?: number;
+  serviceLines?: EconomicOpening["serviceLines"];
+  installations?: EconomicOpening["byInstallation"];
+}): EconomicOpening {
+  return economicOpeningFromBreakdown(input.breakdown, input.ufFallback, {
+    serviceLines: input.serviceLines,
+    byInstallation: input.installations,
   });
 }
 
@@ -77,7 +185,14 @@ export function economicOpeningFromCostSummary(
     salePriceMonthly?: number;
     marginPct?: number;
   } | null | undefined,
-  opts?: { currency?: string; ufValue?: number },
+  opts?: {
+    currency?: string;
+    ufValue?: number;
+    breakdown?: QuoteBreakdownData | null;
+    serviceLines?: EconomicOpening["serviceLines"];
+    byInstallation?: EconomicOpening["byInstallation"];
+    salariesByRole?: EconomicOpening["salariesByRole"];
+  },
 ): EconomicOpening {
   const labor = s?.monthlyPositions ?? 0;
   const direct =
@@ -101,6 +216,11 @@ export function economicOpeningFromCostSummary(
     sale,
     currency: opts?.currency ?? "CLP",
     ufValue: opts?.ufValue ?? 0,
+    serviceLines:
+      opts?.serviceLines ?? serviceLinesFromBreakdown(opts?.breakdown?.positions ?? []),
+    byInstallation: opts?.byInstallation ?? [],
+    salariesByRole:
+      opts?.salariesByRole ?? salariesFromBreakdown(opts?.breakdown?.positions ?? []),
   });
 }
 
@@ -113,6 +233,9 @@ function fromParts(p: {
   sale: number;
   currency: string;
   ufValue: number;
+  serviceLines?: EconomicOpening["serviceLines"];
+  byInstallation?: EconomicOpening["byInstallation"];
+  salariesByRole?: EconomicOpening["salariesByRole"];
 }): EconomicOpening {
   return {
     rows: [
@@ -136,6 +259,9 @@ function fromParts(p: {
     note: ECONOMIC_OPENING_NOTE,
     currency: p.currency,
     ufValue: p.ufValue,
+    serviceLines: p.serviceLines ?? [],
+    byInstallation: p.byInstallation ?? [],
+    salariesByRole: p.salariesByRole ?? [],
   };
 }
 

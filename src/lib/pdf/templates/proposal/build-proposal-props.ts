@@ -615,6 +615,7 @@ export async function buildProposalProps(
         });
         return {
           id: pos.id, name: pos.customName || pos.puestoTrabajo?.name || 'Puesto',
+          cargoName: pos.cargo?.name ?? null,
           numGuards: pos.numGuards, numPuestos: pos.numPuestos ?? 1,
           totalGuardsInPosition: totalGuardsInPos,
           baseSalary,
@@ -624,6 +625,8 @@ export async function buildProposalProps(
           pensionReformEmployer: charges.pensionReformEmployer,
           afcEmployer: charges.afcEmployer,
           mutualEmployer: charges.mutualEmployer,
+          mealAllowance: getNum('meal_allowance'),
+          transportAllowance: getNum('transport_allowance'),
           vacationProvision: charges.vacationProvision,
           severanceProvision: charges.severanceProvision,
           totalLaborCost: costClp, salePrice,

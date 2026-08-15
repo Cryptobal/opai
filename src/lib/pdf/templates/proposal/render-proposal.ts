@@ -15,7 +15,7 @@ import * as path from 'path';
 import type { ProposalProps } from './build-proposal-props';
 import type { QuoteBreakdownData } from '@/types/cpq-breakdown';
 import {
-  economicOpeningFromBreakdown,
+  economicOpeningFromQuote,
   formatOpeningClp,
   formatOpeningPct,
   formatOpeningUf,
@@ -400,7 +400,7 @@ export async function renderProposalToBufferFromProps(
     companyName, companyLogo, quotationCode, proposalDate, contactName, contactPosition,
     ai, serviceType, installationName, installationCity, installationAddress, serviceDetail, coverageSchedule,
     staffingCount, staffingRegime, supervisionFrequency,
-    items, oneTimeItems, oneTimeTotalFormatted, totalNetoFormatted, paymentTerms,
+    items, oneTimeItems, oneTimeTotalFormatted, totalNeto, totalNetoFormatted, paymentTerms,
     insurancePolicyUF, liabilityDeductibleUF, regimeExplanation,
     companyConfig, companyStats, proposalMetrics, clientLogosWithNames, providerLogo,
     breakdown, resourceBreakdown, includedItems,
@@ -1422,13 +1422,102 @@ export async function renderProposalToBufferFromProps(
 
   /* ── Oferta económica — apertura completa (auto, ambos modos) ── */
   {
-    const opening = economicOpeningFromBreakdown(breakdown ?? null, ufValue);
+    const opening = economicOpeningFromQuote({
+      breakdown,
+      ufFallback: ufValue,
+      serviceLines: (isBundle
+        ? installations!.flatMap((installation) =>
+            installation.items.map((item) => ({
+              ...item,
+              description: `${installation.name} — ${item.description}`,
+            })),
+          )
+        : items
+      ).map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPriceClp:
+          item.quantity > 0 ? item.subtotal / item.quantity : item.unitPrice,
+        subtotalClp: item.subtotal,
+      })),
+      installations: isBundle
+        ? installations!.map((installation) => ({
+            name: installation.name,
+            guards: installation.staffingCount,
+            amountClp: installation.monthly,
+          }))
+        : installationName && installationName !== '-'
+          ? [{ name: installationName, guards: staffingCount, amountClp: totalNeto }]
+          : [],
+    });
     const [primaryCol, secondaryCol] = openingAmountColumns(opening.currency);
     const fmtAmt = (kind: 'uf' | 'clp', clp: number) =>
       kind === 'uf' ? formatOpeningUf(clp, opening.ufValue) : formatOpeningClp(clp);
     sections.push(
       e(View, { key: 'secEcoOpen', break: true },
         sectionTitle(ECONOMIC_OPENING_TITLE),
+        ...(opening.serviceLines ?? []).length > 0
+          ? [
+              e(Text, { key: 'services-title', style: s.sectionSubtitle }, 'Cotización por servicios'),
+              e(View, { key: 'services-head', style: s.tblRow },
+                e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Servicio'),
+                e(Text, { style: [s.tblCellBold, { flex: 0.8, textAlign: 'right' as const }] }, 'Cant.'),
+                e(Text, { style: [s.tblCellBold, { flex: 1.4, textAlign: 'right' as const }] }, 'Valor unitario'),
+                e(Text, { style: [s.tblCellBold, { flex: 1.4, textAlign: 'right' as const }] }, 'Subtotal mensual'),
+              ),
+              ...(opening.serviceLines ?? []).map((line, index) =>
+                e(View, { key: `service-${index}`, style: s.tblRow },
+                  e(Text, { style: [s.tblCell, { flex: 3 }] }, line.description),
+                  e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'right' as const }] }, line.quantity.toLocaleString('es-CL')),
+                  e(Text, { style: [s.tblCell, { flex: 1.4, textAlign: 'right' as const }] }, formatOpeningClp(line.unitPriceClp)),
+                  e(Text, { style: [s.tblCellBold, { flex: 1.4, textAlign: 'right' as const }] }, formatOpeningClp(line.subtotalClp)),
+                ),
+              ),
+            ]
+          : [],
+        ...(opening.byInstallation ?? []).length > 0
+          ? [
+              e(Text, { key: 'installations-title', style: [s.sectionSubtitle, { marginTop: 12 }] }, 'Apertura por instalación'),
+              e(View, { key: 'installations-head', style: s.tblRow },
+                e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Instalación'),
+                e(Text, { style: [s.tblCellBold, { flex: 1, textAlign: 'right' as const }] }, 'Dotación'),
+                e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, 'Monto mensual neto'),
+              ),
+              ...(opening.byInstallation ?? []).map((installation, index) =>
+                e(View, { key: `installation-${index}`, style: s.tblRow },
+                  e(Text, { style: [s.tblCell, { flex: 3 }] }, installation.name),
+                  e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'right' as const }] }, installation.guards.toLocaleString('es-CL')),
+                  e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, formatOpeningClp(installation.amountClp)),
+                ),
+              ),
+            ]
+          : [],
+        ...(opening.salariesByRole ?? []).length > 0
+          ? [
+              e(Text, { key: 'salaries-title', style: [s.sectionSubtitle, { marginTop: 12 }] }, 'Sueldos por cargo · valores por persona al mes'),
+              e(View, { key: 'salaries-head', style: s.tblRow },
+                e(Text, { style: [s.tblCellBold, { flex: 1.7, fontSize: 6.5 }] }, 'Cargo'),
+                e(Text, { style: [s.tblCellBold, { flex: 0.55, fontSize: 6.5, textAlign: 'right' as const }] }, 'Pers.'),
+                e(Text, { style: [s.tblCellBold, { flex: 1, fontSize: 6.5, textAlign: 'right' as const }] }, 'Base'),
+                e(Text, { style: [s.tblCellBold, { flex: 1, fontSize: 6.5, textAlign: 'right' as const }] }, 'Gratificación'),
+                e(Text, { style: [s.tblCellBold, { flex: 1.2, fontSize: 6.5, textAlign: 'right' as const }] }, 'Colación/mov.'),
+                e(Text, { style: [s.tblCellBold, { flex: 1, fontSize: 6.5, textAlign: 'right' as const }] }, 'Leyes sociales'),
+                e(Text, { style: [s.tblCellBold, { flex: 1.1, fontSize: 6.5, textAlign: 'right' as const }] }, 'Costo empresa'),
+              ),
+              ...(opening.salariesByRole ?? []).map((salary) =>
+                e(View, { key: `salary-${salary.cargo}`, style: s.tblRow },
+                  e(Text, { style: [s.tblCell, { flex: 1.7, fontSize: 6.5 }] }, salary.cargo),
+                  e(Text, { style: [s.tblCell, { flex: 0.55, fontSize: 6.5, textAlign: 'right' as const }] }, salary.count.toLocaleString('es-CL')),
+                  e(Text, { style: [s.tblCell, { flex: 1, fontSize: 6.5, textAlign: 'right' as const }] }, formatOpeningClp(salary.baseClp)),
+                  e(Text, { style: [s.tblCell, { flex: 1, fontSize: 6.5, textAlign: 'right' as const }] }, formatOpeningClp(salary.gratificacionClp)),
+                  e(Text, { style: [s.tblCell, { flex: 1.2, fontSize: 6.5, textAlign: 'right' as const }] }, formatOpeningClp(salary.colacionMovilizacionClp)),
+                  e(Text, { style: [s.tblCell, { flex: 1, fontSize: 6.5, textAlign: 'right' as const }] }, formatOpeningClp(salary.leyesSocialesClp)),
+                  e(Text, { style: [s.tblCellBold, { flex: 1.1, fontSize: 6.5, textAlign: 'right' as const }] }, formatOpeningClp(salary.costoEmpresaClp)),
+                ),
+              ),
+            ]
+          : [],
+        e(Text, { style: [s.sectionSubtitle, { marginTop: 12 }] }, 'Estructura del precio'),
         e(View, { style: s.tblRow },
           e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Concepto'),
           e(Text, { style: [s.tblCellBold, { flex: 1.4, textAlign: 'right' as const }] }, primaryCol === 'uf' ? 'UF' : 'CLP'),
