@@ -6,8 +6,9 @@
  * 3 blobs (teal / esmeralda / azul profundo) con drift lento + capa de noise
  * al 5%. Es lo que el vidrio translúcido de las superficies refleja/refracta.
  *
- * Sólo mobile (`< lg`). Se oculta bajo `prefers-reduced-transparency` y no
- * anima bajo `prefers-reduced-motion` (reglas en globals.css). `aria-hidden`.
+ * Visible en mobile y desktop (desktop ~55% vía CSS). Se oculta bajo
+ * `prefers-reduced-transparency` y no anima bajo `prefers-reduced-motion`
+ * (reglas en globals.css). `aria-hidden`.
  */
 
 const NOISE =
@@ -28,7 +29,7 @@ export function GlassAmbient() {
   return (
     <div
       aria-hidden
-      className="glass-ambient pointer-events-none fixed inset-0 -z-10 overflow-hidden lg:hidden"
+      className="glass-ambient pointer-events-none fixed inset-0 -z-10 overflow-hidden"
     >
       {BLOBS.map((b, i) => (
         <div
