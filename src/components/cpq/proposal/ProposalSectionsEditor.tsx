@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FileDown, MessageCircle, Plus, Sparkles } from "lucide-react";
 import { EmptyState, IconBubble, Spinner, Surface, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import type { ProposalContentV2 } from "@/lib/cpq/proposal-sections/schema";
 import type { ProposalValidation } from "@/lib/cpq/proposal-sections/validate";
 import { isAutoSection } from "@/lib/cpq/proposal-sections/oferta-economica";
+import { isMissingGeneratableSection } from "@/lib/cpq/proposal-sections/generate-batch";
 import type { EconomicOpening } from "@/lib/cpq/economic-opening";
 import { ProposalSectionList } from "./ProposalSectionList";
 import { ProposalSectionPanel } from "./ProposalSectionPanel";
@@ -75,10 +76,12 @@ export function ProposalSectionsEditor({
   const [data, setData] = useState<Payload | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [addTitle, setAddTitle] = useState("");
   const [regenerateId, setRegenerateId] = useState<string | null>(null);
   const [regenerateInstruction, setRegenerateInstruction] = useState("");
+  const autoGenStartedRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,6 +154,54 @@ export function ProposalSectionsEditor({
     }
   }
 
+  /** Patch que lee el updatedAt más reciente (generación secuencial). */
+  const patchLatest = useCallback(
+    async (body: Record<string, unknown>, latestUpdatedAt: string) => {
+      setBusy(true);
+      try {
+        const res = await fetch(`/api/cpq/quotes/${quoteId}/proposal-sections`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...body, expectedUpdatedAt: latestUpdatedAt }),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          data?: PatchPayload;
+          error?: string;
+          code?: string;
+        };
+        if (json.code === "conflict") {
+          toast.error(json.error);
+          await load();
+          return null;
+        }
+        if (!res.ok || !json.success || !json.data) {
+          toast.error(json.error || "No se pudo generar");
+          return null;
+        }
+        const patched = json.data;
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                content: patched.content,
+                validations: patched.validations,
+                gate: prev.gate,
+                needsConversion: false,
+              }
+            : prev,
+        );
+        return patched;
+      } catch {
+        toast.error("No se pudo generar la propuesta");
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [quoteId, load],
+  );
+
   async function convertToLicitacion() {
     const ok = await confirmDialog({
       title: "¿Convertir a licitación?",
@@ -165,6 +216,7 @@ export function ProposalSectionsEditor({
 
   async function generateAll() {
     setGeneratingAll(true);
+    setGenProgress(null);
     try {
       const result = await patch({ action: "generate_all" });
       if (!result) return;
@@ -178,6 +230,45 @@ export function ProposalSectionsEditor({
       setGeneratingAll(false);
     }
   }
+
+  const runGenerateMissing = useCallback(
+    async (sectionIds: string[], startUpdatedAt: string) => {
+      setGeneratingAll(true);
+      setGenProgress({ current: 0, total: sectionIds.length });
+      let updatedAt = startUpdatedAt;
+      try {
+        for (let i = 0; i < sectionIds.length; i++) {
+          setGenProgress({ current: i, total: sectionIds.length });
+          const result = await patchLatest(
+            { action: "generate_missing", sectionId: sectionIds[i] },
+            updatedAt,
+          );
+          if (!result) continue;
+          updatedAt = result.content.updatedAt;
+          setGenProgress({ current: i + 1, total: sectionIds.length });
+        }
+      } finally {
+        setGeneratingAll(false);
+        setGenProgress(null);
+      }
+    },
+    [patchLatest],
+  );
+
+  useEffect(() => {
+    if (loading || readOnly || !data || autoGenStartedRef.current) return;
+    if (data.content.mode !== "comercial") return;
+    if (data.gate || data.needsConversion) return;
+    const missing = data.content.sections
+      .filter((section) => isMissingGeneratableSection(section))
+      .sort((a, b) => a.order - b.order);
+    if (missing.length === 0) return;
+    autoGenStartedRef.current = true;
+    void runGenerateMissing(
+      missing.map((section) => section.id),
+      data.content.updatedAt,
+    );
+  }, [loading, readOnly, data, runGenerateMissing]);
 
   async function addNewSection() {
     const title = addTitle.trim();
@@ -249,6 +340,7 @@ export function ProposalSectionsEditor({
   const licitacionGate = mode === "licitacion" && Boolean(data?.gate);
   const proposalApproved = data?.content.status === "aprobada";
   const alreadySent = quoteStatus === "sent";
+  const isGenerating = generatingAll || Boolean(genProgress);
 
   useEffect(() => {
     if (!data) return;
@@ -269,58 +361,70 @@ export function ProposalSectionsEditor({
               <Tag variant={proposalApproved ? "ok" : "neutral"} size="sm">
                 {STATUS_LABEL[data?.content.status ?? "borrador"] ?? "Borrador"}
               </Tag>
-              <span className="text-[12px] text-ds-text-3">
-                {approved}/{total} aprobadas
-              </span>
+              {mode === "licitacion" ? (
+                <span className="text-[12px] text-ds-text-3">
+                  {approved}/{total} aprobadas
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {!readOnly ? (
-            <>
-              <Button
-                type="button"
-                className="h-10 sm:h-9"
-                disabled={loading || busy || licitacionGate}
-                onClick={() => void generateAll()}
-              >
-                {generatingAll ? <Spinner size="sm" /> : <Sparkles className="h-4 w-4" />}
-                {generatingAll ? "Generando propuesta…" : "Generar propuesta"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 sm:h-9"
-                disabled={loading || busy}
-                onClick={() => setAddOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Agregar sección
-              </Button>
-            </>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 sm:h-9"
-            onClick={() =>
-              openAnchoredChat({
-                anchorType: "cpq_quote",
-                anchorId: quoteId,
-                entityName: quoteLabel,
-              })
-            }
-          >
-            <MessageCircle className="h-4 w-4" />
-            Abrir chat
-          </Button>
-        </div>
+        {!isGenerating ? (
+          <div className="flex flex-wrap gap-2">
+            {!readOnly ? (
+              <>
+                <Button
+                  type="button"
+                  className="h-10 sm:h-9"
+                  disabled={loading || busy || licitacionGate}
+                  onClick={() => void generateAll()}
+                >
+                  {generatingAll ? <Spinner size="sm" /> : <Sparkles className="h-4 w-4" />}
+                  {generatingAll ? "Generando propuesta…" : "Generar propuesta"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 sm:h-9"
+                  disabled={loading || busy}
+                  onClick={() => setAddOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                  Agregar sección
+                </Button>
+              </>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 sm:h-9"
+              onClick={() =>
+                openAnchoredChat({
+                  anchorType: "cpq_quote",
+                  anchorId: quoteId,
+                  entityName: quoteLabel,
+                })
+              }
+            >
+              <MessageCircle className="h-4 w-4" />
+              Abrir chat
+            </Button>
+          </div>
+        ) : null}
       </div>
 
-      {generatingAll ? (
-        <div className="flex items-center gap-2 rounded-xl border border-status-info-border bg-status-info-soft px-3 py-2 text-[13px] text-status-info-fg">
+      {isGenerating ? (
+        <div className="flex items-center gap-3 rounded-xl border border-status-info-border bg-status-info-soft px-4 py-4 text-[13px] text-status-info-fg">
           <Spinner size="sm" />
-          Generando todas las secciones. Esto puede tardar unos minutos…
+          <div className="min-w-0">
+            <p className="font-medium">
+              ✦ Generando tu propuesta…
+              {genProgress ? ` ${genProgress.current}/${genProgress.total}` : ""}
+            </p>
+            <p className="mt-0.5 text-[12px] opacity-80">
+              Esto puede tardar unos minutos. Puedes cerrar y reabrir: se reanuda solo.
+            </p>
+          </div>
         </div>
       ) : null}
 
@@ -371,7 +475,7 @@ export function ProposalSectionsEditor({
             </div>
           }
         />
-      ) : data && section ? (
+      ) : data && section && !isGenerating ? (
         <>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
             <div className="min-w-0 overflow-x-auto lg:overflow-visible">
@@ -423,7 +527,10 @@ export function ProposalSectionsEditor({
               ? "Para enviar una licitación debes aprobar todas las secciones."
               : "En modo comercial puedes generar el PDF y enviar la propuesta sin aprobar el 100% de las secciones."}
           </p>
-          {!readOnly && data.content.status !== "aprobada" && data.content.status !== "enviada" ? (
+          {!readOnly &&
+          mode === "licitacion" &&
+          data.content.status !== "aprobada" &&
+          data.content.status !== "enviada" ? (
             <Button
               type="button"
               variant="secondary"
@@ -437,48 +544,50 @@ export function ProposalSectionsEditor({
         </>
       ) : null}
 
-      <div className="space-y-2 border-t border-ds-border-subtle pt-3">
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" className="h-10 sm:h-9" asChild>
-            <a href={`/api/cpq/quotes/${quoteId}/proposal-pdf?mode=draft`} target="_blank" rel="noreferrer">
-              <FileDown className="h-4 w-4" />
-              PDF borrador
-            </a>
-          </Button>
-          <Button type="button" className="h-10 sm:h-9" asChild>
-            <a href={`/api/cpq/quotes/${quoteId}/proposal-pdf?mode=final`} target="_blank" rel="noreferrer">
-              PDF final
-            </a>
-          </Button>
+      {!isGenerating ? (
+        <div className="space-y-2 border-t border-ds-border-subtle pt-3">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" className="h-10 sm:h-9" asChild>
+              <a href={`/api/cpq/quotes/${quoteId}/proposal-pdf?mode=draft`} target="_blank" rel="noreferrer">
+                <FileDown className="h-4 w-4" />
+                PDF borrador
+              </a>
+            </Button>
+            <Button type="button" className="h-10 sm:h-9" asChild>
+              <a href={`/api/cpq/quotes/${quoteId}/proposal-pdf?mode=final`} target="_blank" rel="noreferrer">
+                PDF final
+              </a>
+            </Button>
+          </div>
+          <p className="text-[12px] text-ds-text-3">
+            {mode === "licitacion"
+              ? "Licitación: se envía la propuesta técnica (con oferta económica) y se marca la cotización como enviada. No hay portal ni correo."
+              : "Comercial: PDF y envío están disponibles aunque queden secciones sin aprobar."}
+          </p>
+          <div className="hidden lg:block space-y-2">
+            {mode === "licitacion" && onMarkSentLicitacion ? (
+              <Button
+                type="button"
+                className="h-10 sm:h-9"
+                disabled={alreadySent || !proposalApproved || Boolean(markingSent) || Boolean(readOnly)}
+                onClick={onMarkSentLicitacion}
+              >
+                {alreadySent ? "Ya marcada como enviada" : markingSent ? "Marcando…" : "Marcar enviada"}
+              </Button>
+            ) : null}
+            {mode === "comercial" && onSendPortal ? (
+              <Button
+                type="button"
+                className="h-10 sm:h-9"
+                disabled={alreadySent || Boolean(readOnly)}
+                onClick={onSendPortal}
+              >
+                Enviar propuesta (portal)
+              </Button>
+            ) : null}
+          </div>
         </div>
-        <p className="text-[12px] text-ds-text-3">
-          {mode === "licitacion"
-            ? "Licitación: se envía la propuesta técnica (con oferta económica) y se marca la cotización como enviada. No hay portal ni correo."
-            : "Comercial: PDF y envío están disponibles aunque queden secciones sin aprobar."}
-        </p>
-        <div className="hidden lg:block space-y-2">
-        {mode === "licitacion" && onMarkSentLicitacion ? (
-          <Button
-            type="button"
-            className="h-10 sm:h-9"
-            disabled={alreadySent || !proposalApproved || Boolean(markingSent) || Boolean(readOnly)}
-            onClick={onMarkSentLicitacion}
-          >
-            {alreadySent ? "Ya marcada como enviada" : markingSent ? "Marcando…" : "Marcar enviada"}
-          </Button>
-        ) : null}
-        {mode === "comercial" && onSendPortal ? (
-          <Button
-            type="button"
-            className="h-10 sm:h-9"
-            disabled={alreadySent || Boolean(readOnly)}
-            onClick={onSendPortal}
-          >
-            Enviar propuesta (portal)
-          </Button>
-        ) : null}
-        </div>
-      </div>
+      ) : null}
 
       <Dialog
         open={addOpen}
@@ -522,11 +631,7 @@ export function ProposalSectionsEditor({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                className="h-10 sm:h-9"
-                disabled={busy || !addTitle.trim()}
-              >
+              <Button type="submit" className="h-10 sm:h-9" disabled={busy || !addTitle.trim()}>
                 {busy ? <Spinner size="sm" /> : <Plus className="h-4 w-4" />}
                 Agregar
               </Button>
