@@ -616,14 +616,8 @@ export async function sendBundleToPortal(
     installationId: firstQuote?.installationId ?? null,
   });
 
-  if (bundle.dealId) {
-    try {
-      const { openDealRoom } = await import("@/lib/integrations/slack/deal-rooms/room");
-      await openDealRoom(tenantId, bundle.dealId, userId);
-    } catch (dealRoomError) {
-      console.error("[slack] openDealRoom on bundle sent failed:", dealRoomError);
-    }
-  }
+  // La sala de Slack del negocio se abre solo de forma manual desde el detalle
+  // del negocio (botón Slack / Integraciones), no al enviar el bundle.
 
   await createCrmHistoryLog({
     tenantId,
