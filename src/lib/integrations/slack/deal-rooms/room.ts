@@ -7,8 +7,12 @@
  * `CrmDealSlackRoom` y audita. Idempotente por `dealId` (unique): si ya existe
  * sala, la devuelve sin recrear.
  *
- * `@deprecated maybeAutoOpenDealRoom` — la apertura es solo manual (menú ⋯ /
- * Integraciones). Se conserva por compatibilidad; no tiene llamadores.
+ * Apertura solo manual: botón Slack en el detalle del negocio
+ * (`POST /api/integrations/slack/deal-room`) o acciones equivalentes en Slack.
+ * No se invoca al enviar cotizaciones/bundles.
+ *
+ * `@deprecated maybeAutoOpenDealRoom` — se conserva por compatibilidad; no
+ * tiene llamadores.
  */
 
 import "server-only";

@@ -758,17 +758,8 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     installationId: quote.installationId,
   });
 
-  // Sala de Slack del negocio: al enviar la cotización se abre (o se reutiliza,
-  // es idempotente) la sala y se publica el resumen de lo cotizado. Best-effort:
-  // un fallo de Slack NUNCA rompe el envío de la cotización.
-  if (quote.dealId) {
-    try {
-      const { openDealRoom } = await import("@/lib/integrations/slack/deal-rooms/room");
-      await openDealRoom(tenantId, quote.dealId, userId);
-    } catch (dealRoomError) {
-      console.error("[slack] openDealRoom on quote sent failed:", dealRoomError);
-    }
-  }
+  // La sala de Slack del negocio se abre solo de forma manual desde el detalle
+  // del negocio (botón Slack / Integraciones), no al enviar la cotización.
 
   // Log
   await prisma.crmHistoryLog.create({

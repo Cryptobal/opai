@@ -86,9 +86,6 @@ vi.mock("@/lib/followup-scheduler", () => ({
   scheduleFollowUps: vi.fn(),
   cancelPendingFollowUps: vi.fn(),
 }));
-vi.mock("@/lib/integrations/slack/deal-rooms/room", () => ({
-  openDealRoom: vi.fn(),
-}));
 vi.mock("@/lib/crm-history", () => ({ createCrmHistoryLog: vi.fn() }));
 vi.mock("bcryptjs", () => ({
   default: { hash: vi.fn(async () => "hash") },
