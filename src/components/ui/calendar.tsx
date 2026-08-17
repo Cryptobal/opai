@@ -40,7 +40,6 @@ function CalendarDropdown({ value, onChange, options, "aria-label": ariaLabel, d
     <SelectPrimitive.Root
       value={value !== undefined ? String(value) : undefined}
       disabled={disabled}
-      modal={false}
       onValueChange={(next) => {
         onChange?.({
           target: { value: next },
