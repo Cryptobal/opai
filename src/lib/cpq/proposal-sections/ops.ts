@@ -383,6 +383,26 @@ export function allSectionsApproved(content: ProposalContentV2): boolean {
   return gated.length > 0 && gated.every((s) => s.status === "aprobada");
 }
 
+/** Secciones no-auto con contenido (auto cuenta como completa). Gate de envío licitación. */
+export function allGatedSectionsHaveContent(content: ProposalContentV2): boolean {
+  const gated = gateSections(content.sections);
+  return gated.length > 0 && gated.every((s) => s.content.trim().length > 0);
+}
+
+export function contentCompleteCount(content: ProposalContentV2): { withContent: number; total: number } {
+  const gated = gateSections(content.sections);
+  return {
+    withContent: gated.filter((s) => s.content.trim().length > 0).length,
+    total: gated.length,
+  };
+}
+
+export function emptyGatedSectionTitles(content: ProposalContentV2): string[] {
+  return gateSections(content.sections)
+    .filter((s) => !s.content.trim())
+    .map((s) => s.title);
+}
+
 export function setProposalDocStatus(
   content: ProposalContentV2,
   status: ProposalContentV2["status"],
@@ -390,8 +410,11 @@ export function setProposalDocStatus(
 ): ProposalContentV2 {
   const next = clone(content);
   if (status === "aprobada") {
-    if (next.mode === "licitacion" && !allSectionsApproved(next)) {
-      throw new ProposalIndexError("No se puede aprobar: faltan secciones por aprobar.");
+    if (next.mode === "licitacion" && !allGatedSectionsHaveContent(next)) {
+      const empty = emptyGatedSectionTitles(next);
+      throw new ProposalIndexError(
+        `No se puede aprobar: hay secciones sin contenido: ${empty.join(", ")}.`,
+      );
     }
     const excl = next.sections.find((s) => s.invariant === "exclusiones");
     if (!excl?.content.trim()) {

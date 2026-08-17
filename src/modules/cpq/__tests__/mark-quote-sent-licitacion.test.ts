@@ -153,19 +153,62 @@ describe("markQuoteSentLicitacion", () => {
     expect(result.stageName).toBe("Negociando");
   });
 
-  it("exige propuesta aprobada cuando hay contenido v2 de licitación", async () => {
+  it("exige contenido completo cuando hay v2 de licitación; auto-aprueba si está completo", async () => {
     findQuote.mockReset();
+    const { emptyProposalV2 } = await import("@/lib/cpq/proposal-sections/schema");
+    const incomplete = emptyProposalV2("licitacion");
     findQuote.mockResolvedValueOnce({
       ...baseQuote,
       proposalMode: "licitacion",
       proposalStatus: "borrador",
-      proposalAiContent: { version: 2, mode: "licitacion" },
+      proposalAiContent: incomplete,
     });
     findDeal.mockResolvedValue({ id: "d1", stageId: "s1", isLicitacion: true });
 
     await expect(
       markQuoteSentLicitacion({ quoteId: "q1", tenantId: "t1", userId: "u1" }),
-    ).rejects.toMatchObject({ message: expect.stringContaining("aprobada") });
+    ).rejects.toMatchObject({ message: expect.stringContaining("sin contenido") });
     expect(updateQuoteMany).not.toHaveBeenCalled();
+  });
+
+  it("auto-aprueba propuesta con contenido completo antes de marcar enviada", async () => {
+    findQuote.mockReset();
+    const { emptyProposalV2 } = await import("@/lib/cpq/proposal-sections/schema");
+    const complete = emptyProposalV2("licitacion");
+    complete.sections = complete.sections.map((s) => ({
+      ...s,
+      content: s.content.trim() || (s.invariant === "exclusiones" ? "Fuera de alcance." : "Texto sección"),
+    }));
+    findQuote
+      .mockResolvedValueOnce({
+        ...baseQuote,
+        proposalMode: "licitacion",
+        proposalStatus: "borrador",
+        proposalAiContent: complete,
+      })
+      .mockResolvedValueOnce({
+        id: "q1",
+        status: "sent",
+        code: "CPQ-1",
+        name: "Licitación Enex",
+        dealId: "d1",
+        visibleInClientPortal: null,
+      });
+    findDeal.mockResolvedValue({ id: "d1", stageId: "s-prosp", isLicitacion: true });
+
+    const result = await markQuoteSentLicitacion({
+      quoteId: "q1",
+      tenantId: "t1",
+      userId: "u1",
+    });
+
+    expect(result.quote.status).toBe("sent");
+    // Primera updateMany: auto-aprobación; segunda: status sent; tercera: proposal enviada
+    expect(updateQuoteMany.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const approveCall = updateQuoteMany.mock.calls.find(
+      (c) => c[0]?.data?.proposalStatus === "aprobada",
+    );
+    expect(approveCall).toBeTruthy();
+    expect(approveCall![0].data.proposalAiContent.approvedBy).toBe("u1");
   });
 });

@@ -146,10 +146,14 @@ export function ProposalSectionsEditor({
   }, []);
 
   const patchLatest = useCallback(
-    async (body: Record<string, unknown>, latestUpdatedAt?: string) => {
+    async (
+      body: Record<string, unknown>,
+      latestUpdatedAt?: string,
+      opts?: { quiet?: boolean },
+    ) => {
       const updatedAt = latestUpdatedAt ?? dataRef.current?.content.updatedAt;
       if (!updatedAt) return null;
-      setBusy(true);
+      if (!opts?.quiet) setBusy(true);
       try {
         const res = await fetch(`/api/cpq/quotes/${quoteId}/proposal-sections`, {
           method: "PATCH",
@@ -176,7 +180,7 @@ export function ProposalSectionsEditor({
         toast.error("No se pudo guardar la propuesta");
         return null;
       } finally {
-        setBusy(false);
+        if (!opts?.quiet) setBusy(false);
       }
     },
     [quoteId, load, applyPatched],
@@ -251,7 +255,7 @@ export function ProposalSectionsEditor({
 
   useEffect(() => {
     if (loading || readOnly || !data || autoGenStartedRef.current) return;
-    if (data.content.mode !== "comercial") return;
+    // Comercial y licitación: autogenerar vacías. En licitación solo si hay bases (sin gate).
     if (data.gate || data.needsConversion) return;
     const missing = data.content.sections
       .filter((section) => isMissingGeneratableSection(section))
@@ -312,9 +316,11 @@ export function ProposalSectionsEditor({
     ordered.find((section) => section.id === sheetSectionId) ?? null;
   const gated = sections.filter((s) => !isAutoSection(s));
   const approved = gated.filter((s) => s.status === "aprobada").length;
+  const withContent = gated.filter((s) => s.content.trim().length > 0).length;
   const total = gated.length;
   const mode = data?.content.mode ?? "comercial";
   const licitacionGate = mode === "licitacion" && Boolean(data?.gate);
+  const contentComplete = total > 0 && withContent === total;
   const proposalApproved = data?.content.status === "aprobada";
   const alreadySent = quoteStatus === "sent";
   const isGenerating = generatingAll || Boolean(genProgress);
@@ -323,7 +329,7 @@ export function ProposalSectionsEditor({
   );
   const canMarkLicitacion =
     mode === "licitacion" &&
-    proposalApproved &&
+    contentComplete &&
     !readOnly &&
     !alreadySent &&
     Boolean(onMarkSentLicitacion);
@@ -334,8 +340,8 @@ export function ProposalSectionsEditor({
   }, [data, proposalApproved, onProposalStatusChange]);
 
   useEffect(() => {
-    onProposalReadyChange?.(mode === "comercial" ? hasContent : proposalApproved);
-  }, [mode, hasContent, proposalApproved, onProposalReadyChange]);
+    onProposalReadyChange?.(mode === "comercial" ? hasContent : contentComplete);
+  }, [mode, hasContent, contentComplete, onProposalReadyChange]);
 
   function openChat() {
     openAnchoredChat({
@@ -371,7 +377,8 @@ export function ProposalSectionsEditor({
               </Tag>
               {mode === "licitacion" ? (
                 <span className="text-[12px] text-ds-text-3">
-                  {approved}/{total} aprobadas
+                  {withContent}/{total} con contenido
+                  {approved > 0 ? ` · ${approved} revisadas` : ""}
                 </span>
               ) : null}
             </div>
@@ -507,6 +514,14 @@ export function ProposalSectionsEditor({
               setExpandedId((current) => (current === id ? null : id))
             }
             onEdit={(section) => setSheetSectionId(section.id)}
+            onInlineSave={async (sectionId, content) => {
+              const result = await patchLatest(
+                { action: "set_content", sectionId, content },
+                undefined,
+                { quiet: true },
+              );
+              return Boolean(result);
+            }}
             readOnly={Boolean(readOnly)}
             mode={mode}
             opening={economicOpening}
@@ -552,7 +567,7 @@ export function ProposalSectionsEditor({
                     ? "Ya marcada como enviada"
                     : markingSent
                       ? "Marcando…"
-                      : `Marcar enviada (${approved}/${total})`}
+                      : `Marcar enviada (${withContent}/${total})`}
                 </Button>
               )}
             </div>

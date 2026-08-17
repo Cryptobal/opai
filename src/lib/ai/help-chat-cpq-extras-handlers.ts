@@ -19,8 +19,14 @@ import {
 } from "@/lib/ai/help-chat-cpq-ai-shared";
 import { resolveAiHelpChatCpqQuote } from "@/lib/ai/help-chat-ai-cpq-quote";
 import { resolveContactIdForCpqQuote } from "@/lib/ai/resolve-quote-contact";
-import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { isUuid } from "@/lib/utils/uuid";
+import {
+  listCostingExtras,
+  mutateCostingKind,
+} from "@/lib/ai/help-chat-cpq-costing-handlers";
+import { recomputeQuoteTotals } from "@/lib/ai/help-chat-cpq-recompute";
+
+export { recomputeQuoteTotals } from "@/lib/ai/help-chat-cpq-recompute";
 
 type PageCx = HelpChatPageContext | null | undefined;
 
@@ -33,26 +39,6 @@ function numArg(o: Record<string, unknown>, k: string): number | undefined {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string" && v.trim() && Number.isFinite(Number(v))) return Number(v);
   return undefined;
-}
-
-/**
- * Recalcula y persiste los totales de la cotización tras editar sus líneas.
- * Idéntico al bloque de recálculo del PUT `/api/cpq/quotes/[id]/costs`.
- */
-async function recomputeQuoteTotals(quoteId: string) {
-  const [totalPositions, summary] = await Promise.all([
-    prisma.cpqPosition.count({ where: { quoteId } }),
-    computeCpqQuoteCosts(quoteId),
-  ]);
-  await prisma.cpqQuote.update({
-    where: { id: quoteId },
-    data: {
-      totalPositions,
-      totalGuards: summary.totalGuards,
-      monthlyCost: summary.monthlyTotal,
-    },
-  });
-  return summary;
 }
 
 /** Lee las líneas adicionales persistidas de la cotización, agrupadas por kind. */
@@ -88,6 +74,12 @@ async function listExtras(quoteId: string) {
       unitPrice: costUnit(c),
       recurring: !c.isAmortizable,
       enabled: c.isEnabled,
+      calcMode: c.calcMode,
+      visibility: c.visibility,
+      notes: c.notes,
+      isAmortizable: c.isAmortizable,
+      investmentAmount: c.investmentAmount != null ? Number(c.investmentAmount) : null,
+      amortizationMonths: c.amortizationMonths,
     })),
     uniform: uniforms.map((u) => ({
       itemId: u.id,
@@ -180,16 +172,51 @@ export async function aiTool_manage_quote_extras(
     const quote = await resolveAiHelpChatCpqQuote(tenantId, asStr(args, "quoteIdOrCode"), pageContext);
 
     if (action === "list") {
-      const extras = await listExtras(quote.id);
+      const [extras, costing] = await Promise.all([
+        listExtras(quote.id),
+        listCostingExtras(quote.id),
+      ]);
       await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "success", resultEntityId: quote.id, resultEntityType: "cpq_quote", startedAt: t0 });
-      return { ok: true, data: { quoteId: quote.id, quoteCode: quote.code, extras } };
+      return {
+        ok: true,
+        data: {
+          quoteId: quote.id,
+          quoteCode: quote.code,
+          extras: { ...extras, ...costing },
+        },
+      };
     }
 
     if (!new Set(["add", "update", "remove"]).has(action)) {
       return await val("Acción inválida. Usa action: list | add | update | remove.", "action");
     }
-    if (!new Set(["cost", "uniform", "exam"]).has(kind)) {
-      return await val("Indica kind: cost (costo/equipamiento), uniform o exam.", "kind");
+    if (!new Set(["cost", "uniform", "exam", "meal", "vehicle", "infrastructure"]).has(kind)) {
+      return await val(
+        "Indica kind: cost | uniform | exam | meal | vehicle | infrastructure.",
+        "kind",
+      );
+    }
+
+    if (kind === "meal" || kind === "vehicle" || kind === "infrastructure") {
+      const mutated = await mutateCostingKind(quote.id, kind, action, args, val);
+      if (!mutated || !mutated.ok) return mutated ?? (await val("Error interno de costeo.", "costing"));
+      const summary = await recomputeQuoteTotals(quote.id);
+      const [extras, costing] = await Promise.all([
+        listExtras(quote.id),
+        listCostingExtras(quote.id),
+      ]);
+      await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "success", resultEntityId: quote.id, resultEntityType: "cpq_quote", startedAt: t0 });
+      return {
+        ok: true,
+        data: {
+          quoteId: quote.id,
+          quoteCode: quote.code,
+          action,
+          kind,
+          monthlyTotal: summary.monthlyTotal,
+          extras: { ...extras, ...costing },
+        },
+      };
     }
 
     if (kind === "cost") {
@@ -200,6 +227,23 @@ export async function aiTool_manage_quote_extras(
         if (unitPrice == null) return await val("Indica unitPrice (CLP) del adicional.", "unitPrice");
         const quantity = numArg(args, "quantity") ?? 1;
         const recurring = typeof args.recurring === "boolean" ? args.recurring : true;
+        const isAmortizable =
+          typeof args.isAmortizable === "boolean" ? args.isAmortizable : !recurring;
+        const calcModeRaw = asStr(args, "calcMode") ?? "per_month";
+        if (calcModeRaw !== "per_month" && calcModeRaw !== "per_guard") {
+          return await val("calcMode debe ser 'per_month' o 'per_guard'.", "calcMode");
+        }
+        const visibility = asStr(args, "visibility") === "hidden" ? "hidden" : "visible";
+        const isEnabled = typeof args.isEnabled === "boolean" ? args.isEnabled : true;
+        const notes = asStr(args, "notes") ?? null;
+        const investmentAmount = numArg(args, "investmentAmount") ?? (isAmortizable ? unitPrice : null);
+        const amortizationMonthsRaw = numArg(args, "amortizationMonths");
+        if (isAmortizable && (investmentAmount == null || investmentAmount <= 0)) {
+          return await val(
+            "Si isAmortizable/recurring=false, indica investmentAmount > 0 (o unitPrice como inversión).",
+            "investmentAmount",
+          );
+        }
         await prisma.cpqQuoteCostItem.create({
           data: {
             quoteId: quote.id,
@@ -207,14 +251,17 @@ export async function aiTool_manage_quote_extras(
             customName: name.slice(0, 200),
             customType: "equipment",
             customCategory: "adicional",
-            calcMode: "per_month",
+            calcMode: calcModeRaw,
             quantity,
-            unitPriceOverride: recurring ? unitPrice : null,
-            isEnabled: true,
-            visibility: "visible",
-            isAmortizable: !recurring,
-            investmentAmount: recurring ? null : unitPrice,
-            amortizationMonths: null,
+            unitPriceOverride: isAmortizable ? null : unitPrice,
+            isEnabled,
+            visibility,
+            notes,
+            isAmortizable,
+            investmentAmount: isAmortizable ? investmentAmount : null,
+            // null ⇒ el motor usa contractMonths de parámetros
+            amortizationMonths:
+              amortizationMonthsRaw != null ? Math.round(amortizationMonthsRaw) : null,
           },
         });
       } else {
@@ -232,7 +279,20 @@ export async function aiTool_manage_quote_extras(
           if (quantity != null) data.quantity = quantity;
           const unitPrice = numArg(args, "unitPrice");
           const recurring = typeof args.recurring === "boolean" ? args.recurring : undefined;
-          if (recurring !== undefined) {
+          if (typeof args.isAmortizable === "boolean") {
+            data.isAmortizable = args.isAmortizable;
+            if (args.isAmortizable) {
+              data.unitPriceOverride = null;
+              data.investmentAmount =
+                numArg(args, "investmentAmount") ??
+                unitPrice ??
+                (existing.investmentAmount ?? existing.unitPriceOverride ?? null);
+            } else {
+              data.investmentAmount = null;
+              data.unitPriceOverride =
+                unitPrice ?? (existing.unitPriceOverride ?? existing.investmentAmount ?? null);
+            }
+          } else if (recurring !== undefined) {
             data.isAmortizable = !recurring;
             if (recurring) {
               data.investmentAmount = null;
@@ -244,6 +304,41 @@ export async function aiTool_manage_quote_extras(
           } else if (unitPrice != null) {
             if (existing.isAmortizable) data.investmentAmount = unitPrice;
             else data.unitPriceOverride = unitPrice;
+          }
+          const calcModeRaw = asStr(args, "calcMode");
+          if (calcModeRaw) {
+            if (calcModeRaw !== "per_month" && calcModeRaw !== "per_guard") {
+              return await val("calcMode debe ser 'per_month' o 'per_guard'.", "calcMode");
+            }
+            data.calcMode = calcModeRaw;
+          }
+          if (typeof args.isEnabled === "boolean") data.isEnabled = args.isEnabled;
+          const visibility = asStr(args, "visibility");
+          if (visibility === "visible" || visibility === "hidden") data.visibility = visibility;
+          if (Object.prototype.hasOwnProperty.call(args, "notes")) {
+            data.notes = asStr(args, "notes") ?? null;
+          }
+          const investmentAmount = numArg(args, "investmentAmount");
+          if (investmentAmount != null) data.investmentAmount = investmentAmount;
+          if (Object.prototype.hasOwnProperty.call(args, "amortizationMonths")) {
+            const am = numArg(args, "amortizationMonths");
+            data.amortizationMonths = am != null ? Math.round(am) : null;
+          }
+          const willAmort =
+            typeof data.isAmortizable === "boolean" ? data.isAmortizable : existing.isAmortizable;
+          if (willAmort) {
+            const inv =
+              data.investmentAmount != null
+                ? Number(data.investmentAmount)
+                : existing.investmentAmount != null
+                  ? Number(existing.investmentAmount)
+                  : null;
+            if (inv == null || inv <= 0) {
+              return await val(
+                "Ítem amortizable requiere investmentAmount > 0.",
+                "investmentAmount",
+              );
+            }
           }
           await prisma.cpqQuoteCostItem.updateMany({ where: { id: itemId, quoteId: quote.id }, data });
         }
@@ -309,11 +404,21 @@ export async function aiTool_manage_quote_extras(
     }
 
     const summary = await recomputeQuoteTotals(quote.id);
-    const extras = await listExtras(quote.id);
+    const [extras, costing] = await Promise.all([
+      listExtras(quote.id),
+      listCostingExtras(quote.id),
+    ]);
     await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "success", resultEntityId: quote.id, resultEntityType: "cpq_quote", startedAt: t0 });
     return {
       ok: true,
-      data: { quoteId: quote.id, quoteCode: quote.code, action, kind, monthlyTotal: summary.monthlyTotal, extras },
+      data: {
+        quoteId: quote.id,
+        quoteCode: quote.code,
+        action,
+        kind,
+        monthlyTotal: summary.monthlyTotal,
+        extras: { ...extras, ...costing },
+      },
     };
   } catch (e) {
     const raw = e instanceof Error ? e.message : String(e);

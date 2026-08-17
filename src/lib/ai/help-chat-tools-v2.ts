@@ -105,6 +105,7 @@ import {
   aiTool_licitacion_aplicar_cambio,
   aiTool_licitacion_aplicar_indice,
   aiTool_licitacion_estado,
+  aiTool_licitacion_generar_secciones,
   aiTool_licitacion_regenerar_seccion,
   aiTool_preview_licitacion_cambio,
   aiTool_preview_licitacion_indice,
@@ -141,6 +142,8 @@ import {
   aiTool_manage_quote_extras,
   aiTool_update_quote,
 } from "@/lib/ai/help-chat-cpq-extras-handlers";
+import { aiTool_manage_quote_lines } from "@/lib/ai/help-chat-cpq-lines-handlers";
+import { aiTool_update_quote_parameters } from "@/lib/ai/help-chat-cpq-costing-handlers";
 import { parseGoogleMapsUrl, buildDealMapsUrl } from "@/lib/google-maps-url";
 import { rutSearchNeedles } from "@/lib/chile-rut";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
@@ -1095,20 +1098,112 @@ function writeToolDefinitions() {
     {
       type: "function" as const,
       function: {
-        name: "manage_quote_extras",
+        name: "update_quote_parameters",
         description:
-          "Lista o edita las LÍNEAS ADICIONALES de una cotización: costos extra (kind='cost': equipamiento, tecnología, movilización, otros), uniformes (kind='uniform') y exámenes (kind='exam'). Úsala cuando pidan 'agrega un adicional', 'suma cámaras por $X', 'incluye 2 exámenes preocupacionales', 'cambia el precio del uniforme', 'elimina la línea de movilización'. action=list para ver el estado actual (hazlo SIEMPRE antes de editar y después de editar para verificar). Cada cambio recalcula el total mensual de la cotización.",
+          "Edita parámetros FINANCIEROS de una cotización (pestaña Financieros): financiamiento, póliza de garantía, responsabilidad civil, horas mensuales estándar, permanencia promedio, cambios de uniforme/año, meses de contrato. Patch parcial. NO acepta marginPct/marginMode — usa update_quote_margin. Enums reales: financialBaseMode=auto|manual, policyAmountMode=pct|fija, liabilityMode=premium|rate. Recalcula totales y responde con monthlyCost antes/después.",
         parameters: {
           type: "object",
           properties: {
             quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
-            kind: { type: "string", enum: ["cost", "uniform", "exam"], description: "Tipo de línea. OBLIGATORIO salvo action=list (list sin kind devuelve los tres grupos)." },
+            monthlyHoursStandard: { type: "number", description: "Horas mensuales estándar ∈ [1,744]." },
+            avgStayMonths: { type: "number", description: "Permanencia promedio en meses ∈ [1,120]." },
+            uniformChangesPerYear: { type: "number", description: "Cambios de uniforme por año." },
+            contractMonths: { type: "number", description: "Meses de contrato ∈ [1,120]." },
+            financialEnabled: { type: "boolean" },
+            financialRatePct: { type: "number", description: "Tasa financiamiento % ≤ 20." },
+            financialBaseMode: { type: "string", enum: ["auto", "manual"] },
+            policyEnabled: { type: "boolean", description: "Activa póliza de garantía." },
+            policyAmountMode: { type: "string", enum: ["pct", "fija"] },
+            policyRatePct: { type: "number" },
+            policyAdminRatePct: { type: "number" },
+            policyContractMonths: { type: "number" },
+            policyContractPct: { type: "number" },
+            policyFixedAmountUF: { type: "number", description: "Monto fijo UF (modo fija)." },
+            liabilityEnabled: { type: "boolean" },
+            liabilityMode: { type: "string", enum: ["premium", "rate"] },
+            liabilityRatePct: { type: "number" },
+            liabilityAnnualPremiumUF: { type: "number" },
+            liabilityAllocationPct: { type: "number" },
+            liabilityDeductibleUF: { type: "number" },
+          },
+          required: ["quoteIdOrCode"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "manage_quote_lines",
+        description:
+          "Lista o edita las LÍNEAS ADICIONALES facturables de una cotización (pestaña Líneas: arriendo de equipos, servicios extra, etc.). Distinto de manage_quote_extras (costos/uniformes/exámenes del costeo). Úsala cuando pidan 'agrega una línea de arriendo de dron por $450.000 con 15% de margen', 'cambia el precio de la línea X', 'elimina la línea de instalación'. precio es siempre CLP entero. action=list antes y después de editar. Cada escritura recalcula el total mensual.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            action: { type: "string", enum: ["list", "add", "update", "remove"] },
+            lineId: { type: "string", description: "UUID de la línea (update/remove). Usa action=list para obtenerlo." },
+            nombre: { type: "string", description: "Nombre de la línea (add; también update). Máx 200." },
+            descripcion: { type: "string", description: "Descripción opcional." },
+            precio: { type: "number", description: "Precio unitario CLP entero ≥ 0 (siempre CLP, también en cotizaciones UF)." },
+            cantidad: { type: "number", description: "Cantidad ≥ 1 (default 1)." },
+            tipo: { type: "string", description: "Tipo corto ≤30 (default 'servicio')." },
+            recurrencia: { type: "string", enum: ["mensual", "unico"], description: "mensual (suma al total mensual) o unico (one-shot)." },
+            marginPct: { type: "number", description: "Margen % de la línea ∈ [0,99]. Precio de venta = precio/(1−margin/100)." },
+            orden: { type: "number", description: "Orden de visualización." },
+          },
+          required: ["quoteIdOrCode", "action"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "manage_quote_extras",
+        description:
+          "Lista o edita costos/adicionales de una cotización: kind=cost (ítems de costo con calcMode per_month|per_guard, amortización, visibilidad), uniform, exam, meal (alimentación), vehicle (vehículos) e infrastructure. Úsala cuando pidan 'agrega alimentación', 'suma un vehículo con arriendo', 'incluye generador', 'cambia calcMode a per_guard', 'activa/desactiva un ítem'. action=list siempre antes y después. Cada cambio recalcula el total mensual. Para LÍNEAS facturables (pestaña Líneas) usa manage_quote_lines.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            kind: {
+              type: "string",
+              enum: ["cost", "uniform", "exam", "meal", "vehicle", "infrastructure"],
+              description: "Tipo. OBLIGATORIO salvo action=list (list sin kind devuelve todos los grupos).",
+            },
             action: { type: "string", enum: ["list", "add", "update", "remove"] },
             itemId: { type: "string", description: "UUID del ítem (update/remove)." },
-            name: { type: "string", description: "Nombre/descripcion de la línea (add; en cost también update)." },
-            quantity: { type: "number", description: "Cantidad (solo kind=cost)." },
-            unitPrice: { type: "number", description: "Precio unitario CLP (add/update)." },
-            recurring: { type: "boolean", description: "Solo kind=cost. true = costo mensual recurrente (default); false = one-time amortizado en el contrato." },
+            name: { type: "string", description: "Nombre (cost/uniform/exam add; meal→mealType; infrastructure→itemType)." },
+            quantity: { type: "number", description: "Cantidad (cost / infrastructure)." },
+            unitPrice: { type: "number", description: "Precio unitario CLP (cost/uniform/exam; meal→priceOverride)." },
+            recurring: { type: "boolean", description: "Solo kind=cost. true = mensual; false = amortizado." },
+            calcMode: { type: "string", enum: ["per_month", "per_guard"], description: "Solo kind=cost." },
+            isEnabled: { type: "boolean", description: "Activa/desactiva el ítem (cost/meal/vehicle/infrastructure)." },
+            visibility: { type: "string", enum: ["visible", "hidden"], description: "Visibilidad en propuesta." },
+            notes: { type: "string", description: "Notas (kind=cost)." },
+            isAmortizable: { type: "boolean", description: "kind=cost: inversión amortizada." },
+            investmentAmount: { type: "number", description: "kind=cost amortizable: monto inversión > 0." },
+            amortizationMonths: {
+              type: "number",
+              description: "kind=cost: meses de amortización; null/omitido ⇒ usa contractMonths de parámetros.",
+            },
+            mealType: { type: "string", description: "kind=meal." },
+            mealsPerDay: { type: "number", description: "kind=meal ≥ 0." },
+            daysOfService: { type: "number", description: "kind=meal ∈ [0,31]." },
+            priceOverride: { type: "number", description: "kind=meal precio override CLP." },
+            vehiclesCount: { type: "number", description: "kind=vehicle ≥ 1." },
+            rentMonthly: { type: "number", description: "kind=vehicle|infrastructure arriendo mensual CLP." },
+            kmPerDay: { type: "number", description: "kind=vehicle." },
+            daysPerMonth: { type: "number", description: "kind=vehicle ∈ [0,31]." },
+            kmPerLiter: { type: "number", description: "kind=vehicle." },
+            fuelPrice: { type: "number", description: "kind=vehicle|infrastructure." },
+            maintenanceMonthly: { type: "number", description: "kind=vehicle." },
+            itemType: { type: "string", description: "kind=infrastructure." },
+            hasFuel: { type: "boolean", description: "kind=infrastructure." },
+            fuelLitersPerHour: { type: "number", description: "kind=infrastructure." },
+            fuelHoursPerDay: { type: "number", description: "kind=infrastructure." },
+            fuelDaysPerMonth: { type: "number", description: "kind=infrastructure ∈ [0,31]." },
           },
           required: ["quoteIdOrCode", "action"],
           additionalProperties: false,
@@ -2484,18 +2579,42 @@ function writeToolDefinitions() {
       function: {
         name: "licitacion_estado",
         description:
-          "Lee o transiciona el estado de la propuesta v2 (get | approve_section | unapprove_section | set_status).",
+          "Lee o transiciona el estado de la propuesta v2 (get | approve_section | unapprove_section | approve_all | set_status). approve_all marca revisadas las secciones con contenido (reporta vacías sin abortar).",
         parameters: {
           type: "object",
           properties: {
             quoteIdOrCode: { type: "string" },
             action: {
               type: "string",
-              enum: ["get", "approve_section", "unapprove_section", "set_status"],
+              enum: ["get", "approve_section", "unapprove_section", "approve_all", "set_status"],
             },
             sectionId: { type: "string" },
             status: { type: "string", enum: ["borrador", "en_revision", "aprobada"] },
           },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "licitacion_generar_secciones",
+        description:
+          "Genera en batch secciones de la propuesta (licitación o comercial). scope=missing (default) solo vacías; scope=all regenera. maxSections default 4 (máx 6) por llamada serverless-safe. Si done=false, VUELVE A LLAMAR con los mismos args hasta done=true (usa remainingSectionIds). Escritura directa, sin preview. En licitación exige bases extraídas.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ o UUID. OBLIGATORIO." },
+            scope: { type: "string", enum: ["missing", "all"], description: "missing = solo vacías (default); all = regenerar." },
+            sectionIds: {
+              type: "array",
+              items: { type: "string" },
+              description: "Subconjunto opcional de ids de sección.",
+            },
+            maxSections: { type: "number", description: "Tope por llamada (default 4, máx 6)." },
+            mode: { type: "string", enum: ["licitacion", "comercial"], description: "Preferencia de modo al cargar." },
+          },
+          required: ["quoteIdOrCode"],
           additionalProperties: false,
         },
       },
@@ -2625,12 +2744,15 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   remove_quote_position: "Eliminar puesto de la cotización",
   manage_quote_includes: "Modificar los incluidos de la cotización",
   manage_quote_extras: "Editar adicionales de cotización",
+  manage_quote_lines: "Editar líneas adicionales facturables",
+  update_quote_parameters: "Editar parámetros financieros de cotización",
   update_quote: "Editar datos generales de la cotización",
   send_quote_proposal: "Enviar propuesta de cotización",
   licitacion_aplicar_indice: "Aplicar índice de propuesta de licitación",
   licitacion_aplicar_cambio: "Aplicar cambio al índice de la propuesta",
   licitacion_regenerar_seccion: "Regenerar sección de la propuesta",
   licitacion_estado: "Cambiar estado de la propuesta",
+  licitacion_generar_secciones: "Generar secciones de propuesta en batch",
   propuesta_editar_seccion: "Editar sección de la presentación",
   create_invoice_draft: "Crear borrador de factura",
   create_credit_note_draft: "Crear nota de crédito",
@@ -2696,7 +2818,6 @@ const WRITE_SECTION_READ_ONLY: ReadonlySet<string> = new Set([
   "count_emails",
   "resolve_entity",
   "mailbox_coverage",
-  "licitacion_estado",
 ]);
 
 /**
@@ -9136,6 +9257,9 @@ export async function executeToolCallV2(
   if (toolName === "get_quote_proposal") return await aiTool_get_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_includes") return await aiTool_manage_quote_includes(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_extras") return await aiTool_manage_quote_extras(tenantId, userId, perms, args, pageContext);
+  if (toolName === "manage_quote_lines") return await aiTool_manage_quote_lines(tenantId, userId, perms, args, pageContext);
+  if (toolName === "update_quote_parameters")
+    return await aiTool_update_quote_parameters(tenantId, userId, perms, args, pageContext);
   if (toolName === "update_quote") return await aiTool_update_quote(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_send_quote_proposal")
     return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);
@@ -9154,6 +9278,8 @@ export async function executeToolCallV2(
     return await aiTool_licitacion_regenerar_seccion(tenantId, userId, perms, args, pageContext);
   if (toolName === "licitacion_estado")
     return await aiTool_licitacion_estado(tenantId, userId, perms, args, pageContext);
+  if (toolName === "licitacion_generar_secciones")
+    return await aiTool_licitacion_generar_secciones(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_propuesta_editar_seccion")
     return await aiTool_preview_propuesta_editar_seccion(tenantId, userId, perms, args, pageContext);
   if (toolName === "propuesta_editar_seccion")

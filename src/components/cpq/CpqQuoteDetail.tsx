@@ -1105,7 +1105,7 @@ export function CpqQuoteDetail({
     const confirmed = await confirmDialog({
       title: "Marcar enviada (licitación)",
       description:
-        "La cotización quedará como enviada y el negocio pasará a Negociación. No se envía portal ni correo. ¿Continuar?",
+        "La cotización quedará como enviada y el negocio pasará a Negociación. Si la propuesta aún no estaba aprobada, se aprobará automáticamente al tener todas las secciones con contenido. No se envía portal ni correo. ¿Continuar?",
       confirmLabel: "Marcar enviada",
     });
     if (!confirmed) return;
@@ -1786,7 +1786,7 @@ export function CpqQuoteDetail({
     quote != null &&
     quote.status === "draft" &&
     isLicitacionDeal &&
-    proposalApproved &&
+    proposalReady &&
     (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
     Boolean(crmContext.accountId && crmContext.dealId);
 
@@ -3017,8 +3017,8 @@ export function CpqQuoteDetail({
                 title={
                   alreadySent
                     ? "Ya marcada como enviada (licitación)"
-                    : !proposalApproved
-                      ? "Aprueba todas las secciones de la propuesta para marcar enviada"
+                    : !proposalReady
+                      ? "Completá todas las secciones de la propuesta (con contenido) para marcar enviada"
                       : "Marca como enviada y pasa el negocio a Negociación (sin portal ni correo)"
                 }
                 onClick={() => void handleMarkSentLicitacion()}

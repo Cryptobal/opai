@@ -119,12 +119,12 @@ export function ProposalSectionSheet({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-1">
               <SheetTitle className="font-display text-[15px]">
-                {auto ? section.title : "Editar sección"}
+                {auto ? section.title : "Ampliar sección"}
               </SheetTitle>
               <SheetDescription className="text-[12px] text-ds-text-3">
                 {auto
                   ? "Se resuelve en cada preview y PDF desde el costeo vigente."
-                  : "Los cambios se guardan al cerrar."}
+                  : "Modo foco. También podés editar inline en la tarjeta; los cambios se guardan al cerrar."}
               </SheetDescription>
             </div>
             {!readOnly && !auto ? (
@@ -247,16 +247,17 @@ export function ProposalSectionSheet({
                     disabled={busy}
                     onClick={onUnapprove}
                   >
-                    Quitar aprobación
+                    Quitar revisada
                   </Button>
                 ) : (
                   <Button
                     type="button"
+                    variant="outline"
                     className="h-10 w-full sm:h-9"
-                    disabled={busy}
+                    disabled={busy || !section.content.trim()}
                     onClick={onApprove}
                   >
-                    Aprobar sección
+                    Marcar revisada
                   </Button>
                 )
               ) : null}

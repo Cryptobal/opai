@@ -13,8 +13,12 @@ import {
 } from "@/lib/crm/advance-deal-on-quote-sent";
 import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
-import { isProposalContentV2 } from "@/lib/cpq/proposal-sections/schema";
-import { setProposalDocStatus } from "@/lib/cpq/proposal-sections/ops";
+import { isProposalContentV2, readProposalContent } from "@/lib/cpq/proposal-sections/schema";
+import {
+  allGatedSectionsHaveContent,
+  emptyGatedSectionTitles,
+  setProposalDocStatus,
+} from "@/lib/cpq/proposal-sections/ops";
 import type { Prisma } from "@prisma/client";
 
 /** Nombres canónicos y alias legacy (Soho) de la etapa de negociación. */
@@ -112,10 +116,34 @@ export async function markQuoteSentLicitacion(opts: {
   const isV2Licitacion =
     proposalMode === "licitacion" ||
     (isProposalContentV2(proposalAiContent) && proposalAiContent.mode === "licitacion");
+
+  let proposalContentForSend =
+    isV2Licitacion && isProposalContentV2(proposalAiContent)
+      ? readProposalContent(proposalAiContent, "licitacion")
+      : null;
+
   if (isV2Licitacion && proposalStatus !== "aprobada") {
-    throw new MarkQuoteSentLicitacionError(
-      "La propuesta técnica debe estar aprobada (100% de secciones) antes de marcarla enviada.",
-    );
+    if (!proposalContentForSend) {
+      throw new MarkQuoteSentLicitacionError(
+        "La propuesta técnica no tiene contenido v2 válido. Generá las secciones antes de marcar enviada.",
+      );
+    }
+    if (!allGatedSectionsHaveContent(proposalContentForSend)) {
+      const empty = emptyGatedSectionTitles(proposalContentForSend);
+      throw new MarkQuoteSentLicitacionError(
+        `Hay secciones sin contenido: ${empty.join(", ")}. Completá la propuesta antes de marcar enviada.`,
+      );
+    }
+    proposalContentForSend = setProposalDocStatus(proposalContentForSend, "aprobada", {
+      userId,
+    });
+    await prisma.cpqQuote.updateMany({
+      where: { id: quoteId, tenantId },
+      data: {
+        proposalStatus: "aprobada",
+        proposalAiContent: proposalContentForSend as unknown as Prisma.InputJsonValue,
+      },
+    });
   }
 
   const negotiationStage = await findNegotiationStage(tenantId);
@@ -147,9 +175,9 @@ export async function markQuoteSentLicitacion(opts: {
     },
   });
 
-  if (isV2Licitacion && isProposalContentV2(proposalAiContent)) {
+  if (isV2Licitacion && proposalContentForSend) {
     try {
-      const sent = setProposalDocStatus(proposalAiContent, "enviada", { userId });
+      const sent = setProposalDocStatus(proposalContentForSend, "enviada", { userId });
       await prisma.cpqQuote.updateMany({
         where: { id: quoteId, tenantId },
         data: {
