@@ -142,6 +142,7 @@ import {
   aiTool_update_quote,
 } from "@/lib/ai/help-chat-cpq-extras-handlers";
 import { aiTool_manage_quote_lines } from "@/lib/ai/help-chat-cpq-lines-handlers";
+import { aiTool_update_quote_parameters } from "@/lib/ai/help-chat-cpq-costing-handlers";
 import { parseGoogleMapsUrl, buildDealMapsUrl } from "@/lib/google-maps-url";
 import { rutSearchNeedles } from "@/lib/chile-rut";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
@@ -1093,6 +1094,42 @@ function v2ToolDefinitions() {
 
 function writeToolDefinitions() {
   return [
+    {
+      type: "function" as const,
+      function: {
+        name: "update_quote_parameters",
+        description:
+          "Edita parámetros FINANCIEROS de una cotización (pestaña Financieros): financiamiento, póliza de garantía, responsabilidad civil, horas mensuales estándar, permanencia promedio, cambios de uniforme/año, meses de contrato. Patch parcial. NO acepta marginPct/marginMode — usa update_quote_margin. Enums reales: financialBaseMode=auto|manual, policyAmountMode=pct|fija, liabilityMode=premium|rate. Recalcula totales y responde con monthlyCost antes/después.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            monthlyHoursStandard: { type: "number", description: "Horas mensuales estándar ∈ [1,744]." },
+            avgStayMonths: { type: "number", description: "Permanencia promedio en meses ∈ [1,120]." },
+            uniformChangesPerYear: { type: "number", description: "Cambios de uniforme por año." },
+            contractMonths: { type: "number", description: "Meses de contrato ∈ [1,120]." },
+            financialEnabled: { type: "boolean" },
+            financialRatePct: { type: "number", description: "Tasa financiamiento % ≤ 20." },
+            financialBaseMode: { type: "string", enum: ["auto", "manual"] },
+            policyEnabled: { type: "boolean", description: "Activa póliza de garantía." },
+            policyAmountMode: { type: "string", enum: ["pct", "fija"] },
+            policyRatePct: { type: "number" },
+            policyAdminRatePct: { type: "number" },
+            policyContractMonths: { type: "number" },
+            policyContractPct: { type: "number" },
+            policyFixedAmountUF: { type: "number", description: "Monto fijo UF (modo fija)." },
+            liabilityEnabled: { type: "boolean" },
+            liabilityMode: { type: "string", enum: ["premium", "rate"] },
+            liabilityRatePct: { type: "number" },
+            liabilityAnnualPremiumUF: { type: "number" },
+            liabilityAllocationPct: { type: "number" },
+            liabilityDeductibleUF: { type: "number" },
+          },
+          required: ["quoteIdOrCode"],
+          additionalProperties: false,
+        },
+      },
+    },
     {
       type: "function" as const,
       function: {
@@ -2683,6 +2720,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   manage_quote_includes: "Modificar los incluidos de la cotización",
   manage_quote_extras: "Editar adicionales de cotización",
   manage_quote_lines: "Editar líneas adicionales facturables",
+  update_quote_parameters: "Editar parámetros financieros de cotización",
   update_quote: "Editar datos generales de la cotización",
   send_quote_proposal: "Enviar propuesta de cotización",
   licitacion_aplicar_indice: "Aplicar índice de propuesta de licitación",
@@ -9195,6 +9233,8 @@ export async function executeToolCallV2(
   if (toolName === "manage_quote_includes") return await aiTool_manage_quote_includes(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_extras") return await aiTool_manage_quote_extras(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_lines") return await aiTool_manage_quote_lines(tenantId, userId, perms, args, pageContext);
+  if (toolName === "update_quote_parameters")
+    return await aiTool_update_quote_parameters(tenantId, userId, perms, args, pageContext);
   if (toolName === "update_quote") return await aiTool_update_quote(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_send_quote_proposal")
     return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);
