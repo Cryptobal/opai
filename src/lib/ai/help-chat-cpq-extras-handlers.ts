@@ -38,8 +38,10 @@ function numArg(o: Record<string, unknown>, k: string): number | undefined {
 /**
  * Recalcula y persiste los totales de la cotización tras editar sus líneas.
  * Idéntico al bloque de recálculo del PUT `/api/cpq/quotes/[id]/costs`.
+ * Exportado para que otras tools CPQ (líneas, meal/vehicle/infra, parámetros)
+ * usen la misma fuente de verdad sin duplicar el patrón.
  */
-async function recomputeQuoteTotals(quoteId: string) {
+export async function recomputeQuoteTotals(quoteId: string) {
   const [totalPositions, summary] = await Promise.all([
     prisma.cpqPosition.count({ where: { quoteId } }),
     computeCpqQuoteCosts(quoteId),

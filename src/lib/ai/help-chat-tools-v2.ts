@@ -141,6 +141,7 @@ import {
   aiTool_manage_quote_extras,
   aiTool_update_quote,
 } from "@/lib/ai/help-chat-cpq-extras-handlers";
+import { aiTool_manage_quote_lines } from "@/lib/ai/help-chat-cpq-lines-handlers";
 import { parseGoogleMapsUrl, buildDealMapsUrl } from "@/lib/google-maps-url";
 import { rutSearchNeedles } from "@/lib/chile-rut";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
@@ -1092,6 +1093,32 @@ function v2ToolDefinitions() {
 
 function writeToolDefinitions() {
   return [
+    {
+      type: "function" as const,
+      function: {
+        name: "manage_quote_lines",
+        description:
+          "Lista o edita las LÍNEAS ADICIONALES facturables de una cotización (pestaña Líneas: arriendo de equipos, servicios extra, etc.). Distinto de manage_quote_extras (costos/uniformes/exámenes del costeo). Úsala cuando pidan 'agrega una línea de arriendo de dron por $450.000 con 15% de margen', 'cambia el precio de la línea X', 'elimina la línea de instalación'. precio es siempre CLP entero. action=list antes y después de editar. Cada escritura recalcula el total mensual.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            action: { type: "string", enum: ["list", "add", "update", "remove"] },
+            lineId: { type: "string", description: "UUID de la línea (update/remove). Usa action=list para obtenerlo." },
+            nombre: { type: "string", description: "Nombre de la línea (add; también update). Máx 200." },
+            descripcion: { type: "string", description: "Descripción opcional." },
+            precio: { type: "number", description: "Precio unitario CLP entero ≥ 0 (siempre CLP, también en cotizaciones UF)." },
+            cantidad: { type: "number", description: "Cantidad ≥ 1 (default 1)." },
+            tipo: { type: "string", description: "Tipo corto ≤30 (default 'servicio')." },
+            recurrencia: { type: "string", enum: ["mensual", "unico"], description: "mensual (suma al total mensual) o unico (one-shot)." },
+            marginPct: { type: "number", description: "Margen % de la línea ∈ [0,99]. Precio de venta = precio/(1−margin/100)." },
+            orden: { type: "number", description: "Orden de visualización." },
+          },
+          required: ["quoteIdOrCode", "action"],
+          additionalProperties: false,
+        },
+      },
+    },
     {
       type: "function" as const,
       function: {
@@ -2625,6 +2652,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   remove_quote_position: "Eliminar puesto de la cotización",
   manage_quote_includes: "Modificar los incluidos de la cotización",
   manage_quote_extras: "Editar adicionales de cotización",
+  manage_quote_lines: "Editar líneas adicionales facturables",
   update_quote: "Editar datos generales de la cotización",
   send_quote_proposal: "Enviar propuesta de cotización",
   licitacion_aplicar_indice: "Aplicar índice de propuesta de licitación",
@@ -9136,6 +9164,7 @@ export async function executeToolCallV2(
   if (toolName === "get_quote_proposal") return await aiTool_get_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_includes") return await aiTool_manage_quote_includes(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_extras") return await aiTool_manage_quote_extras(tenantId, userId, perms, args, pageContext);
+  if (toolName === "manage_quote_lines") return await aiTool_manage_quote_lines(tenantId, userId, perms, args, pageContext);
   if (toolName === "update_quote") return await aiTool_update_quote(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_send_quote_proposal")
     return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);
