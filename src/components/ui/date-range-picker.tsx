@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { es as dateFnsEs } from "date-fns/locale";
 import type { DateRange as DayPickerDateRange } from "react-day-picker";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,8 +59,8 @@ export function DateRangePicker({
 
   const label = value?.from
     ? value.to
-      ? `${format(value.from, "dd MMM", { locale: es })} – ${format(value.to, "dd MMM yyyy", { locale: es })}`
-      : format(value.from, "dd MMM yyyy", { locale: es })
+      ? `${format(value.from, "dd MMM", { locale: dateFnsEs })} – ${format(value.to, "dd MMM yyyy", { locale: dateFnsEs })}`
+      : format(value.from, "dd MMM yyyy", { locale: dateFnsEs })
     : placeholder;
 
   // Convert our DateRange to DayPicker's DateRange (from is required there)
@@ -83,7 +83,22 @@ export function DateRangePicker({
           {label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent
+        className="w-auto p-0"
+        align="start"
+        onPointerDownOutside={(e) => {
+          const t = e.target as HTMLElement | null;
+          if (t?.closest("[data-radix-select-content], [data-radix-popper-content-wrapper]")) {
+            e.preventDefault();
+          }
+        }}
+        onFocusOutside={(e) => {
+          const t = e.target as HTMLElement | null;
+          if (t?.closest("[data-radix-select-content], [data-radix-popper-content-wrapper]")) {
+            e.preventDefault();
+          }
+        }}
+      >
         <div className="flex flex-col gap-1 border-b border-border p-2">
           {presets.map((preset) => (
             <button
@@ -117,7 +132,6 @@ export function DateRangePicker({
           onSelect={(range: DayPickerDateRange | undefined) =>
             onChange(range ? { from: range.from, to: range.to } : undefined)
           }
-          locale={es}
           numberOfMonths={2}
         />
       </PopoverContent>
