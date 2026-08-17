@@ -9,6 +9,7 @@ import { canDelete, canEdit, canView } from "@/lib/permissions";
 import { formatWeekdaysShort } from "@/lib/cpq/weekdays";
 import type { ExpandedShiftSlot } from "@/lib/cpq/coverage-ai-expand";
 import { resolveRolId, resolveRolPreferPattern } from "@/lib/cpq/ai-quote-catalog-resolve";
+import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 export type HcPageCx = HelpChatPageContext | null | undefined;
 
@@ -22,6 +23,27 @@ export function hcCanReadQuotes(perms: RolePermissions): boolean {
 
 export function hcCanCpqHardDelete(perms: RolePermissions): boolean {
   return canDelete(perms, "cpq");
+}
+
+/**
+ * Recalcula y persiste los totales de la cotización tras editar sus líneas.
+ * Idéntico al bloque de recálculo del PUT `/api/cpq/quotes/[id]/costs`; es el
+ * único punto donde las tools CPQ escriben `monthlyCost`/`totalGuards`.
+ */
+export async function recomputeQuoteTotals(quoteId: string) {
+  const [totalPositions, summary] = await Promise.all([
+    prisma.cpqPosition.count({ where: { quoteId } }),
+    computeCpqQuoteCosts(quoteId),
+  ]);
+  await prisma.cpqQuote.update({
+    where: { id: quoteId },
+    data: {
+      totalPositions,
+      totalGuards: summary.totalGuards,
+      monthlyCost: summary.monthlyTotal,
+    },
+  });
+  return summary;
 }
 
 /**

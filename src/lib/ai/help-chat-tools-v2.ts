@@ -142,6 +142,7 @@ import {
   aiTool_update_quote,
 } from "@/lib/ai/help-chat-cpq-extras-handlers";
 import { aiTool_manage_quote_lines } from "@/lib/ai/help-chat-cpq-lines-handlers";
+import { aiTool_update_quote_parameters } from "@/lib/ai/help-chat-cpq-costing-handlers";
 import { parseGoogleMapsUrl, buildDealMapsUrl } from "@/lib/google-maps-url";
 import { rutSearchNeedles } from "@/lib/chile-rut";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
@@ -1453,6 +1454,44 @@ function writeToolDefinitions() {
             quoteIdOrCode: { type: "string", description: "Código CPQ o UUID. Opcional con página cotización abierta." },
             newName: { type: "string", description: "Nombre de la copia (default: nombre original + (copia))." },
           },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_quote_parameters",
+        description:
+          "Edita los PARÁMETROS FINANCIEROS de la cotización (pestaña 'Financieros'): costo financiero, póliza de garantía, responsabilidad civil, horas mensuales estándar, permanencia promedio, cambios de uniforme al año y duración/monto del contrato. Patch parcial: manda SOLO los campos a cambiar. Úsala para 'activa la póliza de garantía al 2%', 'sube el costo financiero a 3%', 'la RC va con prima anual de 50 UF', 'el contrato es a 24 meses', 'la jornada estándar son 180 horas'. El MARGEN NO se edita acá — usa update_quote_margin. Cada cambio recalcula el costo mensual con el motor de costeo y devuelve el mensual antes/después.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            monthlyHoursStandard: { type: "number", description: "Horas mensuales estándar de la jornada (1–744, típico 180)." },
+            avgStayMonths: { type: "number", description: "Permanencia promedio del guardia en meses (1–120), base del prorrateo de uniformes/exámenes." },
+            uniformChangesPerYear: { type: "number", description: "Cambios de uniforme al año (0–12)." },
+            financialEnabled: { type: "boolean", description: "Activa el costo financiero." },
+            financialRatePct: { type: "number", description: "Tasa del costo financiero en % (0–20)." },
+            financialBaseMode: { type: "string", enum: ["auto", "manual"], description: "auto = base tomada del costeo; manual = usa salePriceBase." },
+            salePriceBase: { type: "number", description: "Base manual de venta en CLP (solo con financialBaseMode=manual)." },
+            policyEnabled: { type: "boolean", description: "Activa la póliza de garantía." },
+            policyAmountMode: { type: "string", enum: ["pct", "fija"], description: "pct = % del contrato; fija = monto fijo en UF (policyFixedAmountUF)." },
+            policyRatePct: { type: "number", description: "Tasa anual de la póliza en % (0–20)." },
+            policyAdminRatePct: { type: "number", description: "Gastos de administración de la póliza en % (0–5)." },
+            policyContractMonths: { type: "number", description: "Meses de contrato garantizados por la póliza (1–120)." },
+            policyContractPct: { type: "number", description: "% del contrato que se garantiza (0.1–100)." },
+            policyFixedAmountUF: { type: "number", description: "Monto garantizado en UF (modo fija). En 0 la póliza no suma costo." },
+            liabilityEnabled: { type: "boolean", description: "Activa la responsabilidad civil (RC)." },
+            liabilityMode: { type: "string", enum: ["premium", "rate"], description: "premium = prima anual en UF; rate = tasa sobre el monto asegurado." },
+            liabilityRatePct: { type: "number", description: "Tasa de RC en % (0–10), modo rate." },
+            liabilityAnnualPremiumUF: { type: "number", description: "Prima anual de RC en UF, modo premium." },
+            liabilityAllocationPct: { type: "number", description: "% de la prima imputado a esta cotización (0.1–100)." },
+            liabilityDeductibleUF: { type: "number", description: "Deducible de la RC en UF." },
+            contractMonths: { type: "number", description: "Duración del contrato en meses (1–120). Es la base por defecto de las amortizaciones." },
+            contractAmount: { type: "number", description: "Monto total del contrato en CLP." },
+          },
+          required: ["quoteIdOrCode"],
           additionalProperties: false,
         },
       },
@@ -9195,6 +9234,8 @@ export async function executeToolCallV2(
   if (toolName === "manage_quote_includes") return await aiTool_manage_quote_includes(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_extras") return await aiTool_manage_quote_extras(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_lines") return await aiTool_manage_quote_lines(tenantId, userId, perms, args, pageContext);
+  if (toolName === "update_quote_parameters")
+    return await aiTool_update_quote_parameters(tenantId, userId, perms, args, pageContext);
   if (toolName === "update_quote") return await aiTool_update_quote(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_send_quote_proposal")
     return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);

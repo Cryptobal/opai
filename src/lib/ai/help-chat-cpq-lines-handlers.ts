@@ -19,9 +19,9 @@ import {
   hcCanWriteQuotes,
   hcMapQuoteResolveError,
   hcQuoteEconomicLock,
+  recomputeQuoteTotals,
 } from "@/lib/ai/help-chat-cpq-ai-shared";
 import { resolveAiHelpChatCpqQuote } from "@/lib/ai/help-chat-ai-cpq-quote";
-import { recomputeQuoteTotals } from "@/lib/ai/help-chat-cpq-extras-handlers";
 
 type PageCx = HelpChatPageContext | null | undefined;
 

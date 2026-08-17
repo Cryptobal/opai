@@ -10,6 +10,17 @@
  */
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
+import type { RolePermissions } from "@/lib/permissions";
+import {
+  hcAiLog,
+  hcCanWriteQuotes,
+  hcMapQuoteResolveError,
+  hcQuoteEconomicLock,
+  recomputeQuoteTotals,
+} from "@/lib/ai/help-chat-cpq-ai-shared";
+import { resolveAiHelpChatCpqQuote } from "@/lib/ai/help-chat-ai-cpq-quote";
+import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 export type CostingKind = "meal" | "vehicle" | "infrastructure";
 
@@ -316,4 +327,158 @@ export async function applyCostingKindAction(opts: {
   if (Object.keys(data).length === 0) return fail("Indica al menos un campo a cambiar.", "nofields");
   await prisma.cpqQuoteInfrastructure.updateMany({ where, data });
   return { ok: true };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * update_quote_parameters — parámetros financieros (`CpqQuoteParameters`)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+type PageCx = HelpChatPageContext | null | undefined;
+
+/** Rangos idénticos a los clamps del PUT `/api/cpq/quotes/[id]/costs`. */
+const NUMERIC_PARAMS = {
+  monthlyHoursStandard: { min: 1, max: 744, integer: true },
+  avgStayMonths: { min: 1, max: 120, integer: true },
+  uniformChangesPerYear: { min: 0, max: 12, integer: true },
+  financialRatePct: { min: 0, max: 20, integer: false },
+  salePriceBase: { min: 0, max: 1e12, integer: false },
+  policyRatePct: { min: 0, max: 20, integer: false },
+  policyAdminRatePct: { min: 0, max: 5, integer: false },
+  policyContractPct: { min: 0.1, max: 100, integer: false },
+  policyContractMonths: { min: 1, max: 120, integer: true },
+  policyFixedAmountUF: { min: 0, max: 1e6, integer: false },
+  liabilityRatePct: { min: 0, max: 10, integer: false },
+  liabilityAnnualPremiumUF: { min: 0, max: 1e6, integer: false },
+  liabilityAllocationPct: { min: 0.1, max: 100, integer: false },
+  liabilityDeductibleUF: { min: 0, max: 1e6, integer: false },
+  contractMonths: { min: 1, max: 120, integer: true },
+  contractAmount: { min: 0, max: 1e12, integer: false },
+} as const;
+
+const BOOLEAN_PARAMS = ["financialEnabled", "policyEnabled", "liabilityEnabled"] as const;
+
+const ENUM_PARAMS = {
+  financialBaseMode: ["auto", "manual"],
+  policyAmountMode: ["pct", "fija"],
+  liabilityMode: ["premium", "rate"],
+} as const;
+
+/**
+ * Patch parcial de los parámetros financieros de una cotización (pestaña
+ * "Financieros"): financiamiento, póliza de garantía, responsabilidad civil,
+ * horas mensuales, permanencia promedio, cambios de uniforme y contrato.
+ *
+ * El margen NO se toca acá: su fuente de verdad es `update_quote_margin`.
+ */
+export async function aiTool_update_quote_parameters(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+  pageContext: PageCx,
+): Promise<unknown> {
+  const t0 = Date.now();
+  const TOOL = "update_quote_parameters";
+
+  if (!hcCanWriteQuotes(perms)) {
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "denied", errorMessage: "perm", startedAt: t0 });
+    return { ok: false, error: "Sin permiso para editar cotizaciones." };
+  }
+
+  const val = async (msg: string, code: string) => {
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: code, startedAt: t0 });
+    return { ok: false as const, error: msg };
+  };
+
+  try {
+    const quote = await resolveAiHelpChatCpqQuote(tenantId, asStr(args, "quoteIdOrCode"), pageContext);
+
+    if (has(args, "marginPct") || has(args, "marginMode")) {
+      return await val(
+        "El margen no se edita acá: usa update_quote_margin (fuente de verdad única del margen).",
+        "margin",
+      );
+    }
+
+    const locked = await hcQuoteEconomicLock(tenantId, quote.id);
+    if (locked) return await val(locked, "locked");
+
+    const data: Prisma.CpqQuoteParametersUpdateInput = {};
+    const changed: string[] = [];
+
+    for (const [field, rule] of Object.entries(NUMERIC_PARAMS)) {
+      if (!has(args, field)) continue;
+      const raw = numArg(args, field);
+      if (raw == null) return await val(`${field} debe ser un número.`, field);
+      const bad = rangeError(raw, field, rule.min, rule.max, rule.integer);
+      if (bad) return await val(bad, field);
+      (data as Record<string, unknown>)[field] = rule.integer ? Math.trunc(raw) : raw;
+      changed.push(field);
+    }
+
+    for (const field of BOOLEAN_PARAMS) {
+      if (!has(args, field)) continue;
+      const v = boolArg(args, field);
+      if (v === undefined) return await val(`${field} debe ser true o false.`, field);
+      (data as Record<string, unknown>)[field] = v;
+      changed.push(field);
+    }
+
+    for (const [field, allowed] of Object.entries(ENUM_PARAMS)) {
+      if (!has(args, field)) continue;
+      const v = asStr(args, field)?.toLowerCase();
+      if (!v || !(allowed as readonly string[]).includes(v)) {
+        return await val(`${field} debe ser uno de: ${allowed.join(" | ")}.`, field);
+      }
+      (data as Record<string, unknown>)[field] = v;
+      changed.push(field);
+    }
+
+    if (changed.length === 0) {
+      return await val(
+        "Indica al menos un parámetro a cambiar (financialEnabled/RatePct/BaseMode, policy*, liability*, monthlyHoursStandard, avgStayMonths, uniformChangesPerYear, contractMonths, contractAmount).",
+        "nofields",
+      );
+    }
+
+    const before = await computeCpqQuoteCosts(quote.id).catch(() => null);
+
+    await prisma.cpqQuoteParameters.upsert({
+      where: { quoteId: quote.id },
+      update: data,
+      create: { ...(data as Prisma.CpqQuoteParametersUncheckedCreateInput), quoteId: quote.id },
+    });
+
+    const summary = await recomputeQuoteTotals(quote.id);
+    const params = await prisma.cpqQuoteParameters.findUnique({ where: { quoteId: quote.id } });
+
+    // Advertencias no bloqueantes: configuraciones que quedan sin efecto.
+    const warnings: string[] = [];
+    if (params?.policyEnabled && params.policyAmountMode === "fija" && Number(params.policyFixedAmountUF) === 0) {
+      warnings.push("La póliza de garantía está en modo fijo con policyFixedAmountUF = 0: no suma costo. Define el monto en UF.");
+    }
+    if (params?.liabilityEnabled && params.liabilityMode === "premium" && Number(params.liabilityAnnualPremiumUF) === 0) {
+      warnings.push("La RC está en modo prima con liabilityAnnualPremiumUF = 0: no suma costo.");
+    }
+    if (params?.financialEnabled && params.financialBaseMode === "manual" && Number(params.salePriceBase) === 0) {
+      warnings.push("El costo financiero está en base manual con salePriceBase = 0: no suma costo.");
+    }
+
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "success", resultEntityId: quote.id, resultEntityType: "cpq_quote", startedAt: t0 });
+    return {
+      ok: true,
+      data: {
+        quoteId: quote.id,
+        quoteCode: quote.code,
+        changedFields: changed,
+        monthlyTotalBefore: before?.monthlyTotal ?? null,
+        monthlyTotalAfter: summary.monthlyTotal,
+        warnings,
+      },
+    };
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "internal_error", errorMessage: raw, startedAt: t0 });
+    return { ok: false, error: hcMapQuoteResolveError(e) };
+  }
 }

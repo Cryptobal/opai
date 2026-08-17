@@ -17,6 +17,7 @@ import {
   hcCanWriteQuotes,
   hcMapQuoteResolveError,
   hcQuoteEconomicLock,
+  recomputeQuoteTotals,
 } from "@/lib/ai/help-chat-cpq-ai-shared";
 import {
   applyCostingKindAction,
@@ -26,7 +27,6 @@ import {
 } from "@/lib/ai/help-chat-cpq-costing-handlers";
 import { resolveAiHelpChatCpqQuote } from "@/lib/ai/help-chat-ai-cpq-quote";
 import { resolveContactIdForCpqQuote } from "@/lib/ai/resolve-quote-contact";
-import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { isUuid } from "@/lib/utils/uuid";
 
 type PageCx = HelpChatPageContext | null | undefined;
@@ -59,26 +59,6 @@ function costVisibility(args: Record<string, unknown>): "visible" | "hidden" | "
   if (!v) return undefined;
   if (v === "visible" || v === "hidden") return v;
   return "invalid";
-}
-
-/**
- * Recalcula y persiste los totales de la cotización tras editar sus líneas.
- * Idéntico al bloque de recálculo del PUT `/api/cpq/quotes/[id]/costs`.
- */
-export async function recomputeQuoteTotals(quoteId: string) {
-  const [totalPositions, summary] = await Promise.all([
-    prisma.cpqPosition.count({ where: { quoteId } }),
-    computeCpqQuoteCosts(quoteId),
-  ]);
-  await prisma.cpqQuote.update({
-    where: { id: quoteId },
-    data: {
-      totalPositions,
-      totalGuards: summary.totalGuards,
-      monthlyCost: summary.monthlyTotal,
-    },
-  });
-  return summary;
 }
 
 /** Lee las líneas adicionales persistidas de la cotización, agrupadas por kind. */
