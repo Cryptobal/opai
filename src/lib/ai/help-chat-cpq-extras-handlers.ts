@@ -16,7 +16,14 @@ import {
   hcCanReadQuotes,
   hcCanWriteQuotes,
   hcMapQuoteResolveError,
+  hcQuoteEconomicLock,
 } from "@/lib/ai/help-chat-cpq-ai-shared";
+import {
+  applyCostingKindAction,
+  COSTING_KINDS,
+  listCostingExtras,
+  type CostingKind,
+} from "@/lib/ai/help-chat-cpq-costing-handlers";
 import { resolveAiHelpChatCpqQuote } from "@/lib/ai/help-chat-ai-cpq-quote";
 import { resolveContactIdForCpqQuote } from "@/lib/ai/resolve-quote-contact";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
@@ -33,6 +40,25 @@ function numArg(o: Record<string, unknown>, k: string): number | undefined {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string" && v.trim() && Number.isFinite(Number(v))) return Number(v);
   return undefined;
+}
+
+function has(o: Record<string, unknown>, k: string): boolean {
+  return Object.prototype.hasOwnProperty.call(o, k) && o[k] !== undefined;
+}
+
+/** `per_month` | `per_guard` (motor de costeo). `undefined` = sin cambio. */
+function costCalcMode(args: Record<string, unknown>): "per_month" | "per_guard" | "invalid" | undefined {
+  const v = asStr(args, "calcMode")?.toLowerCase();
+  if (!v) return undefined;
+  if (v === "per_month" || v === "per_guard") return v;
+  return "invalid";
+}
+
+function costVisibility(args: Record<string, unknown>): "visible" | "hidden" | "invalid" | undefined {
+  const v = asStr(args, "visibility")?.toLowerCase();
+  if (!v) return undefined;
+  if (v === "visible" || v === "hidden") return v;
+  return "invalid";
 }
 
 /**
@@ -57,6 +83,7 @@ export async function recomputeQuoteTotals(quoteId: string) {
 
 /** Lee las líneas adicionales persistidas de la cotización, agrupadas por kind. */
 async function listExtras(quoteId: string) {
+  const costing = await listCostingExtras(quoteId);
   const [costs, uniforms, exams] = await Promise.all([
     prisma.cpqQuoteCostItem.findMany({
       where: { quoteId },
@@ -81,6 +108,7 @@ async function listExtras(quoteId: string) {
         ? Number(c.unitPriceOverride)
         : Number(c.catalogItem?.basePrice ?? 0);
   return {
+    ...costing,
     cost: costs.map((c) => ({
       itemId: c.id,
       name: c.customName ?? c.catalogItem?.name ?? "(sin nombre)",
@@ -88,6 +116,10 @@ async function listExtras(quoteId: string) {
       unitPrice: costUnit(c),
       recurring: !c.isAmortizable,
       enabled: c.isEnabled,
+      calcMode: c.calcMode,
+      visibility: c.visibility,
+      notes: c.notes,
+      amortizationMonths: c.amortizationMonths,
     })),
     uniform: uniforms.map((u) => ({
       itemId: u.id,
@@ -188,18 +220,53 @@ export async function aiTool_manage_quote_extras(
     if (!new Set(["add", "update", "remove"]).has(action)) {
       return await val("Acción inválida. Usa action: list | add | update | remove.", "action");
     }
-    if (!new Set(["cost", "uniform", "exam"]).has(kind)) {
-      return await val("Indica kind: cost (costo/equipamiento), uniform o exam.", "kind");
+    if (!new Set(["cost", "uniform", "exam"]).has(kind) && !COSTING_KINDS.has(kind)) {
+      return await val(
+        "Indica kind: cost (costo/equipamiento), uniform, exam, meal (alimentación), vehicle o infrastructure.",
+        "kind",
+      );
     }
 
-    if (kind === "cost") {
+    const locked = await hcQuoteEconomicLock(tenantId, quote.id);
+    if (locked) return await val(locked, "locked");
+
+    if (COSTING_KINDS.has(kind)) {
+      const res = await applyCostingKindAction({
+        kind: kind as CostingKind,
+        quoteId: quote.id,
+        action: action as "add" | "update" | "remove",
+        args,
+      });
+      if (!res.ok) return await val(res.error, res.code);
+    } else if (kind === "cost") {
+      const calcMode = costCalcMode(args);
+      if (calcMode === "invalid") {
+        return await val("calcMode debe ser 'per_month' (monto fijo mensual) o 'per_guard' (por guardia).", "calcMode");
+      }
+      const visibility = costVisibility(args);
+      if (visibility === "invalid") {
+        return await val("visibility debe ser 'visible' o 'hidden'.", "visibility");
+      }
+      const amortizationMonths = numArg(args, "amortizationMonths");
+      if (amortizationMonths != null && (!Number.isInteger(amortizationMonths) || amortizationMonths < 1 || amortizationMonths > 120)) {
+        return await val("amortizationMonths debe ser un entero entre 1 y 120 (o nulo para usar la duración del contrato).", "amortizationMonths");
+      }
+      const investmentAmount = numArg(args, "investmentAmount");
+
       if (action === "add") {
         const name = asStr(args, "name");
         const unitPrice = numArg(args, "unitPrice");
         if (!name) return await val("Indica name del adicional (ej. 'Cámaras CCTV').", "name");
-        if (unitPrice == null) return await val("Indica unitPrice (CLP) del adicional.", "unitPrice");
+        if (unitPrice == null && investmentAmount == null) {
+          return await val("Indica unitPrice (CLP mensual) o investmentAmount (inversión a amortizar).", "unitPrice");
+        }
         const quantity = numArg(args, "quantity") ?? 1;
-        const recurring = typeof args.recurring === "boolean" ? args.recurring : true;
+        const recurring =
+          typeof args.recurring === "boolean" ? args.recurring : investmentAmount == null;
+        const inversion = investmentAmount ?? unitPrice ?? 0;
+        if (!recurring && !(inversion > 0)) {
+          return await val("Un adicional amortizable necesita investmentAmount mayor a 0.", "investmentAmount");
+        }
         await prisma.cpqQuoteCostItem.create({
           data: {
             quoteId: quote.id,
@@ -207,14 +274,15 @@ export async function aiTool_manage_quote_extras(
             customName: name.slice(0, 200),
             customType: "equipment",
             customCategory: "adicional",
-            calcMode: "per_month",
+            calcMode: calcMode ?? "per_month",
             quantity,
-            unitPriceOverride: recurring ? unitPrice : null,
-            isEnabled: true,
-            visibility: "visible",
+            unitPriceOverride: recurring ? unitPrice ?? 0 : null,
+            isEnabled: typeof args.isEnabled === "boolean" ? args.isEnabled : true,
+            visibility: visibility ?? "visible",
+            notes: asStr(args, "notes")?.slice(0, 2000) ?? null,
             isAmortizable: !recurring,
-            investmentAmount: recurring ? null : unitPrice,
-            amortizationMonths: null,
+            investmentAmount: recurring ? null : inversion,
+            amortizationMonths: recurring ? null : amortizationMonths ?? null,
           },
         });
       } else {
@@ -244,6 +312,18 @@ export async function aiTool_manage_quote_extras(
           } else if (unitPrice != null) {
             if (existing.isAmortizable) data.investmentAmount = unitPrice;
             else data.unitPriceOverride = unitPrice;
+          }
+          if (investmentAmount != null) data.investmentAmount = investmentAmount;
+          if (calcMode) data.calcMode = calcMode;
+          if (visibility) data.visibility = visibility;
+          if (typeof args.isEnabled === "boolean") data.isEnabled = args.isEnabled;
+          if (has(args, "notes")) data.notes = asStr(args, "notes")?.slice(0, 2000) ?? null;
+          if (has(args, "amortizationMonths")) data.amortizationMonths = amortizationMonths ?? null;
+          if (Object.keys(data).length === 0) {
+            return await val(
+              "Indica al menos un campo a cambiar (name, quantity, unitPrice, recurring, calcMode, isEnabled, visibility, notes, investmentAmount, amortizationMonths).",
+              "nofields",
+            );
           }
           await prisma.cpqQuoteCostItem.updateMany({ where: { id: itemId, quoteId: quote.id }, data });
         }
