@@ -383,6 +383,34 @@ export function allSectionsApproved(content: ProposalContentV2): boolean {
   return gated.length > 0 && gated.every((s) => s.status === "aprobada");
 }
 
+/**
+ * Secciones sujetas al gate (todas menos la oferta económica automática) que
+ * todavía no tienen contenido. La sección auto se llena sola desde el costeo,
+ * por eso nunca cuenta como pendiente.
+ */
+export function emptyGatedSections(content: ProposalContentV2): ProposalSection[] {
+  return gateSections(content.sections).filter((s) => !s.content.trim());
+}
+
+/**
+ * Gate de envío de la propuesta: TODAS las secciones no-auto tienen contenido.
+ * Reemplaza a `allSectionsApproved` como condición de aprobación del documento
+ * — la aprobación por sección pasa a ser una marca opcional de revisión.
+ */
+export function allGatedSectionsHaveContent(content: ProposalContentV2): boolean {
+  const gated = gateSections(content.sections);
+  return gated.length > 0 && gated.every((s) => Boolean(s.content.trim()));
+}
+
+/** Contador «X/Y con contenido» para la UI. */
+export function contentCount(content: ProposalContentV2): { withContent: number; total: number } {
+  const gated = gateSections(content.sections);
+  return {
+    withContent: gated.filter((s) => s.content.trim()).length,
+    total: gated.length,
+  };
+}
+
 export function setProposalDocStatus(
   content: ProposalContentV2,
   status: ProposalContentV2["status"],
@@ -390,8 +418,13 @@ export function setProposalDocStatus(
 ): ProposalContentV2 {
   const next = clone(content);
   if (status === "aprobada") {
-    if (next.mode === "licitacion" && !allSectionsApproved(next)) {
-      throw new ProposalIndexError("No se puede aprobar: faltan secciones por aprobar.");
+    if (next.mode === "licitacion" && !allGatedSectionsHaveContent(next)) {
+      const pendientes = emptyGatedSections(next).map((s) => `«${s.title}»`);
+      throw new ProposalIndexError(
+        pendientes.length
+          ? `No se puede aprobar: hay secciones sin contenido: ${pendientes.join(", ")}.`
+          : "No se puede aprobar: la propuesta no tiene secciones.",
+      );
     }
     const excl = next.sections.find((s) => s.invariant === "exclusiones");
     if (!excl?.content.trim()) {

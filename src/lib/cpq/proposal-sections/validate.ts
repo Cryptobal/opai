@@ -3,7 +3,7 @@
  * Las advertencias (montos) no bloquean; los errores sí.
  */
 import type { ProposalContentV2 } from "./schema";
-import { allSectionsApproved, approvedCount } from "./ops";
+import { allGatedSectionsHaveContent, contentCount, emptyGatedSections } from "./ops";
 import { deriveComplianceMatrix } from "./compliance-matrix";
 import { isAutoSection } from "./oferta-economica";
 
@@ -73,12 +73,13 @@ export function validateProposalContent(
   }
 
   if (content.mode === "licitacion") {
-    const { approved, total } = approvedCount(content);
-    if (!allSectionsApproved(content)) {
+    const { withContent, total } = contentCount(content);
+    if (!allGatedSectionsHaveContent(content)) {
+      const pendientes = emptyGatedSections(content).map((s) => `«${s.title}»`);
       out.push({
         code: "secciones_pendientes",
         level: "error",
-        message: `${approved} de ${total} secciones aprobadas. El PDF final de licitación exige el 100%.`,
+        message: `${withContent} de ${total} secciones con contenido. Faltan: ${pendientes.join(", ")}.`,
       });
     }
   }

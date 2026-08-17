@@ -64,6 +64,27 @@ const baseQuote = {
   visibleInClientPortal: null,
 };
 
+/** Propuesta v2 de licitación mínima: invariantes + una sección de cuerpo. */
+function licitacionContent(opts?: { resumenContent?: string }) {
+  const body = opts?.resumenContent ?? "Resumen del servicio.";
+  return {
+    version: 2 as const,
+    mode: "licitacion" as const,
+    status: "borrador" as const,
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    approvedBy: null,
+    approvedAt: null,
+    sentBy: null,
+    sentAt: null,
+    sections: [
+      { id: "s1", order: 0, title: "Identificación", ref: null, status: "ia" as const, sources: [], content: "Cliente Enex", invariant: "identificacion" as const },
+      { id: "s2", order: 1, title: "Resumen ejecutivo", ref: null, status: "ia" as const, sources: [], content: body },
+      { id: "s3", order: 2, title: "Exclusiones y supuestos", ref: null, status: "ia" as const, sources: [], content: "Fuera de alcance: obra civil.", invariant: "exclusiones" as const },
+      { id: "s4", order: 3, title: "Matriz de cumplimiento", ref: null, status: "ia" as const, sources: [], content: "Matriz.", invariant: "matriz" as const },
+    ],
+  };
+}
+
 describe("markQuoteSentLicitacion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -153,19 +174,60 @@ describe("markQuoteSentLicitacion", () => {
     expect(result.stageName).toBe("Negociando");
   });
 
-  it("exige propuesta aprobada cuando hay contenido v2 de licitación", async () => {
+  it("rechaza si la propuesta v2 tiene secciones sin contenido y las nombra", async () => {
     findQuote.mockReset();
     findQuote.mockResolvedValueOnce({
       ...baseQuote,
       proposalMode: "licitacion",
       proposalStatus: "borrador",
-      proposalAiContent: { version: 2, mode: "licitacion" },
+      proposalAiContent: licitacionContent({ resumenContent: "" }),
     });
     findDeal.mockResolvedValue({ id: "d1", stageId: "s1", isLicitacion: true });
 
     await expect(
       markQuoteSentLicitacion({ quoteId: "q1", tenantId: "t1", userId: "u1" }),
-    ).rejects.toMatchObject({ message: expect.stringContaining("aprobada") });
+    ).rejects.toMatchObject({ message: expect.stringContaining("Resumen ejecutivo") });
     expect(updateQuoteMany).not.toHaveBeenCalled();
+  });
+
+  it("auto-aprueba la propuesta v2 con contenido completo aunque no haya secciones aprobadas", async () => {
+    findQuote.mockReset();
+    findQuote
+      .mockResolvedValueOnce({
+        ...baseQuote,
+        proposalMode: "licitacion",
+        proposalStatus: "borrador",
+        proposalAiContent: licitacionContent(),
+      })
+      .mockResolvedValueOnce({
+        id: "q1",
+        status: "sent",
+        code: "CPQ-1",
+        name: "Licitación Enex",
+        dealId: "d1",
+        visibleInClientPortal: null,
+      });
+    findDeal.mockResolvedValue({ id: "d1", stageId: "s1", isLicitacion: true });
+
+    const result = await markQuoteSentLicitacion({
+      quoteId: "q1",
+      tenantId: "t1",
+      userId: "u1",
+    });
+
+    expect(result.quote.status).toBe("sent");
+    const proposalUpdate = updateQuoteMany.mock.calls
+      .map((call) => (call[0] as { data?: Record<string, unknown> })?.data)
+      .find((data) => data?.proposalStatus === "enviada");
+    expect(proposalUpdate).toBeTruthy();
+    const saved = proposalUpdate!.proposalAiContent as {
+      status: string;
+      approvedBy: string | null;
+      sentBy: string | null;
+    };
+    // El documento pasa por aprobada→enviada registrando al actor real.
+    expect(saved.status).toBe("enviada");
+    expect(saved.approvedBy).toBe("u1");
+    expect(saved.sentBy).toBe("u1");
   });
 });

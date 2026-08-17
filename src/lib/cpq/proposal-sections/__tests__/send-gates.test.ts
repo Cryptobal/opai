@@ -29,10 +29,10 @@ describe("send gates", () => {
     ).toBe(false);
   });
 
-  it("licitación: sigue exigiendo propuesta aprobada", () => {
+  it("licitación: exige contenido completo, no aprobación manual de secciones", () => {
     expect(
       isLicitacionMarkSentEnabled({
-        proposalApproved: false,
+        contentComplete: false,
         quoteStatus: "draft",
         hasLineItems: true,
         hasAccount: true,
@@ -42,12 +42,26 @@ describe("send gates", () => {
 
     expect(
       isLicitacionMarkSentEnabled({
-        proposalApproved: true,
+        contentComplete: true,
         quoteStatus: "draft",
         hasLineItems: true,
         hasAccount: true,
         hasDeal: true,
       }),
     ).toBe(true);
+  });
+
+  it("licitación: no habilita si falta negocio, cuenta, líneas o ya está enviada", () => {
+    const base = {
+      contentComplete: true,
+      quoteStatus: "draft",
+      hasLineItems: true,
+      hasAccount: true,
+      hasDeal: true,
+    };
+    expect(isLicitacionMarkSentEnabled({ ...base, quoteStatus: "sent" })).toBe(false);
+    expect(isLicitacionMarkSentEnabled({ ...base, hasDeal: false })).toBe(false);
+    expect(isLicitacionMarkSentEnabled({ ...base, hasAccount: false })).toBe(false);
+    expect(isLicitacionMarkSentEnabled({ ...base, hasLineItems: false })).toBe(false);
   });
 });

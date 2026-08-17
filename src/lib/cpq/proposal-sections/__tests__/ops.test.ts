@@ -8,7 +8,11 @@ import {
 } from "../schema";
 import {
   addSection,
+  allGatedSectionsHaveContent,
+  allSectionsApproved,
   approveSection,
+  contentCount,
+  emptyGatedSections,
   mergeSections,
   moveToExclusiones,
   ProposalIndexError,
@@ -20,6 +24,7 @@ import {
   setSectionContent,
   unapproveSection,
 } from "../ops";
+import { isAutoSection } from "../oferta-economica";
 import { deriveComplianceMatrix } from "../compliance-matrix";
 import { validateProposalContent } from "../validate";
 import {
@@ -257,7 +262,7 @@ describe("matriz de cumplimiento", () => {
 });
 
 describe("validaciones pre-PDF", () => {
-  it("bloquea exclusiones vacías, sin dotación y secciones no aprobadas", () => {
+  it("bloquea exclusiones vacías, sin dotación y secciones sin contenido", () => {
     let c = emptyProposalV2("licitacion");
     const excl = c.sections.find((s) => s.invariant === "exclusiones")!;
     c = setSectionContent(c, excl.id, "   ");
@@ -282,23 +287,58 @@ describe("validaciones pre-PDF", () => {
     expect(v.some((x) => x.code === "montos_en_cuerpo" && x.level === "warning")).toBe(true);
   });
 
-  it("setProposalDocStatus exige 100% aprobado y exclusiones con texto", () => {
+  it("setProposalDocStatus exige contenido completo (no aprobación) y exclusiones con texto", () => {
     let c = emptyProposalV2("licitacion");
-    expect(() => setProposalDocStatus(c, "aprobada")).toThrow(/secciones/);
+    expect(() => setProposalDocStatus(c, "aprobada")).toThrow(/sin contenido/);
+
+    // Todas con contenido pero NINGUNA aprobada: la aprobación ya no es requisito.
     c = {
       ...c,
       sections: c.sections.map((s) => ({
         ...s,
-        status: "aprobada" as const,
         content: s.invariant === "exclusiones" ? "Fuera de alcance: obra civil." : "ok",
       })),
     };
+    expect(allSectionsApproved(c)).toBe(false);
+    expect(allGatedSectionsHaveContent(c)).toBe(true);
+
     const approved = setProposalDocStatus(c, "aprobada", { userId: "u1" });
     expect(approved.status).toBe("aprobada");
     expect(approved.approvedBy).toBe("u1");
     const sent = setProposalDocStatus(approved, "enviada", { userId: "u1" });
     expect(sent.status).toBe("enviada");
     expect(sent.sentBy).toBe("u1");
+  });
+
+  it("una sola sección vacía bloquea la aprobación y la nombra en el error", () => {
+    let c = emptyProposalV2("licitacion");
+    c = {
+      ...c,
+      sections: c.sections.map((s) => ({
+        ...s,
+        content: s.invariant === "exclusiones" ? "Fuera de alcance: obra civil." : "ok",
+      })),
+    };
+    const target = c.sections.find((s) => !s.invariant && !isAutoSection(s))!;
+    c = setSectionContent(c, target.id, "");
+    expect(allGatedSectionsHaveContent(c)).toBe(false);
+    expect(emptyGatedSections(c).map((s) => s.id)).toEqual([target.id]);
+    expect(() => setProposalDocStatus(c, "aprobada")).toThrow(
+      new RegExp(`sin contenido.*${target.title}`),
+    );
+  });
+
+  it("la oferta económica automática no cuenta como sección pendiente", () => {
+    let c = emptyProposalV2("licitacion");
+    c = {
+      ...c,
+      sections: c.sections.map((s) => ({
+        ...s,
+        content: isAutoSection(s) ? "" : s.invariant === "exclusiones" ? "Exclusiones." : "ok",
+      })),
+    };
+    expect(allGatedSectionsHaveContent(c)).toBe(true);
+    expect(contentCount(c).total).toBe(c.sections.length - 1);
   });
 
   it("modo comercial no exige aprobación de secciones para PDF, aprobación ni envío", () => {

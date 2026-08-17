@@ -20,8 +20,13 @@ export function isCommercialSendEnabled(args: {
   );
 }
 
+/**
+ * Licitación: el CTA se habilita cuando TODAS las secciones no-auto tienen
+ * contenido. La aprobación manual sección por sección dejó de ser requisito —
+ * `markQuoteSentLicitacion` aprueba el documento en el mismo flujo.
+ */
 export function isLicitacionMarkSentEnabled(args: {
-  proposalApproved: boolean;
+  contentComplete: boolean;
   quoteStatus: string;
   hasLineItems: boolean;
   hasAccount: boolean;
@@ -29,7 +34,7 @@ export function isLicitacionMarkSentEnabled(args: {
 }): boolean {
   return (
     args.quoteStatus === "draft" &&
-    args.proposalApproved &&
+    args.contentComplete &&
     args.hasLineItems &&
     args.hasAccount &&
     args.hasDeal

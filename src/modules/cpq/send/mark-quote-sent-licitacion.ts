@@ -13,8 +13,15 @@ import {
 } from "@/lib/crm/advance-deal-on-quote-sent";
 import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
-import { isProposalContentV2 } from "@/lib/cpq/proposal-sections/schema";
-import { setProposalDocStatus } from "@/lib/cpq/proposal-sections/ops";
+import {
+  isProposalContentV2,
+  type ProposalContentV2,
+} from "@/lib/cpq/proposal-sections/schema";
+import {
+  allGatedSectionsHaveContent,
+  emptyGatedSections,
+  setProposalDocStatus,
+} from "@/lib/cpq/proposal-sections/ops";
 import type { Prisma } from "@prisma/client";
 
 /** Nombres canónicos y alias legacy (Soho) de la etapa de negociación. */
@@ -112,10 +119,26 @@ export async function markQuoteSentLicitacion(opts: {
   const isV2Licitacion =
     proposalMode === "licitacion" ||
     (isProposalContentV2(proposalAiContent) && proposalAiContent.mode === "licitacion");
+
+  // El gate ya no es "16 aprobaciones manuales" sino "todas las secciones con
+  // contenido": si se cumple, el documento se aprueba implícitamente acá,
+  // registrando el actor real para conservar la trazabilidad.
+  let contentToApprove: ProposalContentV2 | null = null;
   if (isV2Licitacion && proposalStatus !== "aprobada") {
-    throw new MarkQuoteSentLicitacionError(
-      "La propuesta técnica debe estar aprobada (100% de secciones) antes de marcarla enviada.",
-    );
+    if (!isProposalContentV2(proposalAiContent)) {
+      throw new MarkQuoteSentLicitacionError(
+        "La propuesta técnica todavía no tiene secciones. Generala antes de marcarla enviada.",
+      );
+    }
+    if (!allGatedSectionsHaveContent(proposalAiContent)) {
+      const pendientes = emptyGatedSections(proposalAiContent).map((s) => `«${s.title}»`);
+      throw new MarkQuoteSentLicitacionError(
+        pendientes.length
+          ? `Faltan secciones con contenido en la propuesta técnica: ${pendientes.join(", ")}.`
+          : "La propuesta técnica todavía no tiene secciones. Generala antes de marcarla enviada.",
+      );
+    }
+    contentToApprove = proposalAiContent;
   }
 
   const negotiationStage = await findNegotiationStage(tenantId);
@@ -149,7 +172,11 @@ export async function markQuoteSentLicitacion(opts: {
 
   if (isV2Licitacion && isProposalContentV2(proposalAiContent)) {
     try {
-      const sent = setProposalDocStatus(proposalAiContent, "enviada", { userId });
+      // Aprobación implícita (con actor auditado) antes de marcar enviada.
+      const approved = contentToApprove
+        ? setProposalDocStatus(contentToApprove, "aprobada", { userId })
+        : proposalAiContent;
+      const sent = setProposalDocStatus(approved, "enviada", { userId });
       await prisma.cpqQuote.updateMany({
         where: { id: quoteId, tenantId },
         data: {
