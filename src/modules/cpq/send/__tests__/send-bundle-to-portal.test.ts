@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   accountFindFirst: vi.fn(),
   adminFindFirst: vi.fn(),
   quoteUpdateMany: vi.fn(),
+  quoteFindMany: vi.fn(),
   bundleUpdate: vi.fn(),
   contactUpdateMany: vi.fn(),
   accountUpdateMany: vi.fn(),
@@ -31,7 +32,10 @@ vi.mock("@/lib/prisma", () => ({
       updateMany: mocks.accountUpdateMany,
     },
     admin: { findFirst: mocks.adminFindFirst },
-    cpqQuote: { updateMany: mocks.quoteUpdateMany },
+    cpqQuote: {
+      updateMany: mocks.quoteUpdateMany,
+      findMany: mocks.quoteFindMany,
+    },
     crmCompanyPresentation: {
       findFirst: mocks.presentationFindFirst,
       create: mocks.presentationCreate,
@@ -110,6 +114,7 @@ beforeEach(() => {
   mocks.dealUpdateMany.mockResolvedValue({ count: 1 });
   mocks.presentationFindFirst.mockResolvedValue({ id: "p1" });
   mocks.quoteUpdateMany.mockResolvedValue({ count: 2 });
+  mocks.quoteFindMany.mockResolvedValue([]);
   mocks.bundleUpdate.mockResolvedValue({});
   mocks.contactUpdateMany.mockResolvedValue({ count: 1 });
 });
@@ -197,7 +202,9 @@ describe("sendBundleToPortal", () => {
       includeProposalPdf: true,
     });
 
-    expect(buildBundleProposalProps).toHaveBeenCalledWith("b1", "t1");
+    expect(buildBundleProposalProps).toHaveBeenCalledWith("b1", "t1", {
+      pdfMode: "final",
+    });
     expect(sendTenantEmail).toHaveBeenCalledTimes(2);
     const first = vi.mocked(sendTenantEmail).mock.calls[0]![0];
     const second = vi.mocked(sendTenantEmail).mock.calls[1]![0];

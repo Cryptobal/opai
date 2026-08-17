@@ -9,7 +9,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileDown, MoreVertical, Send, Trash2, Unlink, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  FileDown,
+  Loader2,
+  MessageCircle,
+  MoreVertical,
+  Send,
+  Trash2,
+  Unlink,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -23,6 +33,14 @@ const STATUS_LABEL: Record<string, string> = {
   accepted: "Aceptada",
   rejected: "Rechazada",
 };
+
+function buildWaMeUrl(phone: string | null | undefined, message: string): string {
+  const encoded = encodeURIComponent(message);
+  const cleaned = (phone ?? "").trim();
+  return cleaned
+    ? `https://wa.me/${cleaned}?text=${encoded}`
+    : `https://wa.me/?text=${encoded}`;
+}
 
 export function BundleStickyBar({
   bundle,
@@ -40,10 +58,12 @@ export function BundleStickyBar({
   onRequestDeleteBundle?: (mode: "unlink" | "cascade") => void;
 }) {
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [waLoading, setWaLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const t = bundle.totals;
   const margin =
     t.weightedMarginPct != null ? `${t.weightedMarginPct.toFixed(1)}%` : "—";
+  const canResendWhatsApp = Boolean(bundle.contactId);
 
   const downloadPdf = async () => {
     setPdfLoading(true);
@@ -68,6 +88,26 @@ export function BundleStickyBar({
       toast.error(e instanceof Error ? e.message : "Error al generar el PDF");
     } finally {
       setPdfLoading(false);
+    }
+  };
+
+  const resendWhatsApp = async () => {
+    setWaLoading(true);
+    try {
+      const res = await fetch(`/api/cpq/bundles/${bundle.id}/whatsapp-share`, {
+        method: "POST",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "No se pudo armar el mensaje de WhatsApp");
+      }
+      const url = buildWaMeUrl(json.data?.whatsappPhone, json.data?.whatsappMessage ?? "");
+      window.open(url, "_blank");
+      toast.success("WhatsApp listo para enviar");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al abrir WhatsApp");
+    } finally {
+      setWaLoading(false);
     }
   };
 
@@ -171,67 +211,96 @@ export function BundleStickyBar({
           <Send className="h-4 w-4" />
           Enviar
         </Button>
-        {onRequestDeleteBundle ? (
-          <div className="relative">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-9 w-9"
-              aria-label="Acciones de propuesta"
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-            {menuOpen ? (
-              <>
+        <div className="relative">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            aria-label="Acciones de propuesta"
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+          {menuOpen ? (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-20 cursor-default"
+                aria-label="Cerrar menú"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute right-0 top-full z-30 mt-1 min-w-[280px] rounded-md border border-ds-border-subtle bg-popover p-1 shadow-md">
                 <button
                   type="button"
-                  className="fixed inset-0 z-20 cursor-default"
-                  aria-label="Cerrar menú"
-                  onClick={() => setMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-full z-30 mt-1 min-w-[280px] rounded-md border border-ds-border-subtle bg-popover p-1 shadow-md">
-                  <p className="px-2 py-1.5 text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
-                    Eliminar propuesta
-                  </p>
-                  <button
-                    type="button"
-                    className="flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-[13px] hover:bg-accent"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onRequestDeleteBundle("unlink");
-                    }}
-                  >
-                    <Unlink className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>
-                      <span className="block font-medium">Eliminar solo propuesta</span>
-                      <span className="block text-[12px] text-ds-text-3">
-                        Conserva las cotizaciones en el negocio.
-                      </span>
+                  className="flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-[13px] hover:bg-accent disabled:opacity-50"
+                  disabled={!canResendWhatsApp || waLoading}
+                  title={
+                    !canResendWhatsApp
+                      ? "Asigna un contacto a la propuesta"
+                      : undefined
+                  }
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void resendWhatsApp();
+                  }}
+                >
+                  {waLoading ? (
+                    <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                  ) : (
+                    <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-status-ok-fg" />
+                  )}
+                  <span>
+                    <span className="block font-medium">Reenviar por WhatsApp</span>
+                    <span className="block text-[12px] text-ds-text-3">
+                      Abre el mensaje con PIN y link al portal.
                     </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-[13px] text-status-danger-fg hover:bg-accent"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onRequestDeleteBundle("cascade");
-                    }}
-                  >
-                    <Trash2 className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>
-                      <span className="block font-medium">Eliminar propuesta y cotizaciones</span>
-                      <span className="block text-[12px] text-status-danger-fg/80">
-                        Envía las cotizaciones a la papelera.
+                  </span>
+                </button>
+                {onRequestDeleteBundle ? (
+                  <>
+                    <div className="my-1 h-px bg-border" />
+                    <p className="px-2 py-1.5 text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
+                      Eliminar propuesta
+                    </p>
+                    <button
+                      type="button"
+                      className="flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-[13px] hover:bg-accent"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onRequestDeleteBundle("unlink");
+                      }}
+                    >
+                      <Unlink className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>
+                        <span className="block font-medium">Eliminar solo propuesta</span>
+                        <span className="block text-[12px] text-ds-text-3">
+                          Conserva las cotizaciones en el negocio.
+                        </span>
                       </span>
-                    </span>
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-[13px] text-status-danger-fg hover:bg-accent"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onRequestDeleteBundle("cascade");
+                      }}
+                    >
+                      <Trash2 className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>
+                        <span className="block font-medium">Eliminar propuesta y cotizaciones</span>
+                        <span className="block text-[12px] text-status-danger-fg/80">
+                          Envía las cotizaciones a la papelera.
+                        </span>
+                      </span>
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </div>
       </div>
     </div>
   );

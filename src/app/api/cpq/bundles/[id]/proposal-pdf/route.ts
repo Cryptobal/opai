@@ -31,7 +31,7 @@ export async function GET(
     const { id } = await params;
     const bundle = await prisma.cpqProposalBundle.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true, code: true },
+      select: { id: true, code: true, status: true },
     });
     if (!bundle) {
       return NextResponse.json(
@@ -64,9 +64,20 @@ export async function GET(
       );
     }
 
+    const modeParam = (_request.nextUrl.searchParams.get("mode") ?? "").toLowerCase();
+    const pdfMode: "draft" | "final" =
+      modeParam === "final"
+        ? "final"
+        : modeParam === "draft"
+          ? "draft"
+          : bundle.status === "sent"
+            ? "final"
+            : "draft";
+
     const { fileName, ...props } = await buildBundleProposalProps(
       id,
       ctx.tenantId,
+      { pdfMode },
     );
     const pdfBuffer = await renderProposalToBufferFromProps(props);
 

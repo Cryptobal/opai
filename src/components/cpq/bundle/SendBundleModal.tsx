@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, FileText, Paperclip } from "lucide-react";
+import { Loader2, FileText, Paperclip, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   FollowUpDecisionContent,
@@ -30,6 +30,14 @@ type ContactRow = {
 };
 
 type Step = "compose" | "followup";
+
+function buildWaMeUrl(phone: string | null | undefined, message: string): string {
+  const encoded = encodeURIComponent(message);
+  const cleaned = (phone ?? "").trim();
+  return cleaned
+    ? `https://wa.me/${cleaned}?text=${encoded}`
+    : `https://wa.me/?text=${encoded}`;
+}
 
 export function SendBundleModal({
   open,
@@ -73,6 +81,9 @@ export function SendBundleModal({
   const [includeQuotationPdf, setIncludeQuotationPdf] = useState(false);
   const [includeProposalPdf, setIncludeProposalPdf] = useState(true);
   const [sending, setSending] = useState(false);
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [whatsappSentTo, setWhatsappSentTo] = useState("");
 
   const allContacts = useMemo(() => {
     const map = new Map<string, ContactRow>();
@@ -219,6 +230,8 @@ export function SendBundleModal({
           sentTo: string;
           sentToList?: string[];
           pinGenerated?: boolean;
+          whatsappMessage?: string;
+          whatsappPhone?: string | null;
         };
       }>(response);
       if (!response.ok || !payload.success) {
@@ -236,6 +249,12 @@ export function SendBundleModal({
       );
       onOpenChange(false);
       await onSent();
+
+      if (decision.sendWhatsApp === true && data.whatsappMessage) {
+        setWhatsappUrl(buildWaMeUrl(data.whatsappPhone, data.whatsappMessage));
+        setWhatsappSentTo(data.sentTo);
+        setWhatsappModalOpen(true);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al enviar");
     } finally {
@@ -244,6 +263,7 @@ export function SendBundleModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90dvh] min-w-0 w-full flex-col gap-0 overflow-hidden p-0 px-0 pt-0 pb-0 sm:max-w-xl sm:max-h-[85dvh]">
         <DialogHeader className="shrink-0 space-y-1.5 px-5 pb-3 pt-6 pr-12">
@@ -448,5 +468,41 @@ export function SendBundleModal({
         )}
       </DialogContent>
     </Dialog>
+
+    <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-status-ok-fg" />
+            Compartir por WhatsApp
+          </DialogTitle>
+          <DialogDescription>
+            Email enviado a{" "}
+            <strong className="text-foreground">{whatsappSentTo}</strong>. Haz clic
+            para enviarle el mismo mensaje por WhatsApp.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 pt-1">
+          <Button
+            className="w-full gap-2 bg-status-ok text-white hover:brightness-110"
+            onClick={() => {
+              if (whatsappUrl) window.open(whatsappUrl, "_blank");
+              setWhatsappModalOpen(false);
+            }}
+          >
+            <MessageCircle className="h-4 w-4" />
+            Compartir por WhatsApp
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full text-xs text-muted-foreground"
+            onClick={() => setWhatsappModalOpen(false)}
+          >
+            Ahora no
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -21,6 +21,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 export async function buildBundleProposalProps(
   bundleId: string,
   tenantId: string,
+  opts?: { pdfMode?: "draft" | "final" },
 ): Promise<ProposalProps & { fileName: string }> {
   const bundle = await prisma.cpqProposalBundle.findFirst({
     where: { id: bundleId, tenantId },
@@ -41,7 +42,7 @@ export async function buildBundleProposalProps(
   }
 
   const perQuote = await Promise.all(
-    bundle.quotes.map((m) => buildProposalProps(m.quoteId, tenantId)),
+    bundle.quotes.map((m) => buildProposalProps(m.quoteId, tenantId, opts)),
   );
 
   const base = perQuote[0]!;
@@ -111,6 +112,9 @@ export async function buildBundleProposalProps(
 
   const props: ProposalProps = {
     ...baseProps,
+    // Cinturón: el PDF de correo / envío final no debe heredar BORRADOR
+    // de una cotización hija aún en borrador documental.
+    watermark: opts?.pdfMode === "final" ? null : baseProps.watermark,
     quotationCode: bundle.code,
     installationName: installationLabel,
     installationCity: undefined,

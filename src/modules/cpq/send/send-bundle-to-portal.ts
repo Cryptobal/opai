@@ -22,6 +22,9 @@ import { buildPortalClienteInviteUrl } from "@/lib/portal-cliente-url";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
 import { createCrmHistoryLog } from "@/lib/crm-history";
+import { isProposalContentV2 } from "@/lib/cpq/proposal-sections/schema";
+import { setProposalDocStatus } from "@/lib/cpq/proposal-sections/ops";
+import type { Prisma } from "@prisma/client";
 
 export class SendBundleToPortalError extends Error {
   constructor(message: string) {
@@ -384,6 +387,7 @@ export async function sendBundleToPortal(
       const { fileName, ...proposalProps } = await buildBundleProposalProps(
         bundleId,
         tenantId,
+        { pdfMode: "final" },
       );
       const proposalBuffer = await renderProposalToBufferFromProps(proposalProps);
       attachments.push({
@@ -528,6 +532,34 @@ export async function sendBundleToPortal(
     where: { id: bundleId },
     data: { status: "sent", sentAt: now },
   });
+
+  // Misma semántica que cotización individual: marcar propuesta documental
+  // como "enviada" para que el badge y PDFs posteriores no digan BORRADOR.
+  try {
+    const quoteDocs = await prisma.cpqQuote.findMany({
+      where: { id: { in: quoteIds }, tenantId },
+      select: { id: true, proposalAiContent: true },
+    });
+    for (const q of quoteDocs) {
+      if (!isProposalContentV2(q.proposalAiContent)) continue;
+      try {
+        const sent = setProposalDocStatus(q.proposalAiContent, "enviada", {
+          userId,
+        });
+        await prisma.cpqQuote.updateMany({
+          where: { id: q.id, tenantId },
+          data: {
+            proposalStatus: "enviada",
+            proposalAiContent: sent as unknown as Prisma.InputJsonValue,
+          },
+        });
+      } catch {
+        // El envío ya ocurrió; no revertimos por fallo de metadata.
+      }
+    }
+  } catch (err) {
+    console.warn("[bundle send] proposalStatus enviada:", err);
+  }
 
   if (bundle.dealId) {
     try {
