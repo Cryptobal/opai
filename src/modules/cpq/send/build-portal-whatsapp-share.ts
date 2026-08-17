@@ -192,18 +192,17 @@ export async function buildBundlePortalWhatsAppShare(args: {
       name: true,
       contactId: true,
       accountId: true,
-      account: { select: { name: true } },
     },
   });
   if (!bundle) throw new PortalWhatsAppShareError("Propuesta no encontrada");
   if (!bundle.contactId) {
     throw new PortalWhatsAppShareError("Asigna un contacto antes de compartir por WhatsApp");
   }
-  if (!bundle.accountId || !bundle.account) {
+  if (!bundle.accountId) {
     throw new PortalWhatsAppShareError("Asigna una cuenta antes de compartir por WhatsApp");
   }
 
-  const [contact, admin, tenantConfig] = await Promise.all([
+  const [contact, account, admin, tenantConfig] = await Promise.all([
     prisma.crmContact.findFirst({
       where: { id: bundle.contactId, tenantId },
       select: {
@@ -216,6 +215,10 @@ export async function buildBundlePortalWhatsAppShare(args: {
         portalPinVisible: true,
       },
     }),
+    prisma.crmAccount.findFirst({
+      where: { id: bundle.accountId, tenantId },
+      select: { name: true },
+    }),
     prisma.admin.findFirst({
       where: { id: userId, tenantId },
       select: { name: true, email: true },
@@ -226,6 +229,7 @@ export async function buildBundlePortalWhatsAppShare(args: {
   if (!contact?.email) {
     throw new PortalWhatsAppShareError("El contacto no tiene email");
   }
+  if (!account) throw new PortalWhatsAppShareError("Cuenta no encontrada");
 
   const pin = await ensurePin({
     contactId: contact.id,
@@ -252,11 +256,11 @@ export async function buildBundlePortalWhatsAppShare(args: {
         email: contact.email,
         phone: contact.phone,
       },
-      account: { name: bundle.account.name },
+      account: { name: account.name },
       quote: {
         code: bundle.code,
         name: bundle.name,
-        clientName: bundle.account.name,
+        clientName: account.name,
       },
       actor: actorEntity,
       tenant: {
@@ -266,7 +270,7 @@ export async function buildBundlePortalWhatsAppShare(args: {
       },
       system: { portalUrl, portalPin: pin },
       blocks: {
-        cpqProposalHeader: `*Propuesta ${bundle.code}*\n*Cuenta:* ${bundle.account.name}`,
+        cpqProposalHeader: `*Propuesta ${bundle.code}*\n*Cuenta:* ${account.name}`,
       },
     },
   });
