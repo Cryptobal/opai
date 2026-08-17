@@ -312,9 +312,11 @@ export function ProposalSectionsEditor({
     ordered.find((section) => section.id === sheetSectionId) ?? null;
   const gated = sections.filter((s) => !isAutoSection(s));
   const approved = gated.filter((s) => s.status === "aprobada").length;
+  const withContent = gated.filter((s) => s.content.trim().length > 0).length;
   const total = gated.length;
   const mode = data?.content.mode ?? "comercial";
   const licitacionGate = mode === "licitacion" && Boolean(data?.gate);
+  const contentComplete = total > 0 && withContent === total;
   const proposalApproved = data?.content.status === "aprobada";
   const alreadySent = quoteStatus === "sent";
   const isGenerating = generatingAll || Boolean(genProgress);
@@ -323,7 +325,7 @@ export function ProposalSectionsEditor({
   );
   const canMarkLicitacion =
     mode === "licitacion" &&
-    proposalApproved &&
+    contentComplete &&
     !readOnly &&
     !alreadySent &&
     Boolean(onMarkSentLicitacion);
@@ -334,8 +336,8 @@ export function ProposalSectionsEditor({
   }, [data, proposalApproved, onProposalStatusChange]);
 
   useEffect(() => {
-    onProposalReadyChange?.(mode === "comercial" ? hasContent : proposalApproved);
-  }, [mode, hasContent, proposalApproved, onProposalReadyChange]);
+    onProposalReadyChange?.(mode === "comercial" ? hasContent : contentComplete);
+  }, [mode, hasContent, contentComplete, onProposalReadyChange]);
 
   function openChat() {
     openAnchoredChat({

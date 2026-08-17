@@ -19,6 +19,7 @@ import {
   setProposalDocStatus,
   setSectionContent,
   unapproveSection,
+  allGatedSectionsHaveContent,
 } from "../ops";
 import { deriveComplianceMatrix } from "../compliance-matrix";
 import { validateProposalContent } from "../validate";
@@ -257,7 +258,7 @@ describe("matriz de cumplimiento", () => {
 });
 
 describe("validaciones pre-PDF", () => {
-  it("bloquea exclusiones vacías, sin dotación y secciones no aprobadas", () => {
+  it("bloquea exclusiones vacías, sin dotación y secciones sin contenido", () => {
     let c = emptyProposalV2("licitacion");
     const excl = c.sections.find((s) => s.invariant === "exclusiones")!;
     c = setSectionContent(c, excl.id, "   ");
@@ -282,23 +283,42 @@ describe("validaciones pre-PDF", () => {
     expect(v.some((x) => x.code === "montos_en_cuerpo" && x.level === "warning")).toBe(true);
   });
 
-  it("setProposalDocStatus exige 100% aprobado y exclusiones con texto", () => {
+  it("setProposalDocStatus exige contenido completo (no 16 aprobaciones) y exclusiones con texto", () => {
     let c = emptyProposalV2("licitacion");
-    expect(() => setProposalDocStatus(c, "aprobada")).toThrow(/secciones/);
+    expect(() => setProposalDocStatus(c, "aprobada")).toThrow(/sin contenido/);
+    // Contenido completo sin aprobar secciones individualmente
     c = {
       ...c,
       sections: c.sections.map((s) => ({
         ...s,
-        status: "aprobada" as const,
+        status: "borrador" as const,
         content: s.invariant === "exclusiones" ? "Fuera de alcance: obra civil." : "ok",
       })),
     };
+    expect(allGatedSectionsHaveContent(c)).toBe(true);
     const approved = setProposalDocStatus(c, "aprobada", { userId: "u1" });
     expect(approved.status).toBe("aprobada");
     expect(approved.approvedBy).toBe("u1");
     const sent = setProposalDocStatus(approved, "enviada", { userId: "u1" });
     expect(sent.status).toBe("enviada");
     expect(sent.sentBy).toBe("u1");
+  });
+
+  it("setProposalDocStatus rechaza si falta una sección con contenido", () => {
+    let c = emptyProposalV2("licitacion");
+    c = {
+      ...c,
+      sections: c.sections.map((s, i) => ({
+        ...s,
+        content:
+          i === 1
+            ? ""
+            : s.invariant === "exclusiones"
+              ? "Fuera de alcance."
+              : "texto",
+      })),
+    };
+    expect(() => setProposalDocStatus(c, "aprobada")).toThrow(/sin contenido/);
   });
 
   it("modo comercial no exige aprobación de secciones para PDF, aprobación ni envío", () => {
