@@ -14,7 +14,7 @@ import {
   hcMapQuoteResolveError,
 } from "@/lib/ai/help-chat-cpq-ai-shared";
 import { resolveAiHelpChatCpqQuote } from "@/lib/ai/help-chat-ai-cpq-quote";
-import { recomputeQuoteTotals } from "@/lib/ai/help-chat-cpq-extras-handlers";
+import { recomputeQuoteTotals } from "@/lib/ai/help-chat-cpq-recompute";
 
 type PageCx = HelpChatPageContext | null | undefined;
 
