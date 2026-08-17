@@ -1,8 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { emptyProposalV2 } from "../schema";
 import { setSectionContent } from "../ops";
-import { isMissingGeneratableSection } from "../generate-batch";
+import {
+  generateProposalSectionsBatch,
+  isMissingGeneratableSection,
+} from "../generate-batch";
 import { isAutoSection } from "../oferta-economica";
+
+vi.mock("../generate-section", () => ({
+  generateProposalSection: vi.fn(async ({ section }: { section: { title: string } }) => ({
+    content: `IA:${section.title}`,
+    sources: ["mock"],
+    gaps: [],
+    fallback: false,
+    ref: null,
+  })),
+}));
 
 describe("isMissingGeneratableSection", () => {
   it("incluye secciones vacías no auto", () => {
@@ -35,5 +48,64 @@ describe("isMissingGeneratableSection", () => {
     const auto = content.sections.find((s) => isAutoSection(s));
     expect(auto).toBeTruthy();
     expect(isMissingGeneratableSection(auto!)).toBe(false);
+  });
+});
+
+describe("generateProposalSectionsBatch maxSections/remaining", () => {
+  const baseArgs = {
+    tenantId: "t1",
+    quote: {
+      code: "CPQ-TEST",
+      name: "Test",
+      clientName: "Cliente",
+      totalGuards: 1,
+      totalPositions: 1,
+    },
+    fixedSections: [] as { key: string; title: string; content: string }[],
+    positions: [],
+    corpus: null,
+    onlyMissing: true as const,
+  };
+
+  it("sin maxSections procesa todas las elegibles y remaining vacío", async () => {
+    const content = emptyProposalV2("comercial");
+    const eligible = content.sections.filter((s) => isMissingGeneratableSection(s));
+    expect(eligible.length).toBeGreaterThan(2);
+
+    const result = await generateProposalSectionsBatch({
+      ...baseArgs,
+      content,
+    });
+    expect(result.remainingSectionIds).toEqual([]);
+    expect(result.progress.generated + result.progress.failed).toBe(eligible.length);
+  });
+
+  it("con maxSections limita y reporta remainingSectionIds", async () => {
+    const content = emptyProposalV2("comercial");
+    const eligible = content.sections.filter((s) => isMissingGeneratableSection(s));
+    expect(eligible.length).toBeGreaterThan(2);
+
+    const result = await generateProposalSectionsBatch({
+      ...baseArgs,
+      content,
+      maxSections: 2,
+    });
+    expect(result.progress.generated + result.progress.failed).toBe(2);
+    expect(result.remainingSectionIds).toHaveLength(eligible.length - 2);
+    expect(result.remainingSectionIds[0]).toBe(eligible[2]!.id);
+  });
+
+  it("sectionIds filtra el subconjunto", async () => {
+    const content = emptyProposalV2("comercial");
+    const eligible = content.sections.filter((s) => isMissingGeneratableSection(s));
+    const pick = [eligible[0]!.id, eligible[2]!.id];
+
+    const result = await generateProposalSectionsBatch({
+      ...baseArgs,
+      content,
+      sectionIds: pick,
+    });
+    expect(result.progress.generated + result.progress.failed).toBe(2);
+    expect(result.remainingSectionIds).toEqual([]);
   });
 });

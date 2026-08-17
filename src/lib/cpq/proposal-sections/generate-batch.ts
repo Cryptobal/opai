@@ -106,22 +106,63 @@ type GenerateBatchArgs = {
   corpus: Awaited<ReturnType<typeof import("@/modules/crm/documents/licitacion-ingest.service").buildLicitacionCorpus>> | null;
   /** Si true, solo secciones vacías (idempotente). Si false, regenera todas. */
   onlyMissing: boolean;
-  /** Si se indica, solo esa sección (debe ser elegible según onlyMissing). */
+  /** Si se indica, solo esa sección (debe ser elegible según onlyMissing). Legacy; preferir sectionIds. */
   sectionId?: string | null;
+  /** Subconjunto de ids a generar (intersección con elegibles). */
+  sectionIds?: string[] | null;
+  /** Tope de secciones a generar en esta llamada (serverless-safe). Sin tope si omitido. */
+  maxSections?: number | null;
 };
 
 export async function generateProposalSectionsBatch(
   args: GenerateBatchArgs,
-): Promise<{ content: ProposalContentV2; progress: GenerateProgress }> {
-  const { content, tenantId, quote, fixedSections, positions, corpus, onlyMissing, sectionId } =
-    args;
+): Promise<{
+  content: ProposalContentV2;
+  progress: GenerateProgress;
+  remainingSectionIds: string[];
+}> {
+  const {
+    content,
+    tenantId,
+    quote,
+    fixedSections,
+    positions,
+    corpus,
+    onlyMissing,
+    sectionId,
+    sectionIds,
+    maxSections,
+  } = args;
   let next = content;
   const gaps: string[] = [];
   const progress: GenerateProgress = { generated: 0, failed: 0, skipped: 0 };
 
-  const targets = [...next.sections]
-    .sort((a, b) => a.order - b.order)
-    .filter((section) => (sectionId ? section.id === sectionId : true));
+  const idFilter =
+    sectionIds && sectionIds.length
+      ? new Set(sectionIds)
+      : sectionId
+        ? new Set([sectionId])
+        : null;
+
+  const ordered = [...next.sections].sort((a, b) => a.order - b.order);
+  const targets = ordered.filter((section) => (idFilter ? idFilter.has(section.id) : true));
+
+  // Elegibles = las que realmente se generarían (no auto / no skipped por onlyMissing)
+  const eligible = targets.filter((section) => {
+    if (isAutoSection(section)) return false;
+    if (onlyMissing && !isMissingGeneratableSection(section)) return false;
+    return true;
+  });
+
+  const limit =
+    maxSections != null && Number.isFinite(maxSections) && maxSections > 0
+      ? Math.floor(maxSections)
+      : null;
+  const batchIds = new Set(
+    limit != null ? eligible.slice(0, limit).map((s) => s.id) : eligible.map((s) => s.id),
+  );
+  const remainingSectionIds =
+    limit != null ? eligible.slice(limit).map((s) => s.id) : [];
 
   for (const original of targets) {
     if (isAutoSection(original)) {
@@ -131,6 +172,11 @@ export async function generateProposalSectionsBatch(
 
     if (onlyMissing && !isMissingGeneratableSection(original)) {
       progress.skipped += 1;
+      continue;
+    }
+
+    // Fuera del cupo de esta llamada (quedan en remaining)
+    if (!batchIds.has(original.id)) {
       continue;
     }
 
@@ -195,5 +241,5 @@ export async function generateProposalSectionsBatch(
   }
 
   next = appendGenerationGaps(next, gaps);
-  return { content: next, progress };
+  return { content: next, progress, remainingSectionIds };
 }
