@@ -141,6 +141,7 @@ import {
   aiTool_manage_quote_extras,
   aiTool_update_quote,
 } from "@/lib/ai/help-chat-cpq-extras-handlers";
+import { aiTool_manage_quote_lines } from "@/lib/ai/help-chat-cpq-lines-handlers";
 import { parseGoogleMapsUrl, buildDealMapsUrl } from "@/lib/google-maps-url";
 import { rutSearchNeedles } from "@/lib/chile-rut";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
@@ -1109,6 +1110,35 @@ function writeToolDefinitions() {
             quantity: { type: "number", description: "Cantidad (solo kind=cost)." },
             unitPrice: { type: "number", description: "Precio unitario CLP (add/update)." },
             recurring: { type: "boolean", description: "Solo kind=cost. true = costo mensual recurrente (default); false = one-time amortizado en el contrato." },
+          },
+          required: ["quoteIdOrCode", "action"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "manage_quote_lines",
+        description:
+          "Lista o edita las LÍNEAS ADICIONALES facturables de una cotización (pestaña 'Líneas adicionales'): servicios, arriendos, productos, asesorías o equipamiento que se cobran aparte del costeo de puestos. Úsala para 'agrega una línea de arriendo de dron por $450.000 mensual', 'cambia el margen de la línea X a 15%', 'elimina la línea de asesoría'. action=list SIEMPRE antes y después de editar. precio va en CLP entero (también en cotizaciones UF: el sistema convierte al mostrar). recurrencia='mensual' suma al cobro mensual; 'unico' es pago único que se cobra una sola vez y NO se prorratea. marginPct es el margen de esa línea (precio de venta = precio/(1-margen/100)). OJO: las líneas adicionales NO entran en monthlyTotal del costeo — se reportan aparte en additionalLinesMonthly.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            action: { type: "string", enum: ["list", "add", "update", "remove"] },
+            lineId: { type: "string", description: "UUID de la línea (update/remove)." },
+            nombre: { type: "string", description: "Nombre del servicio/producto (obligatorio en add, máx 200)." },
+            descripcion: { type: "string", description: "Descripción opcional." },
+            precio: { type: "number", description: "Precio unitario en CLP entero (obligatorio en add, ≥ 0)." },
+            cantidad: { type: "number", description: "Cantidad entera ≥ 1 (default 1)." },
+            tipo: {
+              type: "string",
+              description: "Tipo de línea: servicio (default), arriendo, producto, asesoria, equipamiento.",
+            },
+            recurrencia: { type: "string", enum: ["mensual", "unico"], description: "mensual (default) o unico." },
+            marginPct: { type: "number", description: "Margen de la línea en % (0–99). Omitir = sin margen." },
+            orden: { type: "number", description: "Orden de despliegue (default: al final)." },
           },
           required: ["quoteIdOrCode", "action"],
           additionalProperties: false,
@@ -2625,6 +2655,8 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   remove_quote_position: "Eliminar puesto de la cotización",
   manage_quote_includes: "Modificar los incluidos de la cotización",
   manage_quote_extras: "Editar adicionales de cotización",
+  manage_quote_lines: "Editar líneas adicionales de la cotización",
+  update_quote_parameters: "Editar parámetros financieros de la cotización",
   update_quote: "Editar datos generales de la cotización",
   send_quote_proposal: "Enviar propuesta de cotización",
   licitacion_aplicar_indice: "Aplicar índice de propuesta de licitación",
@@ -9136,6 +9168,7 @@ export async function executeToolCallV2(
   if (toolName === "get_quote_proposal") return await aiTool_get_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_includes") return await aiTool_manage_quote_includes(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_extras") return await aiTool_manage_quote_extras(tenantId, userId, perms, args, pageContext);
+  if (toolName === "manage_quote_lines") return await aiTool_manage_quote_lines(tenantId, userId, perms, args, pageContext);
   if (toolName === "update_quote") return await aiTool_update_quote(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_send_quote_proposal")
     return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);

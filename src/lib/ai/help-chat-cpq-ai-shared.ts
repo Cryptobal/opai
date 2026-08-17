@@ -24,6 +24,26 @@ export function hcCanCpqHardDelete(perms: RolePermissions): boolean {
   return canDelete(perms, "cpq");
 }
 
+/**
+ * Bloqueo de edición económica post-envío: misma regla que la UI
+ * (`CpqQuoteDetail`: `isLocked = quote.status === "sent"`). Devuelve el mensaje
+ * de error si la cotización está bloqueada, o null si se puede editar.
+ */
+export async function hcQuoteEconomicLock(
+  tenantId: string,
+  quoteId: string,
+): Promise<string | null> {
+  const q = await prisma.cpqQuote.findFirst({
+    where: { id: quoteId, tenantId },
+    select: { status: true },
+  });
+  if (!q) return "No encontré la cotización.";
+  if (q.status === "sent") {
+    return "La cotización ya está enviada y queda bloqueada para edición económica (igual que en la app). Clónala con clone_quote si necesitás cambiar la oferta.";
+  }
+  return null;
+}
+
 export async function hcAiLog(opts: {
   tenantId: string;
   userId: string;
