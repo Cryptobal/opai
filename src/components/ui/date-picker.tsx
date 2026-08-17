@@ -128,6 +128,19 @@ export function DatePickerField({
         <PopoverContent
           align="start"
           className="w-auto p-0 motion-reduce:animate-none"
+          onPointerDownOutside={(e) => {
+            // El Select de mes/año se portalea al body; no cerrar el popover.
+            const t = e.target as HTMLElement | null;
+            if (t?.closest("[data-radix-select-content], [data-radix-popper-content-wrapper]")) {
+              e.preventDefault();
+            }
+          }}
+          onFocusOutside={(e) => {
+            const t = e.target as HTMLElement | null;
+            if (t?.closest("[data-radix-select-content], [data-radix-popper-content-wrapper]")) {
+              e.preventDefault();
+            }
+          }}
         >
           <Calendar
             mode="single"

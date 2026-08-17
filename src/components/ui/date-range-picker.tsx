@@ -83,7 +83,22 @@ export function DateRangePicker({
           {label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent
+        className="w-auto p-0"
+        align="start"
+        onPointerDownOutside={(e) => {
+          const t = e.target as HTMLElement | null;
+          if (t?.closest("[data-radix-select-content], [data-radix-popper-content-wrapper]")) {
+            e.preventDefault();
+          }
+        }}
+        onFocusOutside={(e) => {
+          const t = e.target as HTMLElement | null;
+          if (t?.closest("[data-radix-select-content], [data-radix-popper-content-wrapper]")) {
+            e.preventDefault();
+          }
+        }}
+      >
         <div className="flex flex-col gap-1 border-b border-border p-2">
           {presets.map((preset) => (
             <button
