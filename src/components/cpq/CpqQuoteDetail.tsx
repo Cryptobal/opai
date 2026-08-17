@@ -270,6 +270,7 @@ export function CpqQuoteDetail({
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [whatsappSentTo, setWhatsappSentTo] = useState<string>("");
+  const [whatsappResending, setWhatsappResending] = useState(false);
   // Visita técnica
   const [visitaTecnicaModalOpen, setVisitaTecnicaModalOpen] = useState(false);
   const [visitaTecnicaWaModalOpen, setVisitaTecnicaWaModalOpen] = useState(false);
@@ -1460,6 +1461,36 @@ export function CpqQuoteDetail({
     void refresh();
   };
 
+  const handleResendWhatsApp = async () => {
+    if (!crmContext.contactId) {
+      toast.error("Asigna un contacto antes de compartir por WhatsApp");
+      return;
+    }
+    setWhatsappResending(true);
+    try {
+      const res = await fetch(`/api/cpq/quotes/${quoteId}/whatsapp-share`, {
+        method: "POST",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "No se pudo armar el mensaje de WhatsApp");
+      }
+      const phone = json.data?.whatsappPhone ?? "";
+      const message = json.data?.whatsappMessage ?? "";
+      const encoded = encodeURIComponent(message);
+      const waUrl = phone
+        ? `https://wa.me/${phone}?text=${encoded}`
+        : `https://wa.me/?text=${encoded}`;
+      setWhatsappUrl(waUrl);
+      setWhatsappSentTo(json.data?.sentTo ?? "");
+      setWhatsappModalOpen(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al abrir WhatsApp");
+    } finally {
+      setWhatsappResending(false);
+    }
+  };
+
   const stats = useMemo(() => {
     const totalGuards =
       quote?.totalGuards ??
@@ -2248,6 +2279,27 @@ export function CpqQuoteDetail({
               <>
                 <div className="fixed inset-0 z-20" onClick={() => setOverflowMenuOpen(false)} />
                 <div className="absolute right-0 top-full z-30 mt-1 min-w-[210px] rounded-md border bg-popover p-1 shadow-md">
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
+                    onClick={() => {
+                      setOverflowMenuOpen(false);
+                      void handleResendWhatsApp();
+                    }}
+                    disabled={whatsappResending || !crmContext.contactId}
+                    title={
+                      !crmContext.contactId
+                        ? "Asigna un contacto primero"
+                        : undefined
+                    }
+                  >
+                    {whatsappResending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <MessageCircle className="h-3.5 w-3.5 text-status-ok-fg" />
+                    )}
+                    Reenviar por WhatsApp
+                  </button>
+                  <div className="my-1 h-px bg-border" />
                   {quote.status === "sent" ? (
                     <button
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
@@ -2929,6 +2981,19 @@ export function CpqQuoteDetail({
         totalGuards={stats.totalGuards}
         actionMenu={
           <>
+            <button
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              onClick={() => void handleResendWhatsApp()}
+              disabled={whatsappResending || !crmContext.contactId}
+            >
+              {whatsappResending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MessageCircle className="h-4 w-4 text-status-ok-fg" />
+              )}
+              Reenviar por WhatsApp
+            </button>
+            <div className="my-1 h-px bg-border" />
             {quote.status === "sent" ? (
               <button
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
@@ -3072,12 +3137,20 @@ export function CpqQuoteDetail({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-status-ok-fg" />
-              ¡Enviado! Ahora por WhatsApp
+              Compartir por WhatsApp
             </DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-3">
             <p className="text-sm text-muted-foreground">
-              Email enviado a <strong className="text-foreground">{whatsappSentTo}</strong>. Haz clic para enviarle el mismo mensaje por WhatsApp.
+              {whatsappSentTo ? (
+                <>
+                  Mensaje listo para{" "}
+                  <strong className="text-foreground">{whatsappSentTo}</strong>. Haz
+                  clic para abrirlo en WhatsApp.
+                </>
+              ) : (
+                <>Haz clic para abrir el mensaje en WhatsApp.</>
+              )}
             </p>
             <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/30 p-3 space-y-1">
               <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">El mensaje incluye</p>

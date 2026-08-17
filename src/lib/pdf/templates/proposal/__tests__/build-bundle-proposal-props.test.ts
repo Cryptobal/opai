@@ -61,6 +61,28 @@ beforeEach(() => {
 });
 
 describe("buildBundleProposalProps", () => {
+  it("pasa pdfMode a cada cotización hija", async () => {
+    mocks.buildProposalProps
+      .mockResolvedValueOnce(quoteProps({ watermark: "BORRADOR" }))
+      .mockResolvedValueOnce(
+        quoteProps({
+          quotationCode: "CPQ-2026-002",
+          installationName: "Sucursal Norte",
+          watermark: "BORRADOR",
+        }),
+      );
+
+    const props = await buildBundleProposalProps("b1", "t1", { pdfMode: "final" });
+
+    expect(mocks.buildProposalProps).toHaveBeenCalledWith("q1", "t1", {
+      pdfMode: "final",
+    });
+    expect(mocks.buildProposalProps).toHaveBeenCalledWith("q2", "t1", {
+      pdfMode: "final",
+    });
+    expect(props.watermark).toBeNull();
+  });
+
   it("agrega los pagos únicos de TODAS las instalaciones, prefijados y renumerados", async () => {
     mocks.buildProposalProps
       .mockResolvedValueOnce(
