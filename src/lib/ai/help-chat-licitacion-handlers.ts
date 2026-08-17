@@ -16,7 +16,10 @@ import {
 } from "@/modules/crm/documents/licitacion-ingest.service";
 import { proposeLicitacionIndex } from "@/lib/cpq/proposal-sections/propose-index";
 import { generateProposalSection } from "@/lib/cpq/proposal-sections/generate-section";
+import { generateProposalSectionsBatch } from "@/lib/cpq/proposal-sections/generate-batch";
+import { ensureFixedSectionsSeeded, listFixedSections } from "@/lib/cpq/fixed-sections";
 import { loadQuoteProposal, saveQuoteProposal } from "@/lib/cpq/proposal-sections/persist";
+import { isAutoSection } from "@/lib/cpq/proposal-sections/oferta-economica";
 import { hasRealDotacion, loadDotacionPositions } from "@/lib/cpq/proposal-sections/build-dotacion";
 import { resolveQuoteForDeal } from "@/lib/cpq/proposal-sections/resolve-quote";
 import {
@@ -457,6 +460,91 @@ export async function aiTool_licitacion_regenerar_seccion(
   };
 }
 
+/** Tope de secciones por llamada: acota la duración del batch en serverless. */
+const GENERAR_SECCIONES_DEFAULT_MAX = 4;
+const GENERAR_SECCIONES_HARD_MAX = 6;
+
+/**
+ * Genera contenido de secciones de la propuesta en batch (write directo, sin
+ * preview: el contenido es regenerable y no destructivo). Devuelve
+ * `remainingSectionIds` para que el agente itere hasta `done=true`.
+ */
+export async function aiTool_licitacion_generar_secciones(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+  pageContext: PageCx,
+) {
+  const t0 = Date.now();
+  const TOOL = "licitacion_generar_secciones";
+  if (!hcCanWriteQuotes(perms)) {
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "denied", errorMessage: "perm", startedAt: t0 });
+    return { ok: false, error: "Sin permiso de escritura CPQ." };
+  }
+
+  const target = await resolveTargetQuote(tenantId, userId, perms, args, pageContext);
+  if (!target.ok) return target;
+
+  const { quote, content } = await loadQuoteProposal({ tenantId, quoteId: target.quoteId });
+
+  // Modo licitación: mismo gate de bases que el resto de las tools.
+  let corpus: Awaited<ReturnType<typeof buildLicitacionCorpus>> | null = null;
+  if (content.mode === "licitacion") {
+    const dealId = await resolveDealId(tenantId, pageContext, args);
+    const gated = await requireLicitacionGate(tenantId, dealId ?? quote.dealId);
+    if (typeof gated === "string") {
+      await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: gated, startedAt: t0 });
+      return { ok: false, error: gated };
+    }
+    corpus = gated.corpus;
+  }
+
+  const scope = asStr(args, "scope") === "all" ? "all" : "missing";
+  const rawMax = typeof args.maxSections === "number" ? args.maxSections : undefined;
+  const maxSections = Math.min(
+    GENERAR_SECCIONES_HARD_MAX,
+    Math.max(1, Math.trunc(rawMax ?? GENERAR_SECCIONES_DEFAULT_MAX)),
+  );
+  const sectionIds = Array.isArray(args.sectionIds) ? args.sectionIds.map(String) : null;
+
+  await ensureFixedSectionsSeeded(tenantId);
+  const fixedSections = await listFixedSections(tenantId, { activeOnly: true });
+  const positions = await loadDotacionPositions(target.quoteId);
+
+  const batch = await generateProposalSectionsBatch({
+    content,
+    tenantId,
+    quote,
+    fixedSections,
+    positions,
+    corpus,
+    onlyMissing: scope === "missing",
+    sectionIds,
+    maxSections,
+  });
+  const saved = await saveQuoteProposal({ tenantId, quoteId: target.quoteId, content: batch.content });
+
+  await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "success", resultEntityId: target.quoteId, resultEntityType: "cpq_quote", startedAt: t0 });
+  return {
+    ok: true,
+    data: {
+      quoteCode: target.code,
+      mode: saved.mode,
+      scope,
+      ...batch.progress,
+      remainingSectionIds: batch.remainingSectionIds,
+      done: batch.remainingSectionIds.length === 0,
+      sections: saved.sections.map((s) => ({
+        id: s.id,
+        title: s.title,
+        status: s.status,
+        hasContent: Boolean(s.content.trim()) || isAutoSection(s),
+      })),
+    },
+  };
+}
+
 export async function aiTool_licitacion_estado(
   tenantId: string,
   userId: string,
@@ -499,6 +587,31 @@ export async function aiTool_licitacion_estado(
     const next = approveSection(content, asStr(args, "sectionId") ?? "");
     const saved = await saveQuoteProposal({ tenantId, quoteId: target.quoteId, content: next });
     return { ok: true, data: { sections: saved.sections.map((s) => ({ id: s.id, status: s.status })) } };
+  }
+  if (action === "approve_all") {
+    // Aprueba todas las secciones con contenido; las vacías se reportan sin abortar.
+    let next = content;
+    const approved: string[] = [];
+    const empty: string[] = [];
+    for (const s of content.sections) {
+      if (isAutoSection(s)) continue;
+      if (!s.content.trim()) {
+        empty.push(s.title);
+        continue;
+      }
+      next = approveSection(next, s.id);
+      approved.push(s.title);
+    }
+    const saved = await saveQuoteProposal({ tenantId, quoteId: target.quoteId, content: next });
+    return {
+      ok: true,
+      data: {
+        approvedCount: approved.length,
+        emptySections: empty,
+        status: saved.status,
+        sections: saved.sections.map((s) => ({ id: s.id, title: s.title, status: s.status })),
+      },
+    };
   }
   if (action === "unapprove_section") {
     const next = unapproveSection(content, asStr(args, "sectionId") ?? "");

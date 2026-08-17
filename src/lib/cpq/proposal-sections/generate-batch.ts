@@ -108,20 +108,47 @@ type GenerateBatchArgs = {
   onlyMissing: boolean;
   /** Si se indica, solo esa sección (debe ser elegible según onlyMissing). */
   sectionId?: string | null;
+  /** Subconjunto explícito de secciones a procesar (además del filtro de elegibilidad). */
+  sectionIds?: readonly string[] | null;
+  /**
+   * Tope de secciones a generar en esta llamada (para no exceder el límite del
+   * runtime serverless). Las elegibles que quedan fuera vuelven en
+   * `remainingSectionIds` para que el caller itere.
+   */
+  maxSections?: number | null;
 };
 
 export async function generateProposalSectionsBatch(
   args: GenerateBatchArgs,
-): Promise<{ content: ProposalContentV2; progress: GenerateProgress }> {
-  const { content, tenantId, quote, fixedSections, positions, corpus, onlyMissing, sectionId } =
-    args;
+): Promise<{
+  content: ProposalContentV2;
+  progress: GenerateProgress;
+  remainingSectionIds: string[];
+}> {
+  const {
+    content,
+    tenantId,
+    quote,
+    fixedSections,
+    positions,
+    corpus,
+    onlyMissing,
+    sectionId,
+    sectionIds,
+    maxSections,
+  } = args;
   let next = content;
   const gaps: string[] = [];
   const progress: GenerateProgress = { generated: 0, failed: 0, skipped: 0 };
+  const remainingSectionIds: string[] = [];
+  const cap = maxSections != null && maxSections > 0 ? maxSections : null;
+  const subset = sectionIds && sectionIds.length ? new Set(sectionIds) : null;
+  let processed = 0;
 
   const targets = [...next.sections]
     .sort((a, b) => a.order - b.order)
-    .filter((section) => (sectionId ? section.id === sectionId : true));
+    .filter((section) => (sectionId ? section.id === sectionId : true))
+    .filter((section) => (subset ? subset.has(section.id) : true));
 
   for (const original of targets) {
     if (isAutoSection(original)) {
@@ -133,6 +160,12 @@ export async function generateProposalSectionsBatch(
       progress.skipped += 1;
       continue;
     }
+
+    if (cap != null && processed >= cap) {
+      remainingSectionIds.push(original.id);
+      continue;
+    }
+    processed += 1;
 
     // Dotación siempre desde puestos/servicios del costeo — nunca desde fijas.
     if (isDotacionSection(original)) {
@@ -195,5 +228,5 @@ export async function generateProposalSectionsBatch(
   }
 
   next = appendGenerationGaps(next, gaps);
-  return { content: next, progress };
+  return { content: next, progress, remainingSectionIds };
 }

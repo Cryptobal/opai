@@ -105,6 +105,7 @@ import {
   aiTool_licitacion_aplicar_cambio,
   aiTool_licitacion_aplicar_indice,
   aiTool_licitacion_estado,
+  aiTool_licitacion_generar_secciones,
   aiTool_licitacion_regenerar_seccion,
   aiTool_preview_licitacion_cambio,
   aiTool_preview_licitacion_indice,
@@ -2586,11 +2587,34 @@ function writeToolDefinitions() {
             quoteIdOrCode: { type: "string" },
             action: {
               type: "string",
-              enum: ["get", "approve_section", "unapprove_section", "set_status"],
+              enum: ["get", "approve_section", "approve_all", "unapprove_section", "set_status"],
             },
             sectionId: { type: "string" },
             status: { type: "string", enum: ["borrador", "en_revision", "aprobada"] },
           },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "licitacion_generar_secciones",
+        description:
+          "Genera con IA el CONTENIDO de las secciones de la propuesta en batch. scope='missing' (default) llena solo las vacías; scope='all' regenera todas. Por límite de tiempo procesa hasta maxSections por llamada (default 4, máximo 6): si la respuesta trae done=false, VOLVÉ A LLAMAR con los mismos argumentos hasta que done=true (podés pasar remainingSectionIds en sectionIds para continuar exactamente donde quedó). En licitación exige bases extraídas y clasificadas en el negocio. Una sección que falla no aborta el batch: queda contada en failed y se puede reintentar con licitacion_regenerar_seccion.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ / UUID." },
+            scope: { type: "string", enum: ["missing", "all"], description: "missing (default): solo secciones vacías. all: regenera todo." },
+            sectionIds: {
+              type: "array",
+              items: { type: "string" },
+              description: "Subconjunto de secciones a procesar (ej. el remainingSectionIds de la llamada anterior).",
+            },
+            maxSections: { type: "number", description: "Máximo de secciones a generar en esta llamada (1–6, default 4)." },
+          },
+          required: ["quoteIdOrCode"],
           additionalProperties: false,
         },
       },
@@ -2728,6 +2752,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   licitacion_aplicar_cambio: "Aplicar cambio al índice de la propuesta",
   licitacion_regenerar_seccion: "Regenerar sección de la propuesta",
   licitacion_estado: "Cambiar estado de la propuesta",
+  licitacion_generar_secciones: "Generar secciones de la propuesta",
   propuesta_editar_seccion: "Editar sección de la presentación",
   create_invoice_draft: "Crear borrador de factura",
   create_credit_note_draft: "Crear nota de crédito",
@@ -2793,7 +2818,6 @@ const WRITE_SECTION_READ_ONLY: ReadonlySet<string> = new Set([
   "count_emails",
   "resolve_entity",
   "mailbox_coverage",
-  "licitacion_estado",
 ]);
 
 /**
@@ -9254,6 +9278,8 @@ export async function executeToolCallV2(
     return await aiTool_licitacion_regenerar_seccion(tenantId, userId, perms, args, pageContext);
   if (toolName === "licitacion_estado")
     return await aiTool_licitacion_estado(tenantId, userId, perms, args, pageContext);
+  if (toolName === "licitacion_generar_secciones")
+    return await aiTool_licitacion_generar_secciones(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_propuesta_editar_seccion")
     return await aiTool_preview_propuesta_editar_seccion(tenantId, userId, perms, args, pageContext);
   if (toolName === "propuesta_editar_seccion")
