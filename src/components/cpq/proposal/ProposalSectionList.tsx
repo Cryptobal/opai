@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Pencil } from "lucide-react";
+import { ChevronDown, Maximize2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import type { ProposalSection } from "@/lib/cpq/proposal-sections/schema";
 import { isAutoSection } from "@/lib/cpq/proposal-sections/oferta-economica";
 import type { EconomicOpening } from "@/lib/cpq/economic-opening";
 import { EconomicOpeningTable } from "./EconomicOpeningTable";
+import { ProposalSectionInlineEditor } from "./ProposalSectionInlineEditor";
 
 const ORIGIN_LABEL: Record<NonNullable<ProposalSection["origin"]>, string> = {
   fija_empresa: "Fija",
@@ -33,6 +34,7 @@ export function ProposalSectionList({
   opening,
   failedIds,
   onRetry,
+  onInlineSave,
 }: {
   sections: ProposalSection[];
   expandedId: string | null;
@@ -43,6 +45,8 @@ export function ProposalSectionList({
   opening?: EconomicOpening | null;
   failedIds?: ReadonlySet<string>;
   onRetry?: (section: ProposalSection) => void;
+  /** Autosave del editor inline. Devuelve true si se persistió. */
+  onInlineSave?: (sectionId: string, content: string) => Promise<boolean>;
 }) {
   const ordered = [...sections].sort((a, b) => a.order - b.order);
 
@@ -92,7 +96,7 @@ export function ProposalSectionList({
                       </Tag>
                       {mode === "licitacion" && !auto && section.status === "aprobada" ? (
                         <Tag variant="ok" size="sm">
-                          Aprobada
+                          Revisada
                         </Tag>
                       ) : null}
                     </span>
@@ -111,10 +115,10 @@ export function ProposalSectionList({
                     variant="ghost"
                     size="icon"
                     className="mt-0.5 h-10 w-10 shrink-0 sm:h-9 sm:w-9"
-                    aria-label={`Editar ${section.title}`}
+                    aria-label={`Ampliar ${section.title}`}
                     onClick={() => onEdit(section)}
                   >
-                    <Pencil className="h-4 w-4" />
+                    <Maximize2 className="h-4 w-4" />
                   </Button>
                 ) : null}
               </div>
@@ -129,6 +133,12 @@ export function ProposalSectionList({
                         Sin costeo aún. La tabla se llena al calcular la cotización.
                       </p>
                     )
+                  ) : !readOnly && onInlineSave ? (
+                    <ProposalSectionInlineEditor
+                      sectionId={section.id}
+                      value={section.content}
+                      onSave={onInlineSave}
+                    />
                   ) : empty ? (
                     <p className="text-[13px] text-ds-text-3">
                       {failed
@@ -157,8 +167,8 @@ export function ProposalSectionList({
                       className="h-10 w-full sm:h-9 sm:w-auto"
                       onClick={() => onEdit(section)}
                     >
-                      <Pencil className="h-4 w-4" />
-                      Editar sección
+                      <Maximize2 className="h-4 w-4" />
+                      Ampliar
                     </Button>
                   ) : null}
                 </div>

@@ -249,9 +249,10 @@ export function ProposalSectionsEditor({
     [patchLatest],
   );
 
+  // Autogeneración al abrir: en comercial y en licitación (esta última solo
+  // cuando ya hay bases extraídas y no queda conversión pendiente).
   useEffect(() => {
     if (loading || readOnly || !data || autoGenStartedRef.current) return;
-    if (data.content.mode !== "comercial") return;
     if (data.gate || data.needsConversion) return;
     const missing = data.content.sections
       .filter((section) => isMissingGeneratableSection(section))
@@ -263,6 +264,15 @@ export function ProposalSectionsEditor({
       data.content.updatedAt,
     );
   }, [loading, readOnly, data, runGenerateMissing]);
+
+  /** Autosave del editor inline (debounce en el propio editor). */
+  const saveSectionContent = useCallback(
+    async (sectionId: string, content: string) => {
+      const result = await patchLatest({ action: "set_content", sectionId, content });
+      return Boolean(result);
+    },
+    [patchLatest],
+  );
 
   async function addNewSection() {
     const title = addTitle.trim();
@@ -312,7 +322,11 @@ export function ProposalSectionsEditor({
     ordered.find((section) => section.id === sheetSectionId) ?? null;
   const gated = sections.filter((s) => !isAutoSection(s));
   const approved = gated.filter((s) => s.status === "aprobada").length;
+  const withContent = gated.filter((s) => s.content.trim()).length;
   const total = gated.length;
+  // Gate de envío en licitación: todas las secciones no-auto con contenido.
+  // La aprobación por sección quedó como marca opcional de revisión.
+  const contentComplete = total > 0 && withContent === total;
   const mode = data?.content.mode ?? "comercial";
   const licitacionGate = mode === "licitacion" && Boolean(data?.gate);
   const proposalApproved = data?.content.status === "aprobada";
@@ -323,7 +337,7 @@ export function ProposalSectionsEditor({
   );
   const canMarkLicitacion =
     mode === "licitacion" &&
-    proposalApproved &&
+    contentComplete &&
     !readOnly &&
     !alreadySent &&
     Boolean(onMarkSentLicitacion);
@@ -334,8 +348,8 @@ export function ProposalSectionsEditor({
   }, [data, proposalApproved, onProposalStatusChange]);
 
   useEffect(() => {
-    onProposalReadyChange?.(mode === "comercial" ? hasContent : proposalApproved);
-  }, [mode, hasContent, proposalApproved, onProposalReadyChange]);
+    onProposalReadyChange?.(mode === "comercial" ? hasContent : contentComplete);
+  }, [mode, hasContent, contentComplete, onProposalReadyChange]);
 
   function openChat() {
     openAnchoredChat({
@@ -371,7 +385,8 @@ export function ProposalSectionsEditor({
               </Tag>
               {mode === "licitacion" ? (
                 <span className="text-[12px] text-ds-text-3">
-                  {approved}/{total} aprobadas
+                  {withContent}/{total} con contenido
+                  {approved > 0 ? ` · ${approved} revisadas` : ""}
                 </span>
               ) : null}
             </div>
@@ -511,6 +526,7 @@ export function ProposalSectionsEditor({
             mode={mode}
             opening={economicOpening}
             failedIds={failedIds}
+            onInlineSave={saveSectionContent}
             onRetry={(section) => {
               setFailedIds((prev) => {
                 const next = new Set(prev);
@@ -552,7 +568,7 @@ export function ProposalSectionsEditor({
                     ? "Ya marcada como enviada"
                     : markingSent
                       ? "Marcando…"
-                      : `Marcar enviada (${approved}/${total})`}
+                      : `Marcar enviada (${withContent}/${total})`}
                 </Button>
               )}
             </div>

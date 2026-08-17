@@ -759,7 +759,7 @@ export async function buildLicitacionSystemMessage(opts: {
         ? `GATE: ${gate} No llames tools de generación de índice/secciones hasta que haya bases extraídas.`
         : "Hay bases extraídas. Podés proponer índice con preview_licitacion_indice.",
       formatCorpusForPrompt(corpus).slice(0, 24_000),
-      "Tools: preview_licitacion_indice → licitacion_aplicar_indice; preview_licitacion_cambio → licitacion_aplicar_cambio; preview_licitacion_regenerar → licitacion_regenerar_seccion; licitacion_estado. NUNCA inventes. Confirmá cambios estructurales.",
+      "Tools: preview_licitacion_indice → licitacion_aplicar_indice; licitacion_generar_secciones (llena el contenido en batch: si done=false volvé a llamar hasta terminar); preview_licitacion_cambio → licitacion_aplicar_cambio; preview_licitacion_regenerar → licitacion_regenerar_seccion; licitacion_estado (get | approve_section | approve_all | unapprove_section | set_status). Para marcar la propuesta enviada basta con que TODAS las secciones tengan contenido: aprobar sección por sección es opcional. NUNCA inventes. Confirmá cambios estructurales.",
     ].join("\n");
   }
   if (pc.entityType === "cpq_quote") {

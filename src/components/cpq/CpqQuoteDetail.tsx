@@ -32,7 +32,10 @@ import {
   cpqBreakdownAmount,
 } from "@/components/cpq/cpqBreakdownLayout";
 import { economicOpeningFromCostSummary } from "@/lib/cpq/economic-opening";
-import { isCommercialSendEnabled } from "@/lib/cpq/proposal-sections/send-gates";
+import {
+  isCommercialSendEnabled,
+  isLicitacionMarkSentEnabled,
+} from "@/lib/cpq/proposal-sections/send-gates";
 import { cn, formatNumber } from "@/lib/utils";
 import type {
   CpqQuote,
@@ -330,7 +333,6 @@ export function CpqQuoteDetail({
   /** Fuerza recarga de deals (etapa puede cambiar al enviar propuesta). */
   const [crmDealsReloadKey, setCrmDealsReloadKey] = useState(0);
   const [markingSentLicitacion, setMarkingSentLicitacion] = useState(false);
-  const [proposalApproved, setProposalApproved] = useState(false);
   /** Comercial: propuesta con contenido listo para enviar (sin exigir estado aprobada). */
   const [proposalReady, setProposalReady] = useState(false);
   const [crmContext, setCrmContext] = useState({
@@ -1105,7 +1107,7 @@ export function CpqQuoteDetail({
     const confirmed = await confirmDialog({
       title: "Marcar enviada (licitación)",
       description:
-        "La cotización quedará como enviada y el negocio pasará a Negociación. No se envía portal ni correo. ¿Continuar?",
+        "Se aprueba la propuesta técnica con tu usuario, la cotización queda como enviada y el negocio pasa a Negociación. No se envía portal ni correo. ¿Continuar?",
       confirmLabel: "Marcar enviada",
     });
     if (!confirmed) return;
@@ -1784,11 +1786,15 @@ export function CpqQuoteDetail({
   const contactHasEmail = Boolean(contactForPortal?.email?.trim());
   const canMarkSentLicitacion =
     quote != null &&
-    quote.status === "draft" &&
-    isLicitacionDeal &&
-    proposalApproved &&
-    (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
-    Boolean(crmContext.accountId && crmContext.dealId);
+    isLicitacionMarkSentEnabled({
+      // En licitación el editor reporta "todas las secciones con contenido".
+      contentComplete: proposalReady,
+      quoteStatus: quote.status,
+      hasLineItems: positions.length > 0 || (additionalLines?.length ?? 0) > 0,
+      hasAccount: Boolean(crmContext.accountId),
+      hasDeal: Boolean(crmContext.dealId),
+    }) &&
+    isLicitacionDeal;
 
   /** CTA único de envío: calienta PDF final y abre el modal (autosuficiente). */
   const openPortalProposal = useCallback(async () => {
@@ -2729,7 +2735,6 @@ export function CpqQuoteDetail({
                 }]
               : [],
           })}
-          onProposalStatusChange={(_status, approved) => setProposalApproved(approved)}
           onProposalReadyChange={setProposalReady}
         />
       </div>
@@ -3017,8 +3022,8 @@ export function CpqQuoteDetail({
                 title={
                   alreadySent
                     ? "Ya marcada como enviada (licitación)"
-                    : !proposalApproved
-                      ? "Aprueba todas las secciones de la propuesta para marcar enviada"
+                    : !proposalReady
+                      ? "Completa el contenido de todas las secciones de la propuesta para marcar enviada"
                       : "Marca como enviada y pasa el negocio a Negociación (sin portal ni correo)"
                 }
                 onClick={() => void handleMarkSentLicitacion()}

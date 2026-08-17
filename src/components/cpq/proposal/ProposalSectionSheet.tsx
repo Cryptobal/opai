@@ -119,12 +119,12 @@ export function ProposalSectionSheet({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-1">
               <SheetTitle className="font-display text-[15px]">
-                {auto ? section.title : "Editar sección"}
+                {auto ? section.title : section.title || "Editar sección"}
               </SheetTitle>
               <SheetDescription className="text-[12px] text-ds-text-3">
                 {auto
                   ? "Se resuelve en cada preview y PDF desde el costeo vigente."
-                  : "Los cambios se guardan al cerrar."}
+                  : "Modo foco. También puedes editar directamente en la tarjeta; acá los cambios se guardan al cerrar."}
               </SheetDescription>
             </div>
             {!readOnly && !auto ? (
@@ -239,26 +239,32 @@ export function ProposalSectionSheet({
                 </div>
               ) : null}
               {!readOnly && mode === "licitacion" ? (
-                section.status === "aprobada" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 w-full sm:h-9"
-                    disabled={busy}
-                    onClick={onUnapprove}
-                  >
-                    Quitar aprobación
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    className="h-10 w-full sm:h-9"
-                    disabled={busy}
-                    onClick={onApprove}
-                  >
-                    Aprobar sección
-                  </Button>
-                )
+                <div className="space-y-1">
+                  {section.status === "aprobada" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 w-full sm:h-9"
+                      disabled={busy}
+                      onClick={onUnapprove}
+                    >
+                      Quitar marca de revisada
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-10 w-full sm:h-9"
+                      disabled={busy}
+                      onClick={onApprove}
+                    >
+                      Marcar revisada
+                    </Button>
+                  )}
+                  <p className="text-[12px] text-ds-text-3">
+                    Opcional: para enviar solo se exige que todas las secciones tengan contenido.
+                  </p>
+                </div>
               ) : null}
             </>
           )}
