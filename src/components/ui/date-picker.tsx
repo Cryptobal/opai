@@ -77,6 +77,12 @@ export function DatePickerField({
   const selected = ymd ? ymdToLocalDate(ymd) : undefined;
   const minDate = min ? ymdToLocalDate(min.slice(0, 10)) : undefined;
   const maxDate = max ? ymdToLocalDate(max.slice(0, 10)) : undefined;
+  const startMonth = minDate
+    ? new Date(minDate.getFullYear(), minDate.getMonth(), 1)
+    : undefined;
+  const endMonth = maxDate
+    ? new Date(maxDate.getFullYear(), maxDate.getMonth(), 1)
+    : undefined;
 
   const disabledMatchers: Array<{ before: Date } | { after: Date }> = [];
   if (minDate) disabledMatchers.push({ before: minDate });
@@ -128,6 +134,8 @@ export function DatePickerField({
             selected={selected}
             onSelect={pick}
             defaultMonth={selected}
+            startMonth={startMonth}
+            endMonth={endMonth}
             disabled={disabledMatchers.length ? disabledMatchers : undefined}
           />
           <div className="flex items-center justify-between gap-2 border-t border-ds-border-subtle p-2">
