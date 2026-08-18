@@ -10,6 +10,7 @@ import { SignatureTyped } from "./SignatureTyped";
 import { SignatureCanvas } from "./SignatureCanvas";
 import { SignatureUpload } from "./SignatureUpload";
 import { promptDialog } from "@/components/ui/confirm-service";
+import { DocumentShareButton } from "@/components/shared/DocumentShareButton";
 
 interface SignatureSignClientProps {
   token: string;
@@ -237,17 +238,26 @@ export function SignatureSignClient({ token }: SignatureSignClientProps) {
         </div>
 
         <div className="rounded-xl border bg-card p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-2">
             <h2 className="text-sm font-semibold">Contenido del documento</h2>
-            <a
-              href={`/api/docs/sign/${token}/export-pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Descargar PDF
-            </a>
+            <div className="flex items-center gap-1.5">
+              <DocumentShareButton
+                url={`/api/docs/sign/${token}/export-pdf`}
+                filename="documento.pdf"
+                mimeType="application/pdf"
+                tone="light"
+                size="md"
+              />
+              <a
+                href={`/api/docs/sign/${token}/export-pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center gap-1.5 rounded-full border border-ds-border-subtle bg-ds-surface-2 px-3 text-xs text-primary hover:underline"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Descargar
+              </a>
+            </div>
           </div>
           <div className="min-h-[300px] rounded-lg border border-border bg-background overflow-y-auto">
             {contentError ? (

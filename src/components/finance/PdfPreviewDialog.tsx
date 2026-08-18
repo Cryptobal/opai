@@ -5,18 +5,10 @@
  *
  * Modal grande con un PDF embebido vía <iframe>. Soporta DOS modos:
  *
- *   1. PDF persistido del DTE emitido (modo `dteId`):
- *      - Usa `/api/finance/billing/issued/[id]/pdf?inline=1` como src.
- *      - El PDF lo genera el provider (SimpleAPI) desde el XML firmado.
+ *   1. PDF persistido del DTE emitido (modo `dteId`)
+ *   2. PDF de vista previa pre-emisión (modo `blobUrl`)
  *
- *   2. PDF de vista previa pre-emisión (modo `blobUrl`):
- *      - El caller genera el PDF (típicamente vía POST a
- *        `/api/finance/billing/preview-pdf`), crea un blob URL con
- *        `URL.createObjectURL()` y lo pasa acá.
- *      - Permite mostrar el PDF antes de gastar folio SII.
- *
- * El layout es 1400px max width × 95vh para que la factura A4 se vea
- * casi a tamaño real en monitor 1440+.
+ * En móvil el header incluye el botón Compartir (iOS) para reenviar por WhatsApp.
  */
 
 import {
@@ -28,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, ExternalLink, Eye } from "lucide-react";
+import { DocumentShareButton } from "@/components/shared/DocumentShareButton";
 
 const DTE_TYPE_LABELS: Record<number, string> = {
   33: "Factura Electrónica",
@@ -72,13 +65,8 @@ export function PdfPreviewDialog(props: Props) {
   const dteLabel = DTE_TYPE_LABELS[dteType] ?? `Tipo ${dteType}`;
   const isPreview = "isPreview" in props && props.isPreview === true;
 
-  // Resolver src del iframe según el modo.
-  // - blobUrl: usar tal cual (URL.createObjectURL del caller).
-  // - dteId: pegarle al endpoint del provider con #zoom=page-width&toolbar=1.
   const pdfUrl = (() => {
     if ("blobUrl" in props && props.blobUrl) {
-      // El blob URL local no soporta `#zoom=` pero la mayoría de
-      // browsers usan zoom default; el usuario tiene Ctrl/Cmd+/-.
       return props.blobUrl;
     }
     if ("dteId" in props && props.dteId) {
@@ -87,8 +75,14 @@ export function PdfPreviewDialog(props: Props) {
     return "";
   })();
 
-  // Solo modo "issued" puede abrir en pestaña nueva; el preview usa
-  // un blob temporal que muere al cerrar el dialog (revoke).
+  const shareUrl = (() => {
+    if ("blobUrl" in props && props.blobUrl) return props.blobUrl;
+    if ("dteId" in props && props.dteId) {
+      return `/api/finance/billing/issued/${props.dteId}/pdf?inline=1`;
+    }
+    return "";
+  })();
+
   const newTabUrl =
     "dteId" in props && props.dteId
       ? `/api/finance/billing/issued/${props.dteId}/pdf?inline=1`
@@ -98,30 +92,45 @@ export function PdfPreviewDialog(props: Props) {
     ? `Vista previa · ${dteLabel}`
     : `${dteLabel} N° ${folio}`;
 
+  const shareFilename = isPreview
+    ? `preview-${dteType}.pdf`
+    : `${dteLabel.replace(/\s+/g, "-")}-${folio}.pdf`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName="z-[70]"
         className="z-[70] w-[95vw] max-w-[1400px] h-[95vh] flex flex-col p-0 gap-0 sm:max-w-[1400px]"
       >
-        <DialogHeader className="px-6 py-4 border-b shrink-0 flex-row items-center justify-between gap-2 space-y-0">
-          <DialogTitle className="font-display flex items-center gap-2">
-            {isPreview && <Eye className="h-4 w-4 text-status-warn-fg" />}
-            {title}
+        <DialogHeader className="px-4 py-3 sm:px-6 sm:py-4 border-b shrink-0 flex-row items-center justify-between gap-2 space-y-0">
+          <DialogTitle className="font-display flex min-w-0 items-center gap-2 text-[15px] sm:text-base">
+            {isPreview && <Eye className="h-4 w-4 shrink-0 text-status-warn-fg" />}
+            <span className="truncate">{title}</span>
             {isPreview && (
-              <span className="text-[12px] font-normal text-status-warn-fg ml-1">
+              <span className="hidden text-[12px] font-normal text-status-warn-fg sm:inline">
                 · NO emitido al SII
               </span>
             )}
           </DialogTitle>
-          {newTabUrl && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={newTabUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                Abrir en pestaña nueva
-              </a>
-            </Button>
-          )}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {shareUrl ? (
+              <DocumentShareButton
+                url={shareUrl}
+                filename={shareFilename}
+                mimeType="application/pdf"
+                tone="light"
+                size="md"
+              />
+            ) : null}
+            {newTabUrl && (
+              <Button variant="outline" size="sm" className="hidden h-10 sm:inline-flex" asChild>
+                <a href={newTabUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                  Abrir
+                </a>
+              </Button>
+            )}
+          </div>
         </DialogHeader>
         {pdfUrl ? (
           <iframe
@@ -134,14 +143,14 @@ export function PdfPreviewDialog(props: Props) {
             Cargando…
           </div>
         )}
-        <DialogFooter className="px-6 py-4 border-t shrink-0">
+        <DialogFooter className="px-4 py-3 sm:px-6 sm:py-4 border-t shrink-0 gap-2">
           {onDownload && (
-            <Button variant="outline" onClick={onDownload}>
+            <Button variant="outline" className="h-10" onClick={onDownload}>
               <Download className="h-4 w-4 mr-2" />
               Descargar
             </Button>
           )}
-          <Button onClick={() => onOpenChange(false)}>Cerrar</Button>
+          <Button className="h-10" onClick={() => onOpenChange(false)}>Cerrar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

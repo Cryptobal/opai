@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { FileText, Download, ShieldCheck, AlertCircle, QrCode, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DocumentShareButton } from "@/components/shared/DocumentShareButton";
 
 type Signer = {
   name: string;
@@ -172,12 +173,20 @@ export function SignedViewClient({
               </p>
             </div>
           </div>
-          <Button asChild variant="outline" size="sm" className="gap-2 shrink-0">
-            <a href={pdfUrl} download target="_blank" rel="noopener noreferrer">
-              <Download className="h-4 w-4" />
-              Descargar PDF
-            </a>
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <DocumentShareButton
+              url={pdfUrl}
+              filename={`${data.document.title || "documento"}.pdf`}
+              mimeType="application/pdf"
+              tone="light"
+            />
+            <Button asChild variant="outline" size="sm" className="gap-2 h-10">
+              <a href={pdfUrl} download target="_blank" rel="noopener noreferrer">
+                <Download className="h-4 w-4" />
+                Descargar PDF
+              </a>
+            </Button>
+          </div>
         </div>
 
         {/* Document content (HTML, mismo flujo que PDF) */}

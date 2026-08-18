@@ -15,6 +15,7 @@ import { AiHelpChatWidgetV2 as AiHelpChatWidget } from './AiHelpChatWidgetV2';
 import { AiShortcutListener } from './AiShortcutListener';
 import { NavProgress } from './NavProgress';
 import { ChatPageContextProvider } from './ChatPageContextProvider';
+import { DocumentViewerProvider } from '@/components/shared/DocumentViewerProvider';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { BottomNav } from './BottomNav';
 import { BottomNavPortal } from './BottomNavPortal';
@@ -102,7 +103,9 @@ export function AppShell(props: AppShellProps) {
   return (
     <CommandPaletteProvider>
       <ChatPageContextProvider>
-        <AppShellInner {...props} />
+        <DocumentViewerProvider>
+          <AppShellInner {...props} />
+        </DocumentViewerProvider>
       </ChatPageContextProvider>
     </CommandPaletteProvider>
   );

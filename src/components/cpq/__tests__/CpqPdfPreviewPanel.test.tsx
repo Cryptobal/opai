@@ -2,6 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { CpqPdfPreviewPanel } from "../CpqPdfPreviewPanel";
 
+vi.mock("@/components/crm/correos/AttachmentPreview", () => ({
+  AttachmentPreview: () => <div data-testid="attachment-preview" />,
+}));
+
 describe("CpqPdfPreviewPanel", () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -82,7 +86,7 @@ describe("CpqPdfPreviewPanel", () => {
     expect(await screen.findByText("Vista previa · Cotización")).toBeInTheDocument();
   });
 
-  it("en pointer coarse Ver abre pestaña nativa sin forzar descarga", async () => {
+  it("en pointer coarse Ver abre el visor in-app (no pestaña nuda)", async () => {
     vi.stubGlobal(
       "matchMedia",
       vi.fn().mockImplementation((query: string) => ({
@@ -111,17 +115,14 @@ describe("CpqPdfPreviewPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ver" }));
 
     await waitFor(() => {
-      expect(openSpy).toHaveBeenCalledWith(
-        "/api/cpq/quotes/q1/proposal-pdf?t=1",
-        "_blank",
-        "noopener,noreferrer",
-      );
+      expect(screen.getByRole("dialog", { name: "propuesta-tecnica.pdf" })).toBeInTheDocument();
     });
+    expect(openSpy).not.toHaveBeenCalled();
 
     openSpy.mockRestore();
   });
 
-  it("con preview en layout móvil muestra Descargar / Compartir", () => {
+  it("con preview en layout móvil muestra Ver y compartir", () => {
     render(
       <CpqPdfPreviewPanel
         mode="presentacion"
@@ -133,8 +134,8 @@ describe("CpqPdfPreviewPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Compartir por WhatsApp" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Solo ver" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ver y compartir" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Compartir" })).toBeInTheDocument();
   });
 
   it("con allowedModes cotizacion no muestra el tab Propuesta técnica", () => {

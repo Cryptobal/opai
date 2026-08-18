@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 import { PlatformDataAttribute } from "@/components/opai/portal-shell";
 import { GlassAmbient } from "@/components/opai-ds/GlassAmbient";
+import { PortalDocumentViewerRoot } from "@/components/shared/PortalDocumentViewerRoot";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -35,7 +36,7 @@ export default function PortalGuardiaLayout({ children }: { children: React.Reac
       <GlassAmbient />
       <ServiceWorkerRegistrar scope="/portal/guardia" />
       <PlatformDataAttribute />
-      {children}
+      <PortalDocumentViewerRoot>{children}</PortalDocumentViewerRoot>
     </div>
   );
 }

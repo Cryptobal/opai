@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Download, X, Maximize2, ExternalLink } from "lucide-react";
+import { useCallback, useEffect } from "react";
+import { Download, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AttachmentPreview } from "@/components/crm/correos/AttachmentPreview";
+import { DocumentShareButton } from "@/components/shared/DocumentShareButton";
 
 const IMAGE_MIMES = new Set([
     "image/jpeg",
@@ -39,8 +40,6 @@ export function FilePreviewModal({
     fileName,
     mimeType = "",
 }: FilePreviewModalProps) {
-    const [isFullscreen, setIsFullscreen] = useState(false);
-
     const handleEscape = useCallback(
         (e: KeyboardEvent) => {
             if (e.key === "Escape") onOpenChange(false);
@@ -78,11 +77,18 @@ export function FilePreviewModal({
                 <h3 className="text-sm font-medium text-white truncate max-w-[60%]" title={fileName}>
                     {fileName}
                 </h3>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
+                    <DocumentShareButton
+                        url={previewUrl || url}
+                        filename={fileName}
+                        mimeType={mimeType || (isPdf ? PDF_MIME : undefined)}
+                        tone="dark"
+                        size="md"
+                    />
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10"
+                        className="h-10 w-10 text-white/80 hover:text-white hover:bg-white/10"
                         asChild
                     >
                         <a

@@ -4,11 +4,9 @@ import { useState } from "react";
 import { Check, XCircle, FileDown, FileText, MessageSquare, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
-import { getErrorMessageFromResponse } from "@/lib/parse-fetch-error";
-import {
-  buildCpqQuotePdfFileName,
-  parseContentDispositionFileName,
-} from "@/lib/pdf/cpq-quote-pdf-filename";
+import { buildCpqQuotePdfFileName } from "@/lib/pdf/cpq-quote-pdf-filename";
+import { downloadOrShareFile } from "@/lib/files/download-or-share";
+import { DocumentShareButton } from "@/components/shared/DocumentShareButton";
 import { WhatsAppButton } from "./WhatsAppButton";
 
 interface ProposalTotalAccionesProps {
@@ -60,32 +58,21 @@ export function ProposalTotalAcciones({
     if (proposalPdfLoading) return;
     setProposalPdfLoading(true);
     try {
-      const res = await fetch(`/api/portal/cliente/cotizaciones/${quoteId}/proposal-pdf`);
-      if (!res.ok) {
-        const message = await getErrorMessageFromResponse(
-          res,
-          "No se pudo generar la propuesta técnica"
-        );
-        throw new Error(message);
+      const filename = buildCpqQuotePdfFileName({
+        clientName: clientName?.trim() || "Cliente",
+        installationName: installationName?.trim() || "",
+        quoteName: quoteTitle?.trim() || undefined,
+        quoteCode: cotizacionCode,
+        suffix: "propuesta-tecnica",
+      });
+      const result = await downloadOrShareFile({
+        url: `/api/portal/cliente/cotizaciones/${quoteId}/proposal-pdf`,
+        filename,
+        mimeType: "application/pdf",
+      });
+      if (result.method === "download") {
+        toast.success("Propuesta técnica lista");
       }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const fromHeader = parseContentDispositionFileName(res.headers.get("Content-Disposition"));
-      a.download =
-        fromHeader ??
-        buildCpqQuotePdfFileName({
-          clientName: clientName?.trim() || "Cliente",
-          installationName: installationName?.trim() || "",
-          quoteName: quoteTitle?.trim() || undefined,
-          quoteCode: cotizacionCode,
-        });
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("Propuesta técnica descargada");
     } catch (e) {
       console.error("[Portal] Propuesta técnica PDF:", e);
       toast.error(e instanceof Error ? e.message : "No se pudo generar la propuesta técnica");
@@ -98,32 +85,20 @@ export function ProposalTotalAcciones({
     if (pdfLoading) return;
     setPdfLoading(true);
     try {
-      const res = await fetch(`/api/portal/cliente/cotizaciones/${quoteId}/pdf`);
-      if (!res.ok) {
-        const message = await getErrorMessageFromResponse(
-          res,
-          "No se pudo generar la propuesta económica"
-        );
-        throw new Error(message);
+      const filename = buildCpqQuotePdfFileName({
+        clientName: clientName?.trim() || "Cliente",
+        installationName: installationName?.trim() || "",
+        quoteName: quoteTitle?.trim() || undefined,
+        quoteCode: cotizacionCode,
+      });
+      const result = await downloadOrShareFile({
+        url: `/api/portal/cliente/cotizaciones/${quoteId}/pdf`,
+        filename,
+        mimeType: "application/pdf",
+      });
+      if (result.method === "download") {
+        toast.success("Cotización lista para compartir");
       }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const fromHeader = parseContentDispositionFileName(res.headers.get("Content-Disposition"));
-      a.download =
-        fromHeader ??
-        buildCpqQuotePdfFileName({
-          clientName: clientName?.trim() || "Cliente",
-          installationName: installationName?.trim() || "",
-          quoteName: quoteTitle?.trim() || undefined,
-          quoteCode: cotizacionCode,
-        });
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success("PDF descargado");
     } catch (e) {
       console.error("[Portal] Propuesta económica PDF:", e);
       toast.error(e instanceof Error ? e.message : "No se pudo generar el PDF");
@@ -171,16 +146,27 @@ export function ProposalTotalAcciones({
         </div>
       )}
 
-      {/* Row 2: Downloads + Communication */}
+      {/* Row 2: Downloads + Share + Communication */}
       <div className="flex items-center gap-2">
+        <DocumentShareButton
+          url={`/api/portal/cliente/cotizaciones/${quoteId}/pdf`}
+          filename={buildCpqQuotePdfFileName({
+            clientName: clientName?.trim() || "Cliente",
+            installationName: installationName?.trim() || "",
+            quoteName: quoteTitle?.trim() || undefined,
+            quoteCode: cotizacionCode,
+          })}
+          mimeType="application/pdf"
+          tone="dark"
+        />
         <button
           type="button"
           onClick={handleDownloadPdf}
           disabled={pdfLoading}
-          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:border-white/20 text-sm transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 h-11 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:border-white/20 text-sm transition-colors disabled:opacity-50"
         >
           {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-          {pdfLoading ? "Generando..." : "Propuesta económica"}
+          {pdfLoading ? "Generando..." : "Económica"}
         </button>
 
         {hasGuards && (
@@ -188,10 +174,10 @@ export function ProposalTotalAcciones({
             type="button"
             onClick={handleDownloadProposalPdf}
             disabled={proposalPdfLoading}
-            className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-status-info-border text-status-info-fg hover:text-status-info-fg hover:border-status-info-border text-sm transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 h-11 rounded-lg border border-status-info-border text-status-info-fg hover:text-status-info-fg hover:border-status-info-border text-sm transition-colors disabled:opacity-50"
           >
             {proposalPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-            {proposalPdfLoading ? "Generando..." : "Propuesta técnica"}
+            {proposalPdfLoading ? "Generando..." : "Técnica"}
           </button>
         )}
 
@@ -200,7 +186,7 @@ export function ProposalTotalAcciones({
             type="button"
             onClick={onConsult}
             title="Consultar"
-            className="flex items-center justify-center w-10 h-10 shrink-0 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors"
+            className="flex items-center justify-center w-11 h-11 shrink-0 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors"
           >
             <MessageSquare className="w-4 h-4" />
           </button>

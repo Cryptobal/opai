@@ -9,7 +9,7 @@ import {
   Loader2,
   Maximize2,
   RefreshCw,
-  Share2,
+  Share,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +23,9 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { downloadOrShareFile } from "@/lib/files/download-or-share";
+import { DocumentShareButton } from "@/components/shared/DocumentShareButton";
+import { DocumentViewerOverlay } from "@/components/shared/DocumentViewerOverlay";
+import type { DocumentViewerDoc } from "@/components/shared/DocumentViewerOverlay";
 
 export const CPQ_PDF_TEMPLATE_OPTIONS = [
   { slug: "standard", label: "Cotización PDF · formato único" },
@@ -88,16 +91,17 @@ export function CpqPdfPreviewPanel({
   const [fullscreen, setFullscreen] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [mobileDoc, setMobileDoc] = useState<DocumentViewerDoc | null>(null);
 
   const previewTitle =
     mode === "presentacion" ? "Preview presentación PDF" : "Preview cotización PDF";
   const filename = downloadFilename || defaultFilename(mode);
 
   const openViewer = (url: string) => {
-    // En iPad/iPhone el iframe PDF suele fallar o forzar descarga; el visor nativo
-    // (pestaña nueva) es la forma fiable de ver sin bajar el archivo.
+    // Móvil: visor in-app con botón Compartir (iOS). No abrir pestaña nuda
+    // del PDF — ahí no hay controles de Opai.
     if (isCoarsePointer()) {
-      window.open(url, "_blank", "noopener,noreferrer");
+      setMobileDoc({ url, filename, mimeType: "application/pdf" });
       return;
     }
     setFullscreen(true);
@@ -199,7 +203,7 @@ export function CpqPdfPreviewPanel({
                 {shareLoading ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Share2 className="h-3.5 w-3.5 lg:hidden" />
+                  <Share className="h-3.5 w-3.5 lg:hidden" />
                 )}
                 {!shareLoading ? <Download className="hidden h-3.5 w-3.5 lg:inline" /> : null}
                 <span className="lg:hidden">Compartir</span>
@@ -259,32 +263,27 @@ export function CpqPdfPreviewPanel({
                     Propuesta lista
                   </p>
                   <p className="text-[12px] text-muted-foreground">
-                    Comparte el PDF por WhatsApp u otra app. «Solo ver» abre el
-                    visor sin el botón de reenvío.
+                    Abrila en el visor de Opai y compartila con el botón ↑.
                   </p>
                 </div>
                 <div className="flex w-full max-w-xs flex-col gap-2">
                   <Button
-                    className="h-11 w-full gap-2 bg-status-ok text-white hover:brightness-110"
-                    disabled={busy}
-                    onClick={() => void handleDownloadOrShare()}
-                  >
-                    {shareLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Share2 className="h-4 w-4" />
-                    )}
-                    Compartir por WhatsApp
-                  </Button>
-                  <Button
-                    variant="outline"
                     className="h-11 w-full gap-2"
                     disabled={busy}
                     onClick={() => openViewer(previewUrl)}
                   >
-                    <ExternalLink className="h-4 w-4" />
-                    Solo ver
+                    <Eye className="h-4 w-4" />
+                    Ver y compartir
                   </Button>
+                  <div className="flex items-center justify-center gap-3">
+                    <DocumentShareButton
+                      url={previewUrl}
+                      filename={filename}
+                      mimeType="application/pdf"
+                      tone="light"
+                    />
+                    <span className="text-[12px] text-ds-text-3">Compartir PDF</span>
+                  </div>
                 </div>
               </div>
 
@@ -329,6 +328,13 @@ export function CpqPdfPreviewPanel({
               <div className="flex items-center gap-1.5">
                 {previewUrl ? (
                   <>
+                    <DocumentShareButton
+                      url={previewUrl}
+                      filename={filename}
+                      mimeType="application/pdf"
+                      tone="light"
+                      size="md"
+                    />
                     <Button
                       variant="outline"
                       size="sm"
@@ -377,6 +383,7 @@ export function CpqPdfPreviewPanel({
           </div>
         </DialogContent>
       </Dialog>
+      <DocumentViewerOverlay doc={mobileDoc} onClose={() => setMobileDoc(null)} />
     </>
   );
 }
