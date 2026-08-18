@@ -161,6 +161,7 @@ export function ShiftRowEditor({
 
   return (
     <div className="space-y-3 rounded-lg border border-primary/40 bg-card p-3">
+      <p className="text-[12px] text-ds-text-3">Se guarda solo</p>
       <Field label="Nombre del turno (opcional)">
         <Input
           value={draft.customName ?? ""}
@@ -341,25 +342,48 @@ export function ShiftRowEditor({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
-        <div className="flex items-center gap-4">
-          <div>
+        <div className="flex min-w-0 flex-wrap items-center gap-3 text-[13px] sm:gap-4">
+          <div className="min-w-0">
             <p className={LABEL}>Costo empresa / mes</p>
-            <CpqDualCurrencyAmount clp={costo} currency={currency} ufValue={ufValue} size="sm" primaryClassName="font-semibold text-foreground" align="left" />
+            <CpqDualCurrencyAmount clp={costo} currency={currency} ufValue={ufValue} size="sm" primaryClassName="font-semibold text-foreground text-[13px]" align="left" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className={LABEL}>Por guardia</p>
-            <CpqDualCurrencyAmount clp={perGuard ?? 0} currency={currency} ufValue={ufValue} size="sm" primaryClassName="font-semibold text-foreground" align="left" />
+            <CpqDualCurrencyAmount clp={perGuard ?? 0} currency={currency} ufValue={ufValue} size="sm" primaryClassName="font-semibold text-foreground text-[13px]" align="left" />
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button type="button" variant="outline" size="sm" className="h-9 gap-1" onClick={onClone}>
-            <Copy className="h-3.5 w-3.5" /> Duplicar
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-label="Duplicar turno"
+            className="h-11 w-11 gap-1 p-0 sm:h-9 sm:w-auto sm:px-3"
+            onClick={onClone}
+          >
+            <Copy className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="hidden sm:inline">Duplicar</span>
           </Button>
-          <Button type="button" variant="ghost" size="sm" className="h-9 gap-1 text-destructive" onClick={onDelete}>
-            <Trash2 className="h-3.5 w-3.5" /> Eliminar
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-label="Eliminar turno"
+            className="h-11 w-11 gap-1 border-status-danger-border bg-status-danger-soft p-0 text-status-danger-fg hover:bg-status-danger-soft hover:text-status-danger-fg sm:h-9 sm:w-auto sm:px-3"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="hidden sm:inline">Eliminar</span>
           </Button>
-          <Button type="button" size="sm" className="h-9 gap-1" onClick={onDone}>
-            <Check className="h-3.5 w-3.5" /> Listo
+          <Button
+            type="button"
+            size="sm"
+            aria-label="Cerrar editor"
+            className="h-11 w-11 gap-1 bg-status-ok p-0 font-medium text-white hover:brightness-110 sm:h-9 sm:w-auto sm:px-3"
+            onClick={onDone}
+          >
+            <Check className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="hidden sm:inline">Cerrar</span>
           </Button>
         </div>
       </div>

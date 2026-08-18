@@ -2257,23 +2257,17 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
   const singlePageContent = (
     <div className="flex flex-col gap-3 pb-40 lg:pb-6">
       <LeadHighlightsStrip
-        source={lead.source ?? null}
         installationCount={installations.length}
         positionCount={cpqPositionCount}
-        totalGuards={cpqTotalGuards}
-        estimatedSaleClp={estSaleClp}
         estimatedSaleUf={estSaleUf}
-        firstContactChannel={lead.firstContactChannel ?? null}
       />
-      {isEditable && (
-        <LeadQuickContact
-          phone={lead.phone ?? null}
-          whatsapp={lead.phone ?? null}
-          email={lead.email ?? null}
-          firstContactChannel={lead.firstContactChannel ?? null}
-          onChannelUsed={(ch) => handleMarkContacted(ch)}
-        />
-      )}
+      <LeadQuickContact
+        phone={lead.phone ?? null}
+        whatsapp={lead.phone ?? null}
+        email={lead.email ?? null}
+        firstContactChannel={lead.firstContactChannel ?? null}
+        onChannelUsed={isEditable ? (ch) => handleMarkContacted(ch) : () => {}}
+      />
       <LeadSpecCard
         companyName={lead.companyName ?? null}
         serviceType={specServiceLabel}
@@ -2394,19 +2388,34 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
   const leadJourney = (
     <LeadPipelineStepper status={lead.status} firstContactAt={lead.firstContactAt ?? null} />
   );
-  const leadStatusTags = (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <Tag size="sm" variant="neutral">Lead</Tag>
-      <Tag size="sm" variant={statusTagVariant}>{statusInfo.label}</Tag>
-      <span className="text-[12px] text-ds-text-3">
-        {getSourceLabel(lead.source)} · {timeAgo(lead.createdAt)}
-      </span>
-    </div>
+
+  const openLeadChat = () =>
+    openAnchoredChat({
+      anchorType: "crm_lead",
+      anchorId: lead.id,
+      entityName: leadChatName,
+    });
+
+  const leadOverflowMenu = (
+    <LeadOverflowMenu
+      isEditable={isEditable}
+      canSendPresentation={!!lead.email}
+      savingLead={savingLead}
+      downloadingPresentation={downloadingPresentation}
+      onSendPresentation={openSendPresentation}
+      onDownloadPresentation={() => void downloadPresentationPdf()}
+      onSaveDraft={saveLeadDraft}
+      onDelete={() => setDeleteConfirm(true)}
+      onMarkContacted={handleMarkContacted}
+      firstContactAt={lead.firstContactAt ?? null}
+      firstContactChannel={lead.firstContactChannel ?? null}
+      markingContact={markingContact}
+      onOpenChat={openLeadChat}
+    />
   );
 
-  // Cluster de acciones de contacto — se reutiliza en el header desktop y en
-  // la fila móvil bajo la isla (misma lógica, dos puntos de montaje según
-  // breakpoint, igual patrón que `quoteJourney` en CpqQuoteDetail).
+  // Cluster de acciones de contacto — solo header desktop (WorkbenchHeader).
+  // En móvil viven en LeadQuickContact + menú ⋯ de la isla.
   const contactActionsCluster = (
     <>
       <DropdownMenu>
@@ -2447,7 +2456,6 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {/* Indicador de autosave: solo desktop para no saturar la cabecera mobile */}
       <span className="hidden sm:inline-flex">{headerAutosaveIndicator}</span>
       {lead.phone ? (
         <div className="flex items-center gap-1 sm:gap-1.5">
@@ -2475,13 +2483,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
       />
       <button
         type="button"
-        onClick={() =>
-          openAnchoredChat({
-            anchorType: "crm_lead",
-            anchorId: lead.id,
-            entityName: leadChatName,
-          })
-        }
+        onClick={openLeadChat}
         title="Abrir chat"
         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-muted"
       >
@@ -2533,21 +2535,10 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
         eyebrow={`Lead · #${lead.id.slice(0, 8)}`}
         title={lead.companyName || fullName}
         onBack={() => router.push("/crm/leads")}
-        trailing={
-          <LeadOverflowMenu
-            isEditable={isEditable}
-            canSendPresentation={!!lead.email}
-            savingLead={savingLead}
-            downloadingPresentation={downloadingPresentation}
-            onSendPresentation={openSendPresentation}
-            onDownloadPresentation={() => void downloadPresentationPdf()}
-            onSaveDraft={saveLeadDraft}
-            onDelete={() => setDeleteConfirm(true)}
-          />
-        }
+        trailing={leadOverflowMenu}
       />
 
-      <div className="min-w-0 pt-[calc(env(safe-area-inset-top)+64px)] lg:pt-0">
+      <div className="min-w-0 lg:pt-0">
         {/* ── Header desktop (lg+): icon + eyebrow/título + estado/acciones,
              fila 2 con PulseBar + Journey ── */}
         <WorkbenchHeader
@@ -2563,23 +2554,15 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
           actions={
             <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
               {contactActionsCluster}
-              <LeadOverflowMenu
-                isEditable={isEditable}
-                canSendPresentation={!!lead.email}
-                savingLead={savingLead}
-                downloadingPresentation={downloadingPresentation}
-                onSendPresentation={openSendPresentation}
-                onDownloadPresentation={() => void downloadPresentationPdf()}
-                onSaveDraft={saveLeadDraft}
-                onDelete={() => setDeleteConfirm(true)}
-              />
+              {leadOverflowMenu}
             </div>
           }
           pulse={<PulseBar variant="lead" value={leadPulseValue} subtitle={leadPulseSubtitle} />}
           journey={leadJourney}
         />
 
-        {/* ── Mobile (< lg): stack sticky — pulse + meta + acciones de contacto ── */}
+        {/* ── Mobile (< lg): tarjeta sticky — pulse (fuente · antigüedad ·
+             autosave · centro) + stepper ── */}
         <div className="sticky top-[var(--app-island-bottom)] z-[25] -mx-4 sm:-mx-6 lg:hidden mb-3">
           <div className="mx-2.5 overflow-hidden rounded-[22px] border border-[var(--glass-border)] opai-glass-strong shadow-[var(--glass-specular),var(--glass-shadow)]">
             <PulseBar
@@ -2587,20 +2570,25 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
               value={leadPulseValue}
               subtitle={leadPulseSubtitle}
               actionsSlot={
-                <ControlCenterTrigger label="Centro de conversión" onClick={() => setConversionSheetOpen(true)} />
+                <div className="flex max-w-[min(100%,11.5rem)] items-center gap-1.5">
+                  <div className="min-w-0 flex-1 text-right leading-tight">
+                    <p className="truncate text-[12px] text-ds-text-3">
+                      {getSourceLabel(lead.source)}
+                    </p>
+                    <p className="truncate text-[12px] text-ds-text-3">
+                      {timeAgo(lead.createdAt)}
+                    </p>
+                  </div>
+                  {headerAutosaveIndicator}
+                  <ControlCenterTrigger label="Centro de conversión" onClick={() => setConversionSheetOpen(true)} />
+                </div>
               }
             />
-            <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.07] px-3 py-2">
-              {leadStatusTags}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.07] px-3 py-2">
-              {contactActionsCluster}
+            <div className="border-t border-white/[0.07] px-2 py-1.5 sm:px-3">
+              {leadJourney}
             </div>
           </div>
         </div>
-
-        {/* ── Journey: primer bloque no-sticky en móvil ── */}
-        <div className="lg:hidden mb-3">{leadJourney}</div>
 
         {/* ── Contenido principal + Centro de conversión (rail desktop) ── */}
         <div className="lg:flex lg:items-start">
