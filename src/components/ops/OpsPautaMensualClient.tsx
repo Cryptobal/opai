@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -282,6 +282,7 @@ export function OpsPautaMensualClient({
     }
     return FALLBACK_PATTERNS;
   }, [shiftPatterns]);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const urlInstallationId = searchParams.get("installationId");
 
@@ -1932,22 +1933,35 @@ export function OpsPautaMensualClient({
                           const dateKey = toDateKey(d);
                           const holidayName = holidayDates.get(dateKey);
                           const isHoliday = !!holidayName;
+                          const dayBtnBase =
+                            "inline-flex items-center justify-center mx-auto font-semibold text-sm sm:text-xs w-8 h-8 sm:w-6 sm:h-6 rounded-[10px] border active:scale-90 transition-transform";
+                          const dayBtnTone = isToday
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : isHoliday
+                              ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
+                              : "bg-muted border-border text-inherit";
                           return (
                             <th
                               key={dayNum}
                               className={`sticky top-0 z-20 bg-card text-center px-0.5 py-1 ${isToday ? "text-primary" : isHoliday ? "text-status-danger-fg" : isWeekend ? "text-status-warn-fg" : "text-muted-foreground"
                                 }`}
-                              title={holidayName || undefined}
+                              title={holidayName || "Ver asistencia"}
                             >
                               <div className="text-[11px] sm:text-[10px] leading-tight">{dayName}</div>
-                              <div className={`font-semibold text-sm sm:text-xs ${isToday
-                                ? "bg-primary text-primary-foreground rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
-                                : isHoliday
-                                  ? "bg-status-danger-soft text-status-danger-fg rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto"
-                                  : ""
-                                }`}>
+                              <button
+                                type="button"
+                                className={`${dayBtnBase} ${dayBtnTone}`}
+                                aria-label={`Ver asistencia del ${dayName} ${dayNum}`}
+                                title="Ver asistencia"
+                                onClick={() => {
+                                  if (!installationId) return;
+                                  router.push(
+                                    `/ops/pauta-diaria?date=${dateKey}&installationId=${installationId}`
+                                  );
+                                }}
+                              >
                                 {dayNum}
-                              </div>
+                              </button>
                             </th>
                           );
                         })}

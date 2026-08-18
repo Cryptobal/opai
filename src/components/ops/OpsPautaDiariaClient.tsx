@@ -130,6 +130,20 @@ function toDateInput(date: Date): string {
 
 const DATE_INPUT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Resuelve clientId dueño de una instalación en initialClients; null si no existe. */
+function resolveInstallationOwner(
+  clients: ClientOption[],
+  installationId: string | null
+): { clientId: string; installationId: string } | null {
+  if (!installationId) return null;
+  for (const c of clients) {
+    if (c.installations.some((i) => i.id === installationId)) {
+      return { clientId: c.id, installationId };
+    }
+  }
+  return null;
+}
+
 const ABSENCE_LABELS: Record<string, string> = {
   V: "Vacaciones",
   L: "Licencia",
@@ -174,9 +188,13 @@ export function OpsPautaDiariaClient({
   const searchParams = useSearchParams();
   const urlDate = searchParams.get("date");
   const urlGuardiaId = searchParams.get("guardiaId");
+  const urlInstallationId = searchParams.get("installationId");
   const [clients] = useState<ClientOption[]>(initialClients);
-  const [clientId, setClientId] = useState<string>("all");
-  const [installationId, setInstallationId] = useState<string>("all");
+  const initialFilter = resolveInstallationOwner(initialClients, urlInstallationId);
+  const [clientId, setClientId] = useState<string>(initialFilter?.clientId ?? "all");
+  const [installationId, setInstallationId] = useState<string>(
+    initialFilter?.installationId ?? "all"
+  );
   const [date, setDate] = useState<string>(() => {
     if (urlDate && DATE_INPUT_REGEX.test(urlDate)) return urlDate;
     return toDateInput(new Date());
@@ -228,6 +246,19 @@ export function OpsPautaDiariaClient({
     }
   }, [urlDate]);
 
+  // Sync installation (+ client dueño) from URL when navigating with params
+  useEffect(() => {
+    if (!urlInstallationId) return;
+    const resolved = resolveInstallationOwner(clients, urlInstallationId);
+    if (resolved) {
+      setClientId(resolved.clientId);
+      setInstallationId(resolved.installationId);
+    } else {
+      setClientId("all");
+      setInstallationId("all");
+    }
+  }, [urlInstallationId, clients]);
+
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
     setIsDesktop(m.matches);
@@ -245,6 +276,13 @@ export function OpsPautaDiariaClient({
     }
     return clients.find((c) => c.id === clientId)?.installations ?? [];
   }, [clients, clientId]);
+
+  const activeInstallationName = useMemo(() => {
+    if (installationId === "all") return null;
+    return (
+      clients.flatMap((c) => c.installations).find((i) => i.id === installationId)?.name ?? null
+    );
+  }, [clients, installationId]);
 
   const fetchAsistencia = useCallback(async () => {
     setLoading(true);
@@ -530,6 +568,27 @@ export function OpsPautaDiariaClient({
               </Button>
             </div>
           </div>
+
+          {/* Chip de instalación activa (visible aunque filtros estén cerrados) */}
+          {installationId !== "all" && activeInstallationName && (
+            <div className="mt-2">
+              <span className="inline-flex items-center gap-1.5 max-w-full rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs text-primary">
+                <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span className="truncate">{activeInstallationName}</span>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center shrink-0 rounded-full h-6 w-6 sm:h-5 sm:w-5 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  aria-label="Quitar filtro de instalación"
+                  onClick={() => {
+                    setInstallationId("all");
+                    setClientId("all");
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            </div>
+          )}
 
           {/* Collapsible filters */}
           {filtersOpen && (
