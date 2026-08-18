@@ -58,7 +58,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, CheckCircle2, Briefcase, Phone, PencilLine, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen, Unlink, FileText, FileDown } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, CheckCircle2, Briefcase, Phone, PencilLine, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen, Unlink, FileText, FileDown, Share2 } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -80,6 +80,7 @@ import { resolveTemplateRowCatalog } from "@/lib/cpq/resolve-cpq-role-from-shift
 import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
 import { downloadOrShareFile } from "@/lib/files/download-or-share";
+import { buildCpqQuotePdfFileName } from "@/lib/pdf/cpq-quote-pdf-filename";
 import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 import { CondicionesSection } from "@/components/cpq/workspace/CondicionesSection";
 import { LineasSection } from "@/components/cpq/workspace/LineasSection";
@@ -1493,18 +1494,52 @@ export function CpqQuoteDetail({
     }
   };
 
-  const handleDownloadOrSharePdf = async () => {
+  const handleDownloadOrSharePdf = async (
+    kind: "cotizacion" | "presentacion" = "cotizacion",
+  ) => {
     setPdfSharing(true);
     try {
       const code = quote?.code || quoteId;
-      const mode = quote?.status === "sent" ? "final" : "draft";
+      const clientName =
+        crmAccounts.find((account) => account.id === crmContext.accountId)?.name ||
+        quoteForm.clientName ||
+        quote?.clientName ||
+        "Cliente";
+      const installationName =
+        crmInstallations.find((i) => i.id === crmContext.installationId)?.name ||
+        quote?.name ||
+        "";
+      if (kind === "presentacion") {
+        const mode = quote?.status === "sent" ? "final" : "draft";
+        const result = await downloadOrShareFile({
+          url: `/api/cpq/quotes/${quoteId}/proposal-pdf?mode=${mode}&t=${Date.now()}`,
+          filename: buildCpqQuotePdfFileName({
+            clientName,
+            installationName,
+            quoteCode: code,
+            quoteName: quote?.name,
+            suffix: "propuesta-tecnica",
+          }),
+          mimeType: "application/pdf",
+        });
+        if (result.method === "download") {
+          toast.success("Propuesta técnica lista para compartir");
+        }
+        return;
+      }
+
       const result = await downloadOrShareFile({
-        url: `/api/cpq/quotes/${quoteId}/proposal-pdf?mode=${mode}&t=${Date.now()}`,
-        filename: `${code}-propuesta-tecnica.pdf`,
+        url: `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=standard&t=${Date.now()}`,
+        filename: buildCpqQuotePdfFileName({
+          clientName,
+          installationName,
+          quoteCode: code,
+          quoteName: quote?.name,
+        }),
         mimeType: "application/pdf",
       });
       if (result.method === "download") {
-        toast.success("PDF listo para compartir");
+        toast.success("Cotización PDF lista — elígela en WhatsApp u otra app");
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al descargar el PDF");
@@ -2305,16 +2340,36 @@ export function CpqQuoteDetail({
                     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
                     onClick={() => {
                       setOverflowMenuOpen(false);
-                      void handleDownloadOrSharePdf();
+                      void handleDownloadOrSharePdf("cotizacion");
                     }}
                     disabled={pdfSharing}
                   >
                     {pdfSharing ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
+                      <Share2 className="h-3.5 w-3.5" />
+                    )}
+                    Compartir cotización PDF
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
+                    onClick={() => {
+                      setOverflowMenuOpen(false);
+                      void handleDownloadOrSharePdf("presentacion");
+                    }}
+                    disabled={pdfSharing || positions.length === 0}
+                    title={
+                      positions.length === 0
+                        ? "Sin dotación: no aplica propuesta técnica"
+                        : undefined
+                    }
+                  >
+                    {pdfSharing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
                       <FileDown className="h-3.5 w-3.5" />
                     )}
-                    Descargar / compartir PDF
+                    Compartir propuesta técnica
                   </button>
                   <button
                     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
@@ -2334,7 +2389,7 @@ export function CpqQuoteDetail({
                     ) : (
                       <MessageCircle className="h-3.5 w-3.5 text-status-ok-fg" />
                     )}
-                    Reenviar por WhatsApp
+                    Reenviar link portal por WhatsApp
                   </button>
                   <div className="my-1 h-px bg-border" />
                   {quote.status === "sent" ? (
@@ -3016,19 +3071,49 @@ export function CpqQuoteDetail({
         ufValue={ufValue}
         displayCurrency={crmContext.currency || "CLP"}
         totalGuards={stats.totalGuards}
+        shareButton={
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 gap-1.5 border-status-ok-border bg-status-ok-soft px-3 text-status-ok-fg"
+            disabled={pdfSharing}
+            aria-label="Compartir cotización PDF"
+            title="Descarga o abre el sheet para enviar por WhatsApp"
+            onClick={() => void handleDownloadOrSharePdf("cotizacion")}
+          >
+            {pdfSharing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Share2 className="h-4 w-4" />
+            )}
+            <span className="text-sm font-semibold">PDF</span>
+          </Button>
+        }
         actionMenu={
           <>
             <button
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
-              onClick={() => void handleDownloadOrSharePdf()}
+              onClick={() => void handleDownloadOrSharePdf("cotizacion")}
               disabled={pdfSharing}
+            >
+              {pdfSharing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="h-4 w-4 text-status-ok-fg" />
+              )}
+              Compartir cotización PDF
+            </button>
+            <button
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              onClick={() => void handleDownloadOrSharePdf("presentacion")}
+              disabled={pdfSharing || positions.length === 0}
             >
               {pdfSharing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <FileDown className="h-4 w-4" />
               )}
-              Descargar / compartir PDF
+              Compartir propuesta técnica
             </button>
             <button
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
@@ -3040,7 +3125,7 @@ export function CpqQuoteDetail({
               ) : (
                 <MessageCircle className="h-4 w-4 text-status-ok-fg" />
               )}
-              Reenviar por WhatsApp
+              Reenviar link portal por WhatsApp
             </button>
             <div className="my-1 h-px bg-border" />
             {quote.status === "sent" ? (

@@ -259,21 +259,13 @@ export function CpqPdfPreviewPanel({
                     Propuesta lista
                   </p>
                   <p className="text-[12px] text-muted-foreground">
-                    Ábrela en el visor o compártela por WhatsApp.
+                    Comparte el PDF por WhatsApp u otra app. «Solo ver» abre el
+                    visor sin el botón de reenvío.
                   </p>
                 </div>
                 <div className="flex w-full max-w-xs flex-col gap-2">
                   <Button
-                    className="h-11 w-full gap-2"
-                    disabled={busy}
-                    onClick={() => openViewer(previewUrl)}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Ver propuesta
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-11 w-full gap-2"
+                    className="h-11 w-full gap-2 bg-status-ok text-white hover:brightness-110"
                     disabled={busy}
                     onClick={() => void handleDownloadOrShare()}
                   >
@@ -282,7 +274,16 @@ export function CpqPdfPreviewPanel({
                     ) : (
                       <Share2 className="h-4 w-4" />
                     )}
-                    Descargar / Compartir
+                    Compartir por WhatsApp
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-11 w-full gap-2"
+                    disabled={busy}
+                    onClick={() => openViewer(previewUrl)}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Solo ver
                   </Button>
                 </div>
               </div>

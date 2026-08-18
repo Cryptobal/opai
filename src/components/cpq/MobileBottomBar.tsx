@@ -22,6 +22,8 @@ interface MobileBottomBarProps {
   portalButton?: React.ReactNode;
   pdfEmailButton?: React.ReactNode;
   emailButton?: React.ReactNode;
+  /** Acción primaria de compartir PDF (móvil). Va a la izquierda de Enviar. */
+  shareButton?: React.ReactNode;
   actionMenu?: React.ReactNode;
   totalGuards?: number;
   className?: string;
@@ -49,6 +51,7 @@ export function MobileBottomBar({
   portalButton,
   pdfEmailButton,
   emailButton,
+  shareButton,
   actionMenu,
   totalGuards,
   className,
@@ -110,10 +113,10 @@ export function MobileBottomBar({
           </div>
         )}
 
-        {/* Right: acciones + enviar */}
+        {/* Right: acciones + compartir + enviar */}
         <div className={cn(
           "flex items-center gap-1.5 shrink-0 min-w-0 flex-1 justify-end",
-          hideTotal ? "max-w-[70%]" : "max-w-[62%]",
+          hideTotal ? "max-w-[78%]" : "max-w-[62%]",
         )}>
           {actionMenu && !hideActionTrigger ? (
             <button
@@ -124,6 +127,9 @@ export function MobileBottomBar({
             >
               <MoreVertical className="h-4 w-4" />
             </button>
+          ) : null}
+          {shareButton ? (
+            <div className="shrink-0">{shareButton}</div>
           ) : null}
           {hasMultipleSendOptions ? (
             <button

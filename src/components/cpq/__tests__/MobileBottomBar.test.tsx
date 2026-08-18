@@ -19,4 +19,22 @@ describe("MobileBottomBar", () => {
 
     expect(screen.getByText("Clonar cotizacion")).toBeInTheDocument();
   });
+
+  it("renderiza el botón de compartir PDF junto a Enviar", () => {
+    render(
+      <MobileBottomBar
+        salePriceMonthly={1200000}
+        additionalLinesTotal={0}
+        marginPct={13}
+        ufValue={null}
+        hideTotal
+        hideActionTrigger
+        shareButton={<button type="button">PDF</button>}
+        portalButton={<button type="button">Enviar</button>}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviar" })).toBeInTheDocument();
+  });
 });

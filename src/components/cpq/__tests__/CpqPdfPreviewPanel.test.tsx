@@ -133,8 +133,8 @@ describe("CpqPdfPreviewPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Ver propuesta" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Descargar / Compartir" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Compartir por WhatsApp" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Solo ver" })).toBeInTheDocument();
   });
 
   it("con allowedModes cotizacion no muestra el tab Propuesta técnica", () => {
