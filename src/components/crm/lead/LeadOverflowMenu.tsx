@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreVertical, Mailbox, Save, Trash2, Loader2 } from "lucide-react";
+import { MoreVertical, Mailbox, Save, Trash2, Loader2, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,7 +17,9 @@ export interface LeadOverflowMenuProps {
   isEditable: boolean;
   canSendPresentation: boolean;
   savingLead: boolean;
+  downloadingPresentation?: boolean;
   onSendPresentation: () => void;
+  onDownloadPresentation?: () => void;
   onSaveDraft: () => void;
   onDelete: () => void;
 }
@@ -26,7 +28,9 @@ export function LeadOverflowMenu({
   isEditable,
   canSendPresentation,
   savingLead,
+  downloadingPresentation = false,
   onSendPresentation,
+  onDownloadPresentation,
   onSaveDraft,
   onDelete,
 }: LeadOverflowMenuProps) {
@@ -37,13 +41,26 @@ export function LeadOverflowMenu({
           <MoreVertical className="h-4 w-4" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
+      <DropdownMenuContent align="end" className="w-56">
         {isEditable && (
           <DropdownMenuItem onSelect={onSendPresentation} disabled={!canSendPresentation}>
             <Mailbox className="mr-2 h-4 w-4" aria-hidden />
             Enviar presentación
           </DropdownMenuItem>
         )}
+        {onDownloadPresentation ? (
+          <DropdownMenuItem
+            onSelect={onDownloadPresentation}
+            disabled={downloadingPresentation}
+          >
+            {downloadingPresentation ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <FileDown className="mr-2 h-4 w-4" aria-hidden />
+            )}
+            Descargar / compartir PDF
+          </DropdownMenuItem>
+        ) : null}
         {isEditable && (
           <DropdownMenuItem onSelect={onSaveDraft} disabled={savingLead}>
             {savingLead ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Save className="mr-2 h-4 w-4" aria-hidden />}

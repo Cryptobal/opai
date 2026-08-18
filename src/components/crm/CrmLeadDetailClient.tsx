@@ -37,6 +37,7 @@ import {
   XCircle,
   Building2,
   FileText,
+  FileDown,
   ArrowRight,
   ChevronDown,
   Globe,
@@ -72,6 +73,7 @@ import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { toast } from "sonner";
+import { downloadOrShareFile } from "@/lib/files/download-or-share";
 import { formatNumber, parseLocalizedNumber, timeAgo } from "@/lib/utils";
 import { Tag, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
@@ -857,6 +859,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
   // ─── Send company presentation modal state ───
   const [sendPresentationOpen, setSendPresentationOpen] = useState(false);
   const [sendingPresentation, setSendingPresentation] = useState(false);
+  const [downloadingPresentation, setDownloadingPresentation] = useState(false);
   const [presentationCc, setPresentationCc] = useState("");
   const [presentationBcc, setPresentationBcc] = useState("");
   const [presentationMessage, setPresentationMessage] = useState("");
@@ -1879,6 +1882,32 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
     }
   };
 
+  const downloadPresentationPdf = async () => {
+    setDownloadingPresentation(true);
+    try {
+      const label =
+        lead.companyName?.trim() ||
+        [lead.firstName, lead.lastName].filter(Boolean).join(" ") ||
+        "lead";
+      const safe = label.replace(/[^\w\-]+/g, "_").slice(0, 48);
+      const result = await downloadOrShareFile({
+        url: `/api/crm/leads/${lead.id}/presentation-pdf?t=${Date.now()}`,
+        filename: `presentacion-${safe}.pdf`,
+        mimeType: "application/pdf",
+      });
+      if (result.method === "download") {
+        toast.success("PDF listo para compartir");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        error instanceof Error ? error.message : "No se pudo descargar la presentación",
+      );
+    } finally {
+      setDownloadingPresentation(false);
+    }
+  };
+
   // ─── Metadata helpers ───
   const meta = lead.metadata as Record<string, unknown> | undefined;
   const dotacion = (meta?.dotacion as { puesto: string; cantidad: number; numPuestos?: number; dias?: string[]; horaInicio?: string; horaFin?: string }[] | undefined);
@@ -2509,7 +2538,9 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
             isEditable={isEditable}
             canSendPresentation={!!lead.email}
             savingLead={savingLead}
+            downloadingPresentation={downloadingPresentation}
             onSendPresentation={openSendPresentation}
+            onDownloadPresentation={() => void downloadPresentationPdf()}
             onSaveDraft={saveLeadDraft}
             onDelete={() => setDeleteConfirm(true)}
           />
@@ -2536,7 +2567,9 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
                 isEditable={isEditable}
                 canSendPresentation={!!lead.email}
                 savingLead={savingLead}
+                downloadingPresentation={downloadingPresentation}
                 onSendPresentation={openSendPresentation}
+                onDownloadPresentation={() => void downloadPresentationPdf()}
                 onSaveDraft={saveLeadDraft}
                 onDelete={() => setDeleteConfirm(true)}
               />
@@ -2906,20 +2939,34 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2">
             <Button
               variant="outline"
               onClick={() => setSendPresentationOpen(false)}
-              disabled={sendingPresentation}
+              disabled={sendingPresentation || downloadingPresentation}
               className="sm:mr-auto"
             >
               Cancelar
             </Button>
             <Button
               variant="outline"
+              onClick={() => void downloadPresentationPdf()}
+              disabled={sendingPresentation || downloadingPresentation}
+              className="gap-1.5"
+              title="Descargar o compartir el PDF por WhatsApp"
+            >
+              {downloadingPresentation ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              PDF
+            </Button>
+            <Button
+              variant="outline"
               onClick={sendPresentationWhatsApp}
-              disabled={sendingPresentation || !lead.email || !lead.phone}
-              className="gap-1.5 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400"
+              disabled={sendingPresentation || downloadingPresentation || !lead.email || !lead.phone}
+              className="gap-1.5 border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft"
               title={
                 !lead.phone
                   ? "El lead no tiene teléfono"
@@ -2933,7 +2980,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
               )}
               WhatsApp
             </Button>
-            <Button onClick={sendPresentation} disabled={sendingPresentation || !lead.email}>
+            <Button onClick={sendPresentation} disabled={sendingPresentation || downloadingPresentation || !lead.email}>
               {sendingPresentation ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

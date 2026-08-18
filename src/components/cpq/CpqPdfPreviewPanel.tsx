@@ -1,7 +1,18 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Eye, ExternalLink, FileText, Loader2, Maximize2, RefreshCw, X } from "lucide-react";
+import {
+  Download,
+  Eye,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Maximize2,
+  RefreshCw,
+  Share2,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -11,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { downloadOrShareFile } from "@/lib/files/download-or-share";
 
 export const CPQ_PDF_TEMPLATE_OPTIONS = [
   { slug: "standard", label: "Cotización PDF · formato único" },
@@ -38,11 +50,19 @@ interface CpqPdfPreviewPanelProps {
   footer?: ReactNode;
   /** Si se omite, se muestran ambos modos. */
   allowedModes?: CpqPdfPreviewMode[];
+  /** Nombre de archivo sugerido al descargar / compartir. */
+  downloadFilename?: string;
 }
 
 function isCoarsePointer(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(pointer: coarse)").matches;
+}
+
+function defaultFilename(mode: CpqPdfPreviewMode): string {
+  return mode === "presentacion"
+    ? "propuesta-tecnica.pdf"
+    : "cotizacion.pdf";
 }
 
 export function CpqPdfPreviewPanel({
@@ -61,14 +81,17 @@ export function CpqPdfPreviewPanel({
   emptyPresentacionText = "Click en Generar PDF para ver la vista previa de la propuesta técnica",
   footer,
   allowedModes,
+  downloadFilename,
 }: CpqPdfPreviewPanelProps) {
   const modes = allowedModes && allowedModes.length > 0 ? allowedModes : (["cotizacion", "presentacion"] as CpqPdfPreviewMode[]);
   const showModeToggle = modes.length > 1;
   const [fullscreen, setFullscreen] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
 
   const previewTitle =
     mode === "presentacion" ? "Preview presentación PDF" : "Preview cotización PDF";
+  const filename = downloadFilename || defaultFilename(mode);
 
   const openViewer = (url: string) => {
     // En iPad/iPhone el iframe PDF suele fallar o forzar descarga; el visor nativo
@@ -94,7 +117,34 @@ export function CpqPdfPreviewPanel({
     }
   };
 
-  const busy = loading || viewLoading;
+  const handleDownloadOrShare = async () => {
+    setShareLoading(true);
+    try {
+      let url = previewUrl;
+      if (!url) {
+        const generated = await onGenerate();
+        if (typeof generated === "string" && generated) url = generated;
+      }
+      if (!url) {
+        toast.error("No se pudo generar el PDF");
+        return;
+      }
+      const result = await downloadOrShareFile({
+        url,
+        filename,
+        mimeType: "application/pdf",
+      });
+      if (result.method === "download") {
+        toast.success("PDF listo para compartir");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al descargar el PDF");
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const busy = loading || viewLoading || shareLoading;
 
   return (
     <>
@@ -137,6 +187,23 @@ export function CpqPdfPreviewPanel({
               >
                 {viewLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
                 Ver
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 gap-1.5 px-3 text-xs font-semibold sm:h-9"
+                disabled={busy}
+                onClick={() => void handleDownloadOrShare()}
+                title="Descargar o compartir por WhatsApp / Apps"
+              >
+                {shareLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Share2 className="h-3.5 w-3.5 lg:hidden" />
+                )}
+                {!shareLoading ? <Download className="hidden h-3.5 w-3.5 lg:inline" /> : null}
+                <span className="lg:hidden">Compartir</span>
+                <span className="hidden lg:inline">Descargar</span>
               </Button>
             </div>
           </div>
@@ -184,25 +251,40 @@ export function CpqPdfPreviewPanel({
 
           {previewUrl ? (
             <>
-              {/* Móvil/tablet: CTA de vista nativa (iframe PDF suele fallar en iOS). */}
+              {/* Móvil/tablet: CTAs nativos (iframe PDF suele fallar en iOS). */}
               <div className="flex flex-col items-center gap-3 rounded-lg border border-border/60 bg-background/45 px-4 py-6 text-center lg:hidden">
                 <FileText className="h-10 w-10 text-status-info-fg" aria-hidden />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">
-                    Propuesta lista para ver
+                    Propuesta lista
                   </p>
                   <p className="text-[12px] text-muted-foreground">
-                    Ábrela en el visor del dispositivo, sin descargar.
+                    Ábrela en el visor o compártela por WhatsApp.
                   </p>
                 </div>
-                <Button
-                  className="h-11 w-full max-w-xs gap-2"
-                  disabled={busy}
-                  onClick={() => openViewer(previewUrl)}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Ver propuesta
-                </Button>
+                <div className="flex w-full max-w-xs flex-col gap-2">
+                  <Button
+                    className="h-11 w-full gap-2"
+                    disabled={busy}
+                    onClick={() => openViewer(previewUrl)}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Ver propuesta
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-11 w-full gap-2"
+                    disabled={busy}
+                    onClick={() => void handleDownloadOrShare()}
+                  >
+                    {shareLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Share2 className="h-4 w-4" />
+                    )}
+                    Descargar / Compartir
+                  </Button>
+                </div>
               </div>
 
               {/* Desktop: preview embebida + abrir a pantalla completa */}
@@ -245,15 +327,31 @@ export function CpqPdfPreviewPanel({
               </span>
               <div className="flex items-center gap-1.5">
                 {previewUrl ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-1.5 text-xs sm:h-8"
-                    onClick={() => window.open(previewUrl, "_blank", "noopener,noreferrer")}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Abrir
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 gap-1.5 text-xs sm:h-8"
+                      disabled={busy}
+                      onClick={() => void handleDownloadOrShare()}
+                    >
+                      {shareLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      Descargar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 gap-1.5 text-xs sm:h-8"
+                      onClick={() => window.open(previewUrl, "_blank", "noopener,noreferrer")}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Abrir
+                    </Button>
+                  </>
                 ) : null}
                 <Button
                   variant="ghost"

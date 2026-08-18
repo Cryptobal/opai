@@ -3,8 +3,8 @@
 /**
  * Barra KPI sticky consolidada (desktop) del workspace multi-instalación:
  * código/nombre/estado + Total mensual, margen ponderado, dotación e
- * instalaciones, con acciones Enviar y PDF. Va bajo el topbar; las pestañas
- * sticky quedan debajo.
+ * instalaciones, con acciones Enviar, PDF y WhatsApp. Va bajo el topbar; las
+ * pestañas sticky quedan debajo.
  */
 
 import { useState } from "react";
@@ -20,12 +20,12 @@ import {
   Unlink,
   Users,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { BundleDetail } from "@/components/cpq/bundle/useBundle";
 import { fmtBundleMoney, type BundleBilling } from "./bundle-billing";
+import { useBundleShareActions } from "./useBundleShareActions";
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "Borrador",
@@ -33,14 +33,6 @@ const STATUS_LABEL: Record<string, string> = {
   accepted: "Aceptada",
   rejected: "Rechazada",
 };
-
-function buildWaMeUrl(phone: string | null | undefined, message: string): string {
-  const encoded = encodeURIComponent(message);
-  const cleaned = (phone ?? "").trim();
-  return cleaned
-    ? `https://wa.me/${cleaned}?text=${encoded}`
-    : `https://wa.me/?text=${encoded}`;
-}
 
 export function BundleStickyBar({
   bundle,
@@ -57,59 +49,18 @@ export function BundleStickyBar({
   onSend: () => void;
   onRequestDeleteBundle?: (mode: "unlink" | "cascade") => void;
 }) {
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [waLoading, setWaLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const t = bundle.totals;
   const margin =
     t.weightedMarginPct != null ? `${t.weightedMarginPct.toFixed(1)}%` : "—";
-  const canResendWhatsApp = Boolean(bundle.contactId);
-
-  const downloadPdf = async () => {
-    setPdfLoading(true);
-    try {
-      const res = await fetch(`/api/cpq/bundles/${bundle.id}/proposal-pdf`);
-      const contentType = res.headers.get("content-type") || "";
-      if (!res.ok || !contentType.includes("pdf")) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || "Error al generar PDF");
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${bundle.code}-propuesta-tecnica.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (e) {
-      console.error("[Bundle PDF]", e);
-      toast.error(e instanceof Error ? e.message : "Error al generar el PDF");
-    } finally {
-      setPdfLoading(false);
-    }
-  };
-
-  const resendWhatsApp = async () => {
-    setWaLoading(true);
-    try {
-      const res = await fetch(`/api/cpq/bundles/${bundle.id}/whatsapp-share`, {
-        method: "POST",
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "No se pudo armar el mensaje de WhatsApp");
-      }
-      const url = buildWaMeUrl(json.data?.whatsappPhone, json.data?.whatsappMessage ?? "");
-      window.open(url, "_blank");
-      toast.success("WhatsApp listo para enviar");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al abrir WhatsApp");
-    } finally {
-      setWaLoading(false);
-    }
-  };
+  const {
+    pdfLoading,
+    waLoading,
+    canDownloadPdf,
+    canResendWhatsApp,
+    downloadPdf,
+    resendWhatsApp,
+  } = useBundleShareActions(bundle);
 
   return (
     <div className="hidden lg:flex sticky top-[var(--app-topbar-offset)] z-30 items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/95 backdrop-blur-md px-4 py-2.5 shadow-md">
@@ -190,7 +141,7 @@ export function BundleStickyBar({
         <Button
           variant="outline"
           className="h-9 gap-1.5"
-          disabled={t.includedCount === 0 || pdfLoading}
+          disabled={!canDownloadPdf || pdfLoading}
           onClick={() => void downloadPdf()}
         >
           <FileDown className="h-4 w-4" />

@@ -121,6 +121,22 @@ describe("CpqPdfPreviewPanel", () => {
     openSpy.mockRestore();
   });
 
+  it("con preview en layout móvil muestra Descargar / Compartir", () => {
+    render(
+      <CpqPdfPreviewPanel
+        mode="presentacion"
+        templateSlug="standard"
+        previewUrl="/api/cpq/quotes/q1/proposal-pdf?t=1"
+        loading={false}
+        onModeChange={vi.fn()}
+        onGenerate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Ver propuesta" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Descargar / Compartir" })).toBeInTheDocument();
+  });
+
   it("con allowedModes cotizacion no muestra el tab Propuesta técnica", () => {
     render(
       <CpqPdfPreviewPanel

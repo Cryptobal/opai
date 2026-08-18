@@ -16,7 +16,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Send } from "lucide-react";
 import { Skeleton } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
@@ -28,6 +27,7 @@ import { useUfValue } from "./useUfValue";
 import { MobileTotalBar } from "./MobileTotalBar";
 import { ConsolidadoPanel } from "./consolidado/ConsolidadoPanel";
 import { BundleStickyBar } from "./consolidado/BundleStickyBar";
+import { BundleMobileActionBar } from "./consolidado/BundleMobileActionBar";
 import { computeBundleBilling } from "./consolidado/bundle-billing";
 import { useQuoteDeleteFlow } from "@/components/cpq/useQuoteDeleteFlow";
 
@@ -358,34 +358,12 @@ export function QuoteWorkspace({
         />
       )}
 
-      {/* Barra inferior móvil: solo acciones (el total vive en la barra sticky). */}
-      <div
-        className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-end gap-2 border-t border-border/60 bg-background/95 px-4 py-2 lg:hidden opai-liquid-glass-bar"
-        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
-      >
-        <Button
-          variant="outline"
-          className="h-11 gap-1.5"
-          onClick={() => openAdd(null)}
-        >
-          <Plus className="h-4 w-4" />
-          Instalación
-        </Button>
-        <Button
-          className="h-11 gap-1.5 bg-status-ok text-white hover:brightness-110"
-          disabled={bundle.totals.includedCount === 0 || !bundle.accountId}
-          title={
-            !bundle.accountId
-              ? "La propuesta no tiene cuenta asignada"
-              : undefined
-          }
-          onClick={() => setSendOpen(true)}
-        >
-          <Send className="h-4 w-4" />
-          Enviar
-        </Button>
-      </div>
-      <div className="h-16 lg:hidden" />
+      {/* Barra inferior móvil: PDF + WhatsApp + instalación + enviar. */}
+      <BundleMobileActionBar
+        bundle={bundle}
+        onAddInstallation={() => openAdd(null)}
+        onSend={() => setSendOpen(true)}
+      />
 
       <AddInstallationModal
         open={addOpen}
