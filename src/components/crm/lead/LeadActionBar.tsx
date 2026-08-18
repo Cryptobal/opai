@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties, ReactNode } from "react";
 import { Loader2, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -7,6 +8,10 @@ import { cn } from "@/lib/utils";
 /**
  * LeadActionBar — barra de acciones fija (mobile). En desktop se oculta
  * (las acciones viven en el header vía LeadHeaderCta).
+ *
+ * Se ancla inmediatamente encima del dock global (`--bottom-nav-height`,
+ * publicado por BottomNav) para no quedar tapada. Fallback 76px si la
+ * variable aún no está definida en el primer paint.
  */
 export interface LeadActionBarProps {
   isEditable: boolean;
@@ -20,6 +25,28 @@ export interface LeadActionBarProps {
   onOpenDeal?: () => void;
   onReopen?: () => void;
   reopening?: boolean;
+}
+
+const BAR_BOTTOM_STYLE: CSSProperties = {
+  bottom: "var(--bottom-nav-height, 76px)",
+};
+
+const BAR_SHELL =
+  "fixed inset-x-0 z-40 lg:hidden";
+
+const BAR_INNER =
+  "flex gap-2.5 border-t border-ds-border-subtle bg-background/85 px-3.5 py-3 backdrop-blur";
+
+function MobileActionShell({ children }: { children: ReactNode }) {
+  return (
+    <div className={BAR_SHELL} style={BAR_BOTTOM_STYLE} data-lead-action-bar>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-5 h-5 bg-gradient-to-t from-background/85 to-transparent"
+      />
+      <div className={BAR_INNER}>{children}</div>
+    </div>
+  );
 }
 
 export function LeadActionBar({
@@ -38,31 +65,31 @@ export function LeadActionBar({
   if (isRejected) {
     if (!onReopen) return null;
     return (
-      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2.5 border-t border-ds-border-subtle bg-background/85 px-3.5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+      <MobileActionShell>
         <Button onClick={onReopen} disabled={reopening} className="min-h-11 w-full gap-1.5">
           {reopening ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
           {reopening ? "Reabriendo…" : "Reabrir"}
         </Button>
-      </div>
+      </MobileActionShell>
     );
   }
 
   if (isApproved) {
     if (!onOpenDeal) return null;
     return (
-      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2.5 border-t border-ds-border-subtle bg-background/85 px-3.5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+      <MobileActionShell>
         <Button onClick={onOpenDeal} className="min-h-11 w-full gap-1.5">
           Abrir negocio
           <ArrowRight className="h-4 w-4" aria-hidden />
         </Button>
-      </div>
+      </MobileActionShell>
     );
   }
 
   if (!isEditable) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2.5 border-t border-ds-border-subtle bg-background/85 px-3.5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+    <MobileActionShell>
       <Button
         variant="outline"
         onClick={onReject}
@@ -83,6 +110,6 @@ export function LeadActionBar({
         {approving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <CheckCircle2 className="h-4 w-4" aria-hidden />}
         <span className="truncate">{duplicateChecked ? "Confirmar" : "Verificar y aprobar"}</span>
       </Button>
-    </div>
+    </MobileActionShell>
   );
 }
