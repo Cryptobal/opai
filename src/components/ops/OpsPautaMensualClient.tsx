@@ -1939,7 +1939,7 @@ export function OpsPautaMensualClient({
                             ? "bg-primary text-primary-foreground border-primary"
                             : isHoliday
                               ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
-                              : "bg-muted text-foreground border-border";
+                              : "bg-muted border-border text-inherit";
                           return (
                             <th
                               key={dayNum}
