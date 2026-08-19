@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Sheet, SheetContent, SheetDescription, SheetTitle,
+} from "@/components/ui/sheet";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import type { FlowExcludedDte } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, FlowMatrixRowDto, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { CellCompositionPanel } from "./CellCompositionPanel";
@@ -47,6 +51,7 @@ interface Props {
 
 /**
  * Panel único de celda: Composición (con nota inline) · Historial + acciones.
+ * Desktop: popover anclado. Táctil: bottom sheet con scroll y safe-area.
  */
 export function CellLayersPopover({
   state, onClose, canManage, editable, editReason, focusNote, excludedForRow,
@@ -56,6 +61,7 @@ export function CellLayersPopover({
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<CellDetailTab>("composicion");
+  const isTouch = useIsTouchLayout();
 
   useEffect(() => {
     if (!state) return;
@@ -64,7 +70,7 @@ export function CellLayersPopover({
   }, [state, focusNote]);
 
   useEffect(() => {
-    if (!state) return;
+    if (!state || isTouch) return;
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as Element | null;
       if (t && panelRef.current?.contains(t)) return;
@@ -85,21 +91,14 @@ export function CellLayersPopover({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKey, true);
     };
-  }, [state, onClose]);
+  }, [state, onClose, isTouch]);
 
   if (!state) return null;
   const { row, cell } = state;
-  const left = Math.max(8, Math.min(state.anchor.left, window.innerWidth - 348));
-  const top = Math.min(state.anchor.bottom + 4, window.innerHeight - 340);
+  const ariaLabel = `Detalle de ${row.name} · semana ${cell.weekStart}`;
 
-  return (
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-label={`Detalle de ${row.name} · semana ${cell.weekStart}`}
-      className="fixed z-50 w-[340px] max-h-[min(72vh,640px)] space-y-1.5 overflow-y-auto overscroll-contain rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-[13px] shadow-lg"
-      style={{ left, top }}
-    >
+  const body: ReactNode = (
+    <>
       <CellDetailTabs
         rowName={row.name}
         weekStart={cell.weekStart}
@@ -154,11 +153,47 @@ export function CellLayersPopover({
           <MenuItems
             key={`${row.id}:${cell.weekStart}`}
             items={actions}
-            variant="panel"
+            variant={isTouch ? "sheet" : "panel"}
             onSheetClose={onClose}
           />
         </div>
       )}
+    </>
+  );
+
+  if (isTouch) {
+    return (
+      <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+        <SheetContent
+          side="bottom"
+          surface="opaque"
+          className="z-50 max-h-[85dvh] gap-0 overflow-y-auto overscroll-contain rounded-t-2xl px-3 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-2 text-[13px]"
+        >
+          <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-ds-border-default" aria-hidden />
+          <SheetTitle className="sr-only">{ariaLabel}</SheetTitle>
+          <SheetDescription className="sr-only">
+            Composición, historial y acciones de la celda
+          </SheetDescription>
+          <div className="space-y-1.5 pr-8">
+            {body}
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  const left = Math.max(8, Math.min(state.anchor.left, window.innerWidth - 348));
+  const top = Math.min(state.anchor.bottom + 4, window.innerHeight - 340);
+
+  return (
+    <div
+      ref={panelRef}
+      role="dialog"
+      aria-label={ariaLabel}
+      className="fixed z-50 w-[340px] max-h-[min(72vh,640px)] space-y-1.5 overflow-y-auto overscroll-contain rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-[13px] shadow-lg"
+      style={{ left, top }}
+    >
+      {body}
     </div>
   );
 }

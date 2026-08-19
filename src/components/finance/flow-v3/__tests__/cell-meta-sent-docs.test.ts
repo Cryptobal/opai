@@ -4,10 +4,12 @@ import {
   cellStateChips,
   committedChipFillKey,
   committedItemMeta,
+  conceptoRowChips,
   countCededInMatrix,
   draftGroupLabel,
   draftTag,
   primaryCellTag,
+  rowStateChips,
   secondaryMarks,
   terminoStatusLine,
 } from "../cell-meta";
@@ -240,6 +242,36 @@ describe("sentDocs — etiquetas EP vs Proforma", () => {
         })],
       }]),
     ).toBe(1);
+  });
+
+  it("conceptoRowChips oculta retención y deja mora accionable", () => {
+    const row = {
+      name: "Transmat 20%",
+      crmAccountId: null as string | null,
+      cells: [
+        cell({
+          total: 50,
+          items: [{
+            kind: "dte", label: "Transmat", fecha: "2026-08-06", monto: 50,
+            dteId: "t20", isCededRetention: true, cesionDueYmd: "2026-10-05",
+            ceded: true, cededPct: 100, overdueDays: 0,
+          }],
+        }),
+        cell({
+          total: 80,
+          items: [{
+            kind: "dte", label: "GL", fecha: "2026-05-01", monto: 80,
+            dteId: "g", overdueDays: 78, overdueOver60: true, dueYmd: "2026-05-20",
+          }],
+        }),
+      ],
+    };
+    const all = rowStateChips(row);
+    expect(all.some((c) => c.kind === "retention")).toBe(true);
+    expect(all.some((c) => c.kind === "overdue")).toBe(true);
+    expect(conceptoRowChips(row)).toEqual([
+      expect.objectContaining({ kind: "overdue", label: "mora 78 d" }),
+    ]);
   });
 
   it("terminoStatusLine solo con término > 0", () => {

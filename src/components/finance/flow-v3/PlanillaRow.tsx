@@ -27,7 +27,7 @@ import {
   isFallbackBandejaRow,
 } from "@/modules/finance/flow-v3/unmatched-count";
 import {
-  rowStateChips,
+  conceptoRowChips,
   type CellStateChip,
   type CellStateChipTone,
 } from "./cell-meta";
@@ -107,7 +107,6 @@ interface Props {
   /** Ficha de hover desktop activa. */
   hoverCards?: boolean;
   onOpenNote?: (sel: CellSel) => void;
-  onOpenCaretMenu?: (sel: CellSel, anchor: DOMRect) => void;
   /** Abrir diálogo de cobranza desde chip de mora. */
   onSendCobranza?: (args: {
     dteId: string;
@@ -168,12 +167,9 @@ export function PlanillaRow(p: Props) {
     });
   };
   const showMenu = p.canManage && !row.isVirtual && p.rowMenu.length > 0;
-  // Fila: solo mora / retención. Cesión (cedida / anticipo) ya va como marca
-  // secundaria en la celda de la factura — no en la columna Concepto, porque
-  // una fila puede mezclar semanas cedidas y no cedidas.
-  const chips = rowStateChips(row).filter(
-    (c) => c.kind !== "due" && c.kind !== "ceded" && c.kind !== "funded",
-  );
+  // Concepto: solo mora (accionable). Cesión / anticipo / retención no van
+  // en el nombre — la marca vive en la celda o en la ficha.
+  const chips = conceptoRowChips(row);
   const openRowSheet = p.onOpenRowSheet;
   const handleNameLongPress = useCallback(() => {
     openRowSheet?.();
@@ -347,11 +343,6 @@ export function PlanillaRow(p: Props) {
             hoverCards={p.hoverCards}
             onOpenNote={
               p.onOpenNote ? () => p.onOpenNote!({ rowId: row.id, colIdx }) : undefined
-            }
-            onOpenCaretMenu={
-              p.onOpenCaretMenu
-                ? (anchor) => p.onOpenCaretMenu!({ rowId: row.id, colIdx }, anchor)
-                : undefined
             }
           />
         );
