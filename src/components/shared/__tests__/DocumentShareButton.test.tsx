@@ -32,6 +32,7 @@ describe("DocumentShareButton", () => {
         url: "/api/cpq/quotes/q1/export-pdf",
         filename: "cotizacion.pdf",
         mimeType: "application/pdf",
+        preferShare: true,
       });
     });
   });

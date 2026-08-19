@@ -46,6 +46,7 @@ export function DocumentShareButton({
         url,
         filename,
         mimeType,
+        preferShare: true,
       });
       onShared?.();
       if (result.method === "download") {

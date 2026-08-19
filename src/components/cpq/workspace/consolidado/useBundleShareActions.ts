@@ -31,9 +31,10 @@ export function useBundleShareActions(bundle: BundleDetail) {
         url: `/api/cpq/bundles/${bundle.id}/proposal-pdf`,
         filename: `${bundle.code}-propuesta-tecnica.pdf`,
         mimeType: "application/pdf",
+        // Default resuelto en downloadOrShareFile: coarse → share, desktop → disco.
       });
       if (result.method === "download") {
-        toast.success("PDF listo");
+        toast.success("PDF descargado");
       }
     } catch (e) {
       console.error("[Bundle PDF]", e);

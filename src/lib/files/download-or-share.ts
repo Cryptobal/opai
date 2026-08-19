@@ -2,8 +2,9 @@
  * Descarga o comparte un archivo de forma fiable en móvil.
  *
  * En iOS/Android, `window.open(blob:)` y el atributo `download` suelen fallar
- * o no permiten reenviar por WhatsApp. Preferimos Web Share API con `File` y,
- * si no está disponible, caemos a `<a download>` sobre un object URL.
+ * o no permiten reenviar por WhatsApp. En touch preferimos Web Share API con
+ * `File`; en desktop descargamos al disco (evitar el share sheet de macOS/Chrome
+ * cuando el usuario pide "Descargar").
  */
 
 export type DownloadOrShareInput = {
@@ -12,8 +13,9 @@ export type DownloadOrShareInput = {
   filename: string;
   mimeType?: string;
   /**
-   * Si true (default), intenta `navigator.share({ files })` cuando el dispositivo
-   * lo soporta. En desktop sin share, descarga directo.
+   * - `true`: siempre intenta `navigator.share({ files })` (botón Compartir).
+   * - `false`: siempre descarga con `<a download>`.
+   * - omitido: share solo en pointer coarse (móvil/tablet); desktop descarga.
    */
   preferShare?: boolean;
 };
@@ -32,10 +34,21 @@ function triggerAnchorDownload(href: string, filename: string) {
   a.remove();
 }
 
+function resolvePreferShare(explicit: boolean | undefined): boolean {
+  if (explicit === true) return true;
+  if (explicit === false) return false;
+  if (typeof window === "undefined") return false;
+  try {
+    return window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
+}
+
 export async function downloadOrShareFile(
   input: DownloadOrShareInput,
 ): Promise<DownloadOrShareResult> {
-  const preferShare = input.preferShare !== false;
+  const preferShare = resolvePreferShare(input.preferShare);
   const res = await fetch(input.url);
   if (!res.ok) {
     let message = `Error al descargar (${res.status})`;

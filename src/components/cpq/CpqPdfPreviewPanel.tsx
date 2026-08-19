@@ -68,6 +68,17 @@ function defaultFilename(mode: CpqPdfPreviewMode): string {
     : "cotizacion.pdf";
 }
 
+/** Visor nativo Chrome/Edge: sin thumbs laterales y página al ancho del iframe. */
+function withPdfViewerParams(url: string): string {
+  const params = "toolbar=1&navpanes=0&scrollbar=1&view=FitH";
+  const hashIdx = url.indexOf("#");
+  if (hashIdx === -1) return `${url}#${params}`;
+  const base = url.slice(0, hashIdx);
+  const existing = url.slice(hashIdx + 1);
+  if (!existing) return `${base}#${params}`;
+  return `${base}#${existing}&${params}`;
+}
+
 export function CpqPdfPreviewPanel({
   mode,
   templateSlug,
@@ -137,9 +148,11 @@ export function CpqPdfPreviewPanel({
         url,
         filename,
         mimeType: "application/pdf",
+        // Desktop: descarga real al PC. Móvil: share sheet (WhatsApp, etc.).
+        preferShare: isCoarsePointer(),
       });
       if (result.method === "download") {
-        toast.success("PDF listo para compartir");
+        toast.success("PDF descargado");
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al descargar el PDF");
@@ -288,10 +301,13 @@ export function CpqPdfPreviewPanel({
               </div>
 
               {/* Desktop: preview embebida + abrir a pantalla completa */}
-              <div className="relative hidden lg:block">
+              <div className="relative hidden min-h-0 w-full overflow-hidden lg:block">
                 <iframe
-                  src={previewUrl}
-                  className={cn("h-[280px] w-full rounded-lg border border-border/60 bg-white", previewClassName)}
+                  src={withPdfViewerParams(previewUrl)}
+                  className={cn(
+                    "h-[420px] w-full max-w-full rounded-lg border border-border/60 bg-white sm:h-[560px]",
+                    previewClassName,
+                  )}
                   title={previewTitle}
                 />
                 <button
@@ -315,12 +331,21 @@ export function CpqPdfPreviewPanel({
       </Card>
 
       <Dialog open={fullscreen} onOpenChange={setFullscreen}>
-        <DialogContent className="!fixed !inset-0 !translate-x-0 !translate-y-0 !max-h-[100dvh] !w-screen !max-w-none !rounded-none !border-0 !p-0 bg-background [&>button]:hidden sm:!inset-3 sm:!max-h-none sm:!w-auto sm:!rounded-lg sm:!border">
+        <DialogContent
+          className={cn(
+            // Full-bleed: anular el bottom-sheet / modal centrado del Dialog base.
+            "!fixed !inset-0 !left-0 !right-0 !top-0 !bottom-0 !translate-x-0 !translate-y-0",
+            "!max-h-[100dvh] !h-[100dvh] !w-screen !max-w-none !rounded-none !border-0 !p-0 !gap-0",
+            "!overflow-hidden bg-background flex flex-col [&>button]:hidden",
+            // Desktop: margen suave sin romper el ancho (evita sm:w-auto + left-50%).
+            "sm:!inset-3 sm:!left-3 sm:!right-3 sm:!top-3 sm:!bottom-3 sm:!h-auto sm:!max-h-none sm:!w-auto sm:!rounded-lg sm:!border",
+          )}
+        >
           <DialogTitle className="sr-only">Vista previa de la propuesta</DialogTitle>
           <DialogDescription className="sr-only">
             PDF de la propuesta a pantalla completa
           </DialogDescription>
-          <div className="flex h-full min-h-0 flex-col">
+          <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/40 bg-muted/30 px-3 py-2">
               <span className="text-[12px] font-semibold text-muted-foreground">
                 Vista previa · {mode === "presentacion" ? "Propuesta técnica" : "Cotización"}
@@ -371,12 +396,12 @@ export function CpqPdfPreviewPanel({
                 </Button>
               </div>
             </div>
-            <div className="min-h-0 flex-1">
+            <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
               {previewUrl ? (
                 <iframe
-                  src={previewUrl}
+                  src={withPdfViewerParams(previewUrl)}
                   title={previewTitle}
-                  className="h-full w-full border-0 bg-white"
+                  className="h-full w-full max-w-full border-0 bg-white"
                 />
               ) : null}
             </div>
