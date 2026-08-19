@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ChevronsDownUp,
+  ChevronsUpDown,
   FileDown,
   FileText,
   MessageCircle,
@@ -35,6 +37,11 @@ import type { ProposalContentV2, ProposalSection } from "@/lib/cpq/proposal-sect
 import type { ProposalValidation } from "@/lib/cpq/proposal-sections/validate";
 import { isAutoSection } from "@/lib/cpq/proposal-sections/oferta-economica";
 import { isMissingGeneratableSection } from "@/lib/cpq/proposal-sections/generate-batch";
+import {
+  isAllExpanded,
+  toggleExpandAll,
+  toggleExpandedId,
+} from "@/lib/cpq/proposal-sections/expand-sections";
 import type { EconomicOpening } from "@/lib/cpq/economic-opening";
 import { ProposalSectionList } from "./ProposalSectionList";
 import { ProposalSectionSheet } from "./ProposalSectionSheet";
@@ -73,6 +80,8 @@ export function ProposalSectionsEditor({
   economicOpening,
   onProposalStatusChange,
   onProposalReadyChange,
+  heading,
+  hint,
 }: {
   quoteId: string;
   quoteLabel: string;
@@ -85,12 +94,14 @@ export function ProposalSectionsEditor({
   onProposalStatusChange?: (status: ProposalContentV2["status"], approved: boolean) => void;
   /** Comercial: true cuando hay al menos una sección con contenido (listo para enviar). */
   onProposalReadyChange?: (ready: boolean) => void;
+  heading?: string;
+  hint?: string;
 }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Payload | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [sheetSectionId, setSheetSectionId] = useState<string | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
@@ -129,6 +140,11 @@ export function ProposalSectionsEditor({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    autoGenStartedRef.current = false;
+    setExpandedIds(new Set());
+  }, [quoteId]);
 
   const applyPatched = useCallback((patched: PatchPayload) => {
     setData((prev) =>
@@ -277,7 +293,7 @@ export function ProposalSectionsEditor({
     const created = result.content.sections.find((item) => !previousIds.has(item.id));
     if (created) {
       setSheetSectionId(created.id);
-      setExpandedId(created.id);
+      setExpandedIds((current) => toggleExpandedId(current, created.id));
     }
     setAddTitle("");
     setAddOpen(false);
@@ -367,7 +383,12 @@ export function ProposalSectionsEditor({
         <div className="flex min-w-0 items-start gap-2">
           <IconBubble icon={Sparkles} variant="brand" size="sm" />
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-ds-text-1">Propuesta</p>
+            <p className="text-[13px] font-semibold text-ds-text-1">
+              {heading ?? "Propuesta"}
+            </p>
+            {hint ? (
+              <p className="mt-0.5 text-[12px] leading-snug text-ds-text-3">{hint}</p>
+            ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <Tag variant={mode === "licitacion" ? "info" : "neutral"} size="sm">
                 {mode === "licitacion" ? "Licitación" : "Comercial"}
@@ -386,6 +407,47 @@ export function ProposalSectionsEditor({
         </div>
 
         {!isGenerating ? (
+          <div className="flex shrink-0 items-center gap-1">
+            {ordered.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 sm:h-9"
+                onClick={() =>
+                  setExpandedIds((current) =>
+                    toggleExpandAll(
+                      ordered.map((section) => section.id),
+                      current,
+                    ),
+                  )
+                }
+                aria-label={
+                  isAllExpanded(
+                    ordered.map((section) => section.id),
+                    expandedIds,
+                  )
+                    ? "Contraer todo"
+                    : "Expandir todo"
+                }
+              >
+                {isAllExpanded(
+                  ordered.map((section) => section.id),
+                  expandedIds,
+                ) ? (
+                  <ChevronsDownUp className="h-4 w-4" />
+                ) : (
+                  <ChevronsUpDown className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {isAllExpanded(
+                    ordered.map((section) => section.id),
+                    expandedIds,
+                  )
+                    ? "Contraer todo"
+                    : "Expandir todo"}
+                </span>
+              </Button>
+            ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -434,6 +496,7 @@ export function ProposalSectionsEditor({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         ) : null}
       </div>
 
@@ -509,9 +572,9 @@ export function ProposalSectionsEditor({
         <>
           <ProposalSectionList
             sections={data.content.sections}
-            expandedId={expandedId}
+            expandedIds={expandedIds}
             onToggleExpand={(id) =>
-              setExpandedId((current) => (current === id ? null : id))
+              setExpandedIds((current) => toggleExpandedId(current, id))
             }
             onEdit={(section) => setSheetSectionId(section.id)}
             onInlineSave={async (sectionId, content) => {

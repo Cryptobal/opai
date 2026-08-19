@@ -26,7 +26,7 @@ function previewText(content: string, max = 140): string {
 
 export function ProposalSectionList({
   sections,
-  expandedId,
+  expandedIds,
   onToggleExpand,
   onEdit,
   onInlineSave,
@@ -37,7 +37,7 @@ export function ProposalSectionList({
   onRetry,
 }: {
   sections: ProposalSection[];
-  expandedId: string | null;
+  expandedIds: ReadonlySet<string>;
   onToggleExpand: (id: string) => void;
   onEdit: (section: ProposalSection) => void;
   onInlineSave?: (sectionId: string, content: string) => Promise<boolean>;
@@ -59,7 +59,7 @@ export function ProposalSectionList({
             : !section.content.trim()
               ? "vacia"
               : section.origin ?? "ia";
-        const expanded = expandedId === section.id;
+        const expanded = expandedIds.has(section.id);
         const failed = failedIds?.has(section.id);
         const empty = !section.content.trim() && !auto;
         const canInline = !readOnly && !auto && Boolean(onInlineSave);

@@ -49,6 +49,20 @@ describe("isMissingGeneratableSection", () => {
     expect(auto).toBeTruthy();
     expect(isMissingGeneratableSection(auto!)).toBe(false);
   });
+
+  it("trata exclusiones stub como missing salvo editada", () => {
+    const content = emptyProposalV2("comercial");
+    const excl = content.sections.find((s) => s.invariant === "exclusiones")!;
+    expect(excl.content).toMatch(/Pendiente/);
+    expect(isMissingGeneratableSection(excl)).toBe(true);
+
+    let edited = setSectionContent(content, excl.id, "Pendiente de completar.", {
+      mark: "editada",
+    });
+    const editedExcl = edited.sections.find((s) => s.invariant === "exclusiones")!;
+    expect(editedExcl.status).toBe("editada");
+    expect(isMissingGeneratableSection(editedExcl)).toBe(false);
+  });
 });
 
 describe("generateProposalSectionsBatch maxSections/remaining", () => {

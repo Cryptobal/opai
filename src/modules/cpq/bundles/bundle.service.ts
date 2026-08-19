@@ -211,6 +211,12 @@ export async function createBundle(opts: {
         installationId: installation.id,
       });
       primaryQuoteId = added.quoteId;
+      if (added.created) {
+        const { scheduleGenerateMissingProposalSections } = await import(
+          "@/lib/cpq/proposal-sections/generate-missing-for-quote"
+        );
+        scheduleGenerateMissingProposalSections(tenantId, added.quoteId);
+      }
     }
   }
 

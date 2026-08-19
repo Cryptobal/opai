@@ -62,9 +62,9 @@ export function BundleAiSection({
         </Button>
       </div>
       <p className="text-[13px] text-ds-text-3">
-        La propuesta consolidada compone el contenido de cada instalación. Edita la
-        descripción y el detalle de servicio en el tab de cada una; aquí fuerzas la
-        regeneración del documento completo.
+        La narrativa del PDF consolidado se edita en Propuesta técnica consolidada
+        (arriba). Acá reiniciás el cache del documento para forzar una regeneración
+        al previsualizar.
       </p>
       <ul className="ds-list-cascade space-y-1.5">
         {bundle.quotes.map((m) => (

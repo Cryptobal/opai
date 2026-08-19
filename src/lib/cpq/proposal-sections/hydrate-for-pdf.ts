@@ -135,13 +135,4 @@ export async function hydrateProposalContentForPdfWithTenant(opts: {
   });
 }
 
-/** Stub comercial de exclusiones: cuenta como “sin contenido” para el gate final. */
-export function isPlaceholderExclusionesContent(content: string): boolean {
-  const t = content.trim().toLowerCase();
-  if (!t) return true;
-  return (
-    t === "pendiente de completar." ||
-    t === "pendiente de completar" ||
-    t.startsWith("pendiente: se completará")
-  );
-}
+export { isPlaceholderExclusionesContent } from "@/lib/cpq/proposal-sections/placeholder-content";

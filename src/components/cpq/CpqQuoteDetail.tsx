@@ -86,6 +86,7 @@ import { CondicionesSection } from "@/components/cpq/workspace/CondicionesSectio
 import { LineasSection } from "@/components/cpq/workspace/LineasSection";
 import { FinancierosSection } from "@/components/cpq/workspace/FinancierosSection";
 import { ProposalSectionsEditor } from "@/components/cpq/proposal/ProposalSectionsEditor";
+import { isProposalSectionsReadOnly } from "@/lib/cpq/proposal-sections/editor-lock";
 import { ControlCenterPanel } from "@/components/cpq/workspace/ControlCenterPanel";
 import { WorkspaceRail } from "@/components/cpq/workspace/WorkspaceRail";
 import { SectionChips } from "@/components/cpq/workspace/SectionChips";
@@ -146,6 +147,11 @@ interface CpqQuoteDetailProps {
   onRequestUnlink?: (quoteId: string) => Promise<void> | void;
   /** Permiso efectivo para mostrar/habilitar acciones destructivas. */
   canDelete?: boolean;
+  /**
+   * En workspace multi, el editor de propuesta usa la cotización de referencia
+   * del bundle (narrativa del PDF consolidado), no la hija del tab.
+   */
+  proposalQuoteId?: string | null;
 }
 
 type CrmInstallationOption = {
@@ -203,6 +209,7 @@ export function CpqQuoteDetail({
   onRequestDelete,
   onRequestUnlink,
   canDelete,
+  proposalQuoteId = null,
 }: CpqQuoteDetailProps) {
   const router = useRouter();
   const { resolve: resolveWaTemplate } = useWaTemplate();
@@ -355,6 +362,8 @@ export function CpqQuoteDetail({
   const [ufValue, setUfValue] = useState<number | null>(null);
 
   const isLocked = quote?.status === "sent";
+  const editorQuoteId = proposalQuoteId || quote?.id || quoteId;
+  const sharedProposal = Boolean(proposalQuoteId && proposalQuoteId !== quote?.id);
   const canDeleteQuote = canDelete ?? true;
   const {
     deleting,
@@ -2851,28 +2860,37 @@ export function CpqQuoteDetail({
 
       <div id="sec-propuesta" className="scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <ProposalSectionsEditor
-          quoteId={quote.id}
+          quoteId={editorQuoteId}
           quoteLabel={quote.name || quote.code || "Cotización"}
-          readOnly={isLocked}
+          readOnly={isProposalSectionsReadOnly(isLocked)}
+          hint={
+            sharedProposal
+              ? "Este texto es el del PDF consolidado. Se edita una sola vez para todas las instalaciones."
+              : undefined
+          }
           dealId={crmContext.dealId || quote.dealId}
           quoteStatus={quote.status}
           onMarkSentLicitacion={isLicitacionDeal ? () => void handleMarkSentLicitacion() : undefined}
           markingSent={markingSentLicitacion}
-          economicOpening={economicOpeningFromCostSummary(costSummary, {
-            currency: crmContext.currency || "CLP",
-            ufValue: ufValue ?? 0,
-            breakdown: economicBreakdown,
-            serviceLines: economicServiceLines,
-            byInstallation: economicInstallationName
-              ? [{
-                  name: economicInstallationName,
-                  guards: costSummary?.totalGuards ?? 0,
-                  amountClp:
-                    costSummary?.salePriceMonthly ??
-                    salePriceMonthly + additionalLinesTotal,
-                }]
-              : [],
-          })}
+          economicOpening={
+            sharedProposal
+              ? undefined
+              : economicOpeningFromCostSummary(costSummary, {
+                  currency: crmContext.currency || "CLP",
+                  ufValue: ufValue ?? 0,
+                  breakdown: economicBreakdown,
+                  serviceLines: economicServiceLines,
+                  byInstallation: economicInstallationName
+                    ? [{
+                        name: economicInstallationName,
+                        guards: costSummary?.totalGuards ?? 0,
+                        amountClp:
+                          costSummary?.salePriceMonthly ??
+                          salePriceMonthly + additionalLinesTotal,
+                      }]
+                    : [],
+                })
+          }
           onProposalStatusChange={(_status, approved) => setProposalApproved(approved)}
           onProposalReadyChange={setProposalReady}
         />
