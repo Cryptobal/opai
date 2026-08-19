@@ -72,7 +72,7 @@ interface Props {
   canEditCell: (rowId: string, colIdx: number) => boolean;
   enableDrag: boolean;
   dropTarget: { rowId: string; colIdx: number } | null;
-  onCellContext: (sel: CellSel) => void;
+  onCellContext: (e: React.MouseEvent, sel: CellSel) => void;
   onOpenCellSheet?: (sel: CellSel) => void;
   sumMode?: boolean;
   discreteKeys?: Set<string>;
@@ -295,7 +295,7 @@ export function PlanillaRow(p: Props) {
             onCommit={p.onCommit}
             onCancel={p.onCancelEdit}
             onOpenPopover={(anchor) => p.onOpenPopover({ rowId: row.id, colIdx }, anchor)}
-            onContextTarget={() => p.onCellContext({ rowId: row.id, colIdx })}
+            onContextTarget={(e) => p.onCellContext(e, { rowId: row.id, colIdx })}
             onOpenCellSheet={
               p.onOpenCellSheet
                 ? () => p.onOpenCellSheet!({ rowId: row.id, colIdx })

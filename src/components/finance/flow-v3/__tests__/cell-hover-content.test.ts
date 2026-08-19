@@ -243,12 +243,13 @@ describe("buildHoverCardContent", () => {
     expect(model.footerHint).toBe("Semana cerrada");
   });
 
-  it("pie por defecto menciona doble clic / Más", () => {
+  it("pie por defecto menciona clic derecho / doble clic / Más", () => {
     const model = buildHoverCardContent({
       row: baseRow(),
       cell: cell({ layer: "plan", plan: 1000, effective: 1000 }),
       colIdx: 0,
     });
+    expect(model.footerHint).toMatch(/Clic derecho/i);
     expect(model.footerHint).toMatch(/Doble clic editar/i);
     expect(model.footerHint).toMatch(/Más/i);
   });
