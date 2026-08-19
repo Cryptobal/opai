@@ -7,6 +7,7 @@ import { CellCompositionPanel } from "./CellCompositionPanel";
 import { CellDetailTabs, type CellDetailTab } from "./CellDetailTabs";
 import { CellHistoryList } from "./CellHistoryList";
 import { CellNoteEditor } from "./CellNoteEditor";
+import { MenuItems, type MenuItemDesc } from "./menu-render";
 
 export interface PopoverState {
   row: FlowMatrixRowDto;
@@ -34,16 +35,19 @@ interface Props {
   moveWeeks?: MatrixColumn[];
   onMoveDte?: (dteId: string, targetWeek: string) => void;
   onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
+  onMoveMilestone?: (milestoneKey: string, billingPeriod: string, targetWeek: string) => void;
+  /** Acciones del menú de celda (sin duplicar Composición/Nota/Historial). */
+  actions?: MenuItemDesc[];
 }
 
 /**
- * Panel de detalle de celda con pestañas Composición · Nota · Historial.
+ * Panel único de celda: Composición · Nota · Historial + acciones.
  */
 export function CellLayersPopover({
   state, onClose, canManage, editable, editReason, focusNote, excludedForRow,
   onViewDte, onExcludeDte, onRestoreDte, onSaveNote,
   onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual,
-  moveWeeks, onMoveDte, onMoveScheduled,
+  moveWeeks, onMoveDte, onMoveScheduled, onMoveMilestone, actions = [],
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<CellDetailTab>("composicion");
@@ -56,8 +60,10 @@ export function CellLayersPopover({
   useEffect(() => {
     if (!state) return;
     const onPointerDown = (e: PointerEvent) => {
-      const t = e.target as Node | null;
+      const t = e.target as Element | null;
       if (t && panelRef.current?.contains(t)) return;
+      // Clic derecho en otra celda: el contextmenu del grid abre el panel nuevo.
+      if (e.button === 2 && t?.closest?.("td[data-rc]")) return;
       onClose();
     };
     const onKey = (e: KeyboardEvent) => {
@@ -77,15 +83,15 @@ export function CellLayersPopover({
 
   if (!state) return null;
   const { row, cell } = state;
-  const left = Math.max(8, Math.min(state.anchor.left, window.innerWidth - 328));
+  const left = Math.max(8, Math.min(state.anchor.left, window.innerWidth - 348));
   const top = Math.min(state.anchor.bottom + 4, window.innerHeight - 340);
 
   return (
     <div
       ref={panelRef}
       role="dialog"
-      aria-label={`Capas de ${row.name} · semana ${cell.weekStart}`}
-      className="fixed z-50 w-[320px] space-y-1.5 rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-xs shadow-lg"
+      aria-label={`Detalle de ${row.name} · semana ${cell.weekStart}`}
+      className="fixed z-50 w-[340px] max-h-[min(72vh,640px)] space-y-1.5 overflow-y-auto overscroll-contain rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-[13px] shadow-lg"
       style={{ left, top }}
     >
       <CellDetailTabs
@@ -112,6 +118,7 @@ export function CellLayersPopover({
             moveWeeks={moveWeeks}
             onMoveDte={onMoveDte}
             onMoveScheduled={onMoveScheduled}
+            onMoveMilestone={onMoveMilestone}
             onClose={onClose}
           />
         )}
@@ -130,6 +137,17 @@ export function CellLayersPopover({
           <CellHistoryList rowId={row.id} weekStart={cell.weekStart} />
         )}
       </CellDetailTabs>
+      {actions.length > 0 && (
+        <div className="border-t border-ds-border-subtle pt-1.5">
+          <p className="px-1.5 pb-0.5 text-[12px] font-medium text-ds-text-3">Acciones</p>
+          <MenuItems
+            key={`${row.id}:${cell.weekStart}`}
+            items={actions}
+            variant="panel"
+            onSheetClose={onClose}
+          />
+        </div>
+      )}
     </div>
   );
 }

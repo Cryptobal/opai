@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   buildCellMenu,
   buildCellSheetModel,
+  panelActionsFromCellMenu,
   resolveNextWeekKey,
   type CellMenuCallbacks,
   type CellMenuContext,
@@ -323,5 +324,48 @@ describe("buildCellMenu — programaciones movibles", () => {
     expect(items.find((i) => i.key === "edit")).toBeUndefined();
     expect(items.find((i) => i.key.startsWith("move-sched-"))?.label).toBe("Mover esta P a…");
     expect(items.find((i) => i.key === "move-dte-dte-1767")?.label).toContain("Mover F°1767");
+  });
+
+  it("quincena (hito) ofrece Mover esta P", () => {
+    const cell: FlowMatrixCellDto = {
+      weekStart: "2026-08-10",
+      plan: 0,
+      committed: {
+        total: 4_776_383,
+        items: [{
+          kind: "scheduled",
+          milestoneKey: "quincena",
+          billingPeriod: "2026-08",
+          label: "Quincena / anticipos",
+          fecha: "2026-08-15",
+          monto: 4_776_383,
+        }],
+      },
+      real: null,
+      effective: 4_776_383,
+      layer: "committed",
+    };
+    const items = buildCellMenu(
+      row({ name: "Quincena (anticipos)", section: "REMUNERACIONES" }),
+      cell,
+      { ...ctx, editable: true, reason: "" },
+      { ...cbs(), onMoveMilestone: vi.fn() },
+    );
+    const move = items.find((i) => i.key.startsWith("move-sched-"));
+    expect(move?.label).toBe("Mover esta P a…");
+    expect(move?.disabled).toBe(false);
+    expect(move?.key).toContain("ms:quincena");
+  });
+});
+
+describe("panelActionsFromCellMenu", () => {
+  it("quita Ver detalle e historial y nota; deja el resto", () => {
+    const items = panelActionsFromCellMenu([
+      { key: "view-dte", label: "Ver F°1797" },
+      { key: "exclude-dte", label: "Excluir del flujo", danger: true },
+      { key: "detail", label: "Ver detalle e historial", separatorBefore: true },
+      { key: "note", label: "Agregar nota…" },
+    ]);
+    expect(items.map((i) => i.key)).toEqual(["view-dte", "exclude-dte"]);
   });
 });

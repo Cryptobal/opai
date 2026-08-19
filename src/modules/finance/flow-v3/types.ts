@@ -20,8 +20,10 @@ export interface CommittedItem {
   sentDocs?: SentDocs;
   dteId?: string;
   templateId?: string;
-  /** Solo kind=scheduled: período de la cuota (YYYY-MM) según el ancla. */
+  /** Solo kind=scheduled: período de la cuota/hito (YYYY-MM). */
   billingPeriod?: string;
+  /** Solo kind=scheduled de egreso: hito payroll/F29 (quincena, liquido, …). */
+  milestoneKey?: string;
   folio?: number;
   /** Nombre visible: cliente/proveedor/hito (popover). */
   label: string;

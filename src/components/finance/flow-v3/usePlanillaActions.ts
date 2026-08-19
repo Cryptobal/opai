@@ -281,6 +281,20 @@ export function usePlanillaActions(refetch: () => void) {
     [run],
   );
 
+  /** Mueve un hito de egreso (quincena, sueldos, …). No cambia el día de pago. */
+  const moveMilestone = useCallback(
+    (milestoneKey: string, billingPeriod: string, toWeek: string) =>
+      run(
+        () =>
+          api("/api/finance/flow-v3/milestone/move", {
+            method: "POST",
+            body: JSON.stringify({ milestoneKey, billingPeriod, toWeek }),
+          }),
+        "Programación movida. El día de pago no cambia.",
+      ),
+    [run],
+  );
+
   /** Mueve una cuota programada (P) a otra semana. No toca facturas. */
   const moveScheduled = useCallback(
     (templateId: string, billingPeriod: string, toWeek: string) =>
@@ -299,6 +313,6 @@ export function usePlanillaActions(refetch: () => void) {
     busy, createRow, renameRow, updateRow, unarchiveRow, deleteRow,
     archiveRow, setTemplateEndDate, setTemplateDiasCobro, deactivateTemplate,
     createRecurring, updateRecurring, deleteRecurring, closeWeek, reopenWeek, bulkFill,
-    excludeDte, restoreDte, moveDte, moveScheduled,
+    excludeDte, restoreDte, moveDte, moveScheduled, moveMilestone,
   };
 }

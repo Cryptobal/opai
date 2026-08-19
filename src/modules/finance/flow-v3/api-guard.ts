@@ -36,7 +36,7 @@ export function flowV3Error(error: unknown, fallback = "Error interno"): NextRes
     return NextResponse.json({ success: false, error: message }, { status: 409 });
   }
   const known =
-    /no encontrada|no encontrado|requerido|inválid|archivada|no puede|no pertenecen|no pertenece|no está vinculada|vinculad|programación|cuota|lunes ISO|misma cuenta|admiten|Nada que actualizar|no hay nada que guardar/i.test(
+    /no encontrada|no encontrado|requerido|inválid|archivada|no puede|no pertenecen|no pertenece|no está vinculada|vinculad|programación|cuota|hito|lunes ISO|misma cuenta|admiten|Nada que actualizar|no hay nada que guardar/i.test(
       message,
     );
   return NextResponse.json(

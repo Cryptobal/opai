@@ -158,6 +158,22 @@ export const flowScheduledMoveSchema = z.object({
   toWeek: ymd,
 });
 
+/** Mover un hito de egreso (quincena, sueldos, …) a otra semana. */
+export const flowMilestoneMoveSchema = z.object({
+  milestoneKey: z.enum([
+    "liquido",
+    "quincena",
+    "previred",
+    "impuesto_unico",
+    "f29",
+    "turnos_extra",
+    "retiro_socio",
+    "finiquitos",
+  ]),
+  billingPeriod: z.string().regex(/^\d{4}-\d{2}$/, "Período YYYY-MM"),
+  toWeek: ymd,
+});
+
 export const flowRecurrenceFrequencySchema = z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]);
 export const flowPlanCurrencySchema = z.enum(["CLP", "UF"]);
 export const flowRecurrenceAmountModeSchema = z.enum(["FIXED", "PCT_SALES"]);

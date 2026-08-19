@@ -101,25 +101,32 @@ function renderItems(items: MenuItemDesc[], C: Bag): React.ReactNode[] {
   return out;
 }
 
-/** Render sheet: botones táctiles con drill-down de submenús. */
+/** Render sheet/panel: botones con drill-down de submenús. */
 function SheetMenuItems({
   items,
   onClose,
+  density = "sheet",
 }: {
   items: MenuItemDesc[];
   onClose: () => void;
+  density?: "sheet" | "panel";
 }) {
   const [stack, setStack] = useState<{ title: string; items: MenuItemDesc[] }[]>([]);
   const current = stack.length > 0 ? stack[stack.length - 1]! : null;
   const list = current?.items ?? items;
+  const compact = density === "panel";
+  const btn = compact
+    ? "flex w-full min-h-10 sm:min-h-9 items-center gap-2 rounded px-1.5 py-1.5 text-left hover:bg-ds-surface-2"
+    : "flex w-full min-h-11 items-center gap-3 px-5 py-3 text-left active:bg-ds-surface-2";
+  const labelClass = compact ? "block text-[13px] font-medium" : "block text-[14px] font-medium";
 
   return (
-    <div className="divide-y divide-ds-border-subtle">
+    <div className={compact ? "space-y-0.5" : "divide-y divide-ds-border-subtle"}>
       {current && (
         <button
           type="button"
           onClick={() => setStack((s) => s.slice(0, -1))}
-          className="flex w-full min-h-11 items-center gap-2 px-5 py-3 text-left text-[13px] text-ds-text-2 active:bg-ds-surface-2"
+          className={cn(btn, compact ? "text-ds-text-2" : "text-[13px] text-ds-text-2")}
         >
           ← {current.title}
         </button>
@@ -128,7 +135,10 @@ function SheetMenuItems({
         if (it.submenu && it.submenu.length > 0) {
           return (
             <React.Fragment key={it.key}>
-              {it.separatorBefore && <div className="h-2 bg-ds-surface-2" />}
+              {it.separatorBefore && !compact && <div className="h-2 bg-ds-surface-2" />}
+              {it.separatorBefore && compact && (
+                <div className="my-1 border-t border-ds-border-subtle" />
+              )}
               <button
                 type="button"
                 disabled={it.disabled}
@@ -139,13 +149,10 @@ function SheetMenuItems({
                     { title: typeof it.label === "string" ? it.label : "Más", items: it.submenu! },
                   ]);
                 }}
-                className={cn(
-                  "flex w-full min-h-11 items-center gap-3 px-5 py-3 text-left active:bg-ds-surface-2",
-                  it.disabled && "pointer-events-none opacity-40",
-                )}
+                className={cn(btn, it.disabled && "pointer-events-none opacity-40")}
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[14px] font-medium text-ds-text-1">{it.label}</span>
+                  <span className={cn(labelClass, "text-ds-text-1")}>{it.label}</span>
                   {it.reason && it.disabled && (
                     <span className="block text-[12px] text-ds-text-4">{it.reason}</span>
                   )}
@@ -157,7 +164,10 @@ function SheetMenuItems({
         }
         return (
           <React.Fragment key={it.key}>
-            {it.separatorBefore && <div className="h-2 bg-ds-surface-2" />}
+            {it.separatorBefore && !compact && <div className="h-2 bg-ds-surface-2" />}
+            {it.separatorBefore && compact && (
+              <div className="my-1 border-t border-ds-border-subtle" />
+            )}
             <button
               type="button"
               disabled={it.disabled}
@@ -167,7 +177,7 @@ function SheetMenuItems({
                 it.onSelect();
               }}
               className={cn(
-                "flex w-full min-h-11 items-center px-5 py-3 text-left active:bg-ds-surface-2",
+                btn,
                 it.disabled && "pointer-events-none opacity-40",
                 it.highlight === "next-week" && "bg-status-info-soft",
               )}
@@ -175,7 +185,7 @@ function SheetMenuItems({
               <span className="min-w-0 flex-1">
                 <span
                   className={cn(
-                    "block text-[14px] font-medium",
+                    labelClass,
                     it.danger
                       ? "text-status-danger-fg"
                       : it.highlight === "next-week"
@@ -203,12 +213,15 @@ export function MenuItems({
   onSheetClose,
 }: {
   items: MenuItemDesc[];
-  variant: "context" | "dropdown" | "sheet";
-  /** Requerido cuando variant=sheet: cierra el Sheet al seleccionar. */
+  variant: "context" | "dropdown" | "sheet" | "panel";
+  /** Requerido cuando variant=sheet|panel: cierra el overlay al seleccionar. */
   onSheetClose?: () => void;
 }) {
   if (variant === "sheet") {
-    return <SheetMenuItems items={items} onClose={onSheetClose ?? (() => {})} />;
+    return <SheetMenuItems items={items} onClose={onSheetClose ?? (() => {})} density="sheet" />;
+  }
+  if (variant === "panel") {
+    return <SheetMenuItems items={items} onClose={onSheetClose ?? (() => {})} density="panel" />;
   }
   return <>{renderItems(items, variant === "context" ? CONTEXT_BAG : DROPDOWN_BAG)}</>;
 }
