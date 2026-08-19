@@ -27,8 +27,9 @@
  *    el tramo sin sello deriva con `realNet`;
  *  - semana actual CERRADA: manda el sello (ya fijada al cerrar);
  *  - ventana enteramente pasada/futura: ancla en saldo hoy como antes.
- *  - Descuadre ⚠ entre dos sellos que no cuadran; si el sello previo
- *    diverge del espejo banco-hoy en la semana actual, también ⚠.
+ *  - Descuadre ⚠ solo entre dos sellos que no cuadran entre sí.
+ *    El espejo banco-hoy de la semana actual abierta NO genera ⚠:
+ *    manda el banco; la divergencia vs cadena histórica es esperada.
  */
 import { hasInvoicedIncome } from "./cell-editability";
 import {
@@ -91,7 +92,7 @@ export interface FlowMatrixRowDto extends AssembleRowInput {
   cells: FlowMatrixCellDto[];
 }
 
-/** Descuadre de saldo vs un sello de cierre (para marca ⚠ en UI). */
+/** Inconsistencia entre dos sellos de cierre (marca ⚠ en UI). */
 export interface BalanceBreak {
   /** Lunes ISO de la semana sellada contra la que descuadra. */
   vsWeek: string;
@@ -139,7 +140,7 @@ export interface AssembledMatrix {
   rows: FlowMatrixRowDto[];
   flows: number[];
   balances: number[];
-  /** Descuadre por índice de columna (null = ok). */
+  /** Inconsistencia sello↔sello por índice de columna (null = ok). */
   balanceBreaks: Array<BalanceBreak | null>;
   kpis: { saldoHoy: number; minBalance: number; minWeek: string };
 }
@@ -376,17 +377,11 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
 
   // Espejo en vivo: semana actual ABIERTA = banco hoy + pending.
   // Cierres/anclas del pasado no contaminan la proyección actual/futura.
+  // No marcar ⚠ vs sello: banco hoy manda; la divergencia histórica es ruido.
   if (ci >= 0 && !allPast && !allFuture) {
     const currentClosed = sealedAt.has(ci) || closedSet.has(weeks[ci]!);
     if (!currentClosed) {
-      const fromChain = balances[ci]!;
       balances[ci] = openingBalance + pendingNet[ci]!;
-      if (latestSealIdx != null) {
-        const delta = Math.round(fromChain - balances[ci]!);
-        if (Math.abs(delta) > BREAK_TOLERANCE) {
-          balanceBreaks[ci] = { vsWeek: weeks[latestSealIdx]!, delta };
-        }
-      }
       for (let i = ci + 1; i < n; i++) {
         if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
         else balances[i] = balances[i - 1]! + weekFlow(i);

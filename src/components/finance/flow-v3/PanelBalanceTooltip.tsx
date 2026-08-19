@@ -71,7 +71,7 @@ export function PanelBalanceTooltip({
         )}
         {p.breakDelta != null && (
           <Tag size="sm" variant="warn">
-            Descuadre
+            Sellos
           </Tag>
         )}
       </div>

@@ -180,8 +180,8 @@ export function WeeklyCloseDialog({
   const variance = closedBalance - projected;
   const differsFromBank =
     bankSuggested != null ? Math.abs(closedBalance - bankSuggested) > 1 : false;
-  const needsReason = differsFromBank;
-  const reasonOk = !needsReason || manualReason.trim().length >= 5;
+  // Cerrar solo congela movimientos; conciliados (verde/morado) ya no se mueven.
+  // Motivo opcional si el sello ≠ banco de esa semana (auditoría, no bloqueo).
   const alreadyClosed = snap?.alreadyClosed ?? false;
   const isFuture = snap?.isFuture ?? monday > mondayOf(new Date().toISOString().slice(0, 10));
 
@@ -193,11 +193,17 @@ export function WeeklyCloseDialog({
         : "text-status-danger-fg";
 
   const confirm = async () => {
+    const reason =
+      differsFromBank
+        ? (manualReason.trim().length >= 5
+          ? manualReason.trim()
+          : "Cierre desde saldo de planilla (movimientos conciliados quedan fijos)")
+        : undefined;
     const r = await onConfirm({
       weekEnd: sunday,
       closedBalance,
       notes: notes.trim() || undefined,
-      manualReason: needsReason ? manualReason.trim() : undefined,
+      manualReason: reason,
     });
     if (r.ok) {
       cacheRef.current.clear();
@@ -309,14 +315,23 @@ export function WeeklyCloseDialog({
               </span>
             </div>
 
-            {needsReason && (
+            {differsFromBank && (
               <label className="block space-y-1 text-xs text-ds-text-3">
-                <span className="text-status-warn-fg">
-                  El saldo difiere del banco: indica el motivo (mín. 5 caracteres)
+                <span>
+                  El sello difiere del banco de esa semana (opcional: motivo)
                 </span>
-                <Input value={manualReason} onChange={(e) => setManualReason(e.target.value)} placeholder="Ej: cheque en tránsito" />
+                <Input
+                  value={manualReason}
+                  onChange={(e) => setManualReason(e.target.value)}
+                  placeholder="Ej: cheque en tránsito"
+                />
               </label>
             )}
+
+            <p className="text-[12px] leading-snug text-ds-text-3">
+              Cerrar congela el plan de la semana. Los movimientos ya conciliados
+              (verde/morado) no se mueven por sistema.
+            </p>
 
             <label className="block space-y-1 text-xs text-ds-text-3">
               <span>Notas (opcional)</span>
@@ -325,7 +340,7 @@ export function WeeklyCloseDialog({
 
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>Cancelar</Button>
-              <Button disabled={busy || !reasonOk} onClick={confirm}>
+              <Button disabled={busy} onClick={confirm}>
                 {busy ? "Cerrando…" : "Cerrar semana"}
               </Button>
             </DialogFooter>
