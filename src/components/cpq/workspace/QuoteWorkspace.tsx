@@ -30,6 +30,7 @@ import { BundleStickyBar } from "./consolidado/BundleStickyBar";
 import { BundleMobileActionBar } from "./consolidado/BundleMobileActionBar";
 import { computeBundleBilling } from "./consolidado/bundle-billing";
 import { useQuoteDeleteFlow } from "@/components/cpq/useQuoteDeleteFlow";
+import { referenceQuoteIdFromMembers } from "@/lib/cpq/bundles/reference-quote";
 
 type ActivityEvent = {
   id: string;
@@ -348,6 +349,7 @@ export function QuoteWorkspace({
           tenantBrandName={tenantBrandName}
           bundleId={bundle.id}
           embedded
+          proposalQuoteId={referenceQuoteIdFromMembers(bundle.quotes)}
           conditionsGovernedByProposal
           onEditConditionsAtProposal={() => setTab("consolidated")}
           mobileTabsSlot={<div className="px-2 pb-1.5">{tabs}</div>}

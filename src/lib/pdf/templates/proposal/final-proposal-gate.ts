@@ -2,7 +2,7 @@
  * Validación de secciones del PDF de propuesta (quote / bundle) en mode=final.
  */
 import type { ProposalSectionSnapshot } from "@/lib/pdf/templates/proposal/build-proposal-props";
-import { isPlaceholderExclusionesContent } from "@/lib/cpq/proposal-sections/hydrate-for-pdf";
+import { isPlaceholderExclusionesContent } from "@/lib/cpq/proposal-sections/placeholder-content";
 import { OFERTA_ECONOMICA_KIND } from "@/lib/cpq/proposal-sections/oferta-economica";
 
 /** Secciones que deben tener cuerpo antes del PDF final (comercial o licitación). */
@@ -31,4 +31,10 @@ export function finalProposalIncompleteMessage(emptyTitles: readonly string[]): 
   const listed = emptyTitles.slice(0, 5).join(", ");
   const more = emptyTitles.length > 5 ? ` (+${emptyTitles.length - 5} más)` : "";
   return `El PDF final exige completar estas secciones: ${listed}${more}. Generá el contenido faltante o usá el PDF borrador.`;
+}
+
+/** 422 del gate comercial (Gantt / exclusiones), no otros 422 (p. ej. licitación en bundle). */
+export function isFinalProposalGateError(status: number, message: string): boolean {
+  if (status !== 422) return false;
+  return /completar estas secciones|Carta Gantt|Exclusiones/i.test(message);
 }

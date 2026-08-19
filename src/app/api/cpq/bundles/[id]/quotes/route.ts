@@ -5,7 +5,8 @@
  * DELETE - Desvincular cotización (no borra la CpqQuote)
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
+import { generateMissingProposalSectionsForQuote } from "@/lib/cpq/proposal-sections/generate-missing-for-quote";
 import { requireAuth, unauthorized, ensureCanCreateQuote } from "@/lib/api-auth";
 import { requireCpqEdit, requireQuoteDelete } from "@/lib/api-auth-cpq";
 import { requireTenantModule } from "@/lib/require-module";
@@ -50,6 +51,11 @@ export async function POST(
         existingQuoteId: body?.existingQuoteId ?? null,
         quoteName: body?.quoteName ?? null,
       });
+      if (result.created) {
+        after(() =>
+          generateMissingProposalSectionsForQuote(ctx.tenantId, result.quoteId),
+        );
+      }
       return NextResponse.json({ success: true, data: result }, { status: 201 });
     } catch (e) {
       if (e instanceof BundleServiceError) {

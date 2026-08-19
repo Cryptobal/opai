@@ -9,6 +9,7 @@ import {
   buildDotacionContent,
   type DotacionPosition,
 } from "@/lib/cpq/proposal-sections/build-dotacion";
+import { isPlaceholderExclusionesContent } from "@/lib/cpq/proposal-sections/placeholder-content";
 
 export type GenerateProgress = { generated: number; failed: number; skipped: number };
 
@@ -16,10 +17,13 @@ export type FixedSectionRow = { key: string; title: string; content: string };
 
 export type { DotacionPosition };
 
-/** Sección elegible para generate_missing: vacía, no auto, no editada a mano. */
+/** Sección elegible para generate_missing: vacía o stub, no auto, no editada a mano. */
 export function isMissingGeneratableSection(section: ProposalSection): boolean {
   if (isAutoSection(section)) return false;
   if (section.status === "editada") return false;
+  if (section.invariant === "exclusiones" && isPlaceholderExclusionesContent(section.content)) {
+    return true;
+  }
   return !section.content.trim();
 }
 
@@ -221,7 +225,10 @@ export async function generateProposalSectionsBatch(
       mode: content.mode,
     });
     const previous =
-      original.invariant === "exclusiones" ? original.content.trim() : "";
+      original.invariant === "exclusiones" &&
+      !isPlaceholderExclusionesContent(original.content)
+        ? original.content.trim()
+        : "";
     const generatedBody =
       previous && !generated.content.includes(previous)
         ? [previous, generated.content.trim()].filter(Boolean).join("\n\n")

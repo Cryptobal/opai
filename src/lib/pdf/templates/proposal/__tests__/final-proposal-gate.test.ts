@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   emptyFinalProposalSectionTitles,
   finalProposalIncompleteMessage,
+  isFinalProposalGateError,
 } from "../final-proposal-gate";
 
 describe("emptyFinalProposalSectionTitles", () => {
@@ -38,5 +39,14 @@ describe("emptyFinalProposalSectionTitles", () => {
     const msg = finalProposalIncompleteMessage(["A", "B", "C"]);
     expect(msg).toMatch(/A, B, C/);
     expect(msg).toMatch(/PDF borrador/);
+  });
+
+  it("detecta 422 del gate y no otros 422", () => {
+    const msg = finalProposalIncompleteMessage(["Carta Gantt"]);
+    expect(isFinalProposalGateError(422, msg)).toBe(true);
+    expect(isFinalProposalGateError(422, "El modo licitación no está disponible en bundles.")).toBe(
+      false,
+    );
+    expect(isFinalProposalGateError(500, msg)).toBe(false);
   });
 });

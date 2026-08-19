@@ -4,7 +4,7 @@
  * POST - Crear cotización CPQ
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureCanCreateQuote } from "@/lib/api-auth";
 import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
@@ -18,6 +18,7 @@ import {
   type QuoteListSort,
 } from "@/lib/crm/list-quotes";
 import { nextDocumentCode } from "@/lib/cpq/document-counter";
+import { generateMissingProposalSectionsForQuote } from "@/lib/cpq/proposal-sections/generate-missing-for-quote";
 
 export async function GET(request: NextRequest) {
   try {
@@ -264,6 +265,8 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    after(() => generateMissingProposalSectionsForQuote(tenantId, quote.id));
 
     return NextResponse.json(
       { success: true, data: quote, dealQuoteLink },

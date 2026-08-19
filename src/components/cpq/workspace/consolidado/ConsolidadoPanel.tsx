@@ -8,6 +8,9 @@
  */
 
 import type { BundleDetail, BundleMember } from "@/components/cpq/bundle/useBundle";
+import { ProposalSectionsEditor } from "@/components/cpq/proposal/ProposalSectionsEditor";
+import { referenceQuoteIdFromMembers } from "@/lib/cpq/bundles/reference-quote";
+import { isProposalSectionsReadOnly } from "@/lib/cpq/proposal-sections/editor-lock";
 import { ResumenSection } from "./ResumenSection";
 import { BundleProposalPreview } from "./BundleProposalPreview";
 import { DatosPropuestaSection } from "./DatosPropuestaSection";
@@ -44,10 +47,29 @@ export function ConsolidadoPanel({
   /** Cambia tras cada acción para recargar la auditoría consolidada. */
   auditRefreshKey: unknown;
 }) {
+  const referenceQuoteId = referenceQuoteIdFromMembers(bundle.quotes);
+  const proposalLocked = isProposalSectionsReadOnly(bundle.status === "sent");
+
   return (
     <div className="space-y-3 ds-page-enter">
       <ResumenSection bundle={bundle} ufValue={ufValue} />
-      <BundleProposalPreview bundle={bundle} />
+      <BundleProposalPreview bundle={bundle} referenceQuoteId={referenceQuoteId} />
+      {referenceQuoteId ? (
+        <div
+          id="sec-propuesta"
+          className="scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32"
+        >
+          <ProposalSectionsEditor
+            quoteId={referenceQuoteId}
+            quoteLabel={bundle.name || bundle.code}
+            heading="Propuesta técnica consolidada"
+            hint="Se aplica al PDF de todas las instalaciones."
+            readOnly={proposalLocked}
+            dealId={bundle.dealId}
+            quoteStatus={bundle.status}
+          />
+        </div>
+      ) : null}
       <InstalacionesSection
         bundle={bundle}
         ufValue={ufValue}
