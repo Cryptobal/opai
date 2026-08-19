@@ -151,6 +151,13 @@ export const flowPlanMoveSchema = z.object({
   toWeek: ymd,
 });
 
+/** Mover UNA cuota programada (P) a otra semana. No toca facturas ni el template. */
+export const flowScheduledMoveSchema = z.object({
+  templateId: z.string().uuid(),
+  billingPeriod: z.string().regex(/^\d{4}-\d{2}$/, "Período YYYY-MM"),
+  toWeek: ymd,
+});
+
 export const flowRecurrenceFrequencySchema = z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]);
 export const flowPlanCurrencySchema = z.enum(["CLP", "UF"]);
 export const flowRecurrenceAmountModeSchema = z.enum(["FIXED", "PCT_SALES"]);

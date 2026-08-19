@@ -7856,6 +7856,7 @@ model FinanceDteRecurringTemplate {
 
   generatedDtes FinanceDteRecurringRun[]
   attachments   FinanceDteRecurringTemplateAttachment[]
+  cashflowScheduledDateOverrides FinanceCashflowScheduledDateOverride[]
 
   @@index([tenantId, isActive], map: "idx_dte_recurring_tenant_active")
   @@index([nextRunAt], map: "idx_dte_recurring_next_run")
@@ -9067,6 +9068,31 @@ model FinanceCashflowOccurrence {
   @@index([tenantId, dteId], map: "idx_cashflow_occ_dte")
   @@index([tenantId, isClosingAdjust], map: "idx_cashflow_occ_closing_adjust")
   @@map("finance_cashflow_occurrences")
+  @@schema("finance")
+}
+
+/// Override de visibilidad de UNA cuota programada (kind=scheduled) en el flujo.
+/// No toca el template ni genera borrador: solo mueve dónde se ve la P.
+/// Clave: template + período YYYY-MM (una cuota). Analogía de DteDateOverride.
+model FinanceCashflowScheduledDateOverride {
+  id            String                       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String                       @map("tenant_id")
+  templateId    String                       @map("template_id") @db.Uuid
+  template      FinanceDteRecurringTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  /// Período de la cuota (YYYY-MM) según el ancla del template.
+  billingPeriod String                       @map("billing_period")
+  /// Fecha de emisión natural de la cuota (issueYmd) al primer movimiento.
+  originalDate  DateTime                     @map("original_date") @db.Date
+  /// Fecha de visibilidad en la planilla (se ubica en esa semana ISO).
+  customDate    DateTime                     @map("custom_date") @db.Date
+  reason        String?
+  createdBy     String                       @map("created_by")
+  createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, templateId, billingPeriod], map: "uq_cashflow_scheduled_date_override")
+  @@index([tenantId, customDate], map: "idx_cashflow_scheduled_date_override_custom")
+  @@map("finance_cashflow_scheduled_date_overrides")
   @@schema("finance")
 }
 
