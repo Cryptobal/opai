@@ -5,6 +5,7 @@ import type { FlowExcludedDte } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
+import { resolveNextWeekKey } from "./menu-builders";
 import { committedItemMeta, terminoStatusLine, toneClass } from "./cell-meta";
 
 interface Props {
@@ -66,6 +67,7 @@ export function CellCompositionPanel({
   const showExecution = !!ex && ex.state !== "none";
   const pctWidth = ex?.pct == null ? 0 : Math.min(100, Math.max(0, Math.round(ex.pct)));
   const canAct = !!canManage;
+  const nextMoveWeekKey = resolveNextWeekKey(moveWeeks, cell.weekStart);
 
   const openDteOrBank = (dteId?: string, bankTransactionId?: string) => {
     if (dteId && onViewDte) { onViewDte(dteId); onClose(); return; }
@@ -153,11 +155,17 @@ export function CellCompositionPanel({
                 </div>
                 {movingKey === itemKey && itemKey && (
                   <ul className="mt-1 max-h-36 space-y-0.5 overflow-y-auto rounded border border-ds-border-subtle bg-ds-surface-1 p-1">
-                    {moveWeeks.map((w) => (
+                    {moveWeeks.map((w) => {
+                      const isNext = w.key === nextMoveWeekKey;
+                      return (
                       <li key={w.key}>
                         <button
                           type="button"
-                          className="flex min-h-11 w-full items-center justify-between rounded px-1.5 text-left text-[13px] text-ds-text-1 hover:bg-ds-surface-2 sm:min-h-9"
+                          className={`flex min-h-11 w-full items-center justify-between rounded px-1.5 text-left text-[13px] sm:min-h-9 ${
+                            isNext
+                              ? "bg-status-info-soft font-medium text-status-info-fg"
+                              : "text-ds-text-1 hover:bg-ds-surface-2"
+                          }`}
                           onClick={() => {
                             if (it.kind === "dte" && it.dteId && onMoveDte) onMoveDte(it.dteId, w.key);
                             if (
@@ -181,9 +189,13 @@ export function CellCompositionPanel({
                           }}
                         >
                           <span>{w.label} · {fmtDayMonth(w.weekStart)}</span>
+                          {isNext && (
+                            <span className="shrink-0 text-[12px]">próxima semana</span>
+                          )}
                         </button>
                       </li>
-                    ))}
+                      );
+                    })}
                     <li>
                       <button type="button" className="min-h-11 w-full px-1.5 text-left text-[12px] text-ds-text-3 sm:min-h-9"
                         onClick={() => setMovingKey(null)}>Cancelar</button>

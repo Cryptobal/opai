@@ -377,19 +377,45 @@ function folioLabel(d: DteMenuItem): string {
   return d.folio != null ? `F°${d.folio}` : d.label || "Factura";
 }
 
-function weekLabelNode(c: MatrixColumn, pill?: string): React.ReactNode {
+/** Semana abierta inmediatamente posterior al ancla (celda activa). */
+export function resolveNextWeekKey(weeks: MatrixColumn[], anchor: string): string | null {
+  const sorted = [...weeks].sort((a, b) => a.key.localeCompare(b.key));
+  return sorted.find((w) => w.key > anchor)?.key ?? null;
+}
+
+function weekLabelNode(c: MatrixColumn, isNext?: boolean): React.ReactNode {
   return (
     <span className="flex w-full items-center justify-between gap-2">
       <span>
         {c.label} · {fmtDayMonth(c.weekStart)}
       </span>
-      {pill && (
-        <span className="shrink-0 rounded-full border border-ds-border-subtle bg-ds-surface-2 px-1.5 py-0.5 text-[11px] uppercase tracking-wide text-ds-text-3">
-          {pill}
+      {isNext && (
+        <span className="shrink-0 rounded-full border border-status-info-border bg-status-info-soft px-1.5 py-0.5 text-[12px] text-status-info-fg">
+          próxima semana
         </span>
       )}
     </span>
   );
+}
+
+function openWeekMoveSubmenu(
+  keyPrefix: string,
+  weeks: MatrixColumn[],
+  ctx: CellMenuContext,
+  onSelect: (weekKey: string) => void,
+): MenuItemDesc[] {
+  const sorted = [...weeks].sort((a, b) => a.key.localeCompare(b.key));
+  const anchor = ctx.cellWeekStart ?? ctx.currentWeek;
+  const nextKey = resolveNextWeekKey(sorted, anchor);
+  return sorted.map((c) => {
+    const isNext = c.key === nextKey;
+    return {
+      key: `${keyPrefix}-${c.key}`,
+      label: weekLabelNode(c, isNext),
+      highlight: isNext ? "next-week" : undefined,
+      onSelect: () => onSelect(c.key),
+    };
+  });
 }
 
 function weekSubmenu(
@@ -419,7 +445,7 @@ function weekSubmenu(
     for (const c of backward) {
       out.push({
         key: `mdte-${dteId}-${c.key}`,
-        label: weekLabelNode(c, "atrás"),
+        label: weekLabelNode(c, false),
         onSelect: () => onMove(dteId, c.key),
       });
     }
@@ -433,10 +459,11 @@ function weekSubmenu(
       separatorBefore: backward.length > 0,
     });
     for (const c of forward) {
-      const pill = nextUpcoming && c.key === nextUpcoming.key ? "próxima" : undefined;
+      const isNext = !!(nextUpcoming && c.key === nextUpcoming.key);
       out.push({
         key: `mdte-${dteId}-${c.key}`,
-        label: weekLabelNode(c, pill),
+        label: weekLabelNode(c, isNext),
+        highlight: isNext ? "next-week" : undefined,
         onSelect: () => onMove(dteId, c.key),
       });
     }
@@ -684,11 +711,7 @@ function planCellItems(
           ? "Solo celdas de plan con monto"
           : "No hay semanas abiertas",
       submenu: canMove
-        ? ctx.openWeeks.map((c) => ({
-            key: `move-${c.key}`,
-            label: `${c.label} · ${fmtDayMonth(c.weekStart)}`,
-            onSelect: () => cb.onMovePlan(c.key),
-          }))
+        ? openWeekMoveSubmenu("move", ctx.openWeeks, ctx, cb.onMovePlan)
         : undefined,
     });
   }
@@ -758,11 +781,9 @@ function parametricCommittedMoveItems(
         ? "Sin permiso de edición"
         : "No hay semanas abiertas",
       submenu: canMove
-        ? ctx.openWeeks.map((c) => ({
-            key: `move-param-${c.key}`,
-            label: `${c.label} · ${fmtDayMonth(c.weekStart)}`,
-            onSelect: () => cb.onMoveParametricCommitted!(c.key),
-          }))
+        ? openWeekMoveSubmenu("move-param", ctx.openWeeks, ctx, (k) =>
+            cb.onMoveParametricCommitted!(k),
+          )
         : undefined,
     },
   ];

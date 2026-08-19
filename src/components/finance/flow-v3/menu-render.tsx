@@ -29,6 +29,8 @@ export interface MenuItemDesc {
   disabled?: boolean;
   reason?: string;
   danger?: boolean;
+  /** Resalta visualmente la semana inmediatamente siguiente a la celda activa. */
+  highlight?: "next-week";
   separatorBefore?: boolean;
   submenu?: MenuItemDesc[];
 }
@@ -86,7 +88,10 @@ function renderItems(items: MenuItemDesc[], C: Bag): React.ReactNode[] {
           key={it.key}
           disabled={it.disabled}
           onSelect={it.onSelect ? () => it.onSelect!() : undefined}
-          className={it.danger ? "text-status-danger-fg" : undefined}
+          className={cn(
+            it.danger && "text-status-danger-fg",
+            it.highlight === "next-week" && "bg-status-info-soft font-medium text-status-info-fg",
+          )}
         >
           {labelWithReason(it.label, it.reason)}
         </C.Item>,
@@ -171,13 +176,21 @@ function SheetMenuItems({
                 onClose();
                 it.onSelect();
               }}
-              className={cn(btn, it.disabled && "pointer-events-none opacity-40")}
+              className={cn(
+                btn,
+                it.disabled && "pointer-events-none opacity-40",
+                it.highlight === "next-week" && "bg-status-info-soft",
+              )}
             >
               <span className="min-w-0 flex-1">
                 <span
                   className={cn(
                     labelClass,
-                    it.danger ? "text-status-danger-fg" : "text-ds-text-1",
+                    it.danger
+                      ? "text-status-danger-fg"
+                      : it.highlight === "next-week"
+                        ? "text-status-info-fg"
+                        : "text-ds-text-1",
                   )}
                 >
                   {it.label}
