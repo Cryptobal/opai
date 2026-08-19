@@ -45,6 +45,12 @@ export type PatchResult = {
 export interface UseAsistenciaDiariaOptions {
   initialClients: ClientOption[];
   guardias: GuardiaOption[];
+  /** Scope fetch to a single installation (sheet mode). */
+  installationId?: string;
+  /** Controlled date — when set, ignores URL `?date=` and syncs from this prop. */
+  date?: string;
+  /** Skip fetch when false (e.g. sheet closed). Default true. */
+  enabled?: boolean;
 }
 
 function normalizeSearch(s: string): string {
@@ -77,16 +83,24 @@ function isCubierto(item: AsistenciaItem): boolean {
 
 export type KpiFilterType = "todos" | "cubiertos" | "ppc" | "te" | "fuera_rango";
 
-export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaDiariaOptions) {
+export function useAsistenciaDiaria({
+  initialClients,
+  guardias,
+  installationId,
+  date: controlledDate,
+  enabled = true,
+}: UseAsistenciaDiariaOptions) {
   const searchParams = useSearchParams();
-  const urlDate = searchParams.get("date");
-  const urlGuardiaId = searchParams.get("guardiaId");
+  const isControlled = controlledDate != null;
+  const urlDate = isControlled ? null : searchParams.get("date");
+  const urlGuardiaId = isControlled ? null : searchParams.get("guardiaId");
 
   // ── Core state ────────────────────────────────────────────────────────
 
   const [clients] = useState<ClientOption[]>(initialClients);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(() => {
+    if (controlledDate && DATE_INPUT_REGEX.test(controlledDate)) return controlledDate;
     if (urlDate && DATE_INPUT_REGEX.test(urlDate)) return urlDate;
     return toDateInput(new Date());
   });
@@ -96,11 +110,17 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
   const [savingId, setSavingId] = useState<string | null>(null);
   const [items, setItems] = useState<AsistenciaItem[]>([]);
 
-  // ── Sync date from URL ────────────────────────────────────────────────
+  // ── Sync date from controlled prop or URL ─────────────────────────────
 
   useEffect(() => {
-    if (urlDate && DATE_INPUT_REGEX.test(urlDate)) setSelectedDate(urlDate);
-  }, [urlDate]);
+    if (controlledDate && DATE_INPUT_REGEX.test(controlledDate)) {
+      setSelectedDate(controlledDate);
+      return;
+    }
+    if (!isControlled && urlDate && DATE_INPUT_REGEX.test(urlDate)) {
+      setSelectedDate(urlDate);
+    }
+  }, [controlledDate, isControlled, urlDate]);
 
   // ── Build search index for client/installation names ────────────────
 
@@ -119,12 +139,16 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
     [clients]
   );
 
-  // ── Fetch data (always fetch all, filter client-side) ───────────────
+  // ── Fetch data ────────────────────────────────────────────────────────
 
   const fetchAsistencia = useCallback(async () => {
+    if (!enabled) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({ date: selectedDate });
+      if (installationId && installationId !== "all") {
+        params.set("installationId", installationId);
+      }
       const res = await fetch(`/api/ops/asistencia?${params.toString()}`, { cache: "no-store" });
       const payload = await res.json();
       if (!res.ok || !payload.success) {
@@ -141,11 +165,12 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, installationId, enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     void fetchAsistencia();
-  }, [fetchAsistencia]);
+  }, [fetchAsistencia, enabled]);
 
   // ── Date navigation ───────────────────────────────────────────────────
 
@@ -165,7 +190,7 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
   const shiftFilteredItems = useMemo(() => {
     let base = items;
 
-    // Filter by guardia from URL
+    // Filter by guardia from URL (page mode only)
     if (urlGuardiaId) {
       base = base.filter(
         (item) =>
