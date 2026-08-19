@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { DatePickerField } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { EmptyState, Spinner } from "@/components/opai-ds";
+import { EmptyState, Spinner, StatusDot } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -1978,20 +1978,20 @@ export function OpsPautaMensualClient({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground px-0.5">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2 w-2 rounded-sm bg-status-ok-fg" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusDot kind="ok" />
                     Completa
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2 w-2 rounded-sm bg-status-warn-fg" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusDot kind="warn" />
                     Parcial
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2 w-2 rounded-sm bg-status-danger-fg" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusDot kind="danger" />
                     Sin asistencia
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2 w-2 rounded-sm border border-dashed border-muted-foreground/40" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full border border-dashed border-muted-foreground/40" aria-hidden />
                     Futuro / sin turnos
                   </span>
                 </div>
@@ -2022,7 +2022,14 @@ export function OpsPautaMensualClient({
                           const tone = dayAttendanceTone(dayStatus);
                           const statusLabel = tone.label;
                           const dayBtnBase =
-                            "relative inline-flex items-center justify-center mx-auto font-semibold text-sm sm:text-xs min-w-[34px] min-h-[36px] w-9 h-9 sm:min-w-0 sm:min-h-0 sm:w-7 sm:h-7 rounded-[10px] border active:scale-90 transition-transform hover:border-primary overflow-hidden";
+                            "relative inline-flex items-center justify-center mx-auto font-semibold text-sm sm:text-xs min-w-[34px] min-h-[36px] w-9 h-9 sm:min-w-0 sm:min-h-0 sm:w-7 sm:h-7 rounded-[10px] border active:scale-90 transition-transform hover:border-primary";
+                          const dayBtnCalendar = isToday
+                            ? "bg-primary/10 text-primary border-primary/40"
+                            : isHoliday
+                              ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
+                              : isWeekend
+                                ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
+                                : "bg-muted/40 text-foreground border-border";
                           const todayRing = isToday ? "ring-2 ring-primary ring-offset-1 ring-offset-card" : "";
                           return (
                             <th
@@ -2038,7 +2045,7 @@ export function OpsPautaMensualClient({
                               <div className="text-[12px] sm:text-[12px] leading-tight">{dayName}</div>
                               <button
                                 type="button"
-                                className={`${dayBtnBase} ${tone.buttonClass} ${todayRing}`}
+                                className={`${dayBtnBase} ${dayBtnCalendar} ${todayRing}`}
                                 aria-label={`Asistencia del ${dayName} ${dayNum} (${statusLabel})`}
                                 title={`Asistencia ${statusLabel}`}
                                 disabled={!installationId}
@@ -2048,10 +2055,12 @@ export function OpsPautaMensualClient({
                                 }}
                               >
                                 {dayNum}
-                                <span
-                                  aria-hidden
-                                  className={`absolute inset-x-0 bottom-0 h-0.5 ${tone.barClass}`}
-                                />
+                                {tone.dotKind ? (
+                                  <StatusDot
+                                    kind={tone.dotKind}
+                                    className="absolute -top-0.5 -right-0.5 ring-2 ring-card"
+                                  />
+                                ) : null}
                               </button>
                             </th>
                           );

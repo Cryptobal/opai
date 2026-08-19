@@ -7,7 +7,7 @@ import {
 const TODAY = "2026-08-19";
 
 describe("resolveDayAttendanceStatus", () => {
-  it("no colorea días futuros aunque haya slots planificados", () => {
+  it("no marca días futuros aunque haya slots planificados", () => {
     expect(
       resolveDayAttendanceStatus({
         dateKey: "2026-08-20",
@@ -26,7 +26,7 @@ describe("resolveDayAttendanceStatus", () => {
     ).toBe("future");
   });
 
-  it("marca verde cuando el día (hoy o pasado) tiene todos los puestos resueltos", () => {
+  it("marca ok cuando el día (hoy o pasado) tiene todos los puestos resueltos", () => {
     expect(
       resolveDayAttendanceStatus({
         dateKey: "2026-08-18",
@@ -45,7 +45,7 @@ describe("resolveDayAttendanceStatus", () => {
     ).toBe("ok");
   });
 
-  it("marca ámbar cuando faltan asistencias (pasado parcial u hoy sin marcas)", () => {
+  it("marca parcial cuando faltan asistencias (pasado parcial u hoy sin marcas)", () => {
     expect(
       resolveDayAttendanceStatus({
         dateKey: "2026-08-10",
@@ -64,7 +64,7 @@ describe("resolveDayAttendanceStatus", () => {
     ).toBe("partial");
   });
 
-  it("marca rojo solo si el día ya pasó y no hay ninguna asistencia", () => {
+  it("marca pending solo si el día ya pasó y no hay ninguna asistencia", () => {
     expect(
       resolveDayAttendanceStatus({
         dateKey: "2026-08-04",
@@ -88,14 +88,14 @@ describe("resolveDayAttendanceStatus", () => {
 });
 
 describe("dayAttendanceTone", () => {
-  it("usa tokens de peligro para días pasados sin asistencia", () => {
-    const tone = dayAttendanceTone("pending");
-    expect(tone.label).toBe("sin asistencia");
-    expect(tone.buttonClass).toContain("status-danger");
+  it("expone un punto de semáforo y no clases de fill del día", () => {
+    expect(dayAttendanceTone("ok")).toEqual({ label: "completa", dotKind: "ok" });
+    expect(dayAttendanceTone("partial")).toEqual({ label: "parcial", dotKind: "warn" });
+    expect(dayAttendanceTone("pending")).toEqual({ label: "sin asistencia", dotKind: "danger" });
   });
 
-  it("deja futuro y sin turnos sin tinte", () => {
-    expect(dayAttendanceTone("future").buttonClass).toContain("bg-transparent");
-    expect(dayAttendanceTone("none").buttonClass).toContain("bg-transparent");
+  it("no muestra punto en futuro ni en días sin turnos", () => {
+    expect(dayAttendanceTone("future").dotKind).toBeNull();
+    expect(dayAttendanceTone("none").dotKind).toBeNull();
   });
 });

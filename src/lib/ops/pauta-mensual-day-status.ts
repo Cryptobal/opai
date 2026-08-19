@@ -1,50 +1,30 @@
 /**
- * Estado visual de asistencia en el encabezado de Pauta Mensual.
+ * Estado de asistencia en el encabezado de Pauta Mensual.
  *
- * Semáforo solo hasta hoy (Chile):
+ * El número del día conserva el color de calendario (semana / finde / feriado).
+ * El semáforo es un punto aparte, solo hasta hoy (Chile):
  * - verde  = todos los puestos de trabajo del día tienen asistencia registrada
  * - ámbar  = hay turnos planificados y falta al menos uno (incluye hoy sin marcas)
  * - rojo   = día ya pasado, con turnos planificados y cero asistencia
- * - neutro = futuro, o día sin turnos planificados
+ * - sin punto = futuro, o día sin turnos planificados
  */
 
 export type DayAttendanceStatus = "ok" | "partial" | "pending" | "none" | "future";
 
+/** Alineado con `StatusKind` de opai-ds, sin importar el DS desde lib. */
+export type DayAttendanceDotKind = "ok" | "warn" | "danger";
+
 export type DayAttendanceTone = {
   label: string;
-  buttonClass: string;
-  barClass: string;
+  /** `null` = no renderizar el punto. */
+  dotKind: DayAttendanceDotKind | null;
 };
 
-const TONE_OK: DayAttendanceTone = {
-  label: "completa",
-  buttonClass: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
-  barClass: "bg-status-ok-fg",
-};
-
-const TONE_PARTIAL: DayAttendanceTone = {
-  label: "parcial",
-  buttonClass: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
-  barClass: "bg-status-warn-fg",
-};
-
-const TONE_PENDING: DayAttendanceTone = {
-  label: "sin asistencia",
-  buttonClass: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
-  barClass: "bg-status-danger-fg",
-};
-
-const TONE_NEUTRAL: DayAttendanceTone = {
-  label: "sin turnos",
-  buttonClass: "bg-transparent text-muted-foreground/60 border-dashed border-muted-foreground/40",
-  barClass: "bg-transparent",
-};
-
-const TONE_FUTURE: DayAttendanceTone = {
-  label: "día futuro",
-  buttonClass: "bg-transparent text-muted-foreground/60 border-dashed border-muted-foreground/40",
-  barClass: "bg-transparent",
-};
+const TONE_OK: DayAttendanceTone = { label: "completa", dotKind: "ok" };
+const TONE_PARTIAL: DayAttendanceTone = { label: "parcial", dotKind: "warn" };
+const TONE_PENDING: DayAttendanceTone = { label: "sin asistencia", dotKind: "danger" };
+const TONE_NEUTRAL: DayAttendanceTone = { label: "sin turnos", dotKind: null };
+const TONE_FUTURE: DayAttendanceTone = { label: "día futuro", dotKind: null };
 
 /**
  * Resuelve el estado de un día.
