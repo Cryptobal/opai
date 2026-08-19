@@ -837,8 +837,41 @@ export function buildGuardiaEntityData(guardia: {
 }
 
 /**
+ * Load tenant empresa settings for contract token resolution.
+ * Supports new format `empresa:{tenantId}:empresa.xxx` and legacy `empresa.xxx`.
+ */
+export async function loadEmpresaSettingsForTokens(
+  tenantId: string
+): Promise<Array<{ key: string; value: string }>> {
+  const { prisma } = await import("@/lib/prisma");
+  const prefix = `empresa:${tenantId}:`;
+
+  let rawEmpresa = await prisma.setting.findMany({
+    where: { tenantId, key: { startsWith: prefix } },
+    select: { key: true, value: true },
+  });
+  if (rawEmpresa.length === 0) {
+    rawEmpresa = await prisma.setting.findMany({
+      where: { tenantId, key: { startsWith: "empresa." } },
+      select: { key: true, value: true },
+    });
+  }
+
+  return rawEmpresa.map((s) => ({
+    key: s.key.includes(":") ? s.key.replace(prefix, "") : s.key,
+    value: s.value,
+  }));
+}
+
+/** Load empresa entity data ready for resolveDocument(). */
+export async function loadEmpresaEntityData(tenantId: string): Promise<Record<string, any>> {
+  const settings = await loadEmpresaSettingsForTokens(tenantId);
+  return buildEmpresaEntityData(settings);
+}
+
+/**
  * Build entity data for the company (empresa).
- * Loads from Setting model key-value pairs with prefix "empresa."
+ * Expects Setting keys normalized to `empresa.*` (see loadEmpresaSettingsForTokens).
  */
 export function buildEmpresaEntityData(settings: Array<{ key: string; value: string }>): Record<string, any> {
   const data: Record<string, any> = {};
