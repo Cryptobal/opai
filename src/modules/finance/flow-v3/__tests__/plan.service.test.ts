@@ -14,6 +14,11 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(),
       deleteMany: vi.fn(),
     },
+    financeFlowCellNote: {
+      findFirst: vi.fn(),
+      upsert: vi.fn(),
+      deleteMany: vi.fn(),
+    },
   },
 }));
 
@@ -168,6 +173,7 @@ describe("movePlanCell", () => {
   it("suma en el destino (en DB) y borra el origen, dentro de una transacción", async () => {
     dispatch("1000", "500");
     asMock(prisma.financeFlowPlanCell.upsert).mockResolvedValue({});
+    asMock(prisma.financeFlowCellNote.findFirst).mockResolvedValue(null);
     await movePlanCell(TENANT, ROW, FROM, TO, "u");
     expect(prisma.$transaction).toHaveBeenCalledOnce();
     const upsertArgs = asMock(prisma.financeFlowPlanCell.upsert).mock.calls[0][0];
@@ -175,13 +181,39 @@ describe("movePlanCell", () => {
     expect(prisma.financeFlowPlanCell.deleteMany).toHaveBeenCalledWith({
       where: { tenantId: TENANT, rowId: ROW, weekStart: new Date(fromMs) },
     });
+    expect(prisma.financeFlowCellNote.upsert).not.toHaveBeenCalled();
   });
 
-  it("origen sin monto ⇒ no escribe nada", async () => {
+  it("mueve la nota de celda junto con el plan (concatena si el destino ya tiene)", async () => {
+    dispatch("1000", null);
+    asMock(prisma.financeFlowPlanCell.upsert).mockResolvedValue({});
+    asMock(prisma.financeFlowCellNote.findFirst).mockImplementation(
+      async ({ where }: { where: { weekStart?: Date } }) => {
+        const t = where.weekStart instanceof Date ? where.weekStart.getTime() : null;
+        if (t === fromMs) return { body: "Sistemas 21/09" };
+        if (t === toMs) return { body: "ya había" };
+        return null;
+      },
+    );
+    asMock(prisma.financeFlowCellNote.upsert).mockResolvedValue({});
+    asMock(prisma.financeFlowCellNote.deleteMany).mockResolvedValue({ count: 1 });
+
+    await movePlanCell(TENANT, ROW, FROM, TO, "u");
+
+    const noteUpsert = asMock(prisma.financeFlowCellNote.upsert).mock.calls[0][0];
+    expect(noteUpsert.create.body).toBe("ya había\nSistemas 21/09");
+    expect(noteUpsert.update.body).toBe("ya había\nSistemas 21/09");
+    expect(prisma.financeFlowCellNote.deleteMany).toHaveBeenCalledWith({
+      where: { tenantId: TENANT, rowId: ROW, weekStart: new Date(fromMs) },
+    });
+  });
+
+  it("origen sin monto ⇒ no escribe nada (ni nota)", async () => {
     dispatch(null, "500");
     await movePlanCell(TENANT, ROW, FROM, TO, "u");
     expect(prisma.financeFlowPlanCell.upsert).not.toHaveBeenCalled();
     expect(prisma.financeFlowPlanCell.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.financeFlowCellNote.upsert).not.toHaveBeenCalled();
   });
 
   it("mover a la misma semana es no-op (sin transacción)", async () => {
