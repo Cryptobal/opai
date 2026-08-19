@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { DatePickerField } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { EmptyState, Spinner } from "@/components/opai-ds";
+import { EmptyState, Spinner, StatusDot } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CalendarDays, FileDown, Loader2, MoreVertical, Trash2, ExternalLink, RefreshCw, AlertTriangle, ArrowLeft, Building2, Users, CheckCircle2, XCircle, Clock, Search, ChevronDown, ChevronRight, Sun, Moon, RotateCw } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
+import { todayInChile } from "@/lib/dates-cl";
+import {
+  dayAttendanceTone,
+  resolveDayAttendanceStatus,
+  type DayAttendanceStatus,
+} from "@/lib/ops/pauta-mensual-day-status";
 import { AsistenciaDiaSheet } from "@/components/ops/asistencia-diaria";
 import type { GuardiaOption } from "@/types/ops-asistencia";
 
@@ -193,8 +199,6 @@ type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
 type ExecutionCell = { state: ExecutionState; teStatus?: string };
 type ShiftType = "day" | "night" | "rotativo";
 
-type DayAttendanceStatus = "ok" | "partial" | "pending" | "none";
-
 interface OpsPautaMensualClientProps {
   initialClients: ClientOption[];
   shiftPatterns?: ShiftPatternOption[];
@@ -212,13 +216,6 @@ function toDateKey(date: Date | string): string {
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-function toLocalDateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
 }
 
 function daysInMonth(year: number, month: number): Date[] {
@@ -1389,6 +1386,7 @@ export function OpsPautaMensualClient({
   /** Estado de asistencia agregada por día (misma lógica de slots que «Total slots»). */
   const dayStatusByDate = useMemo(() => {
     const map = new Map<string, DayAttendanceStatus>();
+    const todayKey = todayInChile();
     const allGroups = [
       ...groupedByShiftType.day,
       ...groupedByShiftType.rotativo,
@@ -1414,10 +1412,15 @@ export function OpsPautaMensualClient({
           if (cell?.execution) resueltos += 1;
         }
       }
-      if (planificados === 0) map.set(dk, "none");
-      else if (resueltos === 0) map.set(dk, "pending");
-      else if (resueltos >= planificados) map.set(dk, "ok");
-      else map.set(dk, "partial");
+      map.set(
+        dk,
+        resolveDayAttendanceStatus({
+          dateKey: dk,
+          todayKey,
+          planned: planificados,
+          resolved: resueltos,
+        }),
+      );
     }
     return map;
   }, [visibleDays, groupedByShiftType, getRotativoDisplayCode]);
@@ -1975,21 +1978,21 @@ export function OpsPautaMensualClient({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground px-0.5">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2 w-2 rounded-sm bg-status-ok-fg" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusDot kind="ok" />
                     Completa
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2 w-2 rounded-sm bg-status-warn-fg" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusDot kind="warn" />
                     Parcial
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2 w-2 rounded-sm bg-muted-foreground/35" aria-hidden />
-                    Pendiente
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusDot kind="danger" />
+                    Sin asistencia
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2 w-2 rounded-sm border border-dashed border-muted-foreground/40" aria-hidden />
-                    Sin turnos
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full border border-dashed border-muted-foreground/40" aria-hidden />
+                    Futuro / sin turnos
                   </span>
                 </div>
 
@@ -2011,37 +2014,22 @@ export function OpsPautaMensualClient({
                           const dayNum = d.getUTCDate();
                           const dayName = WEEKDAY_SHORT[d.getUTCDay()];
                           const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
-                          const isToday = toDateKey(d) === toLocalDateKey(new Date());
                           const dateKey = toDateKey(d);
+                          const isToday = dateKey === todayInChile();
                           const holidayName = holidayDates.get(dateKey);
                           const isHoliday = !!holidayName;
                           const dayStatus = dayStatusByDate.get(dateKey) ?? "none";
-                          const statusLabel =
-                            dayStatus === "ok"
-                              ? "completa"
-                              : dayStatus === "partial"
-                                ? "parcial"
-                                : dayStatus === "pending"
-                                  ? "pendiente"
-                                  : "sin turnos";
+                          const tone = dayAttendanceTone(dayStatus);
+                          const statusLabel = tone.label;
                           const dayBtnBase =
-                            "relative inline-flex items-center justify-center mx-auto font-semibold text-sm sm:text-xs min-w-[34px] min-h-[36px] w-9 h-9 sm:min-w-0 sm:min-h-0 sm:w-7 sm:h-7 rounded-[10px] border active:scale-90 transition-transform hover:border-primary overflow-hidden";
-                          const dayBtnTone =
-                            dayStatus === "ok"
-                              ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
-                              : dayStatus === "partial"
+                            "relative inline-flex items-center justify-center mx-auto font-semibold text-sm sm:text-xs min-w-[34px] min-h-[36px] w-9 h-9 sm:min-w-0 sm:min-h-0 sm:w-7 sm:h-7 rounded-[10px] border active:scale-90 transition-transform hover:border-primary";
+                          const dayBtnCalendar = isToday
+                            ? "bg-primary/10 text-primary border-primary/40"
+                            : isHoliday
+                              ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
+                              : isWeekend
                                 ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
-                                : dayStatus === "pending"
-                                  ? "bg-muted text-foreground border-border"
-                                  : "bg-transparent text-muted-foreground/60 border-dashed border-muted-foreground/40";
-                          const barTone =
-                            dayStatus === "ok"
-                              ? "bg-status-ok-fg"
-                              : dayStatus === "partial"
-                                ? "bg-status-warn-fg"
-                                : dayStatus === "pending"
-                                  ? "bg-muted-foreground/35"
-                                  : "bg-transparent";
+                                : "bg-muted/40 text-foreground border-border";
                           const todayRing = isToday ? "ring-2 ring-primary ring-offset-1 ring-offset-card" : "";
                           return (
                             <th
@@ -2057,7 +2045,7 @@ export function OpsPautaMensualClient({
                               <div className="text-[12px] sm:text-[12px] leading-tight">{dayName}</div>
                               <button
                                 type="button"
-                                className={`${dayBtnBase} ${dayBtnTone} ${todayRing}`}
+                                className={`${dayBtnBase} ${dayBtnCalendar} ${todayRing}`}
                                 aria-label={`Asistencia del ${dayName} ${dayNum} (${statusLabel})`}
                                 title={`Asistencia ${statusLabel}`}
                                 disabled={!installationId}
@@ -2067,10 +2055,12 @@ export function OpsPautaMensualClient({
                                 }}
                               >
                                 {dayNum}
-                                <span
-                                  aria-hidden
-                                  className={`absolute inset-x-0 bottom-0 h-0.5 ${barTone}`}
-                                />
+                                {tone.dotKind ? (
+                                  <StatusDot
+                                    kind={tone.dotKind}
+                                    className="absolute -top-0.5 -right-0.5 ring-2 ring-card"
+                                  />
+                                ) : null}
                               </button>
                             </th>
                           );
