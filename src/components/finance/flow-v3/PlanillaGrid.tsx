@@ -77,7 +77,7 @@ interface PlanMutators {
     rowId: string,
     weekStart: string,
     body: string | null,
-    opts?: { silent?: boolean },
+    opts?: { silent?: boolean; applyToFuturePlanCells?: boolean },
   ) => Promise<boolean>;
   patchSettlement: (
     rowId: string,
@@ -1829,8 +1829,11 @@ export function PlanillaGrid({
         }}
         onSaveNote={
           canManage
-            ? async (rowId, weekStart, body) =>
-                matrix.patchCellNote(rowId, weekStart, body, { silent: true })
+            ? async (rowId, weekStart, body, opts) =>
+                matrix.patchCellNote(rowId, weekStart, body, {
+                  silent: true,
+                  applyToFuturePlanCells: opts?.applyToFuturePlanCells,
+                })
             : undefined
         }
         onSettleClosed={

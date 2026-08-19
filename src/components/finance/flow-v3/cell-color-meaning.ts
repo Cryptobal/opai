@@ -84,7 +84,7 @@ export const CHIP_LEGEND_ITEMS: ChipLegendItem[] = [
     key: "note",
     swatch: SW.note,
     title: "Nota",
-    desc: "Punto azul abajo a la izquierda — hay una nota en la celda (clic → Nota).",
+    desc: "Punto azul abajo a la izquierda — hay una nota en la celda (clic → se ve en Composición).",
   },
 ];
 
@@ -142,7 +142,7 @@ export const CORNER_LEGEND_ITEMS: ColorMeaningItem[] = [
     key: "note",
     swatch: SW.note,
     title: "Nota",
-    desc: "Punto azul abajo a la izquierda — hay una nota en la celda (clic → Nota).",
+    desc: "Punto azul abajo a la izquierda — hay una nota en la celda (clic → se ve en Composición).",
   },
 ];
 

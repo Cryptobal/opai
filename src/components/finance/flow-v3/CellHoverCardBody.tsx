@@ -12,7 +12,12 @@ interface Props {
   rowId: string;
   weekStart: string;
   noteInitial: string;
-  onSaveNote: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
+  onSaveNote: (
+    rowId: string,
+    weekStart: string,
+    body: string | null,
+    opts?: { applyToFuturePlanCells?: boolean },
+  ) => Promise<boolean>;
   onOpenActions: (el: HTMLElement) => void;
   onViewDte?: (dteId: string) => void;
   onSendCobranza?: (args: {

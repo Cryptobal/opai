@@ -21,13 +21,18 @@ interface Props {
   canManage?: boolean;
   editable?: boolean;
   editReason?: string;
-  /** Si true, abre la pestaña Nota. */
+  /** Si true, enfoca el editor de nota (sigue en Composición). */
   focusNote?: boolean;
   excludedForRow?: FlowExcludedDte[];
   onViewDte?: (dteId: string) => void;
   onExcludeDte?: (dteId: string, reason: string) => Promise<void>;
   onRestoreDte?: (dteId: string) => Promise<void>;
-  onSaveNote?: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
+  onSaveNote?: (
+    rowId: string,
+    weekStart: string,
+    body: string | null,
+    opts?: { applyToFuturePlanCells?: boolean },
+  ) => Promise<boolean>;
   onSettleClosed?: () => void;
   onSettleReopen?: () => void;
   onMatchPlanToReal?: () => void;
@@ -36,12 +41,12 @@ interface Props {
   onMoveDte?: (dteId: string, targetWeek: string) => void;
   onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
   onMoveMilestone?: (milestoneKey: string, billingPeriod: string, targetWeek: string) => void;
-  /** Acciones del menú de celda (sin duplicar Composición/Nota/Historial). */
+  /** Acciones del menú de celda (sin duplicar Composición/Historial). */
   actions?: MenuItemDesc[];
 }
 
 /**
- * Panel único de celda: Composición · Nota · Historial + acciones.
+ * Panel único de celda: Composición (con nota inline) · Historial + acciones.
  */
 export function CellLayersPopover({
   state, onClose, canManage, editable, editReason, focusNote, excludedForRow,
@@ -54,7 +59,8 @@ export function CellLayersPopover({
 
   useEffect(() => {
     if (!state) return;
-    setTab(focusNote ? "nota" : "composicion");
+    // Nota vive en Composición; focusNote solo enfoca el textarea.
+    setTab("composicion");
   }, [state, focusNote]);
 
   useEffect(() => {
@@ -102,36 +108,41 @@ export function CellLayersPopover({
         onTabChange={setTab}
       >
         {tab === "composicion" && (
-          <CellCompositionPanel
-            cell={cell}
-            canManage={canManage}
-            editable={editable}
-            editReason={editReason}
-            excluded={excludedForRow}
-            onViewDte={onViewDte}
-            onExcludeDte={onExcludeDte}
-            onRestoreDte={onRestoreDte}
-            onSettleClosed={onSettleClosed}
-            onSettleReopen={onSettleReopen}
-            onMatchPlanToReal={onMatchPlanToReal}
-            onMoveResidual={onMoveResidual}
-            moveWeeks={moveWeeks}
-            onMoveDte={onMoveDte}
-            onMoveScheduled={onMoveScheduled}
-            onMoveMilestone={onMoveMilestone}
-            onClose={onClose}
-          />
-        )}
-        {tab === "nota" && (
-          <CellNoteEditor
-            rowId={row.id}
-            weekStart={cell.weekStart}
-            initial={cell.note ?? ""}
-            canManage={!!canManage && !!onSaveNote}
-            save={onSaveNote ?? (async () => false)}
-            autoFocus={!!focusNote}
-            rows={6}
-          />
+          <>
+            <CellCompositionPanel
+              cell={cell}
+              canManage={canManage}
+              editable={editable}
+              editReason={editReason}
+              excluded={excludedForRow}
+              onViewDte={onViewDte}
+              onExcludeDte={onExcludeDte}
+              onRestoreDte={onRestoreDte}
+              onSettleClosed={onSettleClosed}
+              onSettleReopen={onSettleReopen}
+              onMatchPlanToReal={onMatchPlanToReal}
+              onMoveResidual={onMoveResidual}
+              moveWeeks={moveWeeks}
+              onMoveDte={onMoveDte}
+              onMoveScheduled={onMoveScheduled}
+              onMoveMilestone={onMoveMilestone}
+              onClose={onClose}
+            />
+            <div className="rounded border border-ds-border-subtle bg-ds-surface-2 px-2 py-1.5">
+              <CellNoteEditor
+                rowId={row.id}
+                weekStart={cell.weekStart}
+                initial={cell.note ?? ""}
+                canManage={!!canManage && !!onSaveNote}
+                save={onSaveNote ?? (async () => false)}
+                autoFocus={!!focusNote}
+                autoGrow
+                compact
+                rows={1}
+                placeholder="Escribe una nota…"
+              />
+            </div>
+          </>
         )}
         {tab === "historial" && (
           <CellHistoryList rowId={row.id} weekStart={cell.weekStart} />

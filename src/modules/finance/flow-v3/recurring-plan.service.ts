@@ -12,6 +12,7 @@ import { bulkFill, upsertCell, type PlanCellDto } from "./plan.service";
 import { listClosedV3Weeks } from "./weekly-close.adapter";
 import { projectUfWithGrowth, ufTargetDate, ufToClp } from "./uf-occurrence";
 import { normalizeNameForDedupe } from "./row-visibility";
+import { stampCellNotes } from "./cell-note.service";
 
 /**
  * Egresos recurrentes de PLAN (§5J / v4 UF). La regla se persiste
@@ -44,6 +45,8 @@ export interface RecurrenceInput {
   amountUf?: number | null;
   ufPolicy?: string | null;
   ufCustomDay?: number | null;
+  /** Desglose del monto; se persiste en la regla y se estampa en celdas. */
+  note?: string | null;
 }
 
 /** Horizonte de materialización: min(endDate, hoy + 12 meses). */
@@ -211,6 +214,27 @@ async function materializeRule(
   return materializeClp(tenantId, rule.rowId, weeks, Number(rule.amount), updatedBy);
 }
 
+function normalizeRecurrenceNote(note: string | null | undefined): string | null {
+  if (note == null) return null;
+  const t = note.trim();
+  return t ? t.slice(0, 2000) : null;
+}
+
+/** Estampa nota de la regla en las semanas materializadas (o en ocurrencias PCT). */
+async function stampRuleNoteOnWeeks(
+  tenantId: string,
+  rule: FinanceFlowPlanRecurrence,
+  weeks: string[],
+  updatedBy: string | null,
+  /** Si true, también borra cuando note es null/vacío. */
+  clearIfEmpty: boolean,
+): Promise<void> {
+  if (weeks.length === 0) return;
+  const body = normalizeRecurrenceNote(rule.note);
+  if (!body && !clearIfEmpty) return;
+  await stampCellNotes(tenantId, rule.rowId, weeks, body, updatedBy);
+}
+
 /** Una sola regla PCT_SALES activa por fila: borra la anterior (reemplazo). */
 async function replaceExistingPctSalesRule(
   tenantId: string,
@@ -262,6 +286,7 @@ export interface RecurrenceDto {
   startDate: string;
   endDate: string | null;
   endAfterOccurrences: number | null;
+  note: string | null;
 }
 
 export function toRecurrenceDto(r: FinanceFlowPlanRecurrence): RecurrenceDto {
@@ -281,6 +306,7 @@ export function toRecurrenceDto(r: FinanceFlowPlanRecurrence): RecurrenceDto {
     startDate: toYmd(r.startDate),
     endDate: r.endDate ? toYmd(r.endDate) : null,
     endAfterOccurrences: r.endAfterOccurrences ?? null,
+    note: r.note?.trim() || null,
   };
 }
 
@@ -378,6 +404,7 @@ export async function createRecurrence(
     const frac = pctSalesFractionFromInput(input.pctSales);
     if (frac == null) throw new Error("pctSales debe estar entre 0 y 100");
     await replaceExistingPctSalesRule(tenantId, resolvedRowId);
+    const note = normalizeRecurrenceNote(input.note);
     const rule = await prisma.financeFlowPlanRecurrence.create({
       data: {
         tenantId,
@@ -394,9 +421,12 @@ export async function createRecurrence(
         startDate: ymdToDate(input.startDate)!,
         endDate: input.endDate ? ymdToDate(input.endDate) : null,
         endAfterOccurrences: input.endAfterOccurrences ?? null,
+        note,
         createdBy,
       },
     });
+    const weeks = occurrenceWeeks(rule);
+    await stampRuleNoteOnWeeks(tenantId, rule, weeks, createdBy, true);
     return { rule, cells: [] };
   }
 
@@ -407,6 +437,7 @@ export async function createRecurrence(
   // FINANCIAMIENTO: monto signado tal como viene (ingreso + / egreso −).
   // Otras secciones: magnitud positiva (el signo lo pone el ensamblado).
   const amountClp = await estimateClpForStorage(input);
+  const note = normalizeRecurrenceNote(input.note);
   const rule = await prisma.financeFlowPlanRecurrence.create({
     data: {
       tenantId,
@@ -425,11 +456,14 @@ export async function createRecurrence(
       startDate: ymdToDate(input.startDate)!,
       endDate: input.endDate ? ymdToDate(input.endDate) : null,
       endAfterOccurrences: input.endAfterOccurrences ?? null,
+      note,
       createdBy,
     },
   });
   const weeks = occurrenceWeeks(rule);
   const cells = await materializeRule(tenantId, rule, weeks, createdBy);
+  const stampWeeks = cells.length > 0 ? cells.map((c) => c.weekStart) : weeks;
+  await stampRuleNoteOnWeeks(tenantId, rule, stampWeeks, createdBy, true);
   return { rule, cells };
 }
 
@@ -482,6 +516,10 @@ export async function updateRecurrence(
         ? input.endAfterOccurrences
         : old.endAfterOccurrences,
   };
+  const nextNote =
+    input.note !== undefined
+      ? normalizeRecurrenceNote(input.note)
+      : normalizeRecurrenceNote(old.note);
   if (next.endDate && next.endDate < next.startDate) {
     throw new Error("endDate no puede ser anterior a startDate");
   }
@@ -522,8 +560,11 @@ export async function updateRecurrence(
         startDate: ymdToDate(next.startDate)!,
         endDate: next.endDate ? ymdToDate(next.endDate) : null,
         endAfterOccurrences: next.endAfterOccurrences ?? null,
+        note: nextNote,
       },
     });
+    const weeks = occurrenceWeeks(rule).filter(isFuture);
+    await stampRuleNoteOnWeeks(tenantId, rule, weeks, updatedBy, input.note !== undefined);
     return { rule, cells: [] };
   }
 
@@ -559,11 +600,20 @@ export async function updateRecurrence(
       startDate: ymdToDate(next.startDate)!,
       endDate: next.endDate ? ymdToDate(next.endDate) : null,
       endAfterOccurrences: next.endAfterOccurrences ?? null,
+      note: nextNote,
     },
   });
 
   const newFuture = occurrenceWeeks(rule).filter(isFuture);
   const cells = await materializeRule(tenantId, rule, newFuture, updatedBy);
+  const stampWeeks = cells.length > 0 ? cells.map((c) => c.weekStart) : newFuture;
+  await stampRuleNoteOnWeeks(
+    tenantId,
+    rule,
+    stampWeeks,
+    updatedBy,
+    input.note !== undefined,
+  );
   return { rule, cells };
 }
 
@@ -604,6 +654,10 @@ export async function rematerializeUfRecurrences(
     const future = occurrenceWeeks(rule).filter((w) => w >= currentWeek);
     const written = await materializeRule(tenantId, rule, future, null);
     cells += written.length;
+    if (rule.note?.trim()) {
+      const stampWeeks = written.length > 0 ? written.map((c) => c.weekStart) : future;
+      await stampRuleNoteOnWeeks(tenantId, rule, stampWeeks, null, false);
+    }
   }
   return { rules: rules.length, cells };
 }
