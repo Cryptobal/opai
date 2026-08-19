@@ -956,11 +956,6 @@ export function PlanillaGrid({
     [resolveHover, openPopover],
   );
 
-  const openCaretMenu = useCallback((sel: CellSel) => {
-    kbRef.current?.setSel(sel);
-    openPopover(sel);
-  }, [openPopover]);
-
   const discreteKeys = useMemo(() => new Set(discreteSel.keys()), [discreteSel]);
   const discreteSelStats = useMemo(() => discreteStats(discreteSel.values()), [discreteSel]);
 
@@ -1711,7 +1706,15 @@ export function PlanillaGrid({
                         hoverRef.current?.forceHide();
                         setCtxTarget({ kind: "cell", sel });
                       }}
-                      onOpenCellSheet={(sel) => setSheetTarget({ kind: "cell", sel })}
+                      onOpenCellSheet={(sel) => {
+                        const targetRow = rowById.get(sel.rowId);
+                        if (targetRow && (targetRow.isVirtual || isFallbackBandejaRow(targetRow))) {
+                          setSheetTarget({ kind: "cell", sel });
+                          return;
+                        }
+                        kb.setSel(sel);
+                        openPopover(sel);
+                      }}
                       sumMode={sumMode}
                       discreteKeys={discreteKeys}
                       onCellDragStart={onCellDragStart}
@@ -1735,7 +1738,6 @@ export function PlanillaGrid({
                       ufCaption={row.ufCaption}
                       hoverCards
                       onOpenNote={openNoteEditor}
-                      onOpenCaretMenu={openCaretMenu}
                       onSendCobranza={
                         canManage
                           ? (args) => setCobranzaTarget(args)

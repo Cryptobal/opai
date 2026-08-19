@@ -233,8 +233,8 @@ export function cellStateChips(cell: FlowMatrixCellDto): CellStateChip[] {
 
 /**
  * Chips agregados de toda la fila (dedupe por dteId + kind).
- * Incluye cesión/fondeo para consumidores que los filtren; la columna
- * Concepto de la planilla no los muestra (marca secundaria en la celda).
+ * Incluye cesión/fondeo/retención para hover y ficha; la columna Concepto
+ * usa `conceptoRowChips` (solo mora accionable).
  */
 export function rowStateChips(row: Pick<FlowMatrixRowDto, "cells" | "name" | "crmAccountId">): CellStateChip[] {
   const byKey = new Map<string, CellStateChip>();
@@ -271,6 +271,16 @@ export function rowStateChips(row: Pick<FlowMatrixRowDto, "cells" | "name" | "cr
   return [...byKey.values()].sort(
     (a, b) => order.indexOf(a.kind) - order.indexOf(b.kind),
   );
+}
+
+/**
+ * Chips de la columna Concepto: solo mora (se puede cobrar).
+ * Cesión, anticipo, retención y vencimiento no se muestran junto al nombre.
+ */
+export function conceptoRowChips(
+  row: Pick<FlowMatrixRowDto, "cells" | "name" | "crmAccountId">,
+): CellStateChip[] {
+  return rowStateChips(row).filter((c) => c.kind === "overdue");
 }
 
 /** Prioridad de sub-capa comprometida alineada con PlanillaCell. */

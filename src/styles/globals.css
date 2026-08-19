@@ -2212,12 +2212,6 @@ html {
   inset: -4px;
 }
 
-/* Chevron de acciones: solo en celda seleccionada (elemento real). */
-.planilla-sheet .planilla-cell-caret svg {
-  width: 10px;
-  height: 10px;
-}
-
 /* Ficha de hover de celda. */
 .planilla-cell-hover {
   width: 268px;
@@ -2236,7 +2230,6 @@ html {
 
 @media print {
   .planilla-cell-hover,
-  .planilla-sheet .planilla-cell-caret,
   .planilla-sheet .planilla-note-dot,
   .planilla-sheet thead th.plnx-hl,
   .planilla-sheet td.plnx-hl {

@@ -3,9 +3,8 @@
 import { useCallback, type CSSProperties } from "react";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtCell, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./format";
-import { ChevronDown } from "lucide-react";
 import {
-  CELL_BASE, CELL_CARET, COL_W, COMMITTED_CEDED_CELL, COMMITTED_DRAFT_CELL,
+  CELL_BASE, COL_W, COMMITTED_CEDED_CELL, COMMITTED_DRAFT_CELL,
   COMMITTED_DTE_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
   CORNER_REAL, CORNER_WARN, NOTE_DOT_EL, OVERDUE_CELL, OVERDUE_OVER60_CELL,
   SUB_CORNER_CEDED, SUB_CORNER_EP,
@@ -65,12 +64,10 @@ interface Props {
   onOpenPopover: (anchor: DOMRect) => void;
   /** Clic derecho: selecciona (si hace falta) y abre el panel de detalle. */
   onContextTarget: (e: React.MouseEvent) => void;
-  /** Long-press táctil → action sheet (móvil). */
+  /** Long-press táctil → detalle de celda (móvil). */
   onOpenCellSheet?: () => void;
   /** Abre el editor de nota (indicador real). */
   onOpenNote?: () => void;
-  /** Abre el menú de acciones vía chevron (solo celda seleccionada). */
-  onOpenCaretMenu?: (anchor: DOMRect) => void;
   /** Ficha de hover activa: omite el title nativo del navegador. */
   hoverCards?: boolean;
   /** Modo Σ activo: tap togglea la celda en el set discontinuo. */
@@ -385,21 +382,6 @@ export function PlanillaCell(p: Props) {
           hasNote={hasNote}
           title={exec.title}
         />
-      )}
-      {isSelected && !isEditing && p.onOpenCaretMenu && (
-        <button
-          type="button"
-          aria-label="Acciones de celda"
-          className={CELL_CARET}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-            p.onOpenCaretMenu?.(rect);
-          }}
-        >
-          <ChevronDown aria-hidden />
-        </button>
       )}
       {isEditing ? (
         <InlineCellEditor

@@ -98,10 +98,6 @@ export const EXEC_BAR_WITH_NOTE =
 export const EXEC_BAR_FILL = "block h-full rounded-sm bg-status-ok";
 export const EXEC_BAR_OVER = "block h-full rounded-sm bg-status-warn";
 
-/** Chevron de acciones (solo celda seleccionada) — elemento real, 14 px. */
-export const CELL_CARET =
-  "planilla-cell-caret absolute right-0 top-1/2 z-[3] flex h-3.5 w-3.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm bg-ds-surface-3 text-ds-text-2 pointer-events-auto hover:bg-ds-surface-4 hover:text-ds-text-1";
-
 /**
  * Marcas secundarias inf-der (triángulo 5px). Complementan la esquina
  * superior: cedida / proforma enviada / EP enviado. Se renderizan como
