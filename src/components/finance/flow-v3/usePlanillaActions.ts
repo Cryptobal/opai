@@ -281,10 +281,24 @@ export function usePlanillaActions(refetch: () => void) {
     [run],
   );
 
+  /** Mueve una cuota programada (P) a otra semana. No toca facturas. */
+  const moveScheduled = useCallback(
+    (templateId: string, billingPeriod: string, toWeek: string) =>
+      run(
+        () =>
+          api("/api/finance/flow-v3/scheduled/move", {
+            method: "POST",
+            body: JSON.stringify({ templateId, billingPeriod, toWeek }),
+          }),
+        "Programación movida en el flujo",
+      ),
+    [run],
+  );
+
   return {
     busy, createRow, renameRow, updateRow, unarchiveRow, deleteRow,
     archiveRow, setTemplateEndDate, setTemplateDiasCobro, deactivateTemplate,
     createRecurring, updateRecurring, deleteRecurring, closeWeek, reopenWeek, bulkFill,
-    excludeDte, restoreDte, moveDte,
+    excludeDte, restoreDte, moveDte, moveScheduled,
   };
 }

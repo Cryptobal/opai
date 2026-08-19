@@ -4,6 +4,7 @@ import {
   resolveIssueYmdForPeriod,
   type BillingPeriodTemplate,
 } from "@/modules/finance/billing/dte-recurring-schedule";
+import { upsertDteDateOverride } from "@/modules/finance/cashflow/dte-date-override.service";
 import { isMondayYmd, ymdToDate } from "./weeks";
 import { assertV3WeeksWritable } from "./weekly-close.adapter";
 
@@ -100,4 +101,36 @@ export async function moveScheduledQuota(args: {
     billingPeriod,
     customDate: args.toWeek,
   };
+}
+
+/**
+ * Si la cuota ya estaba movida en el flujo, el borrador/factura nace en
+ * esa misma semana (override de DTE). No pisa un override ya existente.
+ */
+export async function inheritScheduledOverrideToDte(args: {
+  tenantId: string;
+  templateId: string;
+  billingPeriod: string;
+  dteId: string;
+  createdBy: string;
+}): Promise<boolean> {
+  const { tenantId, templateId, billingPeriod, dteId, createdBy } = args;
+  const scheduled = await prisma.financeCashflowScheduledDateOverride.findUnique({
+    where: { tenantId_templateId_billingPeriod: { tenantId, templateId, billingPeriod } },
+    select: { customDate: true },
+  });
+  if (!scheduled) return false;
+  const existing = await prisma.financeCashflowDteDateOverride.findUnique({
+    where: { tenantId_dteId: { tenantId, dteId } },
+    select: { dteId: true },
+  });
+  if (existing) return false;
+  await upsertDteDateOverride({
+    tenantId,
+    dteId,
+    customDate: scheduled.customDate,
+    createdBy,
+    reason: "Heredado de programación movida en el flujo",
+  });
+  return true;
 }

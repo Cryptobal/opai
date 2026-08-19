@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import type { FlowExcludedDte } from "@/modules/finance/flow-v3/types";
-import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
+import type { FlowMatrixCellDto, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
-import { fmtClp, fmtShortDate } from "./format";
+import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import { committedItemMeta, terminoStatusLine, toneClass } from "./cell-meta";
 
 interface Props {
@@ -21,6 +21,10 @@ interface Props {
   onSettleReopen?: () => void;
   onMatchPlanToReal?: () => void;
   onMoveResidual?: () => void;
+  /** Semanas abiertas para mover F° o P desde la composición. */
+  moveWeeks?: MatrixColumn[];
+  onMoveDte?: (dteId: string, targetWeek: string) => void;
+  onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
   onClose: () => void;
 }
 
@@ -40,8 +44,10 @@ function layerBlock(title: string, active: boolean, body: React.ReactNode) {
 export function CellCompositionPanel({
   cell, canManage, editable, editReason, excluded = [],
   onViewDte, onExcludeDte, onRestoreDte,
-  onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual, onClose,
+  onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual,
+  moveWeeks = [], onMoveDte, onMoveScheduled, onClose,
 }: Props) {
+  const [movingKey, setMovingKey] = useState<string | null>(null);
   const [excludingId, setExcludingId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
@@ -101,6 +107,16 @@ export function CellCompositionPanel({
             const meta = committedItemMeta(it);
             const canExclude = canManage && it.kind === "dte" && !!it.dteId && !!onExcludeDte;
             const clickable = it.kind === "dte" && !!it.dteId && !!onViewDte;
+            const schedKey =
+              it.kind === "scheduled" && it.templateId && it.billingPeriod
+                ? `sched:${it.templateId}::${it.billingPeriod}`
+                : null;
+            const dteKey = it.kind === "dte" && it.dteId ? `dte:${it.dteId}` : null;
+            const itemKey = schedKey ?? dteKey;
+            const canMoveItem =
+              canManage &&
+              moveWeeks.length > 0 &&
+              ((schedKey && !!onMoveScheduled) || (dteKey && !!onMoveDte));
             return (
               <li key={i} className="text-ds-text-2">
                 <button type="button" disabled={!clickable} onClick={() => it.dteId && openDteOrBank(it.dteId)}
@@ -117,11 +133,48 @@ export function CellCompositionPanel({
                       ? `${it.emissionYmd ? fmtShortDate(it.emissionYmd) : fmtShortDate(it.fecha)}${it.dueYmd ? ` · vence ${fmtShortDate(it.dueYmd)}` : ""}`
                       : terminoStatusLine(it, fmtShortDate) || fmtShortDate(it.fecha)}
                   </span>
-                  {canExclude && excludingId !== it.dteId && (
-                    <button type="button" className="text-[12px] text-status-warn-fg underline-offset-2 hover:underline"
-                      onClick={() => { setExcludingId(it.dteId!); setReason(""); setReasonError(null); }}>Excluir…</button>
-                  )}
+                  <span className="flex shrink-0 items-center gap-2">
+                    {canMoveItem && itemKey && movingKey !== itemKey && (
+                      <button type="button" className="min-h-11 text-[12px] text-status-info-fg underline-offset-2 hover:underline sm:min-h-0"
+                        onClick={() => setMovingKey(itemKey)}>Mover…</button>
+                    )}
+                    {canExclude && excludingId !== it.dteId && (
+                      <button type="button" className="text-[12px] text-status-warn-fg underline-offset-2 hover:underline"
+                        onClick={() => { setExcludingId(it.dteId!); setReason(""); setReasonError(null); }}>Excluir…</button>
+                    )}
+                  </span>
                 </div>
+                {movingKey === itemKey && itemKey && (
+                  <ul className="mt-1 max-h-36 space-y-0.5 overflow-y-auto rounded border border-ds-border-subtle bg-ds-surface-1 p-1">
+                    {moveWeeks.map((w) => (
+                      <li key={w.key}>
+                        <button
+                          type="button"
+                          className="flex min-h-11 w-full items-center justify-between rounded px-1.5 text-left text-[13px] text-ds-text-1 hover:bg-ds-surface-2 sm:min-h-9"
+                          onClick={() => {
+                            if (it.kind === "dte" && it.dteId && onMoveDte) onMoveDte(it.dteId, w.key);
+                            if (
+                              it.kind === "scheduled" &&
+                              it.templateId &&
+                              it.billingPeriod &&
+                              onMoveScheduled
+                            ) {
+                              onMoveScheduled(it.templateId, it.billingPeriod, w.key);
+                            }
+                            setMovingKey(null);
+                            onClose();
+                          }}
+                        >
+                          <span>{w.label} · {fmtDayMonth(w.weekStart)}</span>
+                        </button>
+                      </li>
+                    ))}
+                    <li>
+                      <button type="button" className="min-h-11 w-full px-1.5 text-left text-[12px] text-ds-text-3 sm:min-h-9"
+                        onClick={() => setMovingKey(null)}>Cancelar</button>
+                    </li>
+                  </ul>
+                )}
                 {excludingId === it.dteId && (
                   <div className="mt-1 space-y-1 rounded border border-status-warn-border bg-status-warn-soft/30 p-1.5">
                     <label className="block space-y-0.5">

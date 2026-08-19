@@ -1219,6 +1219,9 @@ export function PlanillaGrid({
       onMoveDte: (dteId: string, targetWeek: string) => {
         void actions.moveDte(dteId, targetWeek);
       },
+      onMoveScheduled: (templateId: string, billingPeriod: string, targetWeek: string) => {
+        void actions.moveScheduled(templateId, billingPeriod, targetWeek);
+      },
       onViewDetail: () => openPopover(sel),
       onEditNote: canManage ? () => openPopover(sel, undefined, { focusNote: true }) : undefined,
       onViewDte: (dteId: string) => onViewDte?.(dteId),
@@ -1932,6 +1935,32 @@ export function PlanillaGrid({
                   popover.row.section,
                   popover.cell.execution!.projected,
                 );
+              }
+            : undefined
+        }
+        moveWeeks={
+          popover
+            ? data.columns.filter(
+                (c) =>
+                  c.key !== popover.cell.weekStart &&
+                  data.granularity === "week" &&
+                  !closedSet.has(c.key) &&
+                  !popover.row.isArchived &&
+                  !popover.row.isVirtual,
+              )
+            : []
+        }
+        onMoveDte={
+          canManage
+            ? (dteId, targetWeek) => {
+                void actions.moveDte(dteId, targetWeek);
+              }
+            : undefined
+        }
+        onMoveScheduled={
+          canManage
+            ? (templateId, billingPeriod, targetWeek) => {
+                void actions.moveScheduled(templateId, billingPeriod, targetWeek);
               }
             : undefined
         }

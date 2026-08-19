@@ -232,6 +232,8 @@ export interface CellMenuCallbacks {
   /** Mueve proyección paramétrica committed vía plan overrides (origen→destino). */
   onMoveParametricCommitted?: (targetWeek: string) => void;
   onMoveDte: (dteId: string, targetWeek: string) => void;
+  /** Mueve una cuota programada (P) a otra semana. No toca facturas. */
+  onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
   onViewDetail: () => void;
   /** Abre el detalle enfocado en el editor de nota. */
   onEditNote?: () => void;
@@ -334,6 +336,38 @@ function cellDraftItems(cell: FlowMatrixCellDto): DraftMenuItem[] {
         estadoPago: i.sentDocs?.estadoPago === true,
       },
     }));
+}
+
+type ScheduledMenuItem = {
+  templateId: string;
+  billingPeriod: string;
+  label: string;
+  monto: number;
+  issueYmd?: string;
+};
+
+export function cellScheduledItems(cell: FlowMatrixCellDto): ScheduledMenuItem[] {
+  return (cell.committed?.items ?? [])
+    .filter(
+      (i): i is CommittedItem & { templateId: string; billingPeriod: string; kind: "scheduled" } =>
+        i.kind === "scheduled" && !!i.templateId && !!i.billingPeriod,
+    )
+    .map((i) => ({
+      templateId: i.templateId,
+      billingPeriod: i.billingPeriod,
+      label: i.label,
+      monto: i.monto,
+      issueYmd: i.issueYmd,
+    }));
+}
+
+function scheduledMoveKey(s: ScheduledMenuItem): string {
+  return `${s.templateId}::${s.billingPeriod}`;
+}
+
+function parseScheduledMoveKey(key: string): { templateId: string; billingPeriod: string } {
+  const sep = key.indexOf("::");
+  return { templateId: key.slice(0, sep), billingPeriod: key.slice(sep + 2) };
 }
 
 function folioLabel(d: DteMenuItem): string {
@@ -547,6 +581,55 @@ function folioActions(
   return out;
 }
 
+/** Acciones por cuota programada (P): moverla sola, aunque haya factura en la celda. */
+function scheduledMoveItems(
+  scheduled: ScheduledMenuItem[],
+  ctx: CellMenuContext,
+  cb: CellMenuCallbacks,
+  opts?: { separatorBeforeFirst?: boolean },
+): MenuItemDesc[] {
+  if (scheduled.length === 0 || !cb.onMoveScheduled) return [];
+  const canMove = ctx.canManage && ctx.dteMoveWeeks.length > 0;
+  const onMove = (key: string, week: string) => {
+    const { templateId, billingPeriod } = parseScheduledMoveKey(key);
+    cb.onMoveScheduled!(templateId, billingPeriod, week);
+  };
+  const reason = !ctx.canManage ? "Sin permiso de edición" : "No hay semanas abiertas";
+  if (scheduled.length === 1) {
+    const s = scheduled[0]!;
+    const key = scheduledMoveKey(s);
+    return [
+      {
+        key: `move-sched-${key}`,
+        label: "Mover programación a…",
+        separatorBefore: opts?.separatorBeforeFirst,
+        disabled: !canMove,
+        reason,
+        submenu: canMove ? weekSubmenu(key, ctx.dteMoveWeeks, ctx, onMove) : undefined,
+      },
+    ];
+  }
+  return [
+    {
+      key: "move-sched",
+      label: "Mover programación a…",
+      separatorBefore: opts?.separatorBeforeFirst,
+      disabled: !canMove,
+      reason,
+      submenu: canMove
+        ? scheduled.map((s) => {
+            const key = scheduledMoveKey(s);
+            return {
+              key: `msched-pick-${key}`,
+              label: s.label || "Programación",
+              submenu: weekSubmenu(key, ctx.dteMoveWeeks, ctx, onMove),
+            };
+          })
+        : undefined,
+    },
+  ];
+}
+
 function planCellItems(
   cell: FlowMatrixCellDto,
   ctx: CellMenuContext,
@@ -569,31 +652,33 @@ function planCellItems(
     reason: r,
     onSelect: ed ? cb.onFillRight : undefined,
   });
-  items.push({
-    key: "clear",
-    label: "Quitar de esta semana",
-    disabled: !ed || cell.plan === 0,
-    reason: !ed ? r : "Sin plan en la celda",
-    onSelect: ed && cell.plan !== 0 ? cb.onClearPlan : undefined,
-  });
-  const canMove = ed && cell.layer === "plan" && cell.plan !== 0 && ctx.openWeeks.length > 0;
-  items.push({
-    key: "move",
-    label: "Mover a otra semana",
-    disabled: !canMove,
-    reason: !ed
-      ? r
-      : cell.layer !== "plan" || cell.plan === 0
-        ? "Solo celdas de plan con monto"
-        : "No hay semanas abiertas",
-    submenu: canMove
-      ? ctx.openWeeks.map((c) => ({
-          key: `move-${c.key}`,
-          label: `${c.label} · ${fmtDayMonth(c.weekStart)}`,
-          onSelect: () => cb.onMovePlan(c.key),
-        }))
-      : undefined,
-  });
+  if (cell.plan !== 0) {
+    items.push({
+      key: "clear",
+      label: "Quitar de esta semana",
+      disabled: !ed,
+      reason: r,
+      onSelect: ed ? cb.onClearPlan : undefined,
+    });
+    const canMove = ed && cell.layer === "plan" && ctx.openWeeks.length > 0;
+    items.push({
+      key: "move",
+      label: "Mover a otra semana",
+      disabled: !canMove,
+      reason: !ed
+        ? r
+        : cell.layer !== "plan"
+          ? "Solo celdas de plan con monto"
+          : "No hay semanas abiertas",
+      submenu: canMove
+        ? ctx.openWeeks.map((c) => ({
+            key: `move-${c.key}`,
+            label: `${c.label} · ${fmtDayMonth(c.weekStart)}`,
+            onSelect: () => cb.onMovePlan(c.key),
+          }))
+        : undefined,
+    });
+  }
 
   const ex = cell.execution;
   if (ex && (ex.state === "partial" || ex.state === "closed" || ex.state === "over")) {
@@ -679,8 +764,15 @@ export function buildCellMenu(
 ): MenuItemDesc[] {
   const dteItems = cellDteItems(cell);
   const draftItems = cellDraftItems(cell);
+  const scheduledItems = cellScheduledItems(cell);
   const hasDocs = dteItems.length > 0 || draftItems.length > 0;
   const items: MenuItemDesc[] = hasDocs ? [] : planCellItems(cell, ctx, cb);
+
+  items.push(
+    ...scheduledMoveItems(scheduledItems, ctx, cb, {
+      separatorBeforeFirst: items.length > 0,
+    }),
+  );
 
   if (!hasDocs) {
     items.push(...parametricCommittedMoveItems(row, cell, ctx, cb));
@@ -864,6 +956,7 @@ export function buildCellSheetModel(
 ): CellSheetModel {
   const dteItems = cellDteItems(cell);
   const draftItems = cellDraftItems(cell);
+  const scheduledItems = cellScheduledItems(cell);
   const rowName = ctx.rowName ?? row.name;
   const folioGroups: FolioSheetGroup[] = [
     ...dteItems.map((d) => ({
@@ -881,6 +974,14 @@ export function buildCellSheetModel(
         statusLine: draftStatusLine(d),
       },
       items: draftActions(d, ctx, cb),
+    })),
+    ...scheduledItems.map((s) => ({
+      key: scheduledMoveKey(s),
+      header: {
+        titleLine: `P · ${s.label} · ${fmtClp(s.monto)}`,
+        statusLine: s.issueYmd ? `Emite ${fmtShortDate(s.issueYmd)}` : "Programada",
+      },
+      items: scheduledMoveItems([s], ctx, cb),
     })),
   ];
   const hasDocs = dteItems.length > 0 || draftItems.length > 0;

@@ -38,8 +38,21 @@ const CHIP_TONE: Record<CellStateChipTone, string> = {
 const CHIP_BASE =
   "mt-0.5 mr-0.5 inline-block rounded border px-1 text-[10px] font-medium leading-tight";
 
-const DRAG_BLOCKED_MSG =
-  "Las facturas no se arrastran: usa clic derecho → Mover factura a…";
+function dragBlockedTitle(cell: FlowMatrixRowDto["cells"][number]): string | undefined {
+  if (cell.layer !== "committed" && cell.layer !== "real") return undefined;
+  if (cell.layer === "real") return "Los pagos reales no se arrastran";
+  const items = cell.committed?.items ?? [];
+  const hasDte = items.some((i) => i.kind === "dte");
+  const hasScheduled = items.some((i) => i.kind === "scheduled" && i.templateId);
+  if (hasDte && hasScheduled) {
+    return "Factura y programación se mueven por separado: clic derecho → Mover F° / Mover programación";
+  }
+  if (hasDte) return "Las facturas no se arrastran: usa clic derecho → Mover factura a…";
+  if (hasScheduled) {
+    return "Las programaciones no se arrastran: usa clic derecho → Mover programación a…";
+  }
+  return "Usa clic derecho para mover";
+}
 
 interface Props {
   row: FlowMatrixRowDto;
@@ -274,7 +287,7 @@ export function PlanillaRow(p: Props) {
           p.enableDrag && writable && cell.layer === "plan" && cell.plan !== 0;
         const dragBlocked =
           p.enableDrag && (cell.layer === "committed" || cell.layer === "real")
-            ? DRAG_BLOCKED_MSG
+            ? dragBlockedTitle(cell)
             : undefined;
         const rangeClass = isEditing
           ? ""
