@@ -168,6 +168,7 @@ describe("leyendas modo color / modo cuñas", () => {
       "note",
     ]);
     expect(CHIP_LEGEND_ITEMS.find((i) => i.key === "draft")?.icons).toBe(true);
+    expect(CHIP_LEGEND_ITEMS.find((i) => i.key === "note")?.desc).toMatch(/hover muestra la nota/i);
   });
 
   it("modo cuñas cubre marcas principales y secundarias", () => {
@@ -182,5 +183,6 @@ describe("leyendas modo color / modo cuñas", () => {
       "plan",
       "note",
     ]);
+    expect(CORNER_LEGEND_ITEMS.find((i) => i.key === "note")?.desc).toMatch(/clic abre Composición/i);
   });
 });
