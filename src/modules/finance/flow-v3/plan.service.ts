@@ -180,12 +180,17 @@ export async function bulkFill(
   return Promise.all(weeks.map((w) => readCell(tenantId, rowId, w.ymd)));
 }
 
+/** Tope alineado con cell-note.service (evitar import circular server-only). */
+const CELL_NOTE_MAX = 2000;
+
 /**
  * Mueve el monto de plan de una semana a otra dentro de la MISMA fila (drag &
  * drop / "Mover plan a…"). El origen queda en 0; el destino recibe el monto
- * SUMADO al que ya tuviera. La suma se hace en la base de datos dentro de una
- * transacción (cero aritmética financiera en JS). Devuelve ambas celdas
- * releídas (Verdad Verificada). Rechaza semanas selladas se valida en la ruta.
+ * SUMADO al que ya tuviera. Si el origen tiene nota de celda, también viaja
+ * al destino (se concatena con salto de línea si el destino ya tenía nota).
+ * La suma se hace en la base de datos dentro de una transacción (cero
+ * aritmética financiera en JS). Devuelve ambas celdas releídas (Verdad
+ * Verificada). Rechaza semanas selladas se valida en la ruta.
  */
 export async function movePlanCell(
   tenantId: string,
@@ -229,6 +234,31 @@ export async function movePlanCell(
       });
     }
     await tx.financeFlowPlanCell.deleteMany({ where: { tenantId, rowId, weekStart: fromDate } });
+
+    // Nota de celda viaja con el plan (misma semántica que el monto: origen limpio).
+    const originNote = await tx.financeFlowCellNote.findFirst({
+      where: { tenantId, rowId, weekStart: fromDate },
+      select: { body: true },
+    });
+    const originBody = originNote?.body?.trim() ?? "";
+    if (!originBody) return;
+
+    const destNote = await tx.financeFlowCellNote.findFirst({
+      where: { tenantId, rowId, weekStart: toDate },
+      select: { body: true },
+    });
+    const destBody = destNote?.body?.trim() ?? "";
+    const merged = destBody ? `${destBody}\n${originBody}` : originBody;
+    const body = merged.length > CELL_NOTE_MAX ? merged.slice(0, CELL_NOTE_MAX) : merged;
+
+    await tx.financeFlowCellNote.upsert({
+      where: { tenantId_rowId_weekStart: { tenantId, rowId, weekStart: toDate } },
+      create: { tenantId, rowId, weekStart: toDate, body, updatedBy },
+      update: { body, updatedBy },
+    });
+    await tx.financeFlowCellNote.deleteMany({
+      where: { tenantId, rowId, weekStart: fromDate },
+    });
   });
 
   const [from, to] = await Promise.all([

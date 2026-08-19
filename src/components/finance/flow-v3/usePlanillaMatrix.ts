@@ -131,6 +131,12 @@ export function usePlanillaMatrix() {
     return row?.cells.find((c) => c.weekStart === weekStart)?.plan ?? 0;
   }, []);
 
+  const readCellNote = useCallback((rowId: string, weekStart: string): string | null => {
+    const row = dataRef.current?.rows.find((r) => r.id === rowId);
+    const note = row?.cells.find((c) => c.weekStart === weekStart)?.note;
+    return note?.trim() ? note.trim() : null;
+  }, []);
+
   const focusOf = useCallback((rowId: string, weekStart: string): CellSel | null => {
     const d = dataRef.current;
     if (!d) return null;
@@ -245,6 +251,27 @@ export function usePlanillaMatrix() {
     [refetch],
   );
 
+  /** Restaura notas de celda (PATCH) sin toast; el caller suele refetch después. */
+  const restoreNotes = useCallback(
+    async (
+      rowId: string,
+      cells: Array<{ weekStart: string; body: string | null }>,
+    ): Promise<void> => {
+      await Promise.all(
+        cells.map(async (c) => {
+          const res = await fetch("/api/finance/flow-v3/plan/note", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rowId, weekStart: c.weekStart, body: c.body }),
+          });
+          const json = await res.json();
+          if (!json.success) throw new Error(json.error ?? "No se pudo restaurar la nota");
+        }),
+      );
+    },
+    [],
+  );
+
   const applyMove = useCallback(
     async (rowId: string, fromWeek: string, toWeek: string): Promise<void> => {
       const res = await fetch("/api/finance/flow-v3/plan/move", {
@@ -312,13 +339,16 @@ export function usePlanillaMatrix() {
     [applyPlanBulk, focusOf, history, readCellPlan, restoreCells, rowName],
   );
 
-  /** Mueve el plan de una semana a otra (misma fila) + entrada de deshacer. */
+  /** Mueve el plan de una semana a otra (misma fila) + entrada de deshacer.
+   *  El servidor también traslada la nota de celda; el undo restaura montos y notas. */
   const movePlan = useCallback(
     async (rowId: string, fromWeek: string, toWeek: string, opts?: MutateOpts) => {
       if (fromWeek === toWeek) return null;
       const prevFrom = readCellPlan(rowId, fromWeek);
       if (prevFrom === 0) return null; // nada que mover
       const prevTo = readCellPlan(rowId, toWeek);
+      const prevFromNote = readCellNote(rowId, fromWeek);
+      const prevToNote = readCellNote(rowId, toWeek);
       const focus = focusOf(rowId, toWeek);
       const name = rowName(rowId);
       try {
@@ -331,18 +361,23 @@ export function usePlanillaMatrix() {
         history.push({
           label: `Mover ${name} → ${fmtShortDate(toWeek)}`,
           focus,
-          undo: () =>
-            restoreCells(rowId, [
+          undo: async () => {
+            await restoreNotes(rowId, [
+              { weekStart: fromWeek, body: prevFromNote },
+              { weekStart: toWeek, body: prevToNote },
+            ]);
+            await restoreCells(rowId, [
               { weekStart: fromWeek, amount: prevFrom },
               { weekStart: toWeek, amount: prevTo },
-            ]),
+            ]);
+          },
           redo: () => applyMove(rowId, fromWeek, toWeek),
         });
       }
       toast.success(prevTo !== 0 ? "Plan movido y sumado en la semana destino" : "Plan movido");
       return { ok: true as const, summed: prevTo !== 0 };
     },
-    [applyMove, focusOf, history, readCellPlan, restoreCells, rowName],
+    [applyMove, focusOf, history, readCellNote, readCellPlan, restoreCells, restoreNotes, rowName],
   );
 
   const undo = useCallback(async (): Promise<HistoryEntry | null> => {
