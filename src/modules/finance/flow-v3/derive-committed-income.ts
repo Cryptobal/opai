@@ -11,13 +11,15 @@
  *     mueva a mano o se pague. `overdueDays` se calcula contra hoy.
  *  2. kind="scheduled": proyección de FinanceDteRecurringTemplate activas
  *     hasta `endDate` inclusive. Celda = semana de emisión (issueYmd), sin
- *     lag de cobro (v4.7). Dedupe period-aware: si existe un DTE (borrador
- *     o emitido) con (recurringTemplateId, billingPeriod) de la cuota, la
- *     cuota no se proyecta.
+ *     lag de cobro (v4.7), salvo override de visibilidad por cuota
+ *     (`FinanceCashflowScheduledDateOverride`). Dedupe period-aware: si existe
+ *     un DTE (borrador o emitido) con (recurringTemplateId, billingPeriod) de
+ *     la cuota, la cuota no se proyecta.
  */
 import {
   computeNextRunAt,
   computeRecurringIssueYmd,
+  billingPeriodFromAnchor,
 } from "@/modules/finance/billing/dte-recurring-schedule";
 import { weekStartYmd, ymdToDate } from "./weeks";
 import { buildIncomeMatcher } from "./row-match";
@@ -138,6 +140,11 @@ export interface CommittedIncomeArgs {
   templates: TemplateProjectionInput[];
   /** Set "templateId::YYYY-MM" de períodos ya cubiertos por un DTE real/borrador. */
   coveredPeriods: Set<string>;
+  /**
+   * Override de visibilidad de cuotas programadas: "templateId::YYYY-MM" → YMD
+   * (lunes ISO destino). Si existe, la P se ubica ahí y no clampea a hoy.
+   */
+  scheduledOverrides?: Map<string, string>;
   /**
    * Lag default del tenant. Solo para "vencida hace N días" de emitidas
    * sin dueDate. Ya NO desplaza cuotas ni borradores (v4.7).
@@ -301,17 +308,21 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommitte
     while (anchor && guard < 130) {
       guard += 1;
       if (tpl.endDate && anchor > tpl.endDate) break; // endDate inclusive
-      const period = `${anchor.getUTCFullYear()}-${String(anchor.getUTCMonth() + 1).padStart(2, "0")}`;
+      const period = billingPeriodFromAnchor(anchor);
       const issueYmd = computeRecurringIssueYmd(tpl, anchor);
-      if (issueYmd > lastWeek) break;
+      const overrideYmd = args.scheduledOverrides?.get(`${tpl.id}::${period}`) ?? null;
+      if (!overrideYmd && issueYmd > lastWeek) break;
       if (!args.coveredPeriods.has(`${tpl.id}::${period}`)) {
-        // v4.7: celda = semana de emisión. Sin +diasCobro / lag.
-        const { week, fecha } = collectionWeek(issueYmd, args.todayYmd);
+        // v4.7: celda = semana de emisión. Override de visibilidad manda
+        // (sin clamp), igual que un borrador movido a mano.
+        const placementYmd = overrideYmd ?? issueYmd;
+        const { week, fecha } = collectionWeek(placementYmd, args.todayYmd, !overrideYmd);
         if (inRange(week)) {
           const term = terminoInfo(issueYmd, tpl.diasCobro);
           pushCommitted(out, matchRow(tpl.crmAccountId, tpl.installationId, tpl.id), week, {
             kind: "scheduled",
             templateId: tpl.id,
+            billingPeriod: period,
             label: tpl.name,
             fecha,
             monto: Math.round(tpl.grossPerRunClp),

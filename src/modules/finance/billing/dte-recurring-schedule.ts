@@ -222,3 +222,22 @@ export function resolveBillingPeriodForDate(
   }
   return bestPeriod;
 }
+
+/** Fecha de emisión natural de la cuota cuyo ancla cae en `billingPeriod`. */
+export function resolveIssueYmdForPeriod(
+  template: BillingPeriodTemplate,
+  billingPeriod: string,
+): string | null {
+  if (!/^\d{4}-\d{2}$/.test(billingPeriod)) return null;
+  const walkTpl: ComputeInput = { ...template, lastRunAt: null };
+  let anchor = computeNextRunAt(walkTpl);
+  let guard = 0;
+  while (anchor && guard < 130) {
+    guard += 1;
+    const period = billingPeriodFromAnchor(anchor);
+    if (period === billingPeriod) return computeRecurringIssueYmd(template, anchor);
+    if (period > billingPeriod) break;
+    anchor = computeNextRunAt(walkTpl, anchor);
+  }
+  return null;
+}

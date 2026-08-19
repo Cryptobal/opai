@@ -9,6 +9,7 @@ import {
   type ScheduledDraftInput,
   type TemplateProjectionInput,
 } from "./derive-committed-income";
+import { loadScheduledDateOverrides } from "./scheduled-date-override.service";
 import {
   ACTIVE_CESSION_STATUSES,
   cessionFromPaymentStatus,
@@ -429,6 +430,11 @@ export async function loadCommittedIncome(
     diasCobro: t.diasCobroDesdeFactura,
   }));
 
+  const scheduledOverrides = await loadScheduledDateOverrides(
+    tenantId,
+    templates.map((t) => t.id),
+  );
+
   const derived = deriveCommittedIncome({
     rows,
     weeks,
@@ -437,6 +443,7 @@ export async function loadCommittedIncome(
     drafts,
     templates: templateInputs,
     coveredPeriods,
+    scheduledOverrides,
     collectionLagDays: config?.collectionLagDays ?? undefined,
     // Schema default true; sin config ⇒ bank-only (cartola-first).
     bandejaIncomeBankOnly: config?.bandejaIncomeBankOnly !== false,
