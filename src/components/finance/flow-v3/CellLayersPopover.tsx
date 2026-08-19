@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FlowExcludedDte } from "@/modules/finance/flow-v3/types";
-import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
+import type { FlowMatrixCellDto, FlowMatrixRowDto, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { CellCompositionPanel } from "./CellCompositionPanel";
 import { CellDetailTabs, type CellDetailTab } from "./CellDetailTabs";
 import { CellHistoryList } from "./CellHistoryList";
@@ -31,6 +31,9 @@ interface Props {
   onSettleReopen?: () => void;
   onMatchPlanToReal?: () => void;
   onMoveResidual?: () => void;
+  moveWeeks?: MatrixColumn[];
+  onMoveDte?: (dteId: string, targetWeek: string) => void;
+  onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
 }
 
 /**
@@ -40,6 +43,7 @@ export function CellLayersPopover({
   state, onClose, canManage, editable, editReason, focusNote, excludedForRow,
   onViewDte, onExcludeDte, onRestoreDte, onSaveNote,
   onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual,
+  moveWeeks, onMoveDte, onMoveScheduled,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<CellDetailTab>("composicion");
@@ -105,6 +109,9 @@ export function CellLayersPopover({
             onSettleReopen={onSettleReopen}
             onMatchPlanToReal={onMatchPlanToReal}
             onMoveResidual={onMoveResidual}
+            moveWeeks={moveWeeks}
+            onMoveDte={onMoveDte}
+            onMoveScheduled={onMoveScheduled}
             onClose={onClose}
           />
         )}

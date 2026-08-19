@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   resolveBillingPeriodForDate,
   billingPeriodFromAnchor,
+  resolveIssueYmdForPeriod,
   type BillingPeriodTemplate,
 } from "../dte-recurring-schedule";
 
@@ -48,5 +49,17 @@ describe("resolveBillingPeriodForDate", () => {
 describe("billingPeriodFromAnchor", () => {
   it("formatea YYYY-MM UTC", () => {
     expect(billingPeriodFromAnchor(new Date("2026-08-01T00:00:00.000Z"))).toBe("2026-08");
+  });
+});
+
+describe("resolveIssueYmdForPeriod", () => {
+  it("AL_EMITIR: emisión = día de la cuota del período", () => {
+    expect(resolveIssueYmdForPeriod(monthlyTpl(), "2026-08")).toBe("2026-08-05");
+  });
+
+  it("período fuera del calendario → null", () => {
+    expect(resolveIssueYmdForPeriod(monthlyTpl({
+      startDate: new Date("2026-06-05T00:00:00.000Z"),
+    }), "2026-01")).toBeNull();
   });
 });

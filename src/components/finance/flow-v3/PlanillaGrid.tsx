@@ -48,6 +48,7 @@ import { SumPill } from "./SumPill";
 import { UnmatchedIncomeList } from "./UnmatchedIncomeList";
 import type { HistoryEntry } from "./usePlanillaHistory";
 import type { usePlanillaActions } from "./usePlanillaActions";
+import type { CellDragPayload } from "./cell-drag";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import {
   bandejaBadgeText,
@@ -225,7 +226,11 @@ export function PlanillaGrid({
   const [linkFocusDteId, setLinkFocusDteId] = useState<string | null>(null);
   const [discreteSel, setDiscreteSel] = useState<Map<string, number>>(() => new Map());
   const [dropTarget, setDropTarget] = useState<{ rowId: string; colIdx: number } | null>(null);
-  const dragRef = useRef<{ rowId: string; week: string } | null>(null);
+  const dragRef = useRef<{
+    rowId: string;
+    week: string;
+    payload: CellDragPayload;
+  } | null>(null);
   const localRef = useRef<HTMLDivElement | null>(null);
   const scroller = scrollerRef ?? localRef;
   const kbRef = useRef<ReturnType<typeof usePlanillaKeyboard> | null>(null);
@@ -1132,30 +1137,59 @@ export function PlanillaGrid({
     openUnmatchedAssigner("GAV");
   }, [openBandejaRequest, openUnmatchedAssigner]);
 
-  // ── Drag & drop de plan (desktop). ──
-  const onCellDragStart = useCallback((rowId: string, week: string) => {
-    dragRef.current = { rowId, week };
+  /** Semana abierta: se puede soltar F°/P aunque la celda ya tenga factura. */
+  const canMoveCommitted = useCallback(
+    (rowId: string, colIdx: number) => {
+      const row = rowById.get(rowId);
+      const col = data.columns[colIdx];
+      return (
+        !!row &&
+        !!col &&
+        canManage &&
+        !row.isArchived &&
+        !row.isVirtual &&
+        data.granularity === "week" &&
+        !closedSet.has(col.key)
+      );
+    },
+    [rowById, data.columns, data.granularity, canManage, closedSet],
+  );
+
+  // ── Drag & drop: plan, F° o P (cada uno por separado). ──
+  const onCellDragStart = useCallback((rowId: string, week: string, payload: CellDragPayload) => {
+    dragRef.current = { rowId, week, payload };
   }, []);
   const onCellDragOver = useCallback(
     (e: React.DragEvent, rowId: string, colIdx: number, week: string) => {
       const src = dragRef.current;
-      if (src && src.rowId === rowId && src.week !== week && canEditCell(rowId, colIdx)) {
-        e.preventDefault();
-        setDropTarget((t) => (t?.rowId === rowId && t.colIdx === colIdx ? t : { rowId, colIdx }));
-      }
+      if (!src || src.rowId !== rowId || src.week === week) return;
+      const ok =
+        src.payload.kind === "plan"
+          ? canEditCell(rowId, colIdx)
+          : canMoveCommitted(rowId, colIdx);
+      if (!ok) return;
+      e.preventDefault();
+      setDropTarget((t) => (t?.rowId === rowId && t.colIdx === colIdx ? t : { rowId, colIdx }));
     },
-    [canEditCell],
+    [canEditCell, canMoveCommitted],
   );
   const onCellDrop = useCallback(
     (rowId: string, week: string) => {
       const src = dragRef.current;
       dragRef.current = null;
       setDropTarget(null);
-      if (src && src.rowId === rowId && src.week !== week) {
+      if (!src || src.rowId !== rowId || src.week === week) return;
+      if (src.payload.kind === "plan") {
         void matrix.movePlan(rowId, src.week, week);
+        return;
       }
+      if (src.payload.kind === "scheduled") {
+        void actions.moveScheduled(src.payload.templateId, src.payload.billingPeriod, week);
+        return;
+      }
+      void actions.moveDte(src.payload.dteId, week);
     },
-    [matrix],
+    [matrix, actions],
   );
   const onCellDragEnd = useCallback(() => {
     dragRef.current = null;
@@ -1218,6 +1252,9 @@ export function PlanillaGrid({
       },
       onMoveDte: (dteId: string, targetWeek: string) => {
         void actions.moveDte(dteId, targetWeek);
+      },
+      onMoveScheduled: (templateId: string, billingPeriod: string, targetWeek: string) => {
+        void actions.moveScheduled(templateId, billingPeriod, targetWeek);
       },
       onViewDetail: () => openPopover(sel),
       onEditNote: canManage ? () => openPopover(sel, undefined, { focusNote: true }) : undefined,
@@ -1712,6 +1749,7 @@ export function PlanillaGrid({
                       onRowContext={() => setCtxTarget({ kind: "row", rowId: row.id })}
                       onOpenRowSheet={() => setSheetTarget({ kind: "row", rowId: row.id })}
                       canEditCell={canEditCell}
+                      canMoveCommitted={(colIdx) => canMoveCommitted(row.id, colIdx)}
                       enableDrag={enableDrag && !sumMode}
                       dropTarget={dropTarget}
                       onCellContext={(sel) => setCtxTarget({ kind: "cell", sel })}
@@ -1932,6 +1970,32 @@ export function PlanillaGrid({
                   popover.row.section,
                   popover.cell.execution!.projected,
                 );
+              }
+            : undefined
+        }
+        moveWeeks={
+          popover
+            ? data.columns.filter(
+                (c) =>
+                  c.key !== popover.cell.weekStart &&
+                  data.granularity === "week" &&
+                  !closedSet.has(c.key) &&
+                  !popover.row.isArchived &&
+                  !popover.row.isVirtual,
+              )
+            : []
+        }
+        onMoveDte={
+          canManage
+            ? (dteId, targetWeek) => {
+                void actions.moveDte(dteId, targetWeek);
+              }
+            : undefined
+        }
+        onMoveScheduled={
+          canManage
+            ? (templateId, billingPeriod, targetWeek) => {
+                void actions.moveScheduled(templateId, billingPeriod, targetWeek);
               }
             : undefined
         }

@@ -38,6 +38,7 @@ const CHIP_FILL: Record<
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import { InlineCellEditor } from "./InlineCellEditor";
 import { useLongPress } from "./useLongPress";
+import type { CellDragPayload, StackedLine } from "./cell-drag";
 
 interface Props {
   cell: FlowMatrixCellDto;
@@ -71,14 +72,18 @@ interface Props {
   sumMode?: boolean;
   /** Está en el set Σ. */
   inDiscreteSel?: boolean;
-  /** Drag de plan (desktop): la celda es arrastrable (capa plan editable con monto). */
+  /** Drag de plan o de un único F°/P (desktop). */
   draggable: boolean;
   onDragStartCell: () => void;
   onDragOverCell: (e: React.DragEvent) => void;
   onDropCell: () => void;
   onDragEndCell: () => void;
   isDropTarget: boolean;
-  /** Título (not-allowed) para celdas comprometido/real cuando el drag está activo. */
+  /** F° y P en la misma casilla: una línea por cobro, cada una arrastrable. */
+  stackedLines?: StackedLine[];
+  canDragItems?: boolean;
+  onItemDragStart?: (payload: CellDragPayload) => void;
+  /** Título (not-allowed) solo si el ítem no se puede arrastrar. */
   dragBlockedTitle?: string;
   showChips?: boolean;
   numberFormat?: NumberFormatMode;
@@ -392,6 +397,41 @@ export function PlanillaCell(p: Props) {
           onCommit={p.onCommit}
           onCancel={p.onCancel}
         />
+      ) : showChips && (p.stackedLines?.length ?? 0) >= 2 && (
+        cell.layer === "committed" || pastPendOnly
+      ) ? (
+        <span
+          className={`absolute inset-0 flex flex-col justify-center gap-px px-1.5 max-md:px-[3px] leading-none ${chipItemsH}`}
+        >
+          {p.stackedLines!.map((line) => {
+            const canDrag = !!p.canDragItems && !!line.drag && !p.sumMode;
+            return (
+              <span
+                key={line.key}
+                draggable={canDrag}
+                title={line.title}
+                className={`flex w-full max-w-full items-center justify-between gap-1 leading-[10px] ${
+                  canDrag ? "cursor-grab" : ""
+                }`}
+                onDragStart={
+                  canDrag
+                    ? (e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", line.tag);
+                        p.onItemDragStart?.(line.drag!);
+                      }
+                    : undefined
+                }
+              >
+                <span className={`min-w-0 truncate font-sans ${toneClass(line.tone)}`}>
+                  {line.tag}
+                </span>
+                <span className="shrink-0 tabular-nums">{fmtCell(line.monto, mode)}</span>
+              </span>
+            );
+          })}
+        </span>
       ) : showChips && chipTag && (
         cell.layer === "committed" || cell.layer === "plan" || pastPendOnly
       ) ? (

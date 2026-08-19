@@ -239,3 +239,58 @@ describe("buildCellSheetModel — grupos borrador", () => {
     expect(model.folioGroups[0]!.items.some((i) => i.key.startsWith("move-draft-"))).toBe(true);
   });
 });
+
+function scheduledCell(withDte: boolean): FlowMatrixCellDto {
+  const items = [
+    ...(withDte
+      ? [{
+          kind: "dte" as const,
+          dteId: "dte-1767",
+          folio: 1767,
+          label: "CIMS",
+          fecha: "2026-07-21",
+          monto: 5_006_345,
+          emissionYmd: "2026-07-21",
+          dueYmd: "2026-08-20",
+        }]
+      : []),
+    {
+      kind: "scheduled" as const,
+      templateId: "tpl-cims",
+      billingPeriod: "2026-08",
+      label: "CIMS - La Reina",
+      fecha: "2026-08-20",
+      monto: 5_007_960,
+      issueYmd: "2026-08-20",
+    },
+  ];
+  return {
+    weekStart: "2026-08-17",
+    plan: 0,
+    committed: { total: items.reduce((s, x) => s + x.monto, 0), items },
+    real: null,
+    effective: items.reduce((s, x) => s + x.monto, 0),
+    layer: "committed",
+  };
+}
+
+describe("buildCellMenu — programaciones movibles", () => {
+  const schedCbs = (): CellMenuCallbacks => ({ ...cbs(), onMoveScheduled: vi.fn() });
+
+  it("P sola ofrece Mover programación y no el move de plan deshabilitado", () => {
+    const items = buildCellMenu(row({ name: "CIMS" }), scheduledCell(false), { ...ctx, editable: true, reason: "" }, schedCbs());
+    expect(items.find((i) => i.key === "move")).toBeUndefined();
+    expect(items.find((i) => i.key === "clear")).toBeUndefined();
+    const move = items.find((i) => i.key.startsWith("move-sched-"));
+    expect(move?.label).toBe("Mover esta P a…");
+    expect(move?.disabled).toBe(false);
+    expect(move?.submenu?.some((i) => String(i.label).includes("HACIA ADELANTE"))).toBe(true);
+  });
+
+  it("celda con F° + P permite mover cada una por separado", () => {
+    const items = buildCellMenu(row({ name: "CIMS" }), scheduledCell(true), ctx, schedCbs());
+    expect(items.find((i) => i.key === "edit")).toBeUndefined();
+    expect(items.find((i) => i.key.startsWith("move-sched-"))?.label).toBe("Mover esta P a…");
+    expect(items.find((i) => i.key === "move-dte-dte-1767")?.label).toContain("Mover F°1767");
+  });
+});

@@ -17,6 +17,11 @@ import type { NumberFormatMode } from "./format";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import { useLongPress } from "./useLongPress";
 import {
+  cellLevelDragPayload,
+  stackedCommittedLines,
+  type CellDragPayload,
+} from "./cell-drag";
+import {
   assignPendingCaption,
   countAssignPendingInCell,
   isFallbackBandejaRow,
@@ -38,8 +43,10 @@ const CHIP_TONE: Record<CellStateChipTone, string> = {
 const CHIP_BASE =
   "mt-0.5 mr-0.5 inline-block rounded border px-1 text-[10px] font-medium leading-tight";
 
-const DRAG_BLOCKED_MSG =
-  "Las facturas no se arrastran: usa clic derecho → Mover factura a…";
+function dragBlockedTitle(cell: FlowMatrixRowDto["cells"][number]): string | undefined {
+  if (cell.layer === "real") return "Los pagos reales no se arrastran";
+  return undefined;
+}
 
 interface Props {
   row: FlowMatrixRowDto;
@@ -76,7 +83,9 @@ interface Props {
   onOpenCellSheet?: (sel: CellSel) => void;
   sumMode?: boolean;
   discreteKeys?: Set<string>;
-  onCellDragStart: (rowId: string, week: string) => void;
+  /** Semana abierta (no cerrada) — F° y P se pueden mover aunque haya factura. */
+  canMoveCommitted: (colIdx: number) => boolean;
+  onCellDragStart: (rowId: string, week: string, payload: CellDragPayload) => void;
   onCellDragOver: (e: React.DragEvent, rowId: string, colIdx: number, week: string) => void;
   onCellDrop: (rowId: string, week: string) => void;
   onCellDragEnd: () => void;
@@ -270,12 +279,15 @@ export function PlanillaRow(p: Props) {
           p.editing.sel.rowId === row.id &&
           p.editing.sel.colIdx === colIdx;
         const writable = p.canEditCell(row.id, colIdx);
+        const weekOpen = p.canMoveCommitted(colIdx);
+        const stackedLines = stackedCommittedLines(cell);
+        const cellPayload = cellLevelDragPayload(cell);
         const draggable =
-          p.enableDrag && writable && cell.layer === "plan" && cell.plan !== 0;
+          p.enableDrag &&
+          !!cellPayload &&
+          (cellPayload.kind === "plan" ? writable : weekOpen);
         const dragBlocked =
-          p.enableDrag && (cell.layer === "committed" || cell.layer === "real")
-            ? DRAG_BLOCKED_MSG
-            : undefined;
+          p.enableDrag && cell.layer === "real" ? dragBlockedTitle(cell) : undefined;
         const rangeClass = isEditing
           ? ""
           : cellRangeClass(p.visibleRowIdx, colIdx, p.rangeRect, p.sel, row.id);
@@ -309,11 +321,16 @@ export function PlanillaRow(p: Props) {
                 : (p.ufCaption ?? null)
             }
             draggable={draggable}
-            onDragStartCell={() => p.onCellDragStart(row.id, cell.weekStart)}
+            onDragStartCell={() => {
+              if (cellPayload) p.onCellDragStart(row.id, cell.weekStart, cellPayload);
+            }}
             onDragOverCell={(e) => p.onCellDragOver(e, row.id, colIdx, cell.weekStart)}
             onDropCell={() => p.onCellDrop(row.id, cell.weekStart)}
             onDragEndCell={p.onCellDragEnd}
             isDropTarget={p.dropTarget?.rowId === row.id && p.dropTarget.colIdx === colIdx}
+            stackedLines={stackedLines}
+            canDragItems={p.enableDrag && weekOpen}
+            onItemDragStart={(payload) => p.onCellDragStart(row.id, cell.weekStart, payload)}
             dragBlockedTitle={dragBlocked}
             showChips={p.showChips}
             numberFormat={p.numberFormat}

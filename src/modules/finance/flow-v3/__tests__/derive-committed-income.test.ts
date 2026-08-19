@@ -414,6 +414,54 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
     expect(out.get("row-a")?.get("2026-08-03")?.total).toBe(100_000);
   });
 
+  it("override de visibilidad mueve la P sin clamp y no toca otras cuotas", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      templates: [makeTemplate()],
+      coveredPeriods: new Set([
+        "tpl-1::2026-09", "tpl-1::2026-10", "tpl-1::2026-11",
+        "tpl-1::2026-12", "tpl-1::2027-01",
+      ]),
+      scheduledOverrides: new Map([["tpl-1::2026-08", "2026-08-17"]]),
+    });
+    const cells = out.get("row-a-i1");
+    expect(cells?.get("2026-08-03")).toBeUndefined();
+    expect(cells?.get("2026-08-17")?.items[0]).toMatchObject({
+      kind: "scheduled",
+      templateId: "tpl-1",
+      billingPeriod: "2026-08",
+      monto: 500_000,
+      issueYmd: "2026-08-05",
+      fecha: "2026-08-17",
+    });
+  });
+
+  it("F° de otro período y P conviven en la misma semana (no se pisan)", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      dtes: [{
+        id: "dte-1767", folio: 1767, dateYmd: "2026-07-21", dueDateYmd: "2026-08-20",
+        overrideDateYmd: "2026-08-17",
+        pendingClp: 5_006_345, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "CIMS", recurringTemplateId: "tpl-1",
+      }],
+      templates: [makeTemplate({
+        name: "CIMS - La Reina",
+        dayOfMonth: 20,
+        nextRunAt: new Date("2026-08-20"),
+        lastRunAt: new Date("2026-07-20"),
+      })],
+      coveredPeriods: new Set([
+        "tpl-1::2026-07",
+        "tpl-1::2026-09", "tpl-1::2026-10", "tpl-1::2026-11",
+        "tpl-1::2026-12", "tpl-1::2027-01",
+      ]),
+    });
+    const cell = out.get("row-a-i1")?.get("2026-08-17");
+    expect(cell?.items.map((i) => i.kind).sort()).toEqual(["dte", "scheduled"]);
+    expect(cell?.total).toBe(5_006_345 + 500_000);
+  });
+
   it("dedup: el período cubierto por DTE emitido no se proyecta", () => {
     const { committed: out } = deriveCommittedIncome({
       ...base,

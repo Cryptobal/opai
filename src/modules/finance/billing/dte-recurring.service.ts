@@ -21,6 +21,7 @@ import {
   sendBillingDocument,
   type BillingDocVariant,
 } from "./billing-document-send.service";
+import { inheritScheduledOverrideToDte } from "@/modules/finance/flow-v3/scheduled-date-override.service";
 
 // La agenda pura (computeNextRunAt / computeRecurringIssueYmd / UF policy)
 // vive en dte-recurring-schedule.ts para que los derivadores del Flujo v3 y
@@ -455,6 +456,16 @@ export async function runTemplate(
         issueDate,
       }),
     );
+
+    // Si el owner ya había movido esa P en el flujo, el borrador nace
+    // en la misma semana (no vuelve a la fecha de emisión del template).
+    await inheritScheduledOverrideToDte({
+      tenantId,
+      templateId: template.id,
+      billingPeriod,
+      dteId: draft.id,
+      createdBy: template.createdBy,
+    });
 
     // Copiar adjuntos del template al borrador. Hacemos copy real en R2
     // (no compartimos storageKey) para que borrar un adjunto del template
