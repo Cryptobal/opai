@@ -28,9 +28,46 @@ export interface CellExecution {
   settlement: SettlementMode;
 }
 
-/** Plan cash-signed: INGRESOS +, FINANCIAMIENTO tal como se tipeó, resto −. */
-export const planCashSign = (section: string, value: number): number =>
-  section === "INGRESOS" || section === "FINANCIAMIENTO" ? value : -value;
+/**
+ * Filas FINANCIAMIENTO que son egreso de caja. Si el plan llega como magnitud
+ * positiva (editor con Math.abs), se fuerza a negativo cash-signed.
+ * APORTE_SOCIO / CREDITO / sin key siguen “tal como se tipeó”.
+ */
+export const FINANCING_OUTFLOW_KEYS: ReadonlySet<string> = new Set([
+  "RETIRO_SOCIO",
+  "DEVOL_PRESTAMO_SOCIO",
+  "FACTORING",
+]);
+
+/** Normaliza el monto de plan antes de persistir / proyectar. */
+export function normalizeFinancingPlanAmount(
+  section: string,
+  amount: number,
+  canonicalKey?: string | null,
+): number {
+  if (!Number.isFinite(amount) || amount === 0) return amount || 0;
+  if (section !== "FINANCIAMIENTO") return amount;
+  if (canonicalKey && FINANCING_OUTFLOW_KEYS.has(canonicalKey)) {
+    return -Math.abs(amount);
+  }
+  return amount;
+}
+
+/**
+ * Plan cash-signed: INGRESOS +, FINANCIAMIENTO tipado (egresos canónicos
+ * siempre −), resto −.
+ */
+export const planCashSign = (
+  section: string,
+  value: number,
+  canonicalKey?: string | null,
+): number => {
+  if (section === "INGRESOS") return value;
+  if (section === "FINANCIAMIENTO") {
+    return normalizeFinancingPlanAmount(section, value, canonicalKey);
+  }
+  return -value;
+};
 
 /** Signo cash de la sección para montos de comprometido (magnitud → cash). */
 export const sectionCashSign = (section: string): 1 | -1 =>
@@ -47,6 +84,8 @@ export function computeCellExecution(args: {
   settlement: SettlementMode;
   residualCarryEnabled: boolean;
   residualMinClp: number;
+  /** Para forzar signo − en RETIRO_SOCIO / FACTORING / DEVOL_*. */
+  canonicalKey?: string | null;
 }): { execution: CellExecution; committedNetCash: number; residual: number } {
   const {
     section,
@@ -58,6 +97,7 @@ export function computeCellExecution(args: {
     settlement,
     residualCarryEnabled,
     residualMinClp,
+    canonicalKey,
   } = args;
 
   const sign = sectionCashSign(section);
@@ -66,7 +106,7 @@ export function computeCellExecution(args: {
   let projGrossCash: number;
   let committedNetCash: number;
   if (plan !== 0 && !invoiced) {
-    projGrossCash = planCashSign(section, plan);
+    projGrossCash = planCashSign(section, plan, canonicalKey);
     committedNetCash = 0;
   } else {
     projGrossCash = sign * committedGross;

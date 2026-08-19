@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { BalanceBreak, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
+import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
+import {
+  currentWeekBalanceTitle,
+  weekPendingBreakdown,
+} from "@/modules/finance/flow-v3/balance-breakdown";
 import { weekLabel } from "@/modules/finance/flow-v3/weeks";
 import {
   fmtCell, fmtClp, formatThousands, NUM_CLASS, numSizeClass, type NumberFormatMode,
@@ -27,6 +32,9 @@ interface Props {
   canManage?: boolean;
   /** Persiste ancla; null borra. Granularidad week only. */
   onBalanceAnchor?: (weekStart: string, balanceClp: number | null) => Promise<void>;
+  /** Banco hoy (ancla viva) + filas para desglose del saldo actual. */
+  openingBalance?: number;
+  rows?: FlowMatrixRowDto[];
 }
 
 const EYEBROW = "font-sans font-normal tabular-nums leading-none";
@@ -58,6 +66,7 @@ export function BalanceRow({
   columns, flows, balances, balanceBreaks, warnThreshold, startNumber, numberFormat = "clp",
   selectedColIdx, selectedColIndices,
   closedWeeks, balanceAnchors, canManage, onBalanceAnchor,
+  openingBalance, rows,
 }: Props) {
   const closedSet = new Set(closedWeeks ?? []);
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -199,8 +208,14 @@ export function BalanceRow({
               : "Clic para fijar saldo acumulado histórico"
             : closed
               ? "Semana cerrada — saldo fijo"
-              : c.isCurrent
-                ? "Espejo banco hoy + pendiente por conciliar"
+              : c.isCurrent && openingBalance != null && rows
+                ? currentWeekBalanceTitle(
+                    openingBalance,
+                    weekPendingBreakdown(rows, i),
+                    balances[i] ?? 0,
+                  )
+                : c.isCurrent
+                  ? "Espejo banco hoy + pendiente por conciliar"
                 : !c.isPast
                   ? "Proyección desde banco hoy"
                   : undefined;

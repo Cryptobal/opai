@@ -201,6 +201,7 @@ function cellFromBucket(
   isFrozen: boolean,
   residualCarryEnabled: boolean,
   residualMinClp: number,
+  canonicalKey?: string | null,
 ): FlowMatrixCellDto {
   const committedTotal = bucket.committedItems.reduce((s, i) => s + i.monto, 0);
   const realTotal = bucket.realItems.reduce((s, i) => s + i.monto, 0);
@@ -213,7 +214,7 @@ function cellFromBucket(
 
   const committedCash =
     committed == null ? 0 : section === "INGRESOS" ? committed.total : -committed.total;
-  const planCash = planCashSign(section, bucket.plan);
+  const planCash = planCashSign(section, bucket.plan, canonicalKey);
   const invoiced = hasInvoicedIncome(section, committed);
   const committedNet = bucket.committedItems
     .filter((it) => it.kind === "dte")
@@ -246,6 +247,7 @@ function cellFromBucket(
       settlement: "AUTO",
       residualCarryEnabled,
       residualMinClp,
+      canonicalKey,
     });
     effective = realSigned + computed.committedNetCash + computed.residual;
   }
@@ -475,6 +477,7 @@ export function reduceMonthly(
         isFrozen,
         residualCarryEnabled,
         residualMinClp,
+        r.canonicalKey,
       );
       flows[mi]! += cell.effective;
       if (!columns[mi]!.isPast) {

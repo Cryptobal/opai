@@ -2,8 +2,9 @@
  * Ensamblado PURO de la matriz semanal (sin prisma).
  *
  * Convención cash-signed en `effective`: ingresos +, egresos −, FINANCIAMIENTO
- * signado. La UI muestra magnitudes en secciones de egreso; flujo y saldo
- * suman `effective` directo.
+ * tipado (RETIRO_SOCIO / FACTORING / DEVOL_* siempre − aunque el plan crudo
+ * venga como magnitud positiva). La UI muestra magnitudes en secciones de
+ * egreso; flujo y saldo suman `effective` directo.
  *
  * Capa efectiva (etiqueta `layer`, semana ABIERTA):
  *   real > ingreso facturado (DTE) > plan manual > comprometido > vacío.
@@ -178,7 +179,7 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
       // FINANCIAMIENTO usa +mag egreso / −mag ingreso para respetar signo.
       const committedCash =
         committed == null ? 0 : r.section === "INGRESOS" ? committed.total : -committed.total;
-      const planCash = planCashSign(r.section, plan);
+      const planCash = planCashSign(r.section, plan, r.canonicalKey);
       const invoiced = hasInvoicedIncome(r.section, committed);
       const committedNet = committed
         ? committed.items
@@ -221,6 +222,7 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
           settlement,
           residualCarryEnabled,
           residualMinClp,
+          canonicalKey: r.canonicalKey,
         });
         execution = computed.execution;
         if (layer === "empty") {

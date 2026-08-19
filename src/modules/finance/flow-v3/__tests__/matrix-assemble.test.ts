@@ -426,6 +426,51 @@ describe("assembleMatrix — saldo acumulado", () => {
     expect(m.balanceBreaks.every((b) => b == null)).toBe(true);
   });
 
+  it("caso Carlos: retiro +10M tipado (bug) se cuenta como −10M; saldo = banco + pendientes", () => {
+    // Banco 11.384.961 + facturas − quincena/TE/IVA/retiro → −22.874.475
+    const current = "2026-08-17";
+    const weeks = ["2026-08-10", "2026-08-17", "2026-08-24"];
+    const rows = [
+      row({ id: "cims", name: "CIMS", section: "INGRESOS" }),
+      row({ id: "trap", name: "Trapenses", section: "INGRESOS" }),
+      row({ id: "ft", name: "ft foods", section: "INGRESOS" }),
+      row({ id: "qui", name: "Quincena", section: "REMUNERACIONES", canonicalKey: "QUINCENA" }),
+      row({ id: "te", name: "Turnos extra", section: "REMUNERACIONES", canonicalKey: "TURNO_EXTRA" }),
+      row({ id: "f29", name: "IVA F29", section: "IMPUESTOS", canonicalKey: "IVA_F29" }),
+      row({ id: "iva", name: "IVA Postergado", section: "IMPUESTOS" }),
+      row({
+        id: "ret",
+        name: "Retiro socios",
+        section: "FINANCIAMIENTO",
+        canonicalKey: "RETIRO_SOCIO",
+      }),
+    ];
+    const w = current;
+    const m = assembleMatrix({
+      rows,
+      weeks,
+      currentWeek: current,
+      openingBalance: 11_384_961,
+      plan: new Map([
+        ["f29", new Map([[w, 1_724_361]])],
+        ["iva", new Map([[w, 29_360_000]])],
+        // Bug histórico: plan tipado positivo en RETIRO_SOCIO.
+        ["ret", new Map([[w, 10_000_000]])],
+      ]),
+      committed: new Map([
+        ["cims", new Map([[w, { total: 5_006_345, items: [{ kind: "dte" as const, folio: 1767, dteId: "a", label: "CIMS", fecha: w, monto: 5_006_345 }] }]])],
+        ["trap", new Map([[w, { total: 2_770_502, items: [{ kind: "dte" as const, folio: 1769, dteId: "b", label: "Limpiotec", fecha: w, monto: 2_770_502 }] }]])],
+        ["ft", new Map([[w, { total: 5_103_557, items: [{ kind: "dte" as const, folio: 1771, dteId: "c", label: "ft foods", fecha: w, monto: 5_103_557 }] }]])],
+        ["qui", new Map([[w, { total: 4_776_383, items: [] }]])],
+        ["te", new Map([[w, { total: 1_279_096, items: [] }]])],
+      ]),
+      real: new Map(),
+    });
+    expect(m.balances[1]).toBe(-22_874_475);
+    // Self-heal: effective del retiro es −10M aunque el plan crudo sea +10M.
+    expect(m.rows.find((r) => r.id === "ret")!.cells[1]!.effective).toBe(-10_000_000);
+  });
+
   it("ancla manual solo aplica a semanas pasadas; actual sigue banco-hoy", () => {
     const rows = [row({ id: "ing" })];
     const m = assembleMatrix({
