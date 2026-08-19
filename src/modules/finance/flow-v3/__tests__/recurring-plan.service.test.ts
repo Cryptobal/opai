@@ -24,6 +24,13 @@ vi.mock("@/lib/prisma", () => ({
     },
     financeCashflowCategory: { findFirst: vi.fn() },
     financeCashflowConfig: { findUnique: vi.fn() },
+    // createRecurrence estampa nota de regla vía stampCellNotes → upsertCellNote
+    financeFlowCellNote: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      upsert: vi.fn(),
+      deleteMany: vi.fn(),
+    },
   },
 }));
 
@@ -43,6 +50,11 @@ const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
 beforeEach(() => {
   vi.clearAllMocks();
   asMock(listClosedV3Weeks).mockResolvedValue([]);
+  asMock(prisma.financeFlowCellNote.deleteMany).mockResolvedValue({ count: 0 });
+  asMock(prisma.financeFlowCellNote.upsert).mockResolvedValue({
+    body: null,
+    updatedBy: null,
+  });
 });
 
 describe("expandOccurrenceDates", () => {
