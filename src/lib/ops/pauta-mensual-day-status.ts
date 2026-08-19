@@ -3,11 +3,16 @@
  *
  * El número del día conserva el color de calendario (semana / finde / feriado).
  * El semáforo es un punto aparte, solo hasta hoy (Chile):
- * - verde  = todos los puestos de trabajo del día tienen asistencia registrada
- * - ámbar  = hay turnos planificados y falta al menos uno (incluye hoy sin marcas)
- * - rojo   = día ya pasado, con turnos planificados y cero asistencia
+ * - verde  = todos los turnos de trabajo del día tienen ASI o TE
+ * - ámbar  = hay turnos planificados y falta al menos un ASI/TE (incluye hoy sin marcas)
+ * - rojo   = día ya pasado, con turnos planificados y cero ASI/TE
  * - sin punto = futuro, o día sin turnos planificados
+ *
+ * PPC (vacante) y SC (marcado ausente) no cuentan como asistencia: si un día
+ * pasado solo tiene esos estados, el punto es rojo, no ámbar.
  */
+
+export type ExecutionAttendanceState = "asistio" | "te" | "sin_cobertura" | "ppc";
 
 export type DayAttendanceStatus = "ok" | "partial" | "pending" | "none" | "future";
 
@@ -26,9 +31,17 @@ const TONE_PENDING: DayAttendanceTone = { label: "sin asistencia", dotKind: "dan
 const TONE_NEUTRAL: DayAttendanceTone = { label: "sin turnos", dotKind: null };
 const TONE_FUTURE: DayAttendanceTone = { label: "día futuro", dotKind: null };
 
+/** Solo ASI y TE cubren el turno. PPC/SC/pendiente no. */
+export function isAttendedExecution(
+  state?: ExecutionAttendanceState | string | null,
+): boolean {
+  return state === "asistio" || state === "te";
+}
+
 /**
  * Resuelve el estado de un día.
  * `dateKey` y `todayKey` son YYYY-MM-DD comparables lexicográficamente.
+ * `resolved` debe ser el recuento de turnos con ASI/TE, no cualquier execution.
  */
 export function resolveDayAttendanceStatus(params: {
   dateKey: string;

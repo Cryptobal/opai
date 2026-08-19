@@ -37,6 +37,7 @@ import { formatPersonName } from "@/lib/personas";
 import { todayInChile } from "@/lib/dates-cl";
 import {
   dayAttendanceTone,
+  isAttendedExecution,
   resolveDayAttendanceStatus,
   type DayAttendanceStatus,
 } from "@/lib/ops/pauta-mensual-day-status";
@@ -1383,7 +1384,7 @@ export function OpsPautaMensualClient({
     return monthDays;
   }, [viewMode, monthDays]);
 
-  /** Estado de asistencia agregada por día (misma lógica de slots que «Total slots»). */
+  /** Estado de asistencia agregada por día: solo ASI/TE cuentan como cubiertos. */
   const dayStatusByDate = useMemo(() => {
     const map = new Map<string, DayAttendanceStatus>();
     const todayKey = todayInChile();
@@ -1409,7 +1410,7 @@ export function OpsPautaMensualClient({
           }
           if (!isWork) continue;
           planificados += 1;
-          if (cell?.execution) resueltos += 1;
+          if (isAttendedExecution(cell?.execution?.state)) resueltos += 1;
         }
       }
       map.set(
