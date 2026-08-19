@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   buildCellMenu,
   buildCellSheetModel,
+  filterMoveTargetWeeks,
   panelActionsFromCellMenu,
   resolveNextWeekKey,
   type CellMenuCallbacks,
@@ -111,8 +112,15 @@ describe("buildCellMenu — por folio en desktop", () => {
     expect(items.find((i) => i.key === "pay-dte")?.submenu?.length).toBe(2);
     expect(items.find((i) => i.key === "move-dte")?.submenu?.length).toBe(2);
     const moveSub = items.find((i) => i.key === "move-dte")?.submenu?.[0]?.submenu ?? [];
-    expect(moveSub.some((i) => String(i.label).includes("HACIA ATRÁS"))).toBe(true);
-    expect(moveSub.some((i) => String(i.label).includes("HACIA ADELANTE"))).toBe(true);
+    const weekKeys = moveSub.filter((i) => i.key.startsWith("mdte-")).map((i) => i.key);
+    // Desde 2026-08-03: anterior S26 + posteriores S33/S34 (sin headers HACIA ATRÁS/ADELANTE).
+    expect(weekKeys).toEqual([
+      "mdte-dte-1-2026-06-22",
+      "mdte-dte-1-2026-08-10",
+      "mdte-dte-1-2026-08-17",
+    ]);
+    expect(moveSub.find((i) => i.key === "mdte-dte-1-2026-08-10")?.highlight).toBe("next-week");
+    expect(moveSub.some((i) => String(i.label).includes("HACIA ATRÁS"))).toBe(false);
   });
 
   it("con 1 DTE acciones planas por folio sin plan", () => {
@@ -164,10 +172,62 @@ describe("buildCellMenu — por folio en desktop", () => {
       cellWeekStart: "2026-08-24",
     };
     const moveSub = buildCellMenu(row(), planCell, planCtx, cbs()).find((i) => i.key === "move")?.submenu ?? [];
+    // Solo semana anterior inmediata (S34) + posteriores (S36, S37); no S30/S33.
+    expect(moveSub.map((i) => i.key)).toEqual([
+      "move-2026-08-17",
+      "move-2026-08-31",
+      "move-2026-09-07",
+    ]);
     expect(resolveNextWeekKey(openWeeks, "2026-08-24")).toBe("2026-08-31");
     const nextItem = moveSub.find((i) => i.key === "move-2026-08-31");
     expect(nextItem?.highlight).toBe("next-week");
     expect(moveSub.find((i) => i.key === "move-2026-08-17")?.highlight).toBeUndefined();
+  });
+
+  it("filterMoveTargetWeeks deja solo la anterior y las siguientes", () => {
+    const weeks = [
+      { key: "2026-07-20", weekStart: "2026-07-20", label: "S30", isCurrent: false, isPast: true },
+      { key: "2026-08-10", weekStart: "2026-08-10", label: "S33", isCurrent: false, isPast: false },
+      { key: "2026-08-17", weekStart: "2026-08-17", label: "S34", isCurrent: false, isPast: false },
+      { key: "2026-08-24", weekStart: "2026-08-24", label: "S35", isCurrent: false, isPast: false },
+      { key: "2026-08-31", weekStart: "2026-08-31", label: "S36", isCurrent: false, isPast: false },
+      { key: "2026-09-07", weekStart: "2026-09-07", label: "S37", isCurrent: false, isPast: false },
+      { key: "2026-09-14", weekStart: "2026-09-14", label: "S38", isCurrent: false, isPast: false },
+    ];
+    // Desde S36: anterior = S35, luego S37, S38 (sin S30–S34).
+    expect(filterMoveTargetWeeks(weeks, "2026-08-31").map((w) => w.label)).toEqual([
+      "S35",
+      "S37",
+      "S38",
+    ]);
+  });
+
+  it("mover F° desde celda solo lista anterior + posteriores", () => {
+    const dteCell = cellWithDtes(1);
+    const dteMoveWeeks = [
+      { key: "2026-07-20", weekStart: "2026-07-20", label: "S30", isCurrent: false, isPast: true, weekCount: 1, monthKey: "2026-07" },
+      { key: "2026-08-10", weekStart: "2026-08-10", label: "S33", isCurrent: false, isPast: true, weekCount: 1, monthKey: "2026-08" },
+      { key: "2026-08-17", weekStart: "2026-08-17", label: "S34", isCurrent: false, isPast: false, weekCount: 1, monthKey: "2026-08" },
+      { key: "2026-08-31", weekStart: "2026-08-31", label: "S36", isCurrent: false, isPast: false, weekCount: 1, monthKey: "2026-08" },
+    ];
+    const moveCtx = {
+      ...ctx,
+      dteMoveWeeks,
+      cellWeekStart: "2026-08-24",
+      currentWeek: "2026-08-24",
+    };
+    const moveSub =
+      buildCellMenu(row(), dteCell, moveCtx, cbs()).find((i) => i.key === "move-dte-dte-1")?.submenu ??
+      [];
+    const weekKeys = moveSub
+      .filter((i) => i.key.startsWith("mdte-"))
+      .map((i) => i.key);
+    expect(weekKeys).toEqual([
+      "mdte-dte-1-2026-08-17",
+      "mdte-dte-1-2026-08-31",
+    ]);
+    expect(moveSub.find((i) => i.key === "mdte-dte-1-2026-08-31")?.highlight).toBe("next-week");
+    expect(moveSub.some((i) => i.key.includes("2026-07-20"))).toBe(false);
   });
 
   it("Retiro socios committed ofrece Mover a otra semana…", () => {
@@ -236,7 +296,13 @@ describe("buildCellMenu — por folio en desktop", () => {
     expect(items.find((i) => i.key === "move-draft-draft-ep")?.label).toBe("Mover a otra semana");
     expect(items.find((i) => i.key === "view-draft-draft-ep")?.label).toBe("Ver borrador");
     const moveSub = items.find((i) => i.key === "move-draft-draft-ep")?.submenu ?? [];
-    expect(moveSub.some((i) => String(i.label).includes("HACIA ATRÁS"))).toBe(true);
+    const weekKeys = moveSub.filter((i) => i.key.startsWith("mdte-")).map((i) => i.key);
+    expect(weekKeys).toEqual([
+      "mdte-draft-ep-2026-06-22",
+      "mdte-draft-ep-2026-08-10",
+      "mdte-draft-ep-2026-08-17",
+    ]);
+    expect(moveSub.find((i) => i.key === "mdte-draft-ep-2026-08-10")?.highlight).toBe("next-week");
   });
 });
 
@@ -316,7 +382,13 @@ describe("buildCellMenu — programaciones movibles", () => {
     const move = items.find((i) => i.key.startsWith("move-sched-"));
     expect(move?.label).toBe("Mover esta P a…");
     expect(move?.disabled).toBe(false);
-    expect(move?.submenu?.some((i) => String(i.label).includes("HACIA ADELANTE"))).toBe(true);
+    const weekKeys = (move?.submenu ?? []).filter((i) => i.key.startsWith("mdte-")).map((i) => i.key);
+    expect(weekKeys).toEqual([
+      "mdte-tpl:tpl-cims::2026-08-2026-06-22",
+      "mdte-tpl:tpl-cims::2026-08-2026-08-10",
+      "mdte-tpl:tpl-cims::2026-08-2026-08-17",
+    ]);
+    expect(move?.submenu?.find((i) => i.key.endsWith("2026-08-10"))?.highlight).toBe("next-week");
   });
 
   it("celda con F° + P permite mover cada una por separado", () => {

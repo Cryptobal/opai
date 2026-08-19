@@ -5,7 +5,7 @@ import type { FlowExcludedDte } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
-import { resolveNextWeekKey } from "./menu-builders";
+import { filterMoveTargetWeeks, resolveNextWeekKey } from "./menu-builders";
 import { committedItemMeta, terminoStatusLine, toneClass } from "./cell-meta";
 
 interface Props {
@@ -67,7 +67,8 @@ export function CellCompositionPanel({
   const showExecution = !!ex && ex.state !== "none";
   const pctWidth = ex?.pct == null ? 0 : Math.min(100, Math.max(0, Math.round(ex.pct)));
   const canAct = !!canManage;
-  const nextMoveWeekKey = resolveNextWeekKey(moveWeeks, cell.weekStart);
+  const moveTargets = filterMoveTargetWeeks(moveWeeks, cell.weekStart);
+  const nextMoveWeekKey = resolveNextWeekKey(moveTargets, cell.weekStart);
 
   const openDteOrBank = (dteId?: string, bankTransactionId?: string) => {
     if (dteId && onViewDte) { onViewDte(dteId); onClose(); return; }
@@ -120,7 +121,7 @@ export function CellCompositionPanel({
             const itemKey = schedKey ?? dteKey;
             const canMoveItem =
               canManage &&
-              moveWeeks.length > 0 &&
+              moveTargets.length > 0 &&
               ((schedKey?.startsWith("sched:") && !!onMoveScheduled) ||
                 (schedKey?.startsWith("ms:") && !!onMoveMilestone) ||
                 (dteKey && !!onMoveDte));
@@ -155,8 +156,9 @@ export function CellCompositionPanel({
                 </div>
                 {movingKey === itemKey && itemKey && (
                   <ul className="mt-1 max-h-36 space-y-0.5 overflow-y-auto rounded border border-ds-border-subtle bg-ds-surface-1 p-1">
-                    {moveWeeks.map((w) => {
+                    {moveTargets.map((w) => {
                       const isNext = w.key === nextMoveWeekKey;
+                      const isForward = w.key > cell.weekStart;
                       return (
                       <li key={w.key}>
                         <button
@@ -164,7 +166,9 @@ export function CellCompositionPanel({
                           className={`flex min-h-11 w-full items-center justify-between rounded px-1.5 text-left text-[13px] sm:min-h-9 ${
                             isNext
                               ? "bg-status-info-soft font-medium text-status-info-fg"
-                              : "text-ds-text-1 hover:bg-ds-surface-2"
+                              : isForward
+                                ? "text-status-info-fg hover:bg-ds-surface-2"
+                                : "text-ds-text-1 hover:bg-ds-surface-2"
                           }`}
                           onClick={() => {
                             if (it.kind === "dte" && it.dteId && onMoveDte) onMoveDte(it.dteId, w.key);

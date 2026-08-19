@@ -383,10 +383,22 @@ export function resolveNextWeekKey(weeks: MatrixColumn[], anchor: string): strin
   return sorted.find((w) => w.key > anchor)?.key ?? null;
 }
 
-function weekLabelNode(c: MatrixColumn, isNext?: boolean): React.ReactNode {
+/**
+ * Destinos de “mover a otra semana” relativos a la columna activa:
+ * solo la semana inmediatamente anterior + todas las posteriores.
+ * Evita listar muchas semanas históricas que saturan el menú.
+ */
+export function filterMoveTargetWeeks(weeks: MatrixColumn[], anchor: string): MatrixColumn[] {
+  const sorted = [...weeks].sort((a, b) => a.key.localeCompare(b.key));
+  const prev = [...sorted].reverse().find((w) => w.key < anchor) ?? null;
+  const forward = sorted.filter((w) => w.key > anchor);
+  return prev ? [prev, ...forward] : forward;
+}
+
+function weekLabelNode(c: MatrixColumn, isNext?: boolean, isForward?: boolean): React.ReactNode {
   return (
     <span className="flex w-full items-center justify-between gap-2">
-      <span>
+      <span className={isForward && !isNext ? "text-status-info-fg" : undefined}>
         {c.label} · {fmtDayMonth(c.weekStart)}
       </span>
       {isNext && (
@@ -404,14 +416,15 @@ function openWeekMoveSubmenu(
   ctx: CellMenuContext,
   onSelect: (weekKey: string) => void,
 ): MenuItemDesc[] {
-  const sorted = [...weeks].sort((a, b) => a.key.localeCompare(b.key));
   const anchor = ctx.cellWeekStart ?? ctx.currentWeek;
-  const nextKey = resolveNextWeekKey(sorted, anchor);
-  return sorted.map((c) => {
+  const targets = filterMoveTargetWeeks(weeks, anchor);
+  const nextKey = resolveNextWeekKey(targets, anchor);
+  return targets.map((c) => {
     const isNext = c.key === nextKey;
+    const isForward = c.key > anchor;
     return {
       key: `${keyPrefix}-${c.key}`,
-      label: weekLabelNode(c, isNext),
+      label: weekLabelNode(c, isNext, isForward),
       highlight: isNext ? "next-week" : undefined,
       onSelect: () => onSelect(c.key),
     };
@@ -424,56 +437,26 @@ function weekSubmenu(
   ctx: CellMenuContext,
   onMove: (dteId: string, targetWeek: string) => void,
 ): MenuItemDesc[] {
-  const backward = weeks
-    .filter((w) => w.isPast)
-    .sort((a, b) => b.key.localeCompare(a.key));
-  const forward = weeks
-    .filter((w) => !w.isPast)
-    .sort((a, b) => a.key.localeCompare(b.key));
   const anchor = ctx.cellWeekStart ?? ctx.currentWeek;
-  const nextUpcoming =
-    forward.find((w) => w.key > anchor) ?? forward[0] ?? null;
+  const targets = filterMoveTargetWeeks(weeks, anchor);
+  const nextKey = resolveNextWeekKey(targets, anchor);
 
-  const out: MenuItemDesc[] = [];
-
-  if (backward.length > 0) {
-    out.push({
-      key: `back-hdr-${dteId}`,
-      label: "HACIA ATRÁS (abiertas)",
-      disabled: true,
-    });
-    for (const c of backward) {
-      out.push({
-        key: `mdte-${dteId}-${c.key}`,
-        label: weekLabelNode(c, false),
-        onSelect: () => onMove(dteId, c.key),
-      });
-    }
-  }
-
-  if (forward.length > 0) {
-    out.push({
-      key: `fwd-hdr-${dteId}`,
-      label: "HACIA ADELANTE",
-      disabled: true,
-      separatorBefore: backward.length > 0,
-    });
-    for (const c of forward) {
-      const isNext = !!(nextUpcoming && c.key === nextUpcoming.key);
-      out.push({
-        key: `mdte-${dteId}-${c.key}`,
-        label: weekLabelNode(c, isNext),
-        highlight: isNext ? "next-week" : undefined,
-        onSelect: () => onMove(dteId, c.key),
-      });
-    }
-  }
+  const out: MenuItemDesc[] = targets.map((c) => {
+    const isNext = c.key === nextKey;
+    const isForward = c.key > anchor;
+    return {
+      key: `mdte-${dteId}-${c.key}`,
+      label: weekLabelNode(c, isNext, isForward),
+      highlight: isNext ? "next-week" : undefined,
+      onSelect: () => onMove(dteId, c.key),
+    };
+  });
 
   out.push({
     key: `sealed-note-${dteId}`,
     label: "Las semanas cerradas no aparecen",
     disabled: true,
-    separatorBefore: true,
+    separatorBefore: targets.length > 0,
   });
 
   return out;
