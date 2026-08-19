@@ -22,6 +22,10 @@ import {
 import { PlanillaHeader } from "./PlanillaHeader";
 import { PlanillaRow } from "./PlanillaRow";
 import { BalanceRow } from "./BalanceRow";
+import {
+  SaldoAcumuladoDialog,
+  type SaldoDialogPayload,
+} from "./SaldoAcumuladoDialog";
 import { CellLayersPopover, type PopoverState } from "./CellLayersPopover";
 import type { CellHoverCardHandle } from "./CellHoverCard";
 import {
@@ -225,6 +229,7 @@ export function PlanillaGrid({
   const [bandejaRutSection, setBandejaRutSection] = useState<string | null>(null);
   /** Panel "Facturas sin fila" (DTEs emitidos unrouted). */
   const [unroutedOpen, setUnroutedOpen] = useState(false);
+  const [saldoDialog, setSaldoDialog] = useState<SaldoDialogPayload | null>(null);
   /** DTE a enfocar en el picker "Vincular a programación…" del drill. */
   const [linkFocusDteId, setLinkFocusDteId] = useState<string | null>(null);
   const [discreteSel, setDiscreteSel] = useState<Map<string, number>>(() => new Map());
@@ -1759,6 +1764,7 @@ export function PlanillaGrid({
                 balanceAnchors={data.balanceAnchors}
                 openingBalance={data.openingBalance}
                 rows={data.rows}
+                onSaldoDetail={setSaldoDialog}
                 canManage={canManage && data.granularity === "week"}
                 onBalanceAnchor={
                   canManage && data.granularity === "week"
@@ -2171,6 +2177,14 @@ export function PlanillaGrid({
           daysOverdue={cobranzaTarget.daysOverdue}
         />
       )}
+
+      <SaldoAcumuladoDialog
+        open={saldoDialog != null}
+        onOpenChange={(v) => {
+          if (!v) setSaldoDialog(null);
+        }}
+        payload={saldoDialog}
+      />
     </>
   );
 }

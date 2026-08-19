@@ -161,7 +161,7 @@ function SealBreakBody({
         <dl className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-3 text-[13px]">
           <Row label="Saldo sellado" value={fmtClp(payload.balance)} strong />
           <Row
-            label={`Diferencia vs cadena desde ${vs}`}
+            label={`Diferencia con cadena desde ${vs}`}
             value={fmtClp(payload.delta)}
             tone={payload.delta < 0 ? "danger" : "warn"}
           />

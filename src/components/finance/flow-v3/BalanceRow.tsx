@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { BalanceBreak, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
@@ -11,10 +10,7 @@ import {
   fmtCell, fmtClp, formatThousands, NUM_CLASS, numSizeClass, type NumberFormatMode,
 } from "./format";
 import { COL_W, GUTTER_CELL, GUTTER_W, NAME_LEFT, NAME_W, TODAY_COL } from "./grid-classes";
-import {
-  SaldoAcumuladoDialog,
-  type SaldoDialogPayload,
-} from "./SaldoAcumuladoDialog";
+import type { SaldoDialogPayload } from "./SaldoAcumuladoDialog";
 
 interface Props {
   columns: MatrixColumn[];
@@ -37,6 +33,8 @@ interface Props {
   /** Banco hoy (ancla viva) + filas para desglose del saldo actual. */
   openingBalance?: number;
   rows?: FlowMatrixRowDto[];
+  /** Abre el modal de saldo (fuera de la tabla). */
+  onSaldoDetail?: (payload: SaldoDialogPayload) => void;
 }
 
 const EYEBROW = "font-sans font-normal tabular-nums leading-none";
@@ -68,13 +66,12 @@ export function BalanceRow({
   columns, flows, balances, balanceBreaks, warnThreshold, startNumber, numberFormat = "clp",
   selectedColIdx, selectedColIndices,
   closedWeeks, balanceAnchors, canManage, onBalanceAnchor,
-  openingBalance, rows,
+  openingBalance, rows, onSaldoDetail,
 }: Props) {
   const closedSet = new Set(closedWeeks ?? []);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  const [dialog, setDialog] = useState<SaldoDialogPayload | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -95,8 +92,8 @@ export function BalanceRow({
 
   const openCurrentSaldo = useCallback(
     (i: number) => {
-      if (openingBalance == null || !rows) return;
-      setDialog({
+      if (openingBalance == null || !rows || !onSaldoDetail) return;
+      onSaldoDetail({
         kind: "current",
         weekKey: columns[i]!.key,
         balance: Math.round(balances[i] ?? 0),
@@ -104,12 +101,13 @@ export function BalanceRow({
         breakdown: weekPendingBreakdown(rows, i),
       });
     },
-    [openingBalance, rows, columns, balances],
+    [openingBalance, rows, columns, balances, onSaldoDetail],
   );
 
   const openSealBreak = useCallback(
     (i: number, brk: BalanceBreak) => {
-      setDialog({
+      if (!onSaldoDetail) return;
+      onSaldoDetail({
         kind: "seal-break",
         weekKey: columns[i]!.key,
         balance: Math.round(balances[i] ?? 0),
@@ -117,7 +115,7 @@ export function BalanceRow({
         delta: brk.delta,
       });
     },
-    [columns, balances],
+    [columns, balances, onSaldoDetail],
   );
 
   const startEdit = useCallback(
@@ -131,7 +129,6 @@ export function BalanceRow({
         });
         return;
       }
-      // Semana actual: modal con desglose (banco hoy + pendientes).
       if (col.isCurrent) {
         openCurrentSaldo(i);
         return;
@@ -191,181 +188,165 @@ export function BalanceRow({
     }
   }, [editIdx, onBalanceAnchor, columns, draft, balanceAnchors, balances, cancelEdit]);
 
-  const dialogNode =
-    typeof document !== "undefined" ? (
-      createPortal(
-        <SaldoAcumuladoDialog
-          open={dialog != null}
-          onOpenChange={(v) => {
-            if (!v) setDialog(null);
-          }}
-          payload={dialog}
-        />,
-        document.body,
-      )
-    ) : null;
-
   return (
-    <>
-      <tfoot className="sticky bottom-0 z-20">
-        <tr className="h-[var(--plnx-row-h)] bg-ds-surface-2">
-          <td aria-hidden className={gutterTh}>
-            {startNumber}
-          </td>
-          <th scope="row" className={nameTh}>
-            <span className="md:hidden">Flujo</span>
-            <span className="max-md:hidden">Flujo semana</span>
-          </th>
-          {columns.map((c, i) => {
-            const text = fmtCell(flows[i], numberFormat);
+    <tfoot className="sticky bottom-0 z-20">
+      <tr className="h-[var(--plnx-row-h)] bg-ds-surface-2">
+        <td aria-hidden className={gutterTh}>
+          {startNumber}
+        </td>
+        <th scope="row" className={nameTh}>
+          <span className="md:hidden">Flujo</span>
+          <span className="max-md:hidden">Flujo semana</span>
+        </th>
+        {columns.map((c, i) => {
+          const text = fmtCell(flows[i], numberFormat);
+          return (
+            <td
+              key={c.key}
+              title={numberFormat !== "clp" && flows[i] !== 0 ? fmtCell(flows[i], "clp") : undefined}
+              className={`${cellBase} ${numSizeClass(text)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)} ${
+                flows[i] < 0 ? "text-status-danger-fg" : flows[i] > 0 ? "text-status-ok-fg" : "text-ds-text-4"
+              }`}
+            >
+              {text}
+            </td>
+          );
+        })}
+      </tr>
+      <tr className="h-[var(--plnx-row-h)] bg-ds-surface-1">
+        <td aria-hidden className={`${gutterTh} border-t-0`}>
+          {startNumber + 1}
+        </td>
+        <th scope="row" className={`${nameTh} border-t-0`}>
+          <span className="md:hidden">Saldo</span>
+          <span className="max-md:hidden">Saldo acumulado</span>
+        </th>
+        {columns.map((c, i) => {
+          const text = fmtCell(balances[i], numberFormat);
+          const brk = balanceBreaks?.[i] ?? null;
+          const anchored = balanceAnchors?.[c.key] != null;
+          const closed = closedSet.has(c.key);
+          const editable = !!canManage && !!onBalanceAnchor && !closed && c.isPast;
+          const canOpenCurrent =
+            c.isCurrent && openingBalance != null && !!rows && !!onSaldoDetail;
+          const exactTitle =
+            numberFormat !== "clp" && balances[i] !== 0 ? fmtCell(balances[i], "clp") : undefined;
+          const editHint = editable
+            ? anchored
+              ? "Ancla manual · clic para editar · vaciar para quitar"
+              : "Clic para fijar saldo acumulado histórico"
+            : closed
+              ? "Semana cerrada — saldo fijo"
+              : canOpenCurrent
+                ? "Clic para ver saldo acumulado"
+                : brk
+                  ? "Clic para ver detalle del sello"
+                  : !c.isPast
+                    ? "Proyección desde banco hoy"
+                    : undefined;
+          const title = [exactTitle, editHint].filter(Boolean).join(" · ") || undefined;
+
+          if (editIdx === i) {
             return (
               <td
                 key={c.key}
-                title={numberFormat !== "clp" && flows[i] !== 0 ? fmtCell(flows[i], "clp") : undefined}
-                className={`${cellBase} ${numSizeClass(text)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)} ${
-                  flows[i] < 0 ? "text-status-danger-fg" : flows[i] > 0 ? "text-status-ok-fg" : "text-ds-text-4"
-                }`}
+                className={`relative ${cellBase} border-t-0 font-semibold ${heatClass(balances[i], warnThreshold)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)} p-0`}
               >
-                {text}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  inputMode="numeric"
+                  disabled={saving}
+                  value={draft}
+                  onChange={(e) => setDraft(formatBalanceDraft(e.target.value))}
+                  onBlur={() => void commitEdit()}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    const mod = e.metaKey || e.ctrlKey;
+                    if (mod && (e.key === "a" || e.key === "A")) {
+                      e.preventDefault();
+                      e.currentTarget.select();
+                      return;
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void commitEdit();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      cancelEdit();
+                    }
+                  }}
+                  className={`h-full w-full min-w-0 bg-transparent px-1.5 max-md:px-[3px] text-right text-ds-text-1 outline-none ${NUM_CLASS}`}
+                  style={{ fontSize: "inherit", fontWeight: 600, lineHeight: "inherit" }}
+                  aria-label={`Saldo acumulado ${weekLabel(c.key)}`}
+                />
               </td>
             );
-          })}
-        </tr>
-        <tr className="h-[var(--plnx-row-h)] bg-ds-surface-1">
-          <td aria-hidden className={`${gutterTh} border-t-0`}>
-            {startNumber + 1}
-          </td>
-          <th scope="row" className={`${nameTh} border-t-0`}>
-            <span className="md:hidden">Saldo</span>
-            <span className="max-md:hidden">Saldo acumulado</span>
-          </th>
-          {columns.map((c, i) => {
-            const text = fmtCell(balances[i], numberFormat);
-            const brk = balanceBreaks?.[i] ?? null;
-            const anchored = balanceAnchors?.[c.key] != null;
-            const closed = closedSet.has(c.key);
-            const editable = !!canManage && !!onBalanceAnchor && !closed && c.isPast;
-            const canOpenCurrent =
-              c.isCurrent && openingBalance != null && !!rows;
-            const exactTitle =
-              numberFormat !== "clp" && balances[i] !== 0 ? fmtCell(balances[i], "clp") : undefined;
-            const editHint = editable
-              ? anchored
-                ? "Ancla manual · clic para editar · vaciar para quitar"
-                : "Clic para fijar saldo acumulado histórico"
-              : closed
-                ? "Semana cerrada — saldo fijo"
-                : canOpenCurrent
-                  ? "Clic para ver saldo acumulado"
-                  : brk
-                    ? "Clic para ver detalle del sello"
-                    : !c.isPast
-                      ? "Proyección desde banco hoy"
-                      : undefined;
-            const title = [exactTitle, editHint].filter(Boolean).join(" · ") || undefined;
+          }
 
-            if (editIdx === i) {
-              return (
-                <td
-                  key={c.key}
-                  className={`relative ${cellBase} border-t-0 font-semibold ${heatClass(balances[i], warnThreshold)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)} p-0`}
-                >
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    inputMode="numeric"
-                    disabled={saving}
-                    value={draft}
-                    onChange={(e) => setDraft(formatBalanceDraft(e.target.value))}
-                    onBlur={() => void commitEdit()}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      const mod = e.metaKey || e.ctrlKey;
-                      if (mod && (e.key === "a" || e.key === "A")) {
-                        e.preventDefault();
-                        e.currentTarget.select();
-                        return;
-                      }
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void commitEdit();
-                      } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        cancelEdit();
-                      }
-                    }}
-                    className={`h-full w-full min-w-0 bg-transparent px-1.5 max-md:px-[3px] text-right text-ds-text-1 outline-none ${NUM_CLASS}`}
-                    style={{ fontSize: "inherit", fontWeight: 600, lineHeight: "inherit" }}
-                    aria-label={`Saldo acumulado ${weekLabel(c.key)}`}
-                  />
-                </td>
-              );
-            }
-
-            return (
-              <td
-                key={c.key}
-                title={title}
-                onClick={() => {
-                  if (brk) {
+          return (
+            <td
+              key={c.key}
+              title={title}
+              onClick={() => {
+                if (brk) {
+                  openSealBreak(i, brk);
+                  return;
+                }
+                if (canOpenCurrent) {
+                  openCurrentSaldo(i);
+                  return;
+                }
+                if (editable) startEdit(i);
+                else if (closed && canManage) startEdit(i);
+                else if (c.isCurrent && canManage) startEdit(i);
+              }}
+              className={`relative ${cellBase} border-t-0 font-semibold ${numSizeClass(text)} ${heatClass(balances[i], warnThreshold)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)} ${
+                editable || canOpenCurrent || brk
+                  ? "cursor-pointer"
+                  : closed
+                    ? "cursor-not-allowed"
+                    : ""
+              }`}
+            >
+              {brk && (
+                <button
+                  type="button"
+                  aria-label={`Sellos inconsistentes vs ${weekLabel(brk.vsWeek)}: ${fmtClp(brk.delta)}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
                     openSealBreak(i, brk);
-                    return;
-                  }
-                  if (canOpenCurrent) {
+                  }}
+                  className="absolute right-0 top-0 z-[1] flex h-7 w-7 items-center justify-center rounded text-[13px] leading-none text-status-warn-fg hover:bg-status-warn-soft"
+                >
+                  ⚠
+                </button>
+              )}
+              {canOpenCurrent && !brk && (
+                <button
+                  type="button"
+                  data-testid="saldo-acumulado-info"
+                  aria-label={`Ver saldo acumulado ${weekLabel(c.key)}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
                     openCurrentSaldo(i);
-                    return;
-                  }
-                  if (editable) startEdit(i);
-                  else if (closed && canManage) startEdit(i); // toast
-                  else if (c.isCurrent && canManage) startEdit(i); // opens modal via startEdit
-                }}
-                className={`relative ${cellBase} border-t-0 font-semibold ${numSizeClass(text)} ${heatClass(balances[i], warnThreshold)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)} ${
-                  editable || canOpenCurrent || brk
-                    ? "cursor-pointer"
-                    : closed
-                      ? "cursor-not-allowed"
-                      : ""
-                }`}
-              >
-                {brk && (
-                  <button
-                    type="button"
-                    aria-label={`Sellos inconsistentes vs ${weekLabel(brk.vsWeek)}: ${fmtClp(brk.delta)}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openSealBreak(i, brk);
-                    }}
-                    className="absolute right-0.5 top-0 z-[1] flex h-5 w-5 items-center justify-center rounded text-[12px] leading-none text-status-warn-fg hover:bg-status-warn-soft"
-                  >
-                    ⚠
-                  </button>
-                )}
-                {canOpenCurrent && !brk && (
-                  <button
-                    type="button"
-                    aria-label={`Ver saldo acumulado ${weekLabel(c.key)}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openCurrentSaldo(i);
-                    }}
-                    className="absolute right-0.5 top-0 z-[1] flex h-5 w-5 items-center justify-center rounded text-[12px] leading-none text-status-info-fg hover:bg-status-info-soft"
-                  >
-                    ⓘ
-                  </button>
-                )}
-                {anchored && !brk && (
-                  <span
-                    aria-label="Saldo anclado manualmente"
-                    className="absolute left-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary"
-                  />
-                )}
-                {text}
-              </td>
-            );
-          })}
-        </tr>
-      </tfoot>
-      {dialogNode}
-    </>
+                  }}
+                  className="absolute right-0 top-0 z-[1] flex h-7 w-7 items-center justify-center rounded text-[13px] leading-none text-status-info-fg hover:bg-status-info-soft"
+                >
+                  ⓘ
+                </button>
+              )}
+              {anchored && !brk && (
+                <span
+                  aria-label="Saldo anclado manualmente"
+                  className="absolute left-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary"
+                />
+              )}
+              {text}
+            </td>
+          );
+        })}
+      </tr>
+    </tfoot>
   );
 }
