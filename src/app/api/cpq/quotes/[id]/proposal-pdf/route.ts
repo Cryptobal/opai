@@ -13,6 +13,10 @@ import { requireTenantModule } from '@/lib/require-module';
 import { loadQuoteProposal } from '@/lib/cpq/proposal-sections/persist';
 import { blockingErrors, validateProposalContent } from '@/lib/cpq/proposal-sections/validate';
 import { hasRealDotacion, loadDotacionPositions } from '@/lib/cpq/proposal-sections/build-dotacion';
+import {
+  emptyFinalProposalSectionTitles,
+  finalProposalIncompleteMessage,
+} from '@/lib/pdf/templates/proposal/final-proposal-gate';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -78,6 +82,19 @@ export async function GET(
     }
 
     const { fileName, ...props } = await buildProposalProps(id, tenantId, { pdfMode });
+
+    // Comercial (y licitación ya hidratada): tras hydrate, no emitir PDF final
+    // con capítulos vacíos (Gantt, exclusiones stub, etc.).
+    if (pdfMode === 'final') {
+      const empty = emptyFinalProposalSectionTitles(props.proposalSections);
+      if (empty.length > 0) {
+        return NextResponse.json(
+          { success: false, error: finalProposalIncompleteMessage(empty) },
+          { status: 422 },
+        );
+      }
+    }
+
     const pdfBuffer = await renderProposalToBufferFromProps(props);
 
     return new NextResponse(new Uint8Array(pdfBuffer), {

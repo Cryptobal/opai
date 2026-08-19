@@ -22,6 +22,9 @@ import {
   getProposalIndicators,
   listReferenceAccounts,
 } from '@/lib/cpq/fixed-sections';
+import { loadDotacionPositions } from '@/lib/cpq/proposal-sections/build-dotacion';
+import { hydrateProposalContentForPdfWithTenant } from '@/lib/cpq/proposal-sections/hydrate-for-pdf';
+import { saveQuoteProposal } from '@/lib/cpq/proposal-sections/persist';
 
 export type ProposalSectionSnapshot = {
   id: string;
@@ -1138,11 +1141,35 @@ export async function buildProposalProps(
 
   const isLicitacion =
     quote.proposalMode === 'licitacion' || v2Content?.mode === 'licitacion';
-  const proposalContent = isLicitacion
+  let proposalContent = isLicitacion
     ? readProposalContent(quote.proposalAiContent, 'licitacion')
     : v2Content;
 
   if (proposalContent) {
+    // Hidrata fija_empresa + Dotación vacías para que el PDF no salga con
+    // capítulos solo-título (el usuario no tiene que haber corrido generate_*).
+    try {
+      const positions = await loadDotacionPositions(quotationId);
+      const hydrated = await hydrateProposalContentForPdfWithTenant({
+        tenantId,
+        content: proposalContent,
+        positions,
+      });
+      if (hydrated.changed) {
+        proposalContent = await saveQuoteProposal({
+          tenantId,
+          quoteId: quotationId,
+          content: hydrated.content,
+        });
+        // Re-sincroniza AI legacy (organigrama / certs) desde secciones hidratadas.
+        props.ai = mapV2ToProposalAI(proposalContent);
+      } else {
+        proposalContent = hydrated.content;
+      }
+    } catch (err) {
+      console.error('[PDF] hydrateProposalContentForPdf falló — se usa contenido sin hidratar:', err);
+    }
+
     const sections: ProposalSectionSnapshot[] = [...proposalContent.sections]
       .sort((a, b) => a.order - b.order)
       .map((section) => ({

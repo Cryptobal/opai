@@ -533,20 +533,41 @@ export async function renderInstitutionalProposalToBufferFromProps(
     'OPAI';
   const sourceSections: ProposalSectionSnapshot[] =
     props.proposalSections ?? props.licitacion?.sections ?? [];
-  const sections = sourceSections.filter(
+  const baseSections = sourceSections.filter(
     (section) =>
       section.invariant !== 'matriz' &&
       section.invariant !== 'identificacion',
   );
-  if (!sections.some((section) => section.kind === 'oferta_economica')) {
-    sections.push({
+  if (!baseSections.some((section) => section.kind === 'oferta_economica')) {
+    baseSections.push({
       id: 'economic-opening',
-      order: sections.length,
+      order: baseSections.length,
       title: 'Oferta económica — apertura completa',
       content: '',
       kind: 'oferta_economica',
     });
   }
+
+  /**
+   * No emitir capítulos solo-título: cuerpo vacío y sin extras inyectables
+   * (organigrama / certs / portfolio / oferta económica runtime).
+   */
+  const sectionHasRenderableBody = (section: ProposalSectionSnapshot): boolean => {
+    if (section.kind === 'oferta_economica') return true;
+    if (section.content.trim()) return true;
+    const isWho = /qui[eé]nes somos|organigrama/i.test(section.title);
+    if (isWho && (props.ai.organigramRoles ?? []).some((r) => r.trim())) return true;
+    const isExperience = /experiencia|certificaci[oó]n/i.test(section.title);
+    if (
+      isExperience &&
+      ((props.ai.certifications ?? []).some((c) => c.trim()) ||
+        (props.referenceAccounts ?? []).length > 0)
+    ) {
+      return true;
+    }
+    return false;
+  };
+  const sections = baseSections.filter(sectionHasRenderableBody);
   const matrix: ProposalComplianceRow[] =
     props.complianceMatrix ?? props.licitacion?.matrix ?? [];
   const indicators = (props.proposalMetrics ?? []).filter(

@@ -157,4 +157,35 @@ describe("renderInstitutionalProposalToBufferFromProps", () => {
     },
     30_000,
   );
+
+  it(
+    "omite capítulos con cuerpo vacío (no emite páginas solo-título)",
+    async () => {
+      const withEmpty = {
+        ...fixture,
+        proposalSections: [
+          ...fixture.proposalSections!,
+          {
+            id: "gantt-empty",
+            order: 99,
+            title: "Carta Gantt",
+            content: "",
+          },
+          {
+            id: "empty-caps",
+            order: 100,
+            title: "Capacitación",
+            content: "   ",
+          },
+        ],
+      };
+      const baseline = await renderInstitutionalProposalToBufferFromProps(fixture);
+      const withEmpties = await renderInstitutionalProposalToBufferFromProps(withEmpty);
+      const baseDoc = await PDFDocument.load(Uint8Array.from(baseline));
+      const emptyDoc = await PDFDocument.load(Uint8Array.from(withEmpties));
+      // Misma cantidad de páginas: los vacíos no agregan A4
+      expect(emptyDoc.getPageCount()).toBe(baseDoc.getPageCount());
+    },
+    30_000,
+  );
 });

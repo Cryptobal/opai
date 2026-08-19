@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   bundleFindFirst: vi.fn(),
   buildProposalProps: vi.fn(),
   getUfValue: vi.fn(),
+  loadDotacionPositions: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -23,6 +24,16 @@ vi.mock("@/lib/uf", () => ({
   getUfValue: mocks.getUfValue,
   clpToUf: (clp: number, uf: number) => clp / uf,
 }));
+
+vi.mock("@/lib/cpq/proposal-sections/build-dotacion", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/cpq/proposal-sections/build-dotacion")
+  >("@/lib/cpq/proposal-sections/build-dotacion");
+  return {
+    ...actual,
+    loadDotacionPositions: mocks.loadDotacionPositions,
+  };
+});
 
 import { buildBundleProposalProps } from "../build-bundle-proposal-props";
 
@@ -43,6 +54,46 @@ function quoteProps(over: Record<string, unknown> = {}) {
     paymentTerms: "Mensual, contra entrega de factura",
     companyName: "Cliente SpA",
     validUntil: "1 de enero de 2027",
+    proposalSections: [
+      {
+        id: "dot",
+        order: 0,
+        title: "Dotación",
+        content: "Solo Centro",
+      },
+      {
+        id: "uni",
+        order: 1,
+        title: "Uniformes y EPP",
+        content: "Uniforme institucional",
+      },
+    ],
+    breakdown: {
+      positions: [],
+      totalLaborCost: 500_000,
+      holidayAdjustment: 0,
+      uniforms: 50_000,
+      exams: 0,
+      meals: 0,
+      vehicles: 0,
+      infrastructure: 0,
+      equipment: 0,
+      transport: 0,
+      systems: 0,
+      other: 0,
+      subtotalBase: 550_000,
+      marginPct: 13,
+      marginAmount: 80_000,
+      financial: 0,
+      financialRatePct: 0,
+      policy: 0,
+      policyRatePct: 0,
+      totalSalePrice: 1_000_000,
+      additionalLines: 0,
+      grandTotal: 1_000_000,
+      monthlyHoursStandard: 180,
+      currency: "CLP",
+    },
     ...over,
   };
 }
@@ -57,6 +108,34 @@ beforeEach(() => {
     validUntil: null,
     paymentTerms: null,
     quotes: [{ quoteId: "q1" }, { quoteId: "q2" }],
+  });
+  mocks.loadDotacionPositions.mockImplementation(async (quoteId: string) => {
+    if (quoteId === "q1") {
+      return [
+        {
+          customName: "Día Centro",
+          weekdays: ["lun", "mar", "mie", "jue", "vie", "sab", "dom"],
+          startTime: "08:00",
+          endTime: "20:00",
+          numGuards: 2,
+          numPuestos: 1,
+          cargo: { name: "Guardia" },
+          serviceGroup: { name: "Acceso", displayOrder: 0 },
+        },
+      ];
+    }
+    return [
+      {
+        customName: "Día Norte",
+        weekdays: ["lun", "mar", "mie", "jue", "vie", "sab", "dom"],
+        startTime: "08:00",
+        endTime: "20:00",
+        numGuards: 3,
+        numPuestos: 1,
+        cargo: { name: "Guardia" },
+        serviceGroup: { name: "Acceso", displayOrder: 0 },
+      },
+    ];
   });
 });
 
@@ -115,7 +194,6 @@ describe("buildBundleProposalProps", () => {
       "Sucursal Norte — Kit inicial",
     ]);
     expect(props.consolidatedSummary!.totalOneTime).toBe(800_000);
-    // Cada instalación conserva su propio bloque de pago único
     expect(props.installations![0]!.oneTimeItems).toHaveLength(1);
     expect(props.installations![1]!.oneTimeTotalFormatted).toBe("$300.000");
   });
@@ -163,6 +241,35 @@ describe("buildBundleProposalProps", () => {
     expect(props.consolidatedSummary!.totalGuards).toBe(10);
     expect(props.consolidatedSummary!.installationCount).toBe(2);
     expect(props.totalNeto).toBe(3_500_000);
+  });
+
+  it("reescribe Dotación con todas las instalaciones y suma breakdown", async () => {
+    mocks.buildProposalProps
+      .mockResolvedValueOnce(quoteProps({ installationName: "Sucursal Centro" }))
+      .mockResolvedValueOnce(
+        quoteProps({
+          quotationCode: "CPQ-2026-002",
+          installationName: "Sucursal Norte",
+          totalNeto: 2_000_000,
+          breakdown: {
+            ...quoteProps().breakdown,
+            totalLaborCost: 800_000,
+            uniforms: 40_000,
+            grandTotal: 2_000_000,
+            totalSalePrice: 2_000_000,
+            subtotalBase: 840_000,
+            marginAmount: 160_000,
+          },
+        }),
+      );
+
+    const props = await buildBundleProposalProps("b1", "t1");
+    const dotacion = props.proposalSections!.find((s) => s.title === "Dotación")!.content;
+    expect(dotacion).toContain("Sucursal Centro");
+    expect(dotacion).toContain("Sucursal Norte");
+    expect(dotacion).not.toBe("Solo Centro");
+    expect(props.breakdown!.totalLaborCost).toBe(1_300_000);
+    expect(props.breakdown!.uniforms).toBe(90_000);
   });
 
   it("propuesta sin cotizaciones incluidas → BUNDLE_EMPTY", async () => {
