@@ -311,7 +311,7 @@ export function buildHoverCardContent(args: {
       reason ||
       (hasClickableDte
         ? "Clic en F° → factura"
-        : "Doble clic editar · Más…"),
+        : "Clic derecho · Doble clic editar · Más…"),
     term,
     cession,
     cobranza,

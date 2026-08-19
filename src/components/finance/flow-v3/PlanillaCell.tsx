@@ -58,8 +58,8 @@ interface Props {
   onCommit: (raw: string, move: "down" | "right" | "none") => void;
   onCancel: () => void;
   onOpenPopover: (anchor: DOMRect) => void;
-  /** Registra esta celda como objetivo del menú contextual del grid. */
-  onContextTarget: () => void;
+  /** Clic derecho: menú contextual, o ficha si la celda ya está activa. */
+  onContextTarget: (e: React.MouseEvent) => void;
   /** Long-press táctil → action sheet (móvil). */
   onOpenCellSheet?: () => void;
   /** Abre el editor de nota (indicador real). */
