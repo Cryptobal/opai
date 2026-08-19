@@ -136,7 +136,9 @@ export function CellCompositionPanel({
                   <span className="flex shrink-0 items-center gap-2">
                     {canMoveItem && itemKey && movingKey !== itemKey && (
                       <button type="button" className="min-h-11 text-[12px] text-status-info-fg underline-offset-2 hover:underline sm:min-h-0"
-                        onClick={() => setMovingKey(itemKey)}>Mover…</button>
+                        onClick={() => setMovingKey(itemKey)}>
+                        {it.kind === "scheduled" ? "Mover esta P…" : "Mover esta F°…"}
+                      </button>
                     )}
                     {canExclude && excludingId !== it.dteId && (
                       <button type="button" className="text-[12px] text-status-warn-fg underline-offset-2 hover:underline"

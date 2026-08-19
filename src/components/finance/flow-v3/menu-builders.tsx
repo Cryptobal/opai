@@ -601,7 +601,7 @@ function scheduledMoveItems(
     return [
       {
         key: `move-sched-${key}`,
-        label: "Mover programación a…",
+        label: "Mover esta P a…",
         separatorBefore: opts?.separatorBeforeFirst,
         disabled: !canMove,
         reason,
@@ -612,7 +612,7 @@ function scheduledMoveItems(
   return [
     {
       key: "move-sched",
-      label: "Mover programación a…",
+      label: "Mover una P a…",
       separatorBefore: opts?.separatorBeforeFirst,
       disabled: !canMove,
       reason,

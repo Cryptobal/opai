@@ -282,7 +282,7 @@ describe("buildCellMenu — programaciones movibles", () => {
     expect(items.find((i) => i.key === "move")).toBeUndefined();
     expect(items.find((i) => i.key === "clear")).toBeUndefined();
     const move = items.find((i) => i.key.startsWith("move-sched-"));
-    expect(move?.label).toBe("Mover programación a…");
+    expect(move?.label).toBe("Mover esta P a…");
     expect(move?.disabled).toBe(false);
     expect(move?.submenu?.some((i) => String(i.label).includes("HACIA ADELANTE"))).toBe(true);
   });
@@ -290,7 +290,7 @@ describe("buildCellMenu — programaciones movibles", () => {
   it("celda con F° + P permite mover cada una por separado", () => {
     const items = buildCellMenu(row({ name: "CIMS" }), scheduledCell(true), ctx, schedCbs());
     expect(items.find((i) => i.key === "edit")).toBeUndefined();
-    expect(items.find((i) => i.key.startsWith("move-sched-"))?.label).toBe("Mover programación a…");
+    expect(items.find((i) => i.key.startsWith("move-sched-"))?.label).toBe("Mover esta P a…");
     expect(items.find((i) => i.key === "move-dte-dte-1767")?.label).toContain("Mover F°1767");
   });
 });

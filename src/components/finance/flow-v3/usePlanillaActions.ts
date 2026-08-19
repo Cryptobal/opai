@@ -290,7 +290,7 @@ export function usePlanillaActions(refetch: () => void) {
             method: "POST",
             body: JSON.stringify({ templateId, billingPeriod, toWeek }),
           }),
-        "Programación movida en el flujo",
+        "Programación movida. La fecha de emisión no cambia.",
       ),
     [run],
   );

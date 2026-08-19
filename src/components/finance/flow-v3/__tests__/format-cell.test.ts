@@ -106,6 +106,27 @@ describe("cornerKind / primaryCellTag", () => {
     const plan = cell({ layer: "plan", plan: 70_000_000, effective: -70_000_000 });
     expect(cornerKind(plan)).toBe("plan");
     expect(primaryCellTag(plan)?.tag).toBe("Plan");
+
+    const mixed = cell({
+      layer: "committed",
+      committed: {
+        total: 10_014_305,
+        items: [
+          { kind: "dte", folio: 1767, label: "CIMS", fecha: "2026-07-21", monto: 5_006_345 },
+          {
+            kind: "scheduled",
+            templateId: "tpl",
+            billingPeriod: "2026-08",
+            label: "CIMS - La Reina",
+            fecha: "2026-08-20",
+            monto: 5_007_960,
+          },
+        ],
+      },
+      effective: 10_014_305,
+    });
+    expect(primaryCellTag(mixed)?.tag).toBe("F°1767 · P");
+    expect(primaryCellTag(mixed)?.title).toContain("programación");
   });
 
   it("semana pasada con F° pendiente → chip informativo; sin isPast no aparece", () => {

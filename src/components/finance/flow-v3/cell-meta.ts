@@ -521,12 +521,19 @@ export function primaryCellTag(
   }
   if (cell.layer !== "committed") return null;
   const { hasDte, hasSentDoc, hasDraft, dteFolio } = committedPriority(cell);
+  const scheduledN = (cell.committed?.items ?? []).filter((i) => i.kind === "scheduled").length;
+  const schedSuffix = scheduledN > 0 ? " · P" : "";
   if (hasDte) {
     const n = dteCountInCell(cell);
     const overdue = cellOverdueState(cell);
     const anyCeded = (cell.committed?.items ?? []).some(
       (i) => i.kind === "dte" && i.ceded === true,
     );
+    const schedTitle = scheduledN === 1
+      ? " · + programación"
+      : scheduledN > 1
+        ? ` · + ${scheduledN} programaciones`
+        : "";
     if (n >= 2) {
       const folios = dteFoliosInCell(cell);
       const folioTxt = folios.length
@@ -539,9 +546,9 @@ export function primaryCellTag(
             ? " · en mora"
             : "";
       return {
-        tag: `×${n}`,
+        tag: `×${n}${schedSuffix}`,
         tone: overdue === "none" ? "info" : "warn",
-        title: (anyCeded ? `${folioTxt} · Cedida` : folioTxt) + moraHint,
+        title: (anyCeded ? `${folioTxt} · Cedida` : folioTxt) + moraHint + schedTitle,
       };
     }
     const f = dteFolio != null ? folioChip(dteFolio) : { text: "F°", title: "Factura emitida" };
@@ -552,9 +559,9 @@ export function primaryCellTag(
           ? " · en mora"
           : "";
     return {
-      tag: f.text,
+      tag: `${f.text}${schedSuffix}`,
       tone: overdue === "none" ? "info" : "warn",
-      title: (anyCeded ? `${f.title} · Cedida` : f.title) + moraHint,
+      title: (anyCeded ? `${f.title} · Cedida` : f.title) + moraHint + schedTitle,
     };
   }
   if (hasSentDoc || hasDraft) {
