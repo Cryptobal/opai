@@ -386,18 +386,9 @@ function chainMonthlyBalances(args: {
 
   // Espejo banco en vivo (igual que semanal): mes de la semana actual abierto
   // re-ancla en banco hoy + pending; sellos del pasado no pisan la proyección.
+  // Sin ⚠ vs sello: banco hoy manda.
   if (ci >= 0 && !allPast && !allFuture && !sealedAt.has(ci)) {
-    const fromChain = balances[ci]!;
     balances[ci] = openingBalance + pendingNet[ci]!;
-    if (latestSealIdx != null) {
-      const delta = Math.round(fromChain - balances[ci]!);
-      if (Math.abs(delta) > BREAK_TOLERANCE) {
-        const vsWeek =
-          groups[latestSealIdx]!.idx.map((i) => weeks[i]!).sort().at(-1) ??
-          monthKeys[latestSealIdx]!;
-        balanceBreaks[ci] = { vsWeek, delta };
-      }
-    }
     for (let i = ci + 1; i < n; i++) {
       if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
       else balances[i] = balances[i - 1]! + flows[i]!;

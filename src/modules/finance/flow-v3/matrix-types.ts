@@ -45,7 +45,7 @@ export interface FlowMatrixResponse {
   rows: FlowMatrixRowDto[];
   flows: number[];
   balances: number[];
-  /** Descuadre sello↔derivado por columna (null = ok). */
+  /** Inconsistencia sello↔sello por columna (null = ok). */
   balanceBreaks: Array<BalanceBreak | null>;
   /** DTEs excluidos del flujo (auditable; restaurables). */
   excludedIncome: FlowExcludedDte[];

@@ -33,7 +33,7 @@ export function PanelDataHealth({
     chips.push({
       key: "breaks",
       variant: "danger",
-      text: `Descuadres ${health.balanceBreaks}`,
+      text: `Sellos ${health.balanceBreaks}`,
     });
   }
   if (health.assignPending > 0) {
