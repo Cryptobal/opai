@@ -43,9 +43,9 @@ interface Props {
 }
 
 /**
- * Ficha de detalle de instancia única. Se abre con clic derecho sobre la
- * celda ya seleccionada (anclada); se cierra con Esc, clic fuera, scroll
- * o al pasar a edición.
+ * Ficha de detalle de instancia única. Se abre con clic derecho (anclada;
+ * si la celda no estaba seleccionada, se selecciona antes). Se cierra con
+ * Esc, clic fuera, scroll o al pasar a edición.
  * Nota siempre inline (sin paso extra). F° clickeable → modal factura.
  */
 export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function CellHoverCard(

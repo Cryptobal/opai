@@ -57,7 +57,7 @@ interface Props {
   onCommit: (raw: string, move: "down" | "right" | "none") => void;
   onCancel: () => void;
   onOpenPopover: (anchor: DOMRect) => void;
-  /** Clic derecho: menú contextual, o ficha si la celda ya está activa. */
+  /** Clic derecho: selecciona la celda (si hace falta) y abre la ficha. */
   onContextTarget: (e: React.MouseEvent) => void;
   /** Long-press táctil → action sheet (móvil). */
   onOpenCellSheet?: () => void;

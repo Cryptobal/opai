@@ -30,13 +30,14 @@ import { CellHoverCard, type CellHoverCardHandle, type CellHoverShowCtx } from "
 import {
   isDesktopCellDetail,
   shouldOpenPinnedDetailOnContextMenu,
+  shouldSelectCellOnContextMenu,
   showPinnedCellDetail,
   useCellHover,
 } from "./useCellHover";
 import { FillRightDialog, type FillRightRequest } from "./FillRightDialog";
 import { usePlanillaKeyboard, type CellSel } from "./usePlanillaKeyboard";
 import {
-  cellKey, cellsInRect, discreteStats, rangeRect, rangeToTsv, toggleDiscreteCell,
+  cellKey, cellsInRect, discreteStats, isInRect, rangeRect, rangeToTsv, toggleDiscreteCell,
   type DiscreteSelStats, type RangeSel,
 } from "./range-sel";
 import { MenuItems } from "./menu-render";
@@ -974,8 +975,8 @@ export function PlanillaGrid({
   });
 
   /**
-   * Desktop (≥lg, puntero fino): ficha anclada al clic derecho sobre la
-   * celda ya seleccionada. Clic izquierdo solo selecciona.
+   * Desktop (≥lg, puntero fino): clic derecho selecciona (si hace falta)
+   * y abre la ficha. Clic izquierdo solo cambia de celda.
    * Móvil/tablet/touch: el tap SOLO selecciona. El sheet se abre con
    * long-press, chevron de acciones o doble-tap (celdas no editables).
    */
@@ -1687,12 +1688,17 @@ export function PlanillaGrid({
                       enableDrag={enableDrag && !sumMode}
                       dropTarget={dropTarget}
                       onCellContext={(e, sel) => {
-                        const canPin = shouldOpenPinnedDetailOnContextMenu({
-                          selected:
-                            kb.sel?.rowId === sel.rowId && kb.sel.colIdx === sel.colIdx,
-                          desktop: isDesktopCellDetail(),
-                        });
-                        if (canPin && resolveHover(sel.rowId, sel.colIdx)) {
+                        const rowIdx = visibleRowIdxById.get(sel.rowId) ?? -1;
+                        const inCurrentSelection =
+                          (kb.sel?.rowId === sel.rowId && kb.sel.colIdx === sel.colIdx) ||
+                          (!!activeRect && rowIdx >= 0 && isInRect(rowIdx, sel.colIdx, activeRect));
+                        if (shouldSelectCellOnContextMenu(inCurrentSelection)) {
+                          kb.setSel(sel);
+                        }
+                        if (
+                          shouldOpenPinnedDetailOnContextMenu(isDesktopCellDetail()) &&
+                          resolveHover(sel.rowId, sel.colIdx)
+                        ) {
                           e.preventDefault();
                           e.stopPropagation();
                           setCtxTarget(null);

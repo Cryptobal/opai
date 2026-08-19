@@ -23,14 +23,17 @@ export function isDesktopCellDetail(): boolean {
 }
 
 /**
- * La ficha se abre con clic derecho sobre la celda ya activa (desktop).
- * Clic izquierdo solo selecciona; touch sigue usando long-press / sheet.
+ * Clic derecho en una celda (desktop) abre la ficha, como el menú de Sheets.
+ * Si la celda no está en la selección, primero se selecciona.
+ * Clic izquierdo solo cambia de celda; touch sigue usando long-press / sheet.
  */
-export function shouldOpenPinnedDetailOnContextMenu(args: {
-  selected: boolean;
-  desktop: boolean;
-}): boolean {
-  return args.selected && args.desktop;
+export function shouldOpenPinnedDetailOnContextMenu(desktop: boolean): boolean {
+  return desktop;
+}
+
+/** Como Sheets: clic derecho selecciona la celda si no está en la selección actual. */
+export function shouldSelectCellOnContextMenu(inCurrentSelection: boolean): boolean {
+  return !inCurrentSelection;
 }
 
 /** Abre la ficha anclada. Cierra con Esc / clic fuera / scroll. */
@@ -46,7 +49,7 @@ export function showPinnedCellDetail(
 
 /**
  * Cierre por clic fuera / scroll + resalte cruzado ligero al pasar el puntero
- * (sin abrir la ficha: eso es clic derecho sobre la celda activa).
+ * (sin abrir la ficha: eso es clic derecho, que además selecciona si hace falta).
  */
 export function useCellHover(opts: {
   scrollerRef: React.RefObject<HTMLElement | null>;
