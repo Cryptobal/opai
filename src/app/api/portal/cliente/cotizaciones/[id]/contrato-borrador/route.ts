@@ -5,6 +5,7 @@ import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 import {
   resolveDocument,
+  loadEmpresaSettingsForTokens,
   buildEmpresaEntityData,
   buildQuoteEnrichedData,
   buildContractEntityData,
@@ -175,21 +176,7 @@ export async function GET(
       })
     : null;
 
-  // Empresa settings (new format empresa:tenantId:empresa.xxx or legacy empresa.xxx)
-  let rawEmpresa = await prisma.setting.findMany({
-    where: { tenantId: session.tenantId, key: { startsWith: `empresa:${session.tenantId}:` } },
-    select: { key: true, value: true },
-  });
-  if (rawEmpresa.length === 0) {
-    rawEmpresa = await prisma.setting.findMany({
-      where: { tenantId: session.tenantId, key: { startsWith: "empresa." } },
-      select: { key: true, value: true },
-    });
-  }
-  const empresaSettings = rawEmpresa.map((s) => ({
-    key: s.key.includes(":") ? s.key.replace(`empresa:${session.tenantId}:`, "") : s.key,
-    value: s.value,
-  }));
+  const empresaSettings = await loadEmpresaSettingsForTokens(session.tenantId);
 
   // Quote enriched data (buildQuoteEnrichedData computes salePriceUF internally
   // for UF quotes via fxUfRate). For CLP quotes we still compute the UF

@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import {
   resolveDocument,
+  loadEmpresaSettingsForTokens,
   buildEmpresaEntityData,
   buildQuoteEnrichedData,
   buildContractEntityData,
@@ -79,10 +80,8 @@ export async function generateServiceContract(
     ? await prisma.crmContact.findUnique({ where: { id: quote.contactId } })
     : null;
 
-  // 4. Load empresa settings
-  const empresaSettings = await prisma.setting.findMany({
-    where: { tenantId, key: { startsWith: "empresa." } },
-  });
+  // 4. Load empresa settings (new + legacy key formats)
+  const empresaSettings = await loadEmpresaSettingsForTokens(tenantId);
 
   // 5. Build enriched quote data — buildQuoteEnrichedData loads UF internally.
   const quoteEnriched = await buildQuoteEnrichedData(quoteId);
@@ -166,7 +165,7 @@ export async function generateServiceContract(
     : null;
 
   const entityData = {
-    empresa: buildEmpresaEntityData(empresaSettings as Array<{ key: string; value: string }>),
+    empresa: buildEmpresaEntityData(empresaSettings),
     account: accountMerged,
     contact: contact
       ? { ...contact, fullName: `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() }

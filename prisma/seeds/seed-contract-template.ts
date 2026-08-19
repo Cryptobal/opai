@@ -263,7 +263,11 @@ const content = buildTiptapDoc([
     tk("empresa.repLegalNombre"),
     t(" para representar a "),
     tk("empresa.razonSocial"),
-    t(", consta en escritura pública de fecha _____, otorgada ante el Notario Público de Santiago, don _____."),
+    t(", consta en escritura pública de fecha "),
+    tk("empresa.fechaEscrituraPublica"),
+    t(", otorgada ante el Notario Público de Santiago, don "),
+    tk("empresa.nombreNotaria"),
+    t("."),
   ]),
   p([
     t("La personería de don(a) "),
@@ -435,6 +439,8 @@ const tokensUsed = [
   "empresa.rut",
   "empresa.repLegalNombre",
   "empresa.repLegalRut",
+  "empresa.fechaEscrituraPublica",
+  "empresa.nombreNotaria",
   "empresa.direccion",
   "empresa.comuna",
   // Account

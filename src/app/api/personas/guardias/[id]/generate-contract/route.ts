@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsCapability } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
-import { resolveDocument, buildGuardiaEntityData, buildEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
+import { resolveDocument, buildGuardiaEntityData, loadEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
 
 type Params = { id: string };
 
@@ -84,20 +84,7 @@ export async function POST(
       );
     }
 
-    // Load empresa settings (nuevo formato empresa:tenantId:empresa.xxx o antiguo empresa.xxx)
-    let rawEmpresa = await prisma.setting.findMany({
-      where: { tenantId: ctx.tenantId, key: { startsWith: `empresa:${ctx.tenantId}:` } },
-    });
-    if (rawEmpresa.length === 0) {
-      rawEmpresa = await prisma.setting.findMany({
-        where: { tenantId: ctx.tenantId, key: { startsWith: "empresa." } },
-      });
-    }
-    const empresaSettings = rawEmpresa.map((s) => ({
-      key: s.key.includes(":") ? s.key.replace(`empresa:${ctx.tenantId}:`, "") : s.key,
-      value: s.value,
-    }));
-    const empresaData = buildEmpresaEntityData(empresaSettings);
+    const empresaData = await loadEmpresaEntityData(ctx.tenantId);
 
     const activeAssignment = await prisma.opsAsignacionGuardia.findFirst({
       where: { guardiaId: guardia.id, isActive: true },

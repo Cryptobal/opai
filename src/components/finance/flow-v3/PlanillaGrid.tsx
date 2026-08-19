@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   ContextMenu, ContextMenuContent, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { BP } from "@/lib/breakpoints";
 import {
   COL_W, displayValue, GUTTER_CELL, GUTTER_W, isZeroRow, NAME_LEFT, NAME_W, SECTION_H,
@@ -1406,7 +1407,7 @@ export function PlanillaGrid({
   const busy = actions.busy;
 
   return (
-    <>
+    <TooltipProvider delayDuration={250}>
       {/* modal={false}: un ContextMenu modal pone `pointer-events:none` en <body>
           mientras está abierto y lo restaura al cerrar desde el efecto de
           desmontaje de su Content. Como el Content se renderiza condicionalmente
@@ -2176,6 +2177,6 @@ export function PlanillaGrid({
           daysOverdue={cobranzaTarget.daysOverdue}
         />
       )}
-    </>
+    </TooltipProvider>
   );
 }

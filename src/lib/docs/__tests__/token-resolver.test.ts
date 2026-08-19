@@ -1,5 +1,46 @@
 import { describe, it, expect } from "vitest";
-import { resolveTokenValue, resolveDocument } from "../token-resolver";
+import { resolveTokenValue, resolveDocument, buildEmpresaEntityData } from "../token-resolver";
+
+describe("token-resolver — buildEmpresaEntityData", () => {
+  it("maps normalized empresa.* setting keys to entity fields", () => {
+    const data = buildEmpresaEntityData([
+      { key: "empresa.razonSocial", value: "Gard Security SpA" },
+      { key: "empresa.repLegalNombre", value: "Juan Pérez" },
+      { key: "empresa.fechaEscrituraPublica", value: "15 de marzo de 2020" },
+      { key: "empresa.nombreNotaria", value: "Notaría San Martín" },
+      { key: "empresa.repLegalFirma", value: "https://example.com/firma.png" },
+    ]);
+
+    expect(data.razonSocial).toBe("Gard Security SpA");
+    expect(data.repLegalNombre).toBe("Juan Pérez");
+    expect(data.fechaEscrituraPublica).toBe("15 de marzo de 2020");
+    expect(data.nombreNotaria).toBe("Notaría San Martín");
+    expect(data.firmaRepLegal).toBe("https://example.com/firma.png");
+  });
+
+  it("maps keys after stripping empresa:{tenantId}: prefix (new Setting format)", () => {
+    const tenantId = "tenant-abc";
+    const prefix = `empresa:${tenantId}:`;
+    const normalized = [
+      { key: `${prefix}empresa.repLegalNombre`, value: "Carlos Ruiz" },
+      { key: `${prefix}empresa.fechaEscrituraPublica`, value: "1 de enero de 2019" },
+    ].map((s) => ({
+      key: s.key.includes(":") ? s.key.replace(prefix, "") : s.key,
+      value: s.value,
+    }));
+
+    const data = buildEmpresaEntityData(normalized);
+    expect(data.repLegalNombre).toBe("Carlos Ruiz");
+    expect(data.fechaEscrituraPublica).toBe("1 de enero de 2019");
+  });
+
+  it("resolves empresa.repLegalNombre token from entity data", () => {
+    const value = resolveTokenValue("empresa.repLegalNombre", {
+      empresa: { repLegalNombre: "María González" },
+    });
+    expect(value).toBe("María González");
+  });
+});
 
 describe("token-resolver — account tokens", () => {
   it("resolves {{account.legalRepresentativeName}} from flat column", () => {

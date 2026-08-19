@@ -3,7 +3,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
 import { EVENT_SUBTYPES } from "@/lib/guard-events";
-import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData, buildEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
+import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData, loadEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
 import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
@@ -338,19 +338,7 @@ async function loadGuardiaForDoc(tenantId: string, guardiaId: string) {
 }
 
 async function loadEmpresaData(tenantId: string) {
-  let rawEmpresa = await prisma.setting.findMany({
-    where: { tenantId, key: { startsWith: `empresa:${tenantId}:` } },
-  });
-  if (rawEmpresa.length === 0) {
-    rawEmpresa = await prisma.setting.findMany({
-      where: { tenantId, key: { startsWith: "empresa." } },
-    });
-  }
-  const empresaSettings = rawEmpresa.map((s) => ({
-    key: s.key.includes(":") ? s.key.replace(`empresa:${tenantId}:`, "") : s.key,
-    value: s.value,
-  }));
-  return buildEmpresaEntityData(empresaSettings);
+  return loadEmpresaEntityData(tenantId);
 }
 
 async function generateDocFromTemplate(

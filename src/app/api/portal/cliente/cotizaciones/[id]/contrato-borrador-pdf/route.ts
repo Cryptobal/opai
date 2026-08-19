@@ -5,6 +5,7 @@ import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 import {
   resolveDocument,
+  loadEmpresaSettingsForTokens,
   buildEmpresaEntityData,
   buildQuoteEnrichedData,
   buildContractEntityData,
@@ -153,20 +154,7 @@ export async function GET(
       }),
     ]);
 
-    let rawEmpresa = await prisma.setting.findMany({
-      where: { tenantId: session.tenantId, key: { startsWith: `empresa:${session.tenantId}:` } },
-      select: { key: true, value: true },
-    });
-    if (rawEmpresa.length === 0) {
-      rawEmpresa = await prisma.setting.findMany({
-        where: { tenantId: session.tenantId, key: { startsWith: "empresa." } },
-        select: { key: true, value: true },
-      });
-    }
-    const empresaSettings = rawEmpresa.map((s) => ({
-      key: s.key.includes(":") ? s.key.replace(`empresa:${session.tenantId}:`, "") : s.key,
-      value: s.value,
-    }));
+    const empresaSettings = await loadEmpresaSettingsForTokens(session.tenantId);
 
     let ufValue: number | null = null;
     try { ufValue = await getUfValue(); } catch { ufValue = null; }

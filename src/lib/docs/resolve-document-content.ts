@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import {
   resolveDocument,
   buildGuardiaEntityData,
+  loadEmpresaSettingsForTokens,
+  loadEmpresaEntityData,
   buildEmpresaEntityData,
   buildQuoteEnrichedData,
   enrichGuardiaWithSalary,
@@ -150,18 +152,7 @@ export async function resolveDocumentContentForDisplay(
     });
 
     if (guardia) {
-      let rawEmpresa = await prisma.setting.findMany({
-        where: { tenantId, key: { startsWith: `empresa:${tenantId}:` } },
-      });
-      if (rawEmpresa.length === 0) {
-        rawEmpresa = await prisma.setting.findMany({
-          where: { tenantId, key: { startsWith: "empresa." } },
-        });
-      }
-      const empresaSettings = rawEmpresa.map((s) => ({
-        key: s.key.includes(":") ? s.key.replace(`empresa:${tenantId}:`, "") : s.key,
-        value: s.value,
-      }));
+      const empresaSettings = await loadEmpresaSettingsForTokens(tenantId);
       let empresaData = buildEmpresaEntityData(empresaSettings);
       const autoFirma = empresaSettings.find((s) => s.key === "empresa.autoFirmaRepLegalContratos")?.value === "true";
       if (!autoFirma) empresaData = { ...empresaData, firmaRepLegal: null };
@@ -218,19 +209,7 @@ export async function resolveDocumentContentForDisplay(
     const dealIdFromAssoc = dealAssoc?.entityId ?? null;
     const accountIdFromAssoc = accountAssoc?.entityId ?? null;
 
-    let rawEmpresa = await prisma.setting.findMany({
-      where: { tenantId, key: { startsWith: `empresa:${tenantId}:` } },
-    });
-    if (rawEmpresa.length === 0) {
-      rawEmpresa = await prisma.setting.findMany({
-        where: { tenantId, key: { startsWith: "empresa." } },
-      });
-    }
-    const empresaSettings = rawEmpresa.map((s) => ({
-      key: s.key.includes(":") ? s.key.replace(`empresa:${tenantId}:`, "") : s.key,
-      value: s.value,
-    }));
-    const empresaData = buildEmpresaEntityData(empresaSettings);
+    const empresaData = await loadEmpresaEntityData(tenantId);
 
     let quoteData: Record<string, unknown> | undefined;
     if (quoteId) {
