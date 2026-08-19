@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { fmtShortDate } from "./format";
 import { LAYER_LABEL } from "./cell-meta";
 
-export type CellDetailTab = "composicion" | "nota" | "historial";
+export type CellDetailTab = "composicion" | "historial";
 
 interface Props {
   rowName: string;
@@ -17,7 +17,6 @@ interface Props {
 
 const TABS: Array<{ id: CellDetailTab; label: string }> = [
   { id: "composicion", label: "Composición" },
-  { id: "nota", label: "Nota" },
   { id: "historial", label: "Historial" },
 ];
 
