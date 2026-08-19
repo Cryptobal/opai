@@ -27,7 +27,12 @@ const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({ id: ROW, archivedAt: null });
+  asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+    id: ROW,
+    archivedAt: null,
+    section: "GAV",
+    canonicalKey: null,
+  });
   // $transaction admite forma de arreglo (bulkFill) y de callback (movePlanCell).
   asMock(prisma.$transaction).mockImplementation(async (arg: unknown) =>
     typeof arg === "function"
@@ -85,6 +90,12 @@ describe("upsertCell", () => {
   });
 
   it("acepta montos negativos (FINANCIAMIENTO)", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: ROW,
+      archivedAt: null,
+      section: "FINANCIAMIENTO",
+      canonicalKey: "RETIRO_SOCIO",
+    });
     asMock(prisma.financeFlowPlanCell.upsert).mockResolvedValue({});
     asMock(prisma.financeFlowPlanCell.findFirst).mockResolvedValue({
       amount: "-2000000",
@@ -92,6 +103,28 @@ describe("upsertCell", () => {
     });
     const cell = await upsertCell(TENANT, ROW, WEEK, -2_000_000, null);
     expect(cell.amount).toBe(-2_000_000);
+  });
+
+  it("RETIRO_SOCIO: magnitud positiva tipada se persiste como egreso (−)", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: ROW,
+      archivedAt: null,
+      section: "FINANCIAMIENTO",
+      canonicalKey: "RETIRO_SOCIO",
+    });
+    asMock(prisma.financeFlowPlanCell.upsert).mockResolvedValue({});
+    asMock(prisma.financeFlowPlanCell.findFirst).mockResolvedValue({
+      amount: "-10000000",
+      updatedBy: null,
+    });
+    const cell = await upsertCell(TENANT, ROW, WEEK, 10_000_000, null);
+    expect(prisma.financeFlowPlanCell.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ amount: -10_000_000 }),
+        update: expect.objectContaining({ amount: -10_000_000 }),
+      }),
+    );
+    expect(cell.amount).toBe(-10_000_000);
   });
 });
 

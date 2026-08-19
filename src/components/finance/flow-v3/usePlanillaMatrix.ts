@@ -9,6 +9,10 @@ import {
   ymdToDate,
 } from "@/modules/finance/flow-v3/weeks";
 import type { FlowMatrixResponse } from "@/modules/finance/flow-v3/matrix-types";
+import {
+  normalizeFinancingPlanAmount,
+  planCashSign,
+} from "@/modules/finance/flow-v3/residual";
 import { fmtShortDate } from "./format";
 import { usePlanillaHistory, type HistoryEntry } from "./usePlanillaHistory";
 import type { CellSel } from "./usePlanillaKeyboard";
@@ -144,6 +148,11 @@ export function usePlanillaMatrix() {
   const applyPlanCell = useCallback(
     async (rowId: string, weekStart: string, amount: number): Promise<void> => {
       let prev: FlowMatrixResponse | null = null;
+      // Normalizar ANTES del fetch: RETIRO_SOCIO / FACTORING / DEVOL_* → −|n|.
+      const rowMeta = data?.rows.find((r) => r.id === rowId);
+      const normalized = rowMeta
+        ? normalizeFinancingPlanAmount(rowMeta.section, amount, rowMeta.canonicalKey)
+        : amount;
       setData((d) => {
         if (!d) return d;
         prev = d;
@@ -157,17 +166,16 @@ export function usePlanillaMatrix() {
         const colIdx = next.columns.findIndex((c) => c.key === weekStart);
         const cell = row?.cells[colIdx];
         if (!row || !cell || colIdx < 0) return next;
-        const sign = row.section === "INGRESOS" || row.section === "FINANCIAMIENTO" ? 1 : -1;
         const oldEffective = cell.effective;
-        cell.plan = amount;
+        cell.plan = normalized;
         // Plan manual pisa proyecciones (committed), salvo real o ingreso facturado.
         // La reconciliación con el servidor confirma; aquí solo optimismo de UI.
         const invoiced =
           row.section === "INGRESOS" &&
           (cell.committed?.items.some((i) => i.kind === "dte") ?? false);
         if (cell.layer !== "real" && !invoiced) {
-          if (amount !== 0) {
-            cell.effective = sign * amount;
+          if (normalized !== 0) {
+            cell.effective = planCashSign(row.section, normalized, row.canonicalKey);
             cell.layer = "plan";
           } else if (cell.committed && cell.committed.total !== 0) {
             cell.effective =
@@ -189,18 +197,18 @@ export function usePlanillaMatrix() {
         const res = await fetch("/api/finance/flow-v3/plan", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rowId, weekStart, amount }),
+          body: JSON.stringify({ rowId, weekStart, amount: normalized }),
         });
         const json = await res.json();
         if (!json.success) throw new Error(json.error ?? "Error al guardar");
         const saved = json.data as { amount: number };
-        if (saved.amount !== amount) void refetch();
+        if (saved.amount !== normalized) void refetch();
       } catch (err) {
         if (prev) setData(prev);
         throw err instanceof Error ? err : new Error("No se pudo guardar la celda");
       }
     },
-    [refetch],
+    [data?.rows, refetch],
   );
 
   /** Restaura un conjunto de celdas a un valor exacto (PATCH por celda) y

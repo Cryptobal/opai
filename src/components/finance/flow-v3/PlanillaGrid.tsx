@@ -1757,6 +1757,8 @@ export function PlanillaGrid({
                 selectedColIndices={selectedColIndices}
                 closedWeeks={data.closedWeeks}
                 balanceAnchors={data.balanceAnchors}
+                openingBalance={data.openingBalance}
+                rows={data.rows}
                 canManage={canManage && data.granularity === "week"}
                 onBalanceAnchor={
                   canManage && data.granularity === "week"

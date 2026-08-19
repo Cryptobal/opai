@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { recordPlanChange } from "./plan-history.service";
+import { normalizeFinancingPlanAmount } from "./residual";
 import { isMondayYmd, weekStartYmd, ymdToDate } from "./weeks";
 
 export interface PlanCellDto {
@@ -17,12 +18,17 @@ export interface PlanAuditCtx {
   userEmail?: string | null;
 }
 
-type EditableRow = { id: string; archivedAt: Date | null };
+type EditableRow = {
+  id: string;
+  archivedAt: Date | null;
+  section: string;
+  canonicalKey: string | null;
+};
 
 async function assertEditableRow(tenantId: string, rowId: string): Promise<EditableRow> {
   const row = await prisma.financeFlowRow.findFirst({
     where: { id: rowId, tenantId },
-    select: { id: true, archivedAt: true },
+    select: { id: true, archivedAt: true, section: true, canonicalKey: true },
   });
   if (!row) throw new Error("Fila no encontrada");
   return row;
@@ -88,6 +94,8 @@ export async function upsertCell(
   const week = assertWeek(weekStart);
   assertPlanWeekWritable(row, weekStart);
   if (!Number.isFinite(amount)) throw new Error("Monto inválido");
+  // RETIRO_SOCIO / FACTORING / DEVOL_*: magnitud tipada → siempre egreso (−).
+  amount = normalizeFinancingPlanAmount(row.section, amount, row.canonicalKey);
 
   const previous = await readCell(tenantId, rowId, weekStart);
 
@@ -130,6 +138,7 @@ export async function bulkFill(
 ): Promise<PlanCellDto[]> {
   const row = await assertEditableRow(tenantId, rowId);
   if (!Number.isFinite(amount)) throw new Error("Monto inválido");
+  amount = normalizeFinancingPlanAmount(row.section, amount, row.canonicalKey);
   const weeks = weekStarts.map((w) => ({ ymd: w, date: assertWeek(w) }));
   for (const w of weeks) assertPlanWeekWritable(row, w.ymd);
   if (weeks.length === 0) return [];

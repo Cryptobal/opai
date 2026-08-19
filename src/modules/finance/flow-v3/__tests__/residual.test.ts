@@ -236,6 +236,20 @@ describe("computeCellExecution", () => {
     expect(residual).toBe(-4_000_000);
   });
 
+  it("RETIRO_SOCIO: plan +10M tipado se trata como egreso −10M", () => {
+    const { residual } = computeCellExecution({
+      ...base,
+      section: "FINANCIAMIENTO",
+      canonicalKey: "RETIRO_SOCIO",
+      plan: 10_000_000,
+      committedTotal: 0,
+      committedNet: 0,
+      invoiced: false,
+      realSigned: 0,
+    });
+    expect(residual).toBe(-10_000_000);
+  });
+
   it("sin real ⇒ execution.state none (proyección viva no es 'ejecución')", () => {
     const { execution, residual } = computeCellExecution({
       ...base,
