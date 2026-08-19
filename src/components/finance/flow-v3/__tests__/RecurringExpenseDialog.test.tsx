@@ -30,6 +30,7 @@ const existingRule = {
   startDate: "2026-07-05",
   endDate: null,
   endAfterOccurrences: null,
+  note: null,
 };
 
 beforeEach(() => {

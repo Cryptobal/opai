@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCellNoteAutosave } from "./useCellNoteAutosave";
 
 interface Props {
@@ -8,7 +8,12 @@ interface Props {
   weekStart: string;
   initial: string;
   canManage: boolean;
-  save: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
+  save: (
+    rowId: string,
+    weekStart: string,
+    body: string | null,
+    opts?: { applyToFuturePlanCells?: boolean },
+  ) => Promise<boolean>;
   autoFocus?: boolean;
   rows?: number;
   placeholder?: string;
@@ -16,6 +21,8 @@ interface Props {
   /** Tras ⌘Enter: flush y cierra solo el editor (mantiene ficha). */
   onEditorDone?: () => void;
   className?: string;
+  /** Mostrar opción de aplicar a celdas de plan futuras (default true). */
+  showApplyFuture?: boolean;
 }
 
 const STATE_LABEL: Record<string, string> = {
@@ -28,12 +35,18 @@ const STATE_LABEL: Record<string, string> = {
 /** Textarea de nota con autoguardado — compartido entre ficha y panel. */
 export function CellNoteEditor({
   rowId, weekStart, initial, canManage, save,
-  autoFocus, rows = 3, placeholder = "Escribe una nota…",
-  onClose, onEditorDone, className,
+  autoFocus, rows = 3, placeholder = "Ej. contador + abogado + prevencionista",
+  onClose, onEditorDone, className, showApplyFuture = true,
 }: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const [applyFuture, setApplyFuture] = useState(false);
   const { draft, setDraft, state, flush, retry } = useCellNoteAutosave({
-    rowId, weekStart, initial, save, enabled: canManage,
+    rowId,
+    weekStart,
+    initial,
+    save: (r, w, body) =>
+      save(r, w, body, applyFuture ? { applyToFuturePlanCells: true } : undefined),
+    enabled: canManage,
   });
 
   useEffect(() => {
@@ -53,7 +66,7 @@ export function CellNoteEditor({
   return (
     <div className={className}>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-[12px] text-ds-text-3">Nota</span>
+        <span className="text-[12px] text-ds-text-3">Nota / desglose</span>
         {state !== "idle" && (
           <button
             type="button"
@@ -89,6 +102,30 @@ export function CellNoteEditor({
         }}
         className="w-full resize-none rounded border border-ds-border-subtle bg-ds-surface-1 px-1.5 py-1 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus:border-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
       />
+      {showApplyFuture && (
+        <label className="mt-1.5 flex min-h-9 cursor-pointer items-start gap-2 text-[12px] text-ds-text-3">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-ds-border-default"
+            checked={applyFuture}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setApplyFuture(checked);
+              if (checked) {
+                void save(rowId, weekStart, draft.trim() || null, {
+                  applyToFuturePlanCells: true,
+                });
+              }
+            }}
+          />
+          <span>
+            Aplicar a todas las celdas de plan futuras de esta fila
+            <span className="block text-ds-text-4">
+              Útil si el desglose se repite (ej. asesores cada mes).
+            </span>
+          </span>
+        </label>
+      )}
     </div>
   );
 }

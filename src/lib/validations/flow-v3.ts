@@ -122,6 +122,8 @@ export const flowCellNoteUpsertSchema = z.object({
   rowId: z.string().uuid(),
   weekStart: ymd,
   body: z.string().max(2000).nullable(),
+  /** Si true, estampa la nota en todas las celdas de plan futuras de la fila. */
+  applyToFuturePlanCells: z.boolean().optional().default(false),
 });
 
 /** Liquidación de proyección vs real (AUTO = reabrir / CLOSED = dar por cumplido). */
@@ -205,6 +207,8 @@ export const flowRecurringPlanCreateSchema = z
     amountUf: z.number().finite().positive().max(1_000_000).nullish(),
     ufPolicy: flowUfPolicySchema.nullish(),
     ufCustomDay: z.number().int().min(1).max(31).nullish(),
+    /** Desglose del monto (ej. "contador + abogado"). Se estampa en celdas. */
+    note: z.string().max(2000).nullish(),
     /** Crear fila destino nueva (nombre + categoría opcional) en vez de usar rowId. */
     newRow: z
       .object({
@@ -247,6 +251,7 @@ export const flowRecurringPlanUpdateSchema = z
     amountUf: z.number().finite().positive().max(1_000_000).nullish(),
     ufPolicy: flowUfPolicySchema.nullish(),
     ufCustomDay: z.number().int().min(1).max(31).nullish(),
+    note: z.string().max(2000).nullish(),
   })
   .refine(
     (v) =>
@@ -261,7 +266,8 @@ export const flowRecurringPlanUpdateSchema = z
       v.pctSales != null ||
       v.amountUf != null ||
       v.ufPolicy !== undefined ||
-      v.ufCustomDay !== undefined,
+      v.ufCustomDay !== undefined ||
+      v.note !== undefined,
     { message: "Nada que actualizar" },
   )
   .refine(

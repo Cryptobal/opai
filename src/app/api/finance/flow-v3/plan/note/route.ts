@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { flowV3Error, requireFlowV3 } from "@/modules/finance/flow-v3/api-guard";
-import { upsertCellNote } from "@/modules/finance/flow-v3/cell-note.service";
+import {
+  applyNoteToFuturePlanCells,
+  upsertCellNote,
+} from "@/modules/finance/flow-v3/cell-note.service";
 import { flowCellNoteUpsertSchema } from "@/lib/validations/flow-v3";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +18,31 @@ export async function PATCH(request: NextRequest) {
       const issues = parsed.error.issues.map((i) => i.message).join("; ");
       return NextResponse.json({ success: false, error: issues }, { status: 400 });
     }
+    const { rowId, weekStart, body, applyToFuturePlanCells } = parsed.data;
+    if (applyToFuturePlanCells) {
+      const result = await applyNoteToFuturePlanCells(
+        guard.ctx.tenantId,
+        rowId,
+        weekStart,
+        body,
+        guard.ctx.userId,
+      );
+      return NextResponse.json({
+        success: true,
+        data: {
+          rowId,
+          weekStart,
+          body: (body ?? "").trim() || null,
+          updatedBy: guard.ctx.userId,
+          appliedWeeks: result.weeks,
+        },
+      });
+    }
     const note = await upsertCellNote(
       guard.ctx.tenantId,
-      parsed.data.rowId,
-      parsed.data.weekStart,
-      parsed.data.body,
+      rowId,
+      weekStart,
+      body,
       guard.ctx.userId,
     );
     return NextResponse.json({ success: true, data: note });

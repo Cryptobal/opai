@@ -27,7 +27,12 @@ interface Props {
   onViewDte?: (dteId: string) => void;
   onExcludeDte?: (dteId: string, reason: string) => Promise<void>;
   onRestoreDte?: (dteId: string) => Promise<void>;
-  onSaveNote?: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
+  onSaveNote?: (
+    rowId: string,
+    weekStart: string,
+    body: string | null,
+    opts?: { applyToFuturePlanCells?: boolean },
+  ) => Promise<boolean>;
   onSettleClosed?: () => void;
   onSettleReopen?: () => void;
   onMatchPlanToReal?: () => void;

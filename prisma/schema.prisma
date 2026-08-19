@@ -9392,9 +9392,12 @@ model FinanceFlowPlanRecurrence {
   startDate  DateTime                @map("start_date") @db.Date
   endDate    DateTime?               @map("end_date") @db.Date
   /// Término por cantidad de repeticiones (alternativa o complemento a
-  /// endDate). Si ambos están, gana el que ocurra primero. NULL = sin tope
+  /// endDate). Si ambos existen, gana el que ocurra primero. NULL = sin tope
   /// por conteo (solo horizonte / endDate).
   endAfterOccurrences Int?           @map("end_after_occurrences")
+  /// Desglose / memo del monto (ej. "contador + abogado + prevencionista").
+  /// Se estampa en FinanceFlowCellNote de cada ocurrencia al materializar.
+  note       String?                 @db.Text
   createdBy  String?                 @map("created_by")
   createdAt  DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)

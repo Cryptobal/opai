@@ -48,6 +48,7 @@ export interface PlanRecurrenceDto {
   startDate: string;
   endDate: string | null;
   endAfterOccurrences: number | null;
+  note: string | null;
 }
 
 function defaultSection(row: FlowMatrixRowDto | null): string {
@@ -142,6 +143,7 @@ export function RecurringExpenseDialog({
   const [endDate, setEndDate] = useState("");
   const [endAfterOccurrences, setEndAfterOccurrences] = useState("12");
   const [finSign, setFinSign] = useState<"in" | "out">("out");
+  const [note, setNote] = useState("");
 
   const resetCreateForm = useCallback((sectionHint?: string) => {
     setAmountMode("CLP");
@@ -157,6 +159,7 @@ export function RecurringExpenseDialog({
     setEndDate("");
     setEndAfterOccurrences("12");
     setFinSign("out");
+    setNote("");
     setConfirmDelete(false);
     if (sectionHint) setNewRowSection(sectionHint);
   }, []);
@@ -197,6 +200,7 @@ export function RecurringExpenseDialog({
       setEndDate(rule.endDate ?? "");
       setEndAfterOccurrences("12");
     }
+    setNote(rule.note ?? "");
     setConfirmDelete(false);
   }, []);
 
@@ -351,6 +355,7 @@ export function RecurringExpenseDialog({
       body.currency = "CLP";
       body.amount = signedClp;
     }
+    body.note = note.trim() || null;
     return body;
   };
 
@@ -652,6 +657,22 @@ export function RecurringExpenseDialog({
           <label className="block space-y-1 text-xs text-ds-text-3">
             <span>Inicio</span>
             <DatePickerField value={startDate || null} onChange={(ymd) => setStartDate((ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
+          </label>
+
+          <label className="block space-y-1 text-xs text-ds-text-3">
+            <span>Nota / desglose (opcional)</span>
+            <textarea
+              data-testid="recurrence-note"
+              value={note}
+              maxLength={2000}
+              rows={2}
+              placeholder="Ej. contador + abogado + prevencionista"
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full resize-none rounded-md border border-ds-border-default bg-ds-surface-1 px-2 py-1.5 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus:border-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+            />
+            <span className="block text-[12px] text-ds-text-4">
+              Se muestra en cada celda proyectada de esta recurrencia.
+            </span>
           </label>
 
           <div className="space-y-2">

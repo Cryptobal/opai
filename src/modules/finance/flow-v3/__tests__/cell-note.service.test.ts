@@ -8,14 +8,28 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(),
       findMany: vi.fn(),
     },
+    financeFlowPlanCell: { findMany: vi.fn() },
   },
 }));
 
 import { prisma } from "@/lib/prisma";
-import { loadCellNotes, upsertCellNote } from "../cell-note.service";
+import {
+  applyNoteToFuturePlanCells,
+  loadCellNotes,
+  stampCellNotes,
+  upsertCellNote,
+} from "../cell-note.service";
+import { noteCellPreview } from "../cell-note-preview";
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
   fn as unknown as ReturnType<typeof vi.fn>;
+
+describe("noteCellPreview", () => {
+  it("trunca con elipsis", () => {
+    expect(noteCellPreview("corto")).toBe("corto");
+    expect(noteCellPreview("contador + abogado + prevencionista", 20).endsWith("…")).toBe(true);
+  });
+});
 
 describe("upsertCellNote", () => {
   beforeEach(() => {
@@ -51,6 +65,57 @@ describe("upsertCellNote", () => {
     await expect(
       upsertCellNote("t1", "row-1", "2026-08-04", "hola", null),
     ).rejects.toThrow(/lunes/i);
+  });
+});
+
+describe("stampCellNotes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({ id: "row-1" });
+    asMock(prisma.financeFlowCellNote.upsert).mockResolvedValue({
+      body: "x",
+      updatedBy: "u1",
+    });
+  });
+
+  it("estampa en todas las semanas lunes", async () => {
+    const n = await stampCellNotes(
+      "t1",
+      "row-1",
+      ["2026-08-03", "2026-08-10", "2026-08-04"],
+      "asesores",
+      "u1",
+    );
+    expect(n).toBe(2);
+    expect(prisma.financeFlowCellNote.upsert).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("applyNoteToFuturePlanCells", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({ id: "row-1" });
+    asMock(prisma.financeFlowPlanCell.findMany).mockResolvedValue([
+      { weekStart: new Date("2026-08-10T00:00:00.000Z") },
+      { weekStart: new Date("2026-08-17T00:00:00.000Z") },
+    ]);
+    asMock(prisma.financeFlowCellNote.upsert).mockResolvedValue({
+      body: "desglose",
+      updatedBy: "u1",
+    });
+  });
+
+  it("incluye ancla y celdas futuras con plan", async () => {
+    const r = await applyNoteToFuturePlanCells(
+      "t1",
+      "row-1",
+      "2026-08-03",
+      "desglose",
+      "u1",
+    );
+    expect(r.weeks).toContain("2026-08-03");
+    expect(r.weeks).toContain("2026-08-10");
+    expect(r.weeks).toContain("2026-08-17");
   });
 });
 

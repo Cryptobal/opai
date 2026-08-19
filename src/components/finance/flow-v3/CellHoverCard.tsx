@@ -31,7 +31,12 @@ export interface CellHoverCardHandle {
 
 interface Props {
   canManage: boolean;
-  onSaveNote: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
+  onSaveNote: (
+    rowId: string,
+    weekStart: string,
+    body: string | null,
+    opts?: { applyToFuturePlanCells?: boolean },
+  ) => Promise<boolean>;
   onOpenActions: (ctx: CellHoverShowCtx, anchor: DOMRect) => void;
   onViewDte?: (dteId: string) => void;
   onSendCobranza?: (args: {

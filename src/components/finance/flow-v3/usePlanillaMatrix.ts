@@ -406,18 +406,26 @@ export function usePlanillaMatrix() {
       rowId: string,
       weekStart: string,
       body: string | null,
-      opts?: { silent?: boolean },
+      opts?: { silent?: boolean; applyToFuturePlanCells?: boolean },
     ): Promise<boolean> => {
       try {
         const res = await fetch("/api/finance/flow-v3/plan/note", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rowId, weekStart, body }),
+          body: JSON.stringify({
+            rowId,
+            weekStart,
+            body,
+            applyToFuturePlanCells: opts?.applyToFuturePlanCells === true,
+          }),
         });
         const json = await res.json();
         if (!json.success) throw new Error(json.error ?? "No se pudo guardar la nota");
+        const trimmed = body?.trim() || null;
+        const applied: string[] | undefined = json.data?.appliedWeeks;
         setData((prev) => {
           if (!prev) return prev;
+          const weekSet = applied ? new Set(applied) : new Set([weekStart]);
           return {
             ...prev,
             rows: prev.rows.map((r) => {
@@ -425,14 +433,22 @@ export function usePlanillaMatrix() {
               return {
                 ...r,
                 cells: r.cells.map((c) =>
-                  c.weekStart === weekStart ? { ...c, note: body?.trim() || null } : c,
+                  weekSet.has(c.weekStart) ? { ...c, note: trimmed } : c,
                 ),
               };
             }),
           };
         });
         if (!opts?.silent) {
-          toast.success(body?.trim() ? "Nota guardada" : "Nota eliminada");
+          if (applied && applied.length > 1) {
+            toast.success(
+              trimmed
+                ? `Nota aplicada a ${applied.length} celdas`
+                : `Nota eliminada en ${applied.length} celdas`,
+            );
+          } else {
+            toast.success(trimmed ? "Nota guardada" : "Nota eliminada");
+          }
         }
         return true;
       } catch (err) {

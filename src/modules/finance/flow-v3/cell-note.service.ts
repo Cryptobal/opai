@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { isMondayYmd, ymdToDate } from "./weeks";
+import { isMondayYmd, weekStartYmd, ymdToDate } from "./weeks";
+import { noteCellPreview } from "./cell-note-preview";
 
 const NOTE_MAX = 2000;
 
@@ -10,6 +11,8 @@ export interface CellNoteDto {
   body: string | null;
   updatedBy: string | null;
 }
+
+export { noteCellPreview };
 
 function assertWeek(weekStart: string): Date {
   if (!isMondayYmd(weekStart)) {
@@ -84,4 +87,58 @@ export async function loadCellNotes(
     m.set(ymd, n.body);
   }
   return byRow;
+}
+
+/**
+ * Estampa la misma nota en varias semanas (egreso recurrente al materializar).
+ * body vacío/null ⇒ borra notas de esas semanas.
+ */
+export async function stampCellNotes(
+  tenantId: string,
+  rowId: string,
+  weekStarts: string[],
+  body: string | null,
+  updatedBy: string | null,
+): Promise<number> {
+  const unique = [...new Set(weekStarts.filter((w) => isMondayYmd(w)))];
+  if (unique.length === 0) return 0;
+  let n = 0;
+  for (const w of unique) {
+    await upsertCellNote(tenantId, rowId, w, body, updatedBy);
+    n += 1;
+  }
+  return n;
+}
+
+/**
+ * Aplica (o borra) la nota en todas las celdas de plan futuras de la fila
+ * (weekStart ≥ semana actual y amount ≠ 0), más la semana ancla.
+ */
+export async function applyNoteToFuturePlanCells(
+  tenantId: string,
+  rowId: string,
+  anchorWeekStart: string,
+  body: string | null,
+  updatedBy: string | null,
+): Promise<{ weeks: string[] }> {
+  await assertRow(tenantId, rowId);
+  assertWeek(anchorWeekStart);
+  const currentWeek = weekStartYmd(new Date());
+  const from = currentWeek < anchorWeekStart ? currentWeek : anchorWeekStart;
+  const cells = await prisma.financeFlowPlanCell.findMany({
+    where: {
+      tenantId,
+      rowId,
+      weekStart: { gte: ymdToDate(from)! },
+      NOT: { amount: 0 },
+    },
+    select: { weekStart: true },
+  });
+  const weeks = new Set<string>([anchorWeekStart]);
+  for (const c of cells) {
+    weeks.add(c.weekStart.toISOString().slice(0, 10));
+  }
+  const list = [...weeks].sort();
+  await stampCellNotes(tenantId, rowId, list, body, updatedBy);
+  return { weeks: list };
 }
