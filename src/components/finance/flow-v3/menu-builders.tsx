@@ -1029,3 +1029,10 @@ export function buildCellSheetModel(
       ];
   return { folioGroups, commonItems };
 }
+
+const CELL_PANEL_HIDDEN_KEYS = new Set(["detail", "note"]);
+
+/** Acciones del menú de celda para el panel único (sin duplicar pestañas). */
+export function panelActionsFromCellMenu(items: MenuItemDesc[]): MenuItemDesc[] {
+  return items.filter((it) => !CELL_PANEL_HIDDEN_KEYS.has(it.key));
+}

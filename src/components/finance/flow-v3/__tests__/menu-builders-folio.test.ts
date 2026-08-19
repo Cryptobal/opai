@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   buildCellMenu,
   buildCellSheetModel,
+  panelActionsFromCellMenu,
   type CellMenuCallbacks,
   type CellMenuContext,
 } from "../menu-builders";
@@ -323,5 +324,17 @@ describe("buildCellMenu — programaciones movibles", () => {
     expect(move?.label).toBe("Mover esta P a…");
     expect(move?.disabled).toBe(false);
     expect(move?.key).toContain("ms:quincena");
+  });
+});
+
+describe("panelActionsFromCellMenu", () => {
+  it("quita Ver detalle e historial y nota; deja el resto", () => {
+    const items = panelActionsFromCellMenu([
+      { key: "view-dte", label: "Ver F°1797" },
+      { key: "exclude-dte", label: "Excluir del flujo", danger: true },
+      { key: "detail", label: "Ver detalle e historial", separatorBefore: true },
+      { key: "note", label: "Agregar nota…" },
+    ]);
+    expect(items.map((i) => i.key)).toEqual(["view-dte", "exclude-dte"]);
   });
 });
