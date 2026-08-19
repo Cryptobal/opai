@@ -15,30 +15,52 @@ export default async function OpsPautaMensualPage() {
   }
 
   const tenantId = session.user.tenantId;
+  const role = session.user.role;
 
-  const clients = await prisma.crmAccount.findMany({
-    where: {
-      tenantId,
-      type: "client",
-      isActive: true,
-    },
-    select: {
-      id: true,
-      name: true,
-      rut: true,
-      installations: {
-        where: { status: "active" },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
+  const [clients, guardias] = await Promise.all([
+    prisma.crmAccount.findMany({
+      where: {
+        tenantId,
+        type: "client",
+        isActive: true,
       },
-    },
-    orderBy: { name: "asc" },
-  });
+      select: {
+        id: true,
+        name: true,
+        rut: true,
+        installations: {
+          where: { status: "active" },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.opsGuardia.findMany({
+      where: {
+        tenantId,
+        status: "active",
+        isBlacklisted: false,
+        lifecycleStatus: { in: ["contratado", "te"] },
+      },
+      select: {
+        id: true,
+        code: true,
+        lifecycleStatus: true,
+        persona: {
+          select: { firstName: true, lastName: true, rut: true },
+        },
+      },
+      orderBy: [{ persona: { lastName: "asc" } }],
+    }),
+  ]);
 
   return (
     <div className="min-w-0">
       <OpsPautaMensualClient
         initialClients={JSON.parse(JSON.stringify(clients))}
+        guardias={JSON.parse(JSON.stringify(guardias))}
+        userRole={role}
         currentUserId={session.user.id}
       />
     </div>
