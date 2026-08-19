@@ -164,7 +164,7 @@ export function PlanillaFxBar({
         )}
         {note && (
           <span
-            className="max-w-[140px] shrink truncate rounded bg-status-info-soft px-1.5 py-0.5 text-[12px] text-status-info-fg"
+            className="min-w-0 max-w-[min(28rem,45%)] shrink line-clamp-2 rounded bg-status-info-soft px-1.5 py-0.5 text-[12px] leading-snug text-status-info-fg"
             title={note}
           >
             Nota: {note}
