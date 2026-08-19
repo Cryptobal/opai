@@ -16,9 +16,9 @@ import {
   pastPendingGhostMeta, primaryCellTag, secondaryMarkTitle, secondaryMarks,
   toneClass, type SecondaryMark,
 } from "./cell-meta";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DraftSentIcons } from "./DraftSentIcons";
 import { ExecutionBar } from "./ExecutionBar";
-import { noteCellPreview } from "@/modules/finance/flow-v3/cell-note-preview";
 
 const SUB_CORNER_CLASS: Record<SecondaryMark, string> = {
   ceded: SUB_CORNER_CEDED,
@@ -168,7 +168,7 @@ export function PlanillaCell(p: Props) {
             ? CORNER_PLAN
             : "";
   const hasNote = !!cell.note?.trim();
-  const notePreview = hasNote ? noteCellPreview(cell.note!) : "";
+  const noteText = hasNote ? cell.note!.trim() : "";
   const isSelected = p.rangeClass.includes("planilla-selected");
   const crossRow = !!p.crossHighlightRow && !isSelected;
   const crossCol = !!p.crossHighlightCol && !isSelected;
@@ -363,17 +363,27 @@ export function PlanillaCell(p: Props) {
         </span>
       )}
       {hasNote && (
-        <span
-          role="button"
-          tabIndex={-1}
-          aria-label="Editar nota"
-          className={NOTE_DOT_EL}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            p.onOpenNote?.();
-          }}
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              role="button"
+              tabIndex={-1}
+              aria-label="Ver / editar nota"
+              className={NOTE_DOT_EL}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                p.onOpenNote?.();
+              }}
+            />
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            className="max-w-[min(20rem,70vw)] whitespace-pre-wrap break-words text-[12px] leading-snug"
+          >
+            {noteText}
+          </TooltipContent>
+        </Tooltip>
       )}
       {exec?.showBar && (
         <ExecutionBar
@@ -451,14 +461,6 @@ export function PlanillaCell(p: Props) {
               {p.caption}
             </span>
           )}
-          {!p.caption && notePreview && (
-            <span
-              className="max-w-full truncate text-[12px] leading-tight text-status-info-fg"
-              title={cell.note!.trim()}
-            >
-              {notePreview}
-            </span>
-          )}
           {showDriftChip && cell.drift && (
             <span
               className={`text-[12px] font-medium leading-tight ${
@@ -475,14 +477,6 @@ export function PlanillaCell(p: Props) {
           {displayFormatted}
           {p.caption && displayFormatted && (
             <span className="ml-0.5 text-[12px] text-ds-text-4">{p.caption}</span>
-          )}
-          {!p.caption && notePreview && displayFormatted && (
-            <span
-              className="ml-0.5 max-w-[7rem] truncate text-[12px] text-status-info-fg"
-              title={cell.note!.trim()}
-            >
-              {notePreview}
-            </span>
           )}
           {/* Real + F° pendiente en semana pasada: badge mixto. */}
           {pastPend && cell.layer === "real" && (
