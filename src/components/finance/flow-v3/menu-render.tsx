@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import {
   ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent,
@@ -12,6 +12,9 @@ import {
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+
+/** Delay corto para abrir submenús del panel al hover (evita abrir al pasar de largo). */
+const PANEL_SUBMENU_HOVER_MS = 80;
 
 /**
  * Modelo de ítems compartido entre el menú contextual (botón derecho /
@@ -112,6 +115,7 @@ function SheetMenuItems({
   density?: "sheet" | "panel";
 }) {
   const [stack, setStack] = useState<{ title: string; items: MenuItemDesc[] }[]>([]);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const current = stack.length > 0 ? stack[stack.length - 1]! : null;
   const list = current?.items ?? items;
   const compact = density === "panel";
@@ -119,6 +123,30 @@ function SheetMenuItems({
     ? "flex w-full min-h-10 sm:min-h-9 items-center gap-2 rounded px-1.5 py-1.5 text-left hover:bg-ds-surface-2"
     : "flex w-full min-h-11 items-center gap-3 px-5 py-3 text-left active:bg-ds-surface-2";
   const labelClass = compact ? "block text-[13px] font-medium" : "block text-[14px] font-medium";
+
+  const clearHoverTimer = () => {
+    if (hoverTimer.current) {
+      clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+  };
+
+  useEffect(() => () => clearHoverTimer(), []);
+
+  const openSubmenu = (it: MenuItemDesc) => {
+    clearHoverTimer();
+    if (it.disabled || !it.submenu?.length) return;
+    setStack((s) => [
+      ...s,
+      { title: typeof it.label === "string" ? it.label : "Más", items: it.submenu! },
+    ]);
+  };
+
+  const scheduleOpenSubmenu = (it: MenuItemDesc) => {
+    if (!compact || it.disabled || !it.submenu?.length) return;
+    clearHoverTimer();
+    hoverTimer.current = setTimeout(() => openSubmenu(it), PANEL_SUBMENU_HOVER_MS);
+  };
 
   return (
     <div className={compact ? "space-y-0.5" : "divide-y divide-ds-border-subtle"}>
@@ -142,13 +170,11 @@ function SheetMenuItems({
               <button
                 type="button"
                 disabled={it.disabled}
-                onClick={() => {
-                  if (it.disabled) return;
-                  setStack((s) => [
-                    ...s,
-                    { title: typeof it.label === "string" ? it.label : "Más", items: it.submenu! },
-                  ]);
-                }}
+                onClick={() => openSubmenu(it)}
+                /* Panel desktop: abrir al hover para no exigir un click extra
+                   (p. ej. «Mover a otra semana…»). Sheet móvil sigue solo con tap. */
+                onPointerEnter={compact ? () => scheduleOpenSubmenu(it) : undefined}
+                onPointerLeave={compact ? clearHoverTimer : undefined}
                 className={cn(btn, it.disabled && "pointer-events-none opacity-40")}
               >
                 <span className="min-w-0 flex-1">
