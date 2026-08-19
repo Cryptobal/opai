@@ -18,6 +18,22 @@ describe("token-resolver — buildEmpresaEntityData", () => {
     expect(data.firmaRepLegal).toBe("https://example.com/firma.png");
   });
 
+  it("maps keys after stripping empresa:{tenantId}: prefix (new Setting format)", () => {
+    const tenantId = "tenant-abc";
+    const prefix = `empresa:${tenantId}:`;
+    const normalized = [
+      { key: `${prefix}empresa.repLegalNombre`, value: "Carlos Ruiz" },
+      { key: `${prefix}empresa.fechaEscrituraPublica`, value: "1 de enero de 2019" },
+    ].map((s) => ({
+      key: s.key.includes(":") ? s.key.replace(prefix, "") : s.key,
+      value: s.value,
+    }));
+
+    const data = buildEmpresaEntityData(normalized);
+    expect(data.repLegalNombre).toBe("Carlos Ruiz");
+    expect(data.fechaEscrituraPublica).toBe("1 de enero de 2019");
+  });
+
   it("resolves empresa.repLegalNombre token from entity data", () => {
     const value = resolveTokenValue("empresa.repLegalNombre", {
       empresa: { repLegalNombre: "María González" },
