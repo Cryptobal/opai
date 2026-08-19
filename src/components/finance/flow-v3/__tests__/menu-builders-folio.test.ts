@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   buildCellMenu,
   buildCellSheetModel,
+  resolveNextWeekKey,
   type CellMenuCallbacks,
   type CellMenuContext,
 } from "../menu-builders";
@@ -136,6 +137,36 @@ describe("buildCellMenu — por folio en desktop", () => {
     expect(items.find((i) => i.key === "fill")?.label).toBe("Copiar a las semanas siguientes…");
     expect(items.find((i) => i.key === "move")?.label).toBe("Mover a otra semana");
     expect(items.find((i) => i.key === "clear")?.label).toBe("Quitar de esta semana");
+  });
+
+  it("mover plan resalta la próxima semana en el submenú", () => {
+    const planCell: FlowMatrixCellDto = {
+      weekStart: "2026-08-24",
+      plan: 27_080_000,
+      committed: null,
+      real: null,
+      effective: 27_080_000,
+      layer: "plan",
+    };
+    const openWeeks = [
+      { key: "2026-07-20", weekStart: "2026-07-20", label: "S30", isCurrent: false, isPast: true, weekCount: 1, monthKey: "2026-07" },
+      { key: "2026-08-10", weekStart: "2026-08-10", label: "S33", isCurrent: false, isPast: false, weekCount: 1, monthKey: "2026-08" },
+      { key: "2026-08-17", weekStart: "2026-08-17", label: "S34", isCurrent: false, isPast: false, weekCount: 1, monthKey: "2026-08" },
+      { key: "2026-08-31", weekStart: "2026-08-31", label: "S36", isCurrent: false, isPast: false, weekCount: 1, monthKey: "2026-08" },
+      { key: "2026-09-07", weekStart: "2026-09-07", label: "S37", isCurrent: false, isPast: false, weekCount: 1, monthKey: "2026-09" },
+    ];
+    const planCtx = {
+      ...ctx,
+      editable: true,
+      reason: "",
+      openWeeks,
+      cellWeekStart: "2026-08-24",
+    };
+    const moveSub = buildCellMenu(row(), planCell, planCtx, cbs()).find((i) => i.key === "move")?.submenu ?? [];
+    expect(resolveNextWeekKey(openWeeks, "2026-08-24")).toBe("2026-08-31");
+    const nextItem = moveSub.find((i) => i.key === "move-2026-08-31");
+    expect(nextItem?.highlight).toBe("next-week");
+    expect(moveSub.find((i) => i.key === "move-2026-08-17")?.highlight).toBeUndefined();
   });
 
   it("Retiro socios committed ofrece Mover a otra semana…", () => {
