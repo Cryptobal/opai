@@ -90,6 +90,8 @@ export interface CommittedExpenseArgs {
   tePlanBlockedWeeks?: Set<string>;
   /** v5.1: reglas PCT_SALES evaluate-on-read por fila. */
   pctSalesProjections?: PctSalesProjectionInput[];
+  /** Override de visibilidad por hito (`milestoneKey::YYYY-MM` → YMD). */
+  milestoneOverrides?: Map<string, string>;
 }
 
 /** Semana de pago; si venció, clampea a la semana actual (pagable ya). */
@@ -112,7 +114,11 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
     if (m.amountClp < 0 && !m.targetRowId) continue;
     // Hitos pasados quedan en su semana natural (el real ya los capturó);
     // no clampean para no duplicar visualmente contra la semana actual.
-    const week = weekStartYmd(ymdToDate(m.dateYmd) ?? new Date());
+    // Override de visibilidad (mover P) manda sin clamp.
+    const period = m.dateYmd.slice(0, 7);
+    const overrideYmd = args.milestoneOverrides?.get(`${m.key}::${period}`) ?? null;
+    const placementYmd = overrideYmd ?? m.dateYmd;
+    const week = weekStartYmd(ymdToDate(placementYmd) ?? new Date());
     if (!inRange(week)) continue;
     const key = MILESTONE_ROW_KEY[m.key];
     const rowKey =
@@ -121,8 +127,10 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
     const label = m.metaNote ? `${m.label} (${m.metaNote})` : m.label;
     pushCommitted(out, rowKey, week, {
       kind: "scheduled",
+      milestoneKey: m.key,
+      billingPeriod: period,
       label,
-      fecha: m.dateYmd,
+      fecha: placementYmd,
       monto: Math.round(m.amountClp),
     });
   }

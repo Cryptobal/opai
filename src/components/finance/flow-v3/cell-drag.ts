@@ -9,6 +9,7 @@ import { committedItemMeta } from "./cell-meta";
 export type CellDragPayload =
   | { kind: "plan" }
   | { kind: "scheduled"; templateId: string; billingPeriod: string }
+  | { kind: "milestone"; milestoneKey: string; billingPeriod: string }
   | { kind: "dte"; dteId: string };
 
 export type StackedLine = {
@@ -23,6 +24,9 @@ export type StackedLine = {
 export function itemDragPayload(it: CommittedItem): CellDragPayload | null {
   if (it.kind === "scheduled" && it.templateId && it.billingPeriod) {
     return { kind: "scheduled", templateId: it.templateId, billingPeriod: it.billingPeriod };
+  }
+  if (it.kind === "scheduled" && it.milestoneKey && it.billingPeriod) {
+    return { kind: "milestone", milestoneKey: it.milestoneKey, billingPeriod: it.billingPeriod };
   }
   if (it.kind === "dte" && it.dteId) {
     return { kind: "dte", dteId: it.dteId };

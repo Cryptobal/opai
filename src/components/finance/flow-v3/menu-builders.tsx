@@ -234,6 +234,8 @@ export interface CellMenuCallbacks {
   onMoveDte: (dteId: string, targetWeek: string) => void;
   /** Mueve una cuota programada (P) a otra semana. No toca facturas. */
   onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
+  /** Mueve un hito de egreso (quincena, sueldos, …). */
+  onMoveMilestone?: (milestoneKey: string, billingPeriod: string, targetWeek: string) => void;
   onViewDetail: () => void;
   /** Abre el detalle enfocado en el editor de nota. */
   onEditNote?: () => void;
@@ -339,7 +341,9 @@ function cellDraftItems(cell: FlowMatrixCellDto): DraftMenuItem[] {
 }
 
 type ScheduledMenuItem = {
-  templateId: string;
+  source: "template" | "milestone";
+  templateId?: string;
+  milestoneKey?: string;
   billingPeriod: string;
   label: string;
   monto: number;
@@ -348,12 +352,15 @@ type ScheduledMenuItem = {
 
 export function cellScheduledItems(cell: FlowMatrixCellDto): ScheduledMenuItem[] {
   return (cell.committed?.items ?? [])
-    .filter(
-      (i): i is CommittedItem & { templateId: string; billingPeriod: string; kind: "scheduled" } =>
-        i.kind === "scheduled" && !!i.templateId && !!i.billingPeriod,
+    .filter((i): i is CommittedItem & { billingPeriod: string; kind: "scheduled" } =>
+      i.kind === "scheduled" &&
+      !!i.billingPeriod &&
+      (!!i.templateId || !!i.milestoneKey),
     )
     .map((i) => ({
+      source: i.milestoneKey && !i.templateId ? "milestone" : "template",
       templateId: i.templateId,
+      milestoneKey: i.milestoneKey,
       billingPeriod: i.billingPeriod,
       label: i.label,
       monto: i.monto,
@@ -362,12 +369,8 @@ export function cellScheduledItems(cell: FlowMatrixCellDto): ScheduledMenuItem[]
 }
 
 function scheduledMoveKey(s: ScheduledMenuItem): string {
-  return `${s.templateId}::${s.billingPeriod}`;
-}
-
-function parseScheduledMoveKey(key: string): { templateId: string; billingPeriod: string } {
-  const sep = key.indexOf("::");
-  return { templateId: key.slice(0, sep), billingPeriod: key.slice(sep + 2) };
+  if (s.source === "milestone") return `ms:${s.milestoneKey}::${s.billingPeriod}`;
+  return `tpl:${s.templateId}::${s.billingPeriod}`;
 }
 
 function folioLabel(d: DteMenuItem): string {
@@ -588,11 +591,21 @@ function scheduledMoveItems(
   cb: CellMenuCallbacks,
   opts?: { separatorBeforeFirst?: boolean },
 ): MenuItemDesc[] {
-  if (scheduled.length === 0 || !cb.onMoveScheduled) return [];
+  const canDispatch = scheduled.some((s) =>
+    s.source === "milestone" ? !!cb.onMoveMilestone : !!cb.onMoveScheduled,
+  );
+  if (scheduled.length === 0 || !canDispatch) return [];
   const canMove = ctx.canManage && ctx.dteMoveWeeks.length > 0;
   const onMove = (key: string, week: string) => {
-    const { templateId, billingPeriod } = parseScheduledMoveKey(key);
-    cb.onMoveScheduled!(templateId, billingPeriod, week);
+    if (key.startsWith("ms:")) {
+      const rest = key.slice(3);
+      const sep = rest.indexOf("::");
+      cb.onMoveMilestone?.(rest.slice(0, sep), rest.slice(sep + 2), week);
+      return;
+    }
+    const rest = key.startsWith("tpl:") ? key.slice(4) : key;
+    const sep = rest.indexOf("::");
+    cb.onMoveScheduled?.(rest.slice(0, sep), rest.slice(sep + 2), week);
   };
   const reason = !ctx.canManage ? "Sin permiso de edición" : "No hay semanas abiertas";
   if (scheduled.length === 1) {

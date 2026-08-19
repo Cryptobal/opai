@@ -81,6 +81,29 @@ describe("cell-drag", () => {
     });
   });
 
+  it("quincena (hito) se arrastra como milestone", () => {
+    const c = cell({
+      layer: "committed",
+      committed: {
+        total: 4_776_383,
+        items: [{
+          kind: "scheduled",
+          milestoneKey: "quincena",
+          billingPeriod: "2026-08",
+          label: "Quincena / anticipos",
+          fecha: "2026-08-15",
+          monto: 4_776_383,
+        }],
+      },
+      effective: 4_776_383,
+    });
+    expect(cellLevelDragPayload(c)).toEqual({
+      kind: "milestone",
+      milestoneKey: "quincena",
+      billingPeriod: "2026-08",
+    });
+  });
+
   it("P sin billingPeriod no se puede arrastrar", () => {
     expect(
       itemDragPayload({

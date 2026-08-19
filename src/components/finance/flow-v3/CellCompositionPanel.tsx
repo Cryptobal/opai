@@ -25,6 +25,7 @@ interface Props {
   moveWeeks?: MatrixColumn[];
   onMoveDte?: (dteId: string, targetWeek: string) => void;
   onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
+  onMoveMilestone?: (milestoneKey: string, billingPeriod: string, targetWeek: string) => void;
   onClose: () => void;
 }
 
@@ -45,7 +46,7 @@ export function CellCompositionPanel({
   cell, canManage, editable, editReason, excluded = [],
   onViewDte, onExcludeDte, onRestoreDte,
   onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual,
-  moveWeeks = [], onMoveDte, onMoveScheduled, onClose,
+  moveWeeks = [], onMoveDte, onMoveScheduled, onMoveMilestone, onClose,
 }: Props) {
   const [movingKey, setMovingKey] = useState<string | null>(null);
   const [excludingId, setExcludingId] = useState<string | null>(null);
@@ -110,13 +111,17 @@ export function CellCompositionPanel({
             const schedKey =
               it.kind === "scheduled" && it.templateId && it.billingPeriod
                 ? `sched:${it.templateId}::${it.billingPeriod}`
-                : null;
+                : it.kind === "scheduled" && it.milestoneKey && it.billingPeriod
+                  ? `ms:${it.milestoneKey}::${it.billingPeriod}`
+                  : null;
             const dteKey = it.kind === "dte" && it.dteId ? `dte:${it.dteId}` : null;
             const itemKey = schedKey ?? dteKey;
             const canMoveItem =
               canManage &&
               moveWeeks.length > 0 &&
-              ((schedKey && !!onMoveScheduled) || (dteKey && !!onMoveDte));
+              ((schedKey?.startsWith("sched:") && !!onMoveScheduled) ||
+                (schedKey?.startsWith("ms:") && !!onMoveMilestone) ||
+                (dteKey && !!onMoveDte));
             return (
               <li key={i} className="text-ds-text-2">
                 <button type="button" disabled={!clickable} onClick={() => it.dteId && openDteOrBank(it.dteId)}
@@ -162,6 +167,14 @@ export function CellCompositionPanel({
                               onMoveScheduled
                             ) {
                               onMoveScheduled(it.templateId, it.billingPeriod, w.key);
+                            }
+                            if (
+                              it.kind === "scheduled" &&
+                              it.milestoneKey &&
+                              it.billingPeriod &&
+                              onMoveMilestone
+                            ) {
+                              onMoveMilestone(it.milestoneKey, it.billingPeriod, w.key);
                             }
                             setMovingKey(null);
                             onClose();
