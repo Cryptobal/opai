@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dayAttendanceTone,
+  isAttendedExecution,
   resolveDayAttendanceStatus,
 } from "../pauta-mensual-day-status";
 
@@ -84,6 +85,32 @@ describe("resolveDayAttendanceStatus", () => {
         resolved: 0,
       }),
     ).toBe("none");
+  });
+
+  it("un día pasado con turnos pero 0 ASI/TE es rojo aunque haya PPC o SC", () => {
+    const planned = 2;
+    const executions = ["ppc", "sin_cobertura"] as const;
+    const resolved = executions.filter(isAttendedExecution).length;
+    expect(resolved).toBe(0);
+    expect(
+      resolveDayAttendanceStatus({
+        dateKey: "2026-08-01",
+        todayKey: TODAY,
+        planned,
+        resolved,
+      }),
+    ).toBe("pending");
+  });
+});
+
+describe("isAttendedExecution", () => {
+  it("solo ASI y TE cubren el turno", () => {
+    expect(isAttendedExecution("asistio")).toBe(true);
+    expect(isAttendedExecution("te")).toBe(true);
+    expect(isAttendedExecution("ppc")).toBe(false);
+    expect(isAttendedExecution("sin_cobertura")).toBe(false);
+    expect(isAttendedExecution(undefined)).toBe(false);
+    expect(isAttendedExecution(null)).toBe(false);
   });
 });
 
