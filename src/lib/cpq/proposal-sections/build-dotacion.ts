@@ -153,3 +153,47 @@ export function buildDotacionContent(positions: readonly DotacionPosition[]): st
   blocks.push(`**Dotación total:** ${totalGuards} guardias en ${positions.length} turno(s).`);
   return blocks.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
+
+export type DotacionInstallationBlock = {
+  name: string;
+  positions: readonly DotacionPosition[];
+};
+
+/**
+ * Dotación multi-instalación: un bloque por sitio + total consolidado.
+ * Si hay una sola instalación, delega a `buildDotacionContent`.
+ */
+export function buildDotacionContentForInstallations(
+  installations: readonly DotacionInstallationBlock[],
+): string {
+  const withPositions = installations.filter((inst) => hasRealDotacion(inst.positions));
+  if (withPositions.length === 0) return EMPTY_DOTACION;
+  if (withPositions.length === 1) {
+    return buildDotacionContent(withPositions[0]!.positions);
+  }
+
+  const blocks: string[] = ["Dotación considerada según el costeo vigente:", ""];
+  let totalGuards = 0;
+  let totalTurns = 0;
+
+  for (const inst of withPositions) {
+    const body = buildDotacionContent(inst.positions)
+      .replace(/^Dotación considerada según el costeo vigente:\n*/i, "")
+      .replace(/\n*\*\*Dotación total:\*\*[^\n]*$/i, "")
+      .trim();
+    const guards = countDotacionGuards(inst.positions);
+    totalGuards += guards;
+    totalTurns += inst.positions.length;
+    blocks.push(
+      `## ${inst.name.trim() || "Instalación"}`,
+      "",
+      body,
+      "",
+    );
+  }
+
+  blocks.push(
+    `**Dotación total consolidada:** ${totalGuards} guardias en ${totalTurns} turno(s) · ${withPositions.length} instalaciones.`,
+  );
+  return blocks.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}

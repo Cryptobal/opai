@@ -11,6 +11,10 @@ import { prisma } from "@/lib/prisma";
 import { buildBundleProposalProps } from "@/lib/pdf/templates/proposal/build-bundle-proposal-props";
 import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/render-proposal";
 import { buildContentDisposition } from "@/lib/pdf/cpq-quote-pdf-filename";
+import {
+  emptyFinalProposalSectionTitles,
+  finalProposalIncompleteMessage,
+} from "@/lib/pdf/templates/proposal/final-proposal-gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -79,6 +83,17 @@ export async function GET(
       ctx.tenantId,
       { pdfMode },
     );
+
+    if (pdfMode === "final") {
+      const empty = emptyFinalProposalSectionTitles(props.proposalSections);
+      if (empty.length > 0) {
+        return NextResponse.json(
+          { success: false, error: finalProposalIncompleteMessage(empty) },
+          { status: 422 },
+        );
+      }
+    }
+
     const pdfBuffer = await renderProposalToBufferFromProps(props);
 
     return new NextResponse(new Uint8Array(pdfBuffer), {

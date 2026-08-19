@@ -9,6 +9,15 @@ import { formatCurrency, formatUFSuffix } from "@/lib/utils";
 import { getUfValue, clpToUf } from "@/lib/uf";
 import { buildProposalProps } from "./build-proposal-props";
 import type { ProposalProps } from "./build-proposal-props";
+import {
+  buildDotacionContentForInstallations,
+  loadDotacionPositions,
+} from "@/lib/cpq/proposal-sections/build-dotacion";
+import { isDotacionSection } from "@/lib/cpq/proposal-sections/generate-batch";
+import {
+  consolidateQuoteBreakdowns,
+  consolidateResourceBreakdowns,
+} from "./consolidate-bundle-breakdown";
 
 /** Mismas etiquetas que build-proposal-props para las condiciones del bundle. */
 const PAYMENT_LABELS: Record<string, string> = {
@@ -110,6 +119,41 @@ export async function buildBundleProposalProps(
 
   const { fileName: _ignored, ...baseProps } = base;
 
+  // Dotación consolidada: puestos de TODAS las cotizaciones incluidas.
+  let proposalSections = baseProps.proposalSections
+    ? [...baseProps.proposalSections]
+    : undefined;
+  try {
+    const installationBlocks = await Promise.all(
+      bundle.quotes.map(async (m, idx) => {
+        const positions = await loadDotacionPositions(m.quoteId);
+        const name =
+          perQuote[idx]?.installationName?.trim() ||
+          `Instalación ${idx + 1}`;
+        return { name, positions };
+      }),
+    );
+    const consolidatedDotacion =
+      buildDotacionContentForInstallations(installationBlocks);
+    if (proposalSections) {
+      proposalSections = proposalSections.map((section) =>
+        isDotacionSection(section)
+          ? { ...section, content: consolidatedDotacion }
+          : section,
+      );
+    }
+  } catch (err) {
+    console.error(
+      "[Bundle Proposal] Dotación consolidada falló — se conserva la de la 1ª cotización:",
+      err,
+    );
+  }
+
+  const breakdown = consolidateQuoteBreakdowns(perQuote.map((p) => p.breakdown));
+  const resourceBreakdown = consolidateResourceBreakdowns(
+    perQuote.map((p) => p.resourceBreakdown),
+  );
+
   const props: ProposalProps = {
     ...baseProps,
     // Cinturón: el PDF de correo / envío final no debe heredar BORRADOR
@@ -149,6 +193,9 @@ export async function buildBundleProposalProps(
       totalOneTime: totalOneTime > 0 ? totalOneTime : undefined,
       totalOneTimeFormatted: totalOneTime > 0 ? fmt(totalOneTime) : undefined,
     },
+    proposalSections,
+    breakdown,
+    resourceBreakdown,
   };
 
   const safeClient = (base.companyName || "Cliente")

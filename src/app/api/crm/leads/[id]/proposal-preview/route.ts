@@ -22,6 +22,11 @@ import {
 } from "@/lib/cpq/lead-labor-from-payroll";
 import { buildCpqQuotePdfFileName, buildContentDisposition } from "@/lib/pdf/cpq-quote-pdf-filename";
 import { requireTenantModule } from '@/lib/require-module';
+import { emptyProposalV2 } from "@/lib/cpq/proposal-sections/schema";
+import { setSectionContent } from "@/lib/cpq/proposal-sections/ops";
+import { hydrateProposalContentForPdfWithTenant } from "@/lib/cpq/proposal-sections/hydrate-for-pdf";
+import type { DotacionPosition } from "@/lib/cpq/proposal-sections/build-dotacion";
+import { deriveComplianceMatrix } from "@/lib/cpq/proposal-sections/compliance-matrix";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -493,7 +498,79 @@ export async function POST(
 
     const resourceBreakdown = resCats.filter((c) => c.items.length > 0);
 
+    // Índice comercial hidratado (fijas + Dotación) para no emitir capítulos
+    // solo-título; el layout institucional filtra vacíos residuales (p.ej. Gantt).
+    let proposalSections: ProposalProps["proposalSections"];
+    let complianceMatrix: ProposalProps["complianceMatrix"];
+    try {
+      const leadPositions: DotacionPosition[] = (positions as LeadPosition[]).map((p) => ({
+        customName: p.customName || p.puesto || null,
+        weekdays: p.dias ?? ["lun", "mar", "mie", "jue", "vie", "sab", "dom"],
+        startTime: p.horaInicio || "08:00",
+        endTime: p.horaFin || "20:00",
+        numGuards: p.cantidad || 1,
+        numPuestos: p.numPuestos || 1,
+        puestoTrabajo: p.puesto ? { name: p.puesto } : null,
+        cargo: null,
+        rol: null,
+        serviceGroup: installationName
+          ? { name: installationName, displayOrder: 0 }
+          : null,
+      }));
+
+      let content = emptyProposalV2("comercial");
+      const resumenSec = content.sections.find(
+        (s) => s.title === "Resumen ejecutivo",
+      );
+      const comprensionSec = content.sections.find(
+        (s) => s.title === "Comprensión del servicio",
+      );
+      if (resumenSec && aiContent.resumenEjecutivo?.trim()) {
+        content = setSectionContent(content, resumenSec.id, aiContent.resumenEjecutivo, {
+          mark: "ia",
+        });
+      }
+      if (comprensionSec && aiContent.analisisNecesidades?.trim()) {
+        const sectores = (aiContent.sectoresRelevantes ?? []).filter(Boolean);
+        const body = [
+          aiContent.analisisNecesidades,
+          sectores.length ? `Sectores: ${sectores.join(", ")}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+        content = setSectionContent(content, comprensionSec.id, body, { mark: "ia" });
+      }
+
+      const hydrated = await hydrateProposalContentForPdfWithTenant({
+        tenantId: ctx.tenantId,
+        content,
+        positions: leadPositions,
+      });
+      content = hydrated.content;
+      proposalSections = [...content.sections]
+        .sort((a, b) => a.order - b.order)
+        .map((section) => ({
+          id: section.id,
+          order: section.order,
+          title: section.title,
+          ref: section.ref,
+          content: section.content,
+          invariant: section.invariant,
+          kind: section.kind,
+        }));
+      complianceMatrix = deriveComplianceMatrix(content).map((row) => ({
+        ref: row.ref,
+        requirement: row.requirement,
+        sectionTitle: row.sectionTitle,
+        level: row.level,
+      }));
+    } catch (err) {
+      console.error("[Lead Proposal Preview] hydrate falló — PDF clásico sin secciones v2:", err);
+    }
+
     const props: ProposalProps = {
+      variant: proposalSections?.length ? "technical" : undefined,
+      watermark: "BORRADOR",
       companyName: accountName,
       quotationCode: "PREVIEW",
       proposalDate,
@@ -556,6 +633,8 @@ export async function POST(
       breakdown,
       resourceBreakdown: resourceBreakdown.length > 0 ? resourceBreakdown : undefined,
       includedItems: [],
+      proposalSections,
+      complianceMatrix,
     };
 
     const pdfBuffer = await renderProposalToBufferFromProps(props);
