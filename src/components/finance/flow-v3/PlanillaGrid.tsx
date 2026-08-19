@@ -33,7 +33,7 @@ import {
 import { FillRightDialog, type FillRightRequest } from "./FillRightDialog";
 import { usePlanillaKeyboard, type CellSel } from "./usePlanillaKeyboard";
 import {
-  cellKey, cellsInRect, discreteStats, isInRect, rangeRect, rangeToTsv, toggleDiscreteCell,
+  cellKey, cellsInRect, discreteStats, isInRect, isSingleCell, rangeRect, rangeToTsv, toggleDiscreteCell,
   type DiscreteSelStats, type RangeSel,
 } from "./range-sel";
 import { MenuItems } from "./menu-render";
@@ -1021,6 +1021,12 @@ export function PlanillaGrid({
     return s;
   }, [activeRect, kb.sel]);
 
+  /** Resalte cruzado estilo Sheets: solo celda única activa. */
+  const crossHighlight = useMemo(() => {
+    if (!activeRect || !isSingleCell(activeRect) || !kb.sel) return null;
+    return kb.sel;
+  }, [activeRect, kb.sel]);
+
   // Propagar selección al chrome (fx / statusbar).
   useEffect(() => {
     if (!onSelectionChange) return;
@@ -1723,6 +1729,8 @@ export function PlanillaGrid({
                         (visibleRowIdxById.get(row.id) ?? -1) >= activeRect.r0 &&
                         (visibleRowIdxById.get(row.id) ?? -1) <= activeRect.r1
                       }
+                      crossHighlightColIdx={crossHighlight?.colIdx ?? null}
+                      crossHighlightRow={crossHighlight?.rowId === row.id}
                       searchQuery={searchQuery}
                       ufCaption={row.ufCaption}
                       hoverCards
@@ -1771,7 +1779,10 @@ export function PlanillaGrid({
           </div>
         </ContextMenuTrigger>
         {ctxItems && ctxItems.length > 0 && (
-          <ContextMenuContent className="max-h-96 overflow-y-auto">
+          <ContextMenuContent
+            collisionPadding={12}
+            className="max-h-[min(24rem,var(--radix-context-menu-content-available-height))] overflow-y-auto"
+          >
             <MenuItems items={ctxItems} variant="context" />
           </ContextMenuContent>
         )}

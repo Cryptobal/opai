@@ -66,7 +66,7 @@ export function PlanillaHeader({
 
   const thBase = `border-b border-r border-ds-border-subtle/60 bg-ds-surface-2 px-1 max-md:px-[3px] ${EYEBROW}`;
   const cornerBase = `sticky z-40 border-b border-r bg-ds-surface-2 ${EYEBROW}`;
-  const selHdr = "bg-[hsl(var(--plnx-sel-hdr))]";
+  const selHdr = "plnx-sel-cross-col";
 
   const dragRef = useRef<{ startX: number; startW: number } | null>(null);
 

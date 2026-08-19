@@ -1985,6 +1985,8 @@ html {
   --plnx-sel: #0b57d0;
   --plnx-sel-hdr: #d3e3fd;
   --plnx-sel-fill: color-mix(in srgb, var(--plnx-sel) 12%, transparent);
+  --plnx-sel-cross: color-mix(in srgb, var(--plnx-sel) 16%, transparent);
+  --plnx-sel-cross-strong: color-mix(in srgb, var(--plnx-sel) 22%, transparent);
   /* Altura útil desktop: 100dvh − topbar (3rem) − breadcrumb (~44px)
      − chrome planilla (menubar + toolbar + fx + status + gaps) − padding. */
   --plnx-grid-h: calc(
@@ -2012,6 +2014,8 @@ html {
   --plnx-sel: #0b57d0;
   --plnx-sel-hdr: 214 90% 91%; /* #d3e3fd en HSL components */
   --plnx-sel-fill: color-mix(in srgb, #0b57d0 14%, transparent);
+  --plnx-sel-cross: color-mix(in srgb, #0b57d0 18%, transparent);
+  --plnx-sel-cross-strong: color-mix(in srgb, #0b57d0 26%, transparent);
   --plnx-gridline: #e1e1e1;
   --plnx-freeze-border: #b5b8bd;
   --plnx-neg: #cc0000;
@@ -2065,8 +2069,10 @@ html {
   color: hsl(210 40% 98%);
   background: hsl(218 32% 14%);
   --plnx-sel: #14a88a;
-  --plnx-sel-hdr: 217 60% 22%;
-  --plnx-sel-fill: color-mix(in srgb, #14a88a 18%, transparent);
+  --plnx-sel-hdr: 168 42% 32%;
+  --plnx-sel-fill: color-mix(in srgb, #14a88a 24%, transparent);
+  --plnx-sel-cross: color-mix(in srgb, #14a88a 20%, transparent);
+  --plnx-sel-cross-strong: color-mix(in srgb, #14a88a 32%, transparent);
   --plnx-gridline: hsl(218 24% 22%);
   --plnx-freeze-border: hsl(218 24% 34%);
   --plnx-neg: hsl(0 80% 70%);
@@ -2164,6 +2170,8 @@ html {
 .planilla-sheet td.planilla-selected {
   outline: 2px solid var(--plnx-sel, #0b57d0);
   outline-offset: -2px;
+  background-color: var(--plnx-sel-fill);
+  z-index: 1;
 }
 .planilla-sheet td.planilla-selected::after,
 .planilla-sheet td.planilla-range-head::after {
@@ -2182,6 +2190,19 @@ html {
 .planilla-sheet thead th.plnx-hl,
 .planilla-sheet td.plnx-hl {
   background-color: hsl(var(--plnx-sel-hdr) / 0.55);
+}
+
+/* Resalte cruzado de selección (celda única): fila + columna activas. */
+.planilla-sheet td.plnx-sel-cross-row,
+.planilla-sheet th.plnx-sel-cross-row,
+.planilla-sheet thead th.plnx-sel-cross-col {
+  background-color: var(--plnx-sel-cross, var(--plnx-sel-fill));
+}
+.planilla-sheet td.plnx-sel-cross-col {
+  background-color: var(--plnx-sel-cross, var(--plnx-sel-fill));
+}
+.planilla-sheet td.plnx-sel-cross-row.plnx-sel-cross-col {
+  background-color: var(--plnx-sel-cross-strong, var(--plnx-sel-fill));
 }
 
 /* Indicador de nota: hit area 14×14 sobre el punto 6×6. */

@@ -78,7 +78,7 @@ export function BalanceRow({
   const cellBase = `${COL_W} border-r border-t border-ds-border-subtle/60 px-1.5 max-md:px-[3px] text-right overflow-hidden whitespace-nowrap ${NUM_CLASS}`;
   const sel = (i: number) =>
     (selectedColIndices?.has(i) || selectedColIdx === i)
-      ? "bg-[hsl(var(--plnx-sel-hdr))]"
+      ? "plnx-sel-cross-col"
       : "";
 
   const startEdit = useCallback(

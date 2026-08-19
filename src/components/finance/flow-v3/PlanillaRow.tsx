@@ -94,6 +94,10 @@ interface Props {
   getCellStyle?: (rowId: string, weekStart: string) => CellStyle | undefined;
   /** Tintar gutter cuando la fila tiene celda seleccionada. */
   rowSelected?: boolean;
+  /** Resalte cruzado (celda única): columna activa. */
+  crossHighlightColIdx?: number | null;
+  /** Resalte cruzado (celda única): fila activa. */
+  crossHighlightRow?: boolean;
   /** Query de búsqueda para resaltar coincidencias en el nombre. */
   searchQuery?: string;
   /** Caption UF de la fila (misma etiqueta en todas las celdas). */
@@ -183,7 +187,7 @@ export function PlanillaRow(p: Props) {
       <td
         aria-hidden
         data-gutter-row={row.id}
-        className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10 cursor-pointer ${p.rowSelected ? "bg-[hsl(var(--plnx-sel-hdr))]" : ""}`}
+        className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10 cursor-pointer ${p.crossHighlightRow || p.rowSelected ? "plnx-sel-cross-row" : ""}`}
         onClick={(e) => { e.stopPropagation(); p.onSelectRow(); }}
         title="Seleccionar fila"
       >
@@ -200,7 +204,7 @@ export function PlanillaRow(p: Props) {
         onPointerMove={nameLp.onPointerMove}
         onPointerUp={nameLp.onPointerUp}
         onPointerCancel={nameLp.onPointerCancel}
-        className={`planilla-name-col ${NAME_W} ${ROW_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 max-md:px-1 text-left align-middle`}
+        className={`planilla-name-col ${NAME_W} ${ROW_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 max-md:px-1 text-left align-middle ${p.crossHighlightRow ? "plnx-sel-cross-row" : ""}`}
       >
         {peek && (
           <span
@@ -291,6 +295,8 @@ export function PlanillaRow(p: Props) {
         const rangeClass = isEditing
           ? ""
           : cellRangeClass(p.visibleRowIdx, colIdx, p.rangeRect, p.sel, row.id);
+        const crossRow = !!p.crossHighlightRow;
+        const crossCol = p.crossHighlightColIdx === colIdx;
         return (
           <PlanillaCell
             key={cell.weekStart + colIdx}
@@ -301,6 +307,8 @@ export function PlanillaRow(p: Props) {
             isPast={p.granularity === "week" && cell.weekStart < p.currentWeek}
             editable={writable}
             rangeClass={rangeClass}
+            crossHighlightRow={crossRow}
+            crossHighlightCol={crossCol}
             editingInitial={isEditing ? p.editing!.initial : null}
             onSelect={(extend, meta) => p.onSelect({ rowId: row.id, colIdx }, extend, meta)}
             onStartEdit={() => p.onStartEdit({ rowId: row.id, colIdx })}

@@ -51,6 +51,10 @@ interface Props {
   editable: boolean;
   /** Clases de selección/rango (planilla-selected | planilla-range*). */
   rangeClass: string;
+  /** Resalte cruzado de fila (celda única activa). */
+  crossHighlightRow?: boolean;
+  /** Resalte cruzado de columna (celda única activa). */
+  crossHighlightCol?: boolean;
   editingInitial: string | null;
   /** shift=true extiende el rango desde el ancla; meta=Ctrl/Cmd para Σ. */
   onSelect: (extend: boolean, meta?: boolean) => void;
@@ -167,6 +171,8 @@ export function PlanillaCell(p: Props) {
             : "";
   const hasNote = !!cell.note?.trim();
   const isSelected = p.rangeClass.includes("planilla-selected");
+  const crossRow = !!p.crossHighlightRow && !isSelected;
+  const crossCol = !!p.crossHighlightCol && !isSelected;
   const subMarks = secondaryMarks(cell);
   const subTitle = secondaryMarkTitle(subMarks);
   /** Modo chips: borrador siempre «B»; EP/proforma → iconos (no cuñas ni chip EP). */
@@ -304,6 +310,8 @@ export function PlanillaCell(p: Props) {
         projAttenuate || textClass, cornerClass,
         p.isCurrentCol ? TODAY_COL : "",
         p.rangeClass,
+        crossRow ? "plnx-sel-cross-row" : "",
+        crossCol ? "plnx-sel-cross-col" : "",
         cursorClass, styleClass,
         p.isDropTarget ? "outline outline-2 -outline-offset-2 outline-primary/70" : "",
         dragBlocked ? "[cursor:not-allowed]" : "",
