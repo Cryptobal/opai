@@ -9,6 +9,7 @@ import {
   type ReceivedDteExpenseInput,
 } from "./derive-committed-expense";
 import { loadExpenseParametrics } from "./load-committed-expense-params";
+import { loadMilestoneDateOverrides } from "./milestone-date-override.service";
 import { bulkAccountToRow } from "./rowAccount.service";
 import type { CommittedByRow, FlowRowRef } from "./types";
 
@@ -263,6 +264,8 @@ export async function loadCommittedExpense(
       });
   }
 
+  const milestoneOverrides = await loadMilestoneDateOverrides(tenantId);
+
   return deriveCommittedExpense({
     rows,
     weeks,
@@ -274,5 +277,6 @@ export async function loadCommittedExpense(
     teRowId: parametrics.teRowId,
     tePlanBlockedWeeks: parametrics.tePlanBlockedWeeks,
     pctSalesProjections: parametrics.pctSalesProjections,
+    milestoneOverrides,
   });
 }

@@ -9096,6 +9096,28 @@ model FinanceCashflowScheduledDateOverride {
   @@schema("finance")
 }
 
+/// Override de visibilidad de un hito de egreso (quincena, sueldos, Previred…).
+/// No cambia el día de pago configurado: solo dónde se ve la P en el flujo.
+model FinanceCashflowMilestoneDateOverride {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String   @map("tenant_id")
+  /// Clave del hito: quincena | liquido | previred | f29 | …
+  milestoneKey  String   @map("milestone_key")
+  /// Período del hito (YYYY-MM) según la fecha natural de pago.
+  billingPeriod String   @map("billing_period")
+  originalDate  DateTime @map("original_date") @db.Date
+  customDate    DateTime @map("custom_date") @db.Date
+  reason        String?
+  createdBy     String   @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, milestoneKey, billingPeriod], map: "uq_cashflow_milestone_date_override")
+  @@index([tenantId, customDate], map: "idx_cashflow_milestone_date_override_custom")
+  @@map("finance_cashflow_milestone_date_overrides")
+  @@schema("finance")
+}
+
 model FinanceCashflowDteDateOverride {
   id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId     String     @map("tenant_id")

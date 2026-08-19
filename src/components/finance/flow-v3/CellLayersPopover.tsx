@@ -34,6 +34,7 @@ interface Props {
   moveWeeks?: MatrixColumn[];
   onMoveDte?: (dteId: string, targetWeek: string) => void;
   onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
+  onMoveMilestone?: (milestoneKey: string, billingPeriod: string, targetWeek: string) => void;
 }
 
 /**
@@ -43,7 +44,7 @@ export function CellLayersPopover({
   state, onClose, canManage, editable, editReason, focusNote, excludedForRow,
   onViewDte, onExcludeDte, onRestoreDte, onSaveNote,
   onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual,
-  moveWeeks, onMoveDte, onMoveScheduled,
+  moveWeeks, onMoveDte, onMoveScheduled, onMoveMilestone,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<CellDetailTab>("composicion");
@@ -112,6 +113,7 @@ export function CellLayersPopover({
             moveWeeks={moveWeeks}
             onMoveDte={onMoveDte}
             onMoveScheduled={onMoveScheduled}
+            onMoveMilestone={onMoveMilestone}
             onClose={onClose}
           />
         )}

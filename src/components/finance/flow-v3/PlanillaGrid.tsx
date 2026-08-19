@@ -1187,6 +1187,10 @@ export function PlanillaGrid({
         void actions.moveScheduled(src.payload.templateId, src.payload.billingPeriod, week);
         return;
       }
+      if (src.payload.kind === "milestone") {
+        void actions.moveMilestone(src.payload.milestoneKey, src.payload.billingPeriod, week);
+        return;
+      }
       void actions.moveDte(src.payload.dteId, week);
     },
     [matrix, actions],
@@ -1255,6 +1259,9 @@ export function PlanillaGrid({
       },
       onMoveScheduled: (templateId: string, billingPeriod: string, targetWeek: string) => {
         void actions.moveScheduled(templateId, billingPeriod, targetWeek);
+      },
+      onMoveMilestone: (milestoneKey: string, billingPeriod: string, targetWeek: string) => {
+        void actions.moveMilestone(milestoneKey, billingPeriod, targetWeek);
       },
       onViewDetail: () => openPopover(sel),
       onEditNote: canManage ? () => openPopover(sel, undefined, { focusNote: true }) : undefined,
@@ -1996,6 +2003,13 @@ export function PlanillaGrid({
           canManage
             ? (templateId, billingPeriod, targetWeek) => {
                 void actions.moveScheduled(templateId, billingPeriod, targetWeek);
+              }
+            : undefined
+        }
+        onMoveMilestone={
+          canManage
+            ? (milestoneKey, billingPeriod, targetWeek) => {
+                void actions.moveMilestone(milestoneKey, billingPeriod, targetWeek);
               }
             : undefined
         }

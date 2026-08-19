@@ -232,3 +232,35 @@ describe("deriveCommittedExpense — DTEs recibidos", () => {
     expect(out.get(UNMATCHED_EXPENSE_KEY)?.get("2026-07-20")?.total).toBe(300_000);
   });
 });
+
+describe("deriveCommittedExpense — override de quincena", () => {
+  it("mueve la P de quincena sin clamp y etiqueta milestoneKey", () => {
+    const rows = [
+      ...ROWS,
+      {
+        id: "row-quincena",
+        name: "Quincena (anticipos)",
+        mapping: "MANUAL" as const,
+        crmAccountId: null,
+        installationId: null,
+        categoryId: null,
+        canonicalKey: "QUINCENA" as const,
+        supplierId: null,
+      },
+    ];
+    const out = deriveCommittedExpense({
+      ...base,
+      rows,
+      milestones: [{ key: "quincena", label: "Quincena / anticipos", dateYmd: "2026-08-15", amountClp: 4_776_383 }],
+      milestoneOverrides: new Map([["quincena::2026-08", "2026-08-24"]]),
+    });
+    expect(out.get("row-quincena")?.get("2026-08-10")).toBeUndefined();
+    expect(out.get("row-quincena")?.get("2026-08-24")?.items[0]).toMatchObject({
+      kind: "scheduled",
+      milestoneKey: "quincena",
+      billingPeriod: "2026-08",
+      monto: 4_776_383,
+      fecha: "2026-08-24",
+    });
+  });
+});
