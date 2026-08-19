@@ -13,7 +13,7 @@ export interface HoverResolveResult {
   reason?: string;
 }
 
-/** Desktop con puntero fino (≥ lg): ficha anclada al clic. Móvil usa sheet. */
+/** Desktop con puntero fino (≥ lg): ficha anclada. Móvil usa sheet. */
 export function isDesktopCellDetail(): boolean {
   if (typeof window === "undefined") return false;
   return (
@@ -22,7 +22,18 @@ export function isDesktopCellDetail(): boolean {
   );
 }
 
-/** Abre la ficha anclada (clic izquierdo). Cierra con Esc / clic fuera / scroll. */
+/**
+ * La ficha se abre con clic derecho sobre la celda ya activa (desktop).
+ * Clic izquierdo solo selecciona; touch sigue usando long-press / sheet.
+ */
+export function shouldOpenPinnedDetailOnContextMenu(args: {
+  selected: boolean;
+  desktop: boolean;
+}): boolean {
+  return args.selected && args.desktop;
+}
+
+/** Abre la ficha anclada. Cierra con Esc / clic fuera / scroll. */
 export function showPinnedCellDetail(
   hover: CellHoverCardHandle | null | undefined,
   ctx: CellHoverShowCtx,
@@ -35,7 +46,7 @@ export function showPinnedCellDetail(
 
 /**
  * Cierre por clic fuera / scroll + resalte cruzado ligero al pasar el puntero
- * (sin abrir la ficha: eso es solo con clic).
+ * (sin abrir la ficha: eso es clic derecho sobre la celda activa).
  */
 export function useCellHover(opts: {
   scrollerRef: React.RefObject<HTMLElement | null>;
@@ -100,7 +111,7 @@ export function useCellHover(opts: {
       return { rowId, colIdx };
     };
 
-    /** Solo resalte cruzado; la ficha se abre por clic (PlanillaGrid). */
+    /** Solo resalte cruzado; la ficha se abre con clic derecho (PlanillaGrid). */
     const onOver = (e: PointerEvent) => {
       if (!fineHover || suppressedRef.current()) return;
       const hit = parseRc(e.target as Element);

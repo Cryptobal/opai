@@ -27,7 +27,12 @@ import { PlanillaRow } from "./PlanillaRow";
 import { BalanceRow } from "./BalanceRow";
 import { CellLayersPopover, type PopoverState } from "./CellLayersPopover";
 import { CellHoverCard, type CellHoverCardHandle, type CellHoverShowCtx } from "./CellHoverCard";
-import { isDesktopCellDetail, showPinnedCellDetail, useCellHover } from "./useCellHover";
+import {
+  isDesktopCellDetail,
+  shouldOpenPinnedDetailOnContextMenu,
+  showPinnedCellDetail,
+  useCellHover,
+} from "./useCellHover";
 import { FillRightDialog, type FillRightRequest } from "./FillRightDialog";
 import { usePlanillaKeyboard, type CellSel } from "./usePlanillaKeyboard";
 import {
@@ -235,15 +240,6 @@ export function PlanillaGrid({
   const scroller = scrollerRef ?? localRef;
   const kbRef = useRef<ReturnType<typeof usePlanillaKeyboard> | null>(null);
   const hoverRef = useRef<CellHoverCardHandle | null>(null);
-  /** Evita abrir la ficha en el 1.er clic de un doble-clic (editar monto). */
-  const detailOpenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cancelPendingDetail = useCallback(() => {
-    if (detailOpenTimer.current) {
-      clearTimeout(detailOpenTimer.current);
-      detailOpenTimer.current = null;
-    }
-  }, []);
-  useEffect(() => () => cancelPendingDetail(), [cancelPendingDetail]);
   const [caretMenu, setCaretMenu] = useState<{
     sel: CellSel;
     anchor: { x: number; y: number };
@@ -861,14 +857,13 @@ export function PlanillaGrid({
 
   /** Esc: cierra ficha/menú/panel y limpia selección (y Σ si aplica). */
   const handleEscape = useCallback(() => {
-    cancelPendingDetail();
     hoverRef.current?.forceHide();
     setCaretMenu(null);
     setPopover(null);
     setPopoverFocusNote(false);
     clearDiscrete();
     kbRef.current?.setSel(null);
-  }, [clearDiscrete, cancelPendingDetail]);
+  }, [clearDiscrete]);
 
   const cellEditReason = useCallback(
     (rowId: string, colIdx: number): string => {
@@ -891,7 +886,6 @@ export function PlanillaGrid({
 
   const openNoteEditor = useCallback(
     (sel: CellSel) => {
-      cancelPendingDetail();
       const row = rowById.get(sel.rowId);
       const cell = row?.cells[sel.colIdx];
       if (!row || !cell) return;
@@ -922,7 +916,7 @@ export function PlanillaGrid({
     },
     [
       rowById, openPopover, rowNumberById, data.granularity, data.currentWeek,
-      cellEditReason, canManage, cancelPendingDetail,
+      cellEditReason, canManage,
     ],
   );
 
@@ -944,11 +938,10 @@ export function PlanillaGrid({
   // Enter / tipeo abren el editor sin pasar por onStartEdit del row.
   useEffect(() => {
     if (kb.isEditing) {
-      cancelPendingDetail();
       hoverRef.current?.forceHide();
       setSheetTarget(null);
     }
-  }, [kb.isEditing, cancelPendingDetail]);
+  }, [kb.isEditing]);
 
   const resolveHover = useCallback(
     (rowId: string, colIdx: number) => {
@@ -986,45 +979,27 @@ export function PlanillaGrid({
   });
 
   /**
-   * Desktop (≥lg, puntero fino):
-   *   - sin ficha → clic abre (con delay corto para no pelear con doble-clic);
-   *   - con ficha → clic en cualquier celda solo cierra (hace falta otro clic para abrir).
-   * Móvil/tablet/touch (iPad): el tap SOLO selecciona. El sheet se abre con
+   * Desktop (≥lg, puntero fino): ficha anclada al clic derecho sobre la
+   * celda ya seleccionada. Clic izquierdo solo selecciona.
+   * Móvil/tablet/touch: el tap SOLO selecciona. El sheet se abre con
    * long-press, chevron de acciones o doble-tap (celdas no editables).
    */
-  const openDetailOnSelect = useCallback(
+  const openPinnedCellDetail = useCallback(
     (sel: CellSel) => {
       if (kbRef.current?.isEditing) return;
-      cancelPendingDetail();
+      if (!isDesktopCellDetail()) return;
       const ctx = resolveHover(sel.rowId, sel.colIdx);
       if (!ctx) return;
-
-      if (isDesktopCellDetail()) {
-        if (hoverRef.current?.isVisible()) {
-          hoverRef.current.forceHide();
-          return;
-        }
-        const td = document.querySelector(
-          `[data-rc="${sel.rowId}:${sel.colIdx}"]`,
-        ) as HTMLElement | null;
-        if (!td) return;
-        setPopover(null);
-        setSheetTarget(null);
-        const rect = td.getBoundingClientRect();
-        detailOpenTimer.current = setTimeout(() => {
-          detailOpenTimer.current = null;
-          if (kbRef.current?.isEditing) return;
-          showPinnedCellDetail(hoverRef.current, ctx, rect);
-        }, 220);
-        return;
-      }
-
-      // Touch: seleccionar sin abrir el módulo inferior.
-      hoverRef.current?.forceHide();
+      const td = document.querySelector(
+        `[data-rc="${sel.rowId}:${sel.colIdx}"]`,
+      ) as HTMLElement | null;
+      if (!td) return;
       setPopover(null);
       setSheetTarget(null);
+      setCaretMenu(null);
+      showPinnedCellDetail(hoverRef.current, ctx, td.getBoundingClientRect());
     },
-    [resolveHover, cancelPendingDetail],
+    [resolveHover],
   );
 
   const openCaretMenu = useCallback((sel: CellSel, anchor: DOMRect) => {
@@ -1711,20 +1686,18 @@ export function PlanillaGrid({
                       editing={kb.editing}
                       onSelect={(sel, extend, meta) => {
                         setPopover(null);
+                        hoverRef.current?.forceHide();
                         if (sumMode || meta) {
-                          hoverRef.current?.forceHide();
                           if (!sumMode) onSumModeChange?.(true);
                           toggleDiscrete(sel);
                           kb.setSel(sel);
                           return;
                         }
                         if (extend) {
-                          hoverRef.current?.forceHide();
                           kb.extendTo(sel);
                           return;
                         }
                         kb.setSel(sel);
-                        openDetailOnSelect(sel);
                       }}
                       onSelectRow={() => {
                         setPopover(null);
@@ -1732,7 +1705,6 @@ export function PlanillaGrid({
                         kb.selectRow(row.id);
                       }}
                       onStartEdit={(sel) => {
-                        cancelPendingDetail();
                         setPopover(null);
                         hoverRef.current?.forceHide();
                         setSheetTarget(null);
@@ -1752,7 +1724,22 @@ export function PlanillaGrid({
                       canMoveCommitted={(colIdx) => canMoveCommitted(row.id, colIdx)}
                       enableDrag={enableDrag && !sumMode}
                       dropTarget={dropTarget}
-                      onCellContext={(sel) => setCtxTarget({ kind: "cell", sel })}
+                      onCellContext={(e, sel) => {
+                        const canPin = shouldOpenPinnedDetailOnContextMenu({
+                          selected:
+                            kb.sel?.rowId === sel.rowId && kb.sel.colIdx === sel.colIdx,
+                          desktop: isDesktopCellDetail(),
+                        });
+                        if (canPin && resolveHover(sel.rowId, sel.colIdx)) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setCtxTarget(null);
+                          openPinnedCellDetail(sel);
+                          return;
+                        }
+                        hoverRef.current?.forceHide();
+                        setCtxTarget({ kind: "cell", sel });
+                      }}
                       onOpenCellSheet={(sel) => setSheetTarget({ kind: "cell", sel })}
                       sumMode={sumMode}
                       discreteKeys={discreteKeys}
