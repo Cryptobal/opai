@@ -40,7 +40,7 @@ interface User {
   lastLoginAt: Date | null;
   createdAt: Date;
   roleTemplate?: { id: string; name: string; slug: string } | null;
-  persona?: { id: string } | null;
+  persona?: { id: string; guardia?: { id: string } | null } | null;
 }
 
 interface Props {
@@ -64,8 +64,8 @@ export default function UsersTable({ users, roleTemplates, currentUserId, curren
   const [fichaLoading, setFichaLoading] = useState<string | null>(null);
 
   const openOrCreateFicha = async (user: User) => {
-    if (user.persona?.id) {
-      router.push(`/personas/equipo/${user.persona.id}`);
+    if (user.persona?.guardia?.id) {
+      router.push(`/personas/guardias/${user.persona.guardia.id}`);
       return;
     }
     setFichaLoading(user.id);
@@ -73,15 +73,16 @@ export default function UsersTable({ users, roleTemplates, currentUserId, curren
       const res = await fetch('/api/personas/equipo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminId: user.id }),
+        body: JSON.stringify({
+          adminId: user.id,
+          personaId: user.persona?.id ?? undefined,
+        }),
       });
       const json = await res.json();
-      if (res.status === 409 && json.personaId) {
-        router.push(`/personas/equipo/${json.personaId}`);
-        return;
-      }
       if (!res.ok) throw new Error(json.error || 'No se pudo crear la ficha');
-      router.push(`/personas/equipo/${json.data.id}`);
+      const guardiaId = json.data?.guardiaId as string | undefined;
+      if (!guardiaId) throw new Error('La ficha no tiene ficha 360 asociada');
+      router.push(`/personas/guardias/${guardiaId}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No se pudo crear la ficha');
     } finally {

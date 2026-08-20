@@ -30,6 +30,7 @@ export const createStaffPersonaSchema = z.object({
   phone: z.string().trim().max(30).optional().nullable(),
   cargoStaff: z.enum(STAFF_CARGOS).optional().nullable(),
   adminId: z.string().trim().min(1).max(64).optional().nullable(),
+  personaId: z.string().uuid().optional().nullable(),
   afp: z.string().trim().max(80).optional().nullable(),
   healthSystem: z.string().trim().max(40).optional().nullable(),
   isapreName: z.string().trim().max(80).optional().nullable(),

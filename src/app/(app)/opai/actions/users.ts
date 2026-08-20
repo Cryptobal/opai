@@ -449,7 +449,7 @@ export async function listUsers() {
       invitedAt: true,
       activatedAt: true,
       persona: {
-        select: { id: true },
+        select: { id: true, guardia: { select: { id: true } } },
       },
       roleTemplate: {
         select: { id: true, name: true, slug: true },

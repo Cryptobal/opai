@@ -17,7 +17,11 @@ export default async function EquipoInternoPage() {
   }
 
   const personas = await prisma.opsPersona.findMany({
-    where: { tenantId: session.user.tenantId, laborClass: "ADMINISTRATIVO" },
+    where: {
+      tenantId: session.user.tenantId,
+      laborClass: "ADMINISTRATIVO",
+      status: "active",
+    },
     select: {
       id: true,
       firstName: true,
@@ -29,12 +33,15 @@ export default async function EquipoInternoPage() {
       status: true,
       salaryStructure: { select: { baseSalary: true } },
       admin: { select: { id: true, name: true, email: true } },
+      guardia: { select: { id: true } },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
   const initialRows: EquipoInternoRow[] = personas.map((p) => ({
     id: p.id,
+    personaId: p.id,
+    guardiaId: p.guardia?.id ?? null,
     firstName: p.firstName,
     lastName: p.lastName,
     rut: p.rut,

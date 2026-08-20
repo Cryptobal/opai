@@ -15,6 +15,11 @@ export const STAFF_CARGOS = [
 ] as const;
 export type StaffCargo = (typeof STAFF_CARGOS)[number];
 
+export const LABOR_CLASS_LABELS: Record<PersonaLaborClass, string> = {
+  OPERATIVO: "Guardia",
+  ADMINISTRATIVO: "Administrativo",
+};
+
 export const STAFF_CARGO_LABELS: Record<StaffCargo, string> = {
   supervisor: "Supervisor",
   jefe: "Jefe",
@@ -39,6 +44,35 @@ export function staffCargoLabel(cargo: string | null | undefined): string {
 /** Costo de explotación (guardias) vs gasto de administración (equipo interno). */
 export function laborClassIsCost(laborClass: PersonaLaborClass): boolean {
   return laborClass === "OPERATIVO";
+}
+
+export function laborClassLabel(laborClass: string | null | undefined): string {
+  if (laborClass && isPersonaLaborClass(laborClass)) return LABOR_CLASS_LABELS[laborClass];
+  return "Guardia";
+}
+
+export function normalizePersonNameKey(firstName: string, lastName: string): string {
+  return `${lastName} ${firstName}`
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Mismo apellido y nombres que se contienen (Carlos vs Carlos Cristobal). */
+export function namesLikelySame(
+  a: { firstName: string; lastName: string },
+  b: { firstName: string; lastName: string },
+): boolean {
+  const lastA = normalizePersonNameKey("", a.lastName);
+  const lastB = normalizePersonNameKey("", b.lastName);
+  if (!lastA || lastA !== lastB) return false;
+  const fA = normalizePersonNameKey(a.firstName, "");
+  const fB = normalizePersonNameKey(b.firstName, "");
+  if (!fA || !fB) return false;
+  return fA === fB || fA.includes(fB) || fB.includes(fA);
 }
 
 /** Parte el nombre de un Admin (texto libre) en nombre / apellido. */
