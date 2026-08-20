@@ -13,6 +13,7 @@ import { updateDocumentSchema } from "@/lib/validations/docs";
 import { deactivateContractCashflowItems } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 import { cascadeRecurringDteForDeletedContractDocument } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
 import { resolveDocumentContentForDisplay } from "@/lib/docs/resolve-document-content";
+import { loadEmpresaEntityData } from "@/lib/docs/token-resolver";
 
 function countContractTokenNodes(node: unknown): number {
   if (!node || typeof node !== "object") return 0;
@@ -80,9 +81,26 @@ export async function GET(
           content = resolved;
         }
         if (afterTokens < beforeTokens) {
+          const empresaData = await loadEmpresaEntityData(ctx.tenantId);
+          const existingTv = (document.tokenValues ?? {}) as Record<string, unknown>;
+          const resolvedMap = {
+            ...((existingTv.resolved as Record<string, string> | undefined) ?? {}),
+          };
+          for (const [field, value] of Object.entries(empresaData)) {
+            if (value != null && String(value).trim() !== "") {
+              resolvedMap[`empresa.${field}`] = String(value);
+            }
+          }
           await prisma.document.update({
             where: { id },
-            data: { content: resolved as object },
+            data: {
+              content: resolved as object,
+              tokenValues: {
+                ...existingTv,
+                empresa: empresaData,
+                resolved: resolvedMap,
+              } as object,
+            },
           });
         }
       } catch (err) {

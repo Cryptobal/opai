@@ -861,6 +861,17 @@ export function mergeEmpresaSettings(
   return [...map.entries()].map(([key, value]) => ({ key, value }));
 }
 
+/** If city is blank, use commune so {{installation.city}} still resolves. */
+export function withInstallationLocationFallback<
+  T extends { city?: string | null; commune?: string | null },
+>(installation: T): T {
+  const city = (installation.city ?? "").trim();
+  if (city) return installation;
+  const commune = (installation.commune ?? "").trim();
+  if (!commune) return installation;
+  return { ...installation, city: commune };
+}
+
 /**
  * Load tenant empresa settings for contract token resolution.
  * Always merges new format `empresa:{tenantId}:empresa.xxx` with legacy `empresa.xxx`

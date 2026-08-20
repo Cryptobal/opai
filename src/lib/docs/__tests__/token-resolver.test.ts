@@ -5,6 +5,7 @@ import {
   buildEmpresaEntityData,
   normalizeEmpresaSettingKey,
   mergeEmpresaSettings,
+  withInstallationLocationFallback,
 } from "../token-resolver";
 
 describe("token-resolver — buildEmpresaEntityData", () => {
@@ -80,6 +81,25 @@ describe("token-resolver — empresa setting key merge", () => {
       empresa: { repLegalNombre: "María González" },
     });
     expect(value).toBe("María González");
+  });
+});
+
+describe("token-resolver — installation city fallback", () => {
+  it("uses commune when city is empty", () => {
+    const inst = withInstallationLocationFallback({
+      city: "",
+      commune: "San Bernardo",
+      address: "Los suspiros 16690",
+    });
+    expect(inst.city).toBe("San Bernardo");
+  });
+
+  it("keeps an explicit city", () => {
+    const inst = withInstallationLocationFallback({
+      city: "Santiago",
+      commune: "Las Condes",
+    });
+    expect(inst.city).toBe("Santiago");
   });
 });
 

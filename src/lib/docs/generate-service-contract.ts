@@ -5,6 +5,7 @@ import {
   resolveDocument,
   loadEmpresaSettingsForTokens,
   buildEmpresaEntityData,
+  withInstallationLocationFallback,
   buildQuoteEnrichedData,
   buildContractEntityData,
 } from "@/lib/docs/token-resolver";
@@ -170,7 +171,9 @@ export async function generateServiceContract(
     contact: contact
       ? { ...contact, fullName: `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() }
       : null,
-    installation: quote.installation ? { ...quote.installation } : null,
+    installation: quote.installation
+      ? withInstallationLocationFallback({ ...quote.installation })
+      : null,
     quote: quoteData,
     contract: buildContractEntityData({
       title: `Contrato de Servicio — ${account?.name ?? quote.clientName ?? "Cliente"}`,

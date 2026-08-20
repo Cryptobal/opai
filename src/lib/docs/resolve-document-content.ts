@@ -11,6 +11,7 @@ import {
   loadEmpresaSettingsForTokens,
   loadEmpresaEntityData,
   buildEmpresaEntityData,
+  withInstallationLocationFallback,
   buildQuoteEnrichedData,
   enrichGuardiaWithSalary,
 } from "./token-resolver";
@@ -288,7 +289,9 @@ export async function resolveDocumentContentForDisplay(
         select: { name: true, address: true, commune: true, city: true },
         orderBy: { status: "asc" },
       });
-      installationData = installation ?? undefined;
+      installationData = installation
+        ? withInstallationLocationFallback(installation)
+        : undefined;
     }
 
     let dealData: Record<string, unknown> | undefined;
