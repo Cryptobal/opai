@@ -69,8 +69,24 @@ function lastDayOfMonth(year: number, monthZeroIdx: number): number {
 }
 
 /**
- * Calcula el próximo nextRunAt según frequency. Si endDate está y
- * el resultado supera endDate → null (template completado).
+ * El run vale si el **mes de servicio** (inicio de mes del ancla) todavía
+ * toca el contrato: `inicioDeMes(next) <= endDate`.
+ * Ej.: endDate 13 sep, run 20 sep → sí (septiembre parcial);
+ * run 20 oct → no (octubre ya no toca el contrato).
+ */
+export function isRunWithinEndDate(
+  next: Date,
+  endDate: Date | null | undefined,
+): boolean {
+  if (!endDate) return true;
+  const monthStart = new Date(next.getFullYear(), next.getMonth(), 1);
+  monthStart.setHours(0, 0, 0, 0);
+  return monthStart.getTime() <= endDate.getTime();
+}
+
+/**
+ * Calcula el próximo nextRunAt según frequency. Si el mes de servicio
+ * del resultado ya no toca endDate → null (template completado).
  *
  * SEMÁNTICA DE fromDate:
  *  - Si NO se pasa fromDate y template.lastRunAt es null → es el primer
@@ -135,7 +151,7 @@ export function computeNextRunAt(template: ComputeInput, fromDate?: Date): Date 
       return null;
   }
 
-  if (template.endDate && next > template.endDate) return null;
+  if (!isRunWithinEndDate(next, template.endDate)) return null;
   return next;
 }
 

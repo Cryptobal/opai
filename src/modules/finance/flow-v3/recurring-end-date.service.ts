@@ -1,7 +1,10 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { FinanceDteRecurringTemplate } from "@prisma/client";
-import { computeNextRunAt } from "@/modules/finance/billing/dte-recurring-schedule";
+import {
+  computeNextRunAt,
+  isRunWithinEndDate,
+} from "@/modules/finance/billing/dte-recurring-schedule";
 import { syncRecurringDteItem } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
 
 /**
@@ -47,7 +50,9 @@ export async function updateTemplateEndDate(
   // nextRunAt bajo el nuevo término: si el actual sigue válido se conserva;
   // si quedó fuera (o no había), se recalcula desde lastRunAt/startDate.
   let nextRunAt = tpl.nextRunAt;
-  if (nextRunAt && endDate && nextRunAt > endDate) nextRunAt = null;
+  if (nextRunAt && endDate && !isRunWithinEndDate(nextRunAt, endDate)) {
+    nextRunAt = null;
+  }
   if (!nextRunAt) nextRunAt = computeNextRunAt(candidate);
 
   const today = new Date();
