@@ -28,6 +28,44 @@ interface DocStatusIconProps {
   className?: string;
 }
 
+function countSuffix(sentCount: number): string {
+  if (sentCount < 1) return "";
+  return sentCount === 1 ? " (1 envío)" : ` (${sentCount} envíos)`;
+}
+
+/** Texto del tooltip / aria-label. Exportado para tests. */
+export function buildDocStatusTitle({
+  variant,
+  required,
+  status,
+  sentAt,
+  sentCount,
+  lastRecipient,
+}: Omit<DocStatusIconProps, "className">): string {
+  const label = variant === "PROFORMA" ? "Proforma" : "Estado de pago";
+  if (required && status === "NONE") {
+    return `${label}: pendiente de enviar`;
+  }
+  if (status === "SENT") {
+    const when = sentAt
+      ? format(new Date(sentAt), "dd MMM HH:mm", { locale: es })
+      : "";
+    const whenPart = when ? ` ${when}` : "";
+    const to = lastRecipient ? ` a ${lastRecipient}` : "";
+    return `${label}: enviada${whenPart}${countSuffix(sentCount)}${to}`;
+  }
+  if (status === "VIEWED") {
+    return `${label}: vista por cliente${countSuffix(sentCount)}`;
+  }
+  if (status === "APPROVED") {
+    return `${label}: aprobada${countSuffix(sentCount)}`;
+  }
+  if (status === "REJECTED") {
+    return `${label}: rechazada${countSuffix(sentCount)}`;
+  }
+  return `${label}: no requerida`;
+}
+
 export function DocStatusIcon({
   variant,
   required,
@@ -38,52 +76,59 @@ export function DocStatusIcon({
   className,
 }: DocStatusIconProps) {
   const Icon = variant === "PROFORMA" ? FileText : ClipboardCheck;
-  const label = variant === "PROFORMA" ? "Proforma" : "Estado de pago";
+  const title = buildDocStatusTitle({
+    variant,
+    required,
+    status,
+    sentAt,
+    sentCount,
+    lastRecipient,
+  });
 
   let toneClass = "text-ds-text-4";
   let overlay: ReactNode = null;
-  let title = `${label}: no requerida`;
 
   if (required && status === "NONE") {
     toneClass = "text-status-warn-fg";
     overlay = (
       <AlertCircle className="absolute -right-1 -top-1 h-2.5 w-2.5 fill-status-warn-soft text-status-warn-fg" />
     );
-    title = `${label}: pendiente de enviar`;
   } else if (status === "SENT") {
     toneClass = "text-status-info-fg";
-    const when = sentAt
-      ? format(new Date(sentAt), "dd MMM HH:mm", { locale: es })
-      : "";
-    title = `${label}: enviada ${when}${sentCount > 1 ? ` (${sentCount} envíos)` : ""}${lastRecipient ? ` a ${lastRecipient}` : ""}`;
   } else if (status === "VIEWED") {
     toneClass = "text-status-info-fg";
     overlay = (
       <Eye className="absolute -right-1 -bottom-1 h-2.5 w-2.5 text-status-info-fg" />
     );
-    title = `${label}: vista por cliente`;
   } else if (status === "APPROVED") {
     toneClass = "text-status-ok-fg";
     overlay = (
       <CheckCircle2 className="absolute -right-1 -bottom-1 h-2.5 w-2.5 fill-status-ok-soft text-status-ok-fg" />
     );
-    title = `${label}: aprobada`;
   } else if (status === "REJECTED") {
     toneClass = "text-status-danger-fg";
     overlay = (
       <XCircle className="absolute -right-1 -bottom-1 h-2.5 w-2.5 fill-status-danger-soft text-status-danger-fg" />
     );
-    title = `${label}: rechazada`;
   }
 
   return (
     <span
-      className={cn("relative inline-flex h-5 w-5 items-center justify-center", className)}
+      className={cn(
+        "relative inline-flex h-5 items-center justify-center gap-0.5",
+        sentCount >= 1 ? "min-w-[1.75rem]" : "w-5",
+        className,
+      )}
       title={title}
       aria-label={title}
       role="img"
     >
-      <Icon className={cn("h-4 w-4", toneClass)} />
+      <Icon className={cn("h-4 w-4 shrink-0", toneClass)} />
+      {sentCount >= 1 ? (
+        <span className={cn("text-[12px] font-mono tabular-nums leading-none", toneClass)}>
+          {sentCount}
+        </span>
+      ) : null}
       {overlay}
     </span>
   );

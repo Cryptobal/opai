@@ -6,6 +6,7 @@
  * sin duplicar.
  */
 
+import type { DraftProformaStatus } from "@/modules/finance/billing/dte-draft.service";
 import type { DteAdditionalRef } from "./references";
 
 export interface DteRow {
@@ -26,6 +27,20 @@ export interface DteRow {
   createdAt: string;
   emailSentAt: string | null;
   emailStatus: string | null;
+  /**
+   * Plan de cobro (proforma / estado de pago). En emitidos suele venir
+   * vacío; en DRAFT es la fuente para la columna Envío.
+   */
+  requireProforma?: boolean;
+  proformaStatus?: DraftProformaStatus;
+  proformaSentAt?: string | null;
+  proformaSentCount?: number;
+  proformaLastRecipient?: string | null;
+  requireEstadoPago?: boolean;
+  estadoPagoStatus?: DraftProformaStatus;
+  estadoPagoSentAt?: string | null;
+  estadoPagoSentCount?: number;
+  estadoPagoLastRecipient?: string | null;
   referenceType: number | null;
   referenceFolio: number | null;
   /**

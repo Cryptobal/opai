@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Building, MapPin, Mail, MailX, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Building, MapPin, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { DataTable, EmptyState, Tag, type DataTableColumn } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import { LinkedNoteBadge } from "./LinkedNoteBadge";
 import { RelationRow } from "./RelationRow";
 import { ReferenceBadges } from "./ReferenceBadges";
 import { DteAmountCell } from "./shared/DteAmountCell";
+import { DteSendStatusCell } from "./DteSendStatusCell";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import type { DteRow, DteSortKey } from "./shared/types";
 
@@ -82,6 +83,7 @@ interface Props {
   onIssueDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
   onCloneDraft: (id: string) => void;
+  onSendAs: (id: string, variant?: "PROFORMA" | "ESTADO_DE_PAGO") => void;
   onUnreconcile?: (id: string) => void;
   onMarkUnpaid?: (id: string) => void;
   /** Sort actual + callback para headers clickeables (fecha/tipo/folio/monto). */
@@ -140,6 +142,7 @@ export function IssuedDtesTable({
   onIssueDraft,
   onDeleteDraft,
   onCloneDraft,
+  onSendAs,
   onUnreconcile,
   onMarkUnpaid,
   sort,
@@ -410,38 +413,15 @@ export function IssuedDtesTable({
     },
     {
       id: "emailStatus",
-      header: "Email",
+      header: "Envío",
       align: "center",
-      width: "w-[52px]",
-      cell: (row) => {
-        if (row.emailSentAt) {
-          return (
-            <span
-              title={`Enviado ${format(new Date(row.emailSentAt), "dd MMM yyyy", { locale: es })}`}
-              className="inline-flex"
-            >
-              <Mail className="h-4 w-4 text-status-ok-fg" />
-            </span>
-          );
-        }
-        if (row.emailStatus === "FAILED") {
-          return (
-            <span title="Email falló" className="inline-flex">
-              <MailX className="h-4 w-4 text-status-danger-fg" />
-            </span>
-          );
-        }
-        return (
-          <span title="Sin enviar" className="inline-flex">
-            <Mail className="h-4 w-4 text-ds-text-4" />
-          </span>
-        );
-      },
+      width: "w-[88px]",
+      cell: (row) => <DteSendStatusCell row={row} />,
     },
     {
       id: "_actions",
       header: "",
-      width: "w-[48px]",
+      width: "w-[80px]",
       // Sticky right: las acciones (ver, menú) deben quedar siempre
       // accesibles aunque la tabla haga scroll horizontal en viewports
       // medianos. Sin esto, los iconos se cortan al borde derecho del
@@ -477,6 +457,7 @@ export function IssuedDtesTable({
             onIssueDraft={() => onIssueDraft(row.id)}
             onDeleteDraft={() => onDeleteDraft(row.id)}
             onCloneDraft={() => onCloneDraft(row.id)}
+            onSendAs={(variant) => onSendAs(row.id, variant)}
             onUnreconcile={
               onUnreconcile ? () => onUnreconcile(row.id) : undefined
             }
