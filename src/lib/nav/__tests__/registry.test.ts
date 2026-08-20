@@ -133,6 +133,14 @@ describe("nav registry", () => {
       NAV_MODULES.forEach(visit);
       expect(empty).toEqual([]);
     });
+
+    it("Personas incluye Equipo interno justo después de Listado", () => {
+      const personas = NAV_MODULES.find((m) => m.key === "personas")!;
+      const keys = personas.children!.map((c) => c.key);
+      expect(keys[0]).toBe("personas-listado");
+      expect(keys[1]).toBe("personas-equipo");
+      expect(personas.children![1]!.href).toBe("/personas/equipo");
+    });
   });
 
   describe("isNodeVisible", () => {
@@ -185,6 +193,8 @@ describe("nav registry", () => {
       // Regresión: con href /personas/guardias, findActiveModule fallaba fuera
       // de Listado y la barra superior/breadcrumbs quedaban sin resolver.
       expect(findActiveModule("/personas/guardias")?.key).toBe("personas");
+      expect(findActiveModule("/personas/equipo")?.key).toBe("personas");
+      expect(findActiveModule("/personas/equipo/abc")?.key).toBe("personas");
       expect(findActiveModule("/personas/conocimiento")?.key).toBe("personas");
       expect(findActiveModule("/personas/onboarding")?.key).toBe("personas");
       expect(findActiveModule("/personas/comunicaciones")?.key).toBe("personas");

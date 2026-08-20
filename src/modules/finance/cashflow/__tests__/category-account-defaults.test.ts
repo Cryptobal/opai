@@ -5,6 +5,7 @@ import {
   accountCodesForCategory,
   primaryAccountCodeForCategory,
 } from "../category-account-defaults";
+import { PAYROLL_CHILD_ACCOUNT_CODES } from "@/modules/finance/flow-v3/row-keys";
 
 const SYSTEM_CATEGORY_CODES = [
   "ING_VENTA_CONTRATO", "ING_TURNO_EXTRA", "ING_INSTALACION", "ING_OTRO",
@@ -56,6 +57,18 @@ describe("category-account-defaults", () => {
     const accs = accountCodesForCategory("EGR_SUELDO");
     expect(accs).toContain("5.1.01.001"); // Remuneraciones Guardias
     expect(accs).toContain("6.1.01.001"); // Remuneraciones Admin
+  });
+
+  it("payroll child keys map to 5.x costo vs 6.x gasto in the chart", () => {
+    const realCodes = new Set(CHART_OF_ACCOUNTS_CL.map((a) => a.code));
+    for (const [key, codes] of Object.entries(PAYROLL_CHILD_ACCOUNT_CODES)) {
+      expect(codes.length, key).toBeGreaterThan(0);
+      for (const code of codes) {
+        expect(realCodes.has(code), `${key} → ${code}`).toBe(true);
+      }
+    }
+    expect(PAYROLL_CHILD_ACCOUNT_CODES.SUELDO_OPERATIVO).toEqual(["5.1.01.001"]);
+    expect(PAYROLL_CHILD_ACCOUNT_CODES.SUELDO_ADMIN).toEqual(["6.1.01.001"]);
   });
 
   it("EGR_IVA_F29 maps to IVA Debito Fiscal (2.1.02.001)", () => {

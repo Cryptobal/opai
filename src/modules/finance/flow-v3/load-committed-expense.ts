@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { computePayrollCashForTenant } from "@/modules/finance/cashflow/payroll-cash.service";
+import { computePayrollCashForTenant, computeStaffPayrollCashForTenant } from "@/modules/finance/cashflow/payroll-cash.service";
 import { computeFromFichas } from "@/modules/finance/cashflow/generators/quincena-sync";
 import { computeF29Period } from "@/modules/finance/billing/f29.service";
 import {
@@ -62,7 +62,7 @@ export async function loadCommittedExpense(
   const toYmd = weeks[weeks.length - 1];
   if (!fromYmd || !toYmd) return new Map();
 
-  const [config, receivedRaw, exclusions, pendingTes, payrollCash, postponements] = await Promise.all([
+  const [config, receivedRaw, exclusions, pendingTes, payrollCash, staffCash, postponements] = await Promise.all([
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
       select: {
@@ -103,15 +103,20 @@ export async function loadCommittedExpense(
     }),
     // Fuente única: cotizaciones explícitas (sin residual ni provisiones).
     computePayrollCashForTenant(tenantId),
+    computeStaffPayrollCashForTenant(tenantId),
     loadIvaPostponements(tenantId),
   ]);
 
   const liquidoTotal = payrollCash.total.liquido;
   const previRedTotal = payrollCash.total.previred;
-  const impuestoUnicoTotal = payrollCash.total.impuestoUnico;
+  const impuestoUnicoTotal = payrollCash.total.impuestoUnico + staffCash.impuestoUnico;
   const previredMetaNote =
     previRedTotal > 0
       ? `trab $${payrollCash.total.cotizacionesTrabajador.toLocaleString("es-CL")} + patronal $${payrollCash.total.aportesEmpleador.toLocaleString("es-CL")} · provisiones excluidas $${payrollCash.total.provisiones.toLocaleString("es-CL")}`
+      : undefined;
+  const staffPreviredNote =
+    staffCash.previred > 0
+      ? `trab $${staffCash.cotizacionesTrabajador.toLocaleString("es-CL")} + patronal $${staffCash.aportesEmpleador.toLocaleString("es-CL")}`
       : undefined;
 
   const quincenaMode = config?.quincenaMode ?? "FICHA";
@@ -120,6 +125,10 @@ export async function loadCommittedExpense(
     quincenaMode === "PCT_LIQUIDO"
       ? Math.round(liquidoTotal * quincenaPct)
       : ((await computeFromFichas(tenantId))?.amount ?? 0);
+  const staffQuincenaTotal =
+    quincenaMode === "PCT_LIQUIDO"
+      ? Math.round(staffCash.liquido * quincenaPct)
+      : 0;
 
   const payDay = config?.payrollPayDay ?? 30;
   const previredDay = config?.previRedPayDay ?? 10;
@@ -129,16 +138,54 @@ export async function loadCommittedExpense(
   const milestones: ExpenseMilestoneInput[] = [];
   for (const { y, m } of monthsBetween(fromYmd, toYmd)) {
     if (liquidoTotal > 0)
-      milestones.push({ key: "liquido", label: "Sueldos líquidos", dateYmd: ymdOf(y, m, payDay), amountClp: liquidoTotal });
+      milestones.push({
+        key: "liquido",
+        label: "Sueldos guardias",
+        dateYmd: ymdOf(y, m, payDay),
+        amountClp: liquidoTotal,
+        laborClass: "OPERATIVO",
+      });
+    if (staffCash.liquido > 0)
+      milestones.push({
+        key: "liquido",
+        label: "Sueldos equipo interno",
+        dateYmd: ymdOf(y, m, payDay),
+        amountClp: staffCash.liquido,
+        laborClass: "ADMINISTRATIVO",
+      });
     if (quincenaTotal > 0)
-      milestones.push({ key: "quincena", label: "Quincena / anticipos", dateYmd: ymdOf(y, m, quincenaDay), amountClp: quincenaTotal });
+      milestones.push({
+        key: "quincena",
+        label: "Quincena guardias",
+        dateYmd: ymdOf(y, m, quincenaDay),
+        amountClp: quincenaTotal,
+        laborClass: "OPERATIVO",
+      });
+    if (staffQuincenaTotal > 0)
+      milestones.push({
+        key: "quincena",
+        label: "Quincena equipo interno",
+        dateYmd: ymdOf(y, m, quincenaDay),
+        amountClp: staffQuincenaTotal,
+        laborClass: "ADMINISTRATIVO",
+      });
     if (previRedTotal > 0)
       milestones.push({
         key: "previred",
-        label: "Previred (imposiciones)",
+        label: "Previred guardias",
         dateYmd: ymdOf(y, m, previredDay),
         amountClp: previRedTotal,
         metaNote: previredMetaNote,
+        laborClass: "OPERATIVO",
+      });
+    if (staffCash.previred > 0)
+      milestones.push({
+        key: "previred",
+        label: "Previred equipo interno",
+        dateYmd: ymdOf(y, m, previredDay),
+        amountClp: staffCash.previred,
+        metaNote: staffPreviredNote,
+        laborClass: "ADMINISTRATIVO",
       });
     // Impuesto único 2ª categoría: se entera con el F29 del mes siguiente.
     if (impuestoUnicoTotal > 0) {
@@ -212,7 +259,10 @@ export async function loadCommittedExpense(
   );
   for (const patch of parametrics.payrollPatches) {
     const idx = milestones.findIndex(
-      (m) => m.key === patch.key && m.dateYmd === patch.dateYmd,
+      (m) =>
+        m.key === patch.key &&
+        m.dateYmd === patch.dateYmd &&
+        (m.laborClass ?? "OPERATIVO") === "OPERATIVO",
     );
     if (idx >= 0) {
       const prev = milestones[idx];

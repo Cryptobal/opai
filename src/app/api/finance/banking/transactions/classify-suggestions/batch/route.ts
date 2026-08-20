@@ -21,6 +21,7 @@ import { loadPayrollCandidates } from "@/modules/finance/banking/payroll-candida
 import {
   resolvePayrollFlowRows,
   resolveSupplierCategoryRow,
+  laborClassByStaffRuts,
 } from "@/modules/finance/banking/classify-flow-rows";
 
 const PAYROLL_WINDOW_DAYS = 120;
@@ -201,6 +202,15 @@ export async function POST(request: NextRequest) {
       }),
     );
 
+    const staffRuts = [
+      ...new Set(
+        [...identityMap.values()]
+          .map((i) => normalizeClassifyRut(i.rut))
+          .filter((r): r is string => !!r),
+      ),
+    ];
+    const staffClassMap = await laborClassByStaffRuts(ctx.tenantId, staffRuts);
+
     // Preservar orden del request (ids dedupe).
     const txById = new Map(txs.map((t) => [t.id, t]));
     const results = [];
@@ -271,6 +281,11 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const laborClass =
+        identity?.kind === "guardia"
+          ? "OPERATIVO"
+          : (staffClassMap.get(beneficiaryRut ?? "") ?? null);
+
       const suggestions = rankClassifySuggestions({
         beneficiaryRut,
         amountAbs,
@@ -288,6 +303,9 @@ export async function POST(request: NextRequest) {
         supplierCategoryRow,
         supplierCategoryName,
         dteReceived,
+        laborClass,
+        liquidacionAdminRow: payrollRows.liquidacionAdminRow,
+        anticipoAdminRow: payrollRows.anticipoAdminRow,
       });
 
       const primary = suggestions[0] ?? {

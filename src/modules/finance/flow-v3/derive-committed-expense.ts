@@ -9,7 +9,7 @@
  */
 import { weekStartYmd, ymdToDate } from "./weeks";
 import { buildExpenseIndexes, matchExpenseRow } from "./row-match";
-import { MILESTONE_ROW_KEY } from "./row-keys";
+import { MILESTONE_ROW_KEY, milestonePayrollKeys } from "./row-keys";
 import {
   pushCommitted,
   UNMATCHED_EXPENSE_KEY,
@@ -41,6 +41,8 @@ export interface ExpenseMilestoneInput {
   targetRowId?: string;
   /// Solo hitos f29 / iva_postergado: período tributario YYYY-MM (mes de ventas).
   taxPeriod?: string;
+  /** Parte remuneraciones: rutea a hijo operativo o admin. Default OPERATIVO. */
+  laborClass?: "OPERATIVO" | "ADMINISTRATIVO";
 }
 
 export interface TeWeeklyProjectionInput {
@@ -123,10 +125,15 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
     const placementYmd = overrideYmd ?? m.dateYmd;
     const week = weekStartYmd(ymdToDate(placementYmd) ?? new Date());
     if (!inRange(week)) continue;
-    const key = MILESTONE_ROW_KEY[m.key];
+    const payrollKeys = milestonePayrollKeys(m.key, m.laborClass ?? "OPERATIVO");
+    const key = payrollKeys.length > 0 ? null : MILESTONE_ROW_KEY[m.key];
     const rowKey =
       m.targetRowId ??
-      (key ? matchExpenseRow(idx, { canonicalKey: key }) : UNMATCHED_EXPENSE_KEY);
+      (payrollKeys.length > 0
+        ? matchExpenseRow(idx, { canonicalKeys: payrollKeys })
+        : key
+          ? matchExpenseRow(idx, { canonicalKey: key })
+          : UNMATCHED_EXPENSE_KEY);
     const label = m.metaNote ? `${m.label} (${m.metaNote})` : m.label;
     pushCommitted(out, rowKey, week, {
       kind: "scheduled",

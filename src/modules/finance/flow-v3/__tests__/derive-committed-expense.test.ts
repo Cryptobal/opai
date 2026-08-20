@@ -41,6 +41,25 @@ describe("deriveCommittedExpense — hitos payroll/F29", () => {
     expect(out.get("row-sueldos")?.get("2026-08-03")?.total).toBe(9_000_000);
   });
 
+  it("parte líquido operativo vs admin cuando existen los hijos", () => {
+    const rows: FlowRowRef[] = [
+      ...ROWS,
+      { id: "row-sueldo-op", name: "Guardias", mapping: "ACCOUNTS", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "SUELDO_OPERATIVO", supplierId: null },
+      { id: "row-sueldo-ad", name: "Equipo interno", mapping: "ACCOUNTS", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "SUELDO_ADMIN", supplierId: null },
+    ];
+    const out = deriveCommittedExpense({
+      ...base,
+      rows,
+      milestones: [
+        { key: "liquido", label: "Guardias", dateYmd: "2026-08-05", amountClp: 8_000_000, laborClass: "OPERATIVO" },
+        { key: "liquido", label: "Equipo interno", dateYmd: "2026-08-05", amountClp: 1_200_000, laborClass: "ADMINISTRATIVO" },
+      ],
+    });
+    expect(out.get("row-sueldo-op")?.get("2026-08-03")?.total).toBe(8_000_000);
+    expect(out.get("row-sueldo-ad")?.get("2026-08-03")?.total).toBe(1_200_000);
+    expect(out.get("row-sueldos")).toBeUndefined();
+  });
+
   it("F29 cae por canonicalKey IVA_F29 (sin fallback por nombre)", () => {
     const out = deriveCommittedExpense({
       ...base,

@@ -482,3 +482,119 @@ export async function computePayrollCashForInstallation(
   if (!result || result.dotacion === 0) return null;
   return { ...result, name: result.name ?? installation.name };
 }
+
+/**
+ * Totales de caja del equipo interno (personas ADMINISTRATIVO con sueldo).
+ * No usa puestos ni instalaciones.
+ */
+export async function computeStaffPayrollCashForTenant(
+  tenantId: string,
+): Promise<PayrollCashBreakdown> {
+  let paramsVersion: Awaited<ReturnType<typeof loadActiveParameters>>;
+  let references: Awaited<ReturnType<typeof resolveFxReferences>>;
+  try {
+    paramsVersion = await loadActiveParameters();
+    references = await resolveFxReferences(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      paramsVersion.data.imm?.value_clp,
+    );
+  } catch (err) {
+    console.error(
+      `[PAYROLL-CASH] Sin parámetros activos — omitiendo staff tenant=${tenantId}:`,
+      err instanceof Error ? err.message : err,
+    );
+    return emptyBreakdown();
+  }
+
+  const tenantCfg = await loadTenantPayrollConfig(tenantId);
+  const personas = await prisma.opsPersona.findMany({
+    where: {
+      tenantId,
+      status: "active",
+      laborClass: "ADMINISTRATIVO",
+      salaryStructureId: { not: null },
+      salaryStructure: { isActive: true },
+    },
+    select: {
+      id: true,
+      salaryStructure: {
+        select: {
+          id: true,
+          baseSalary: true,
+          colacion: true,
+          movilizacion: true,
+          gratificationType: true,
+          gratificationCustomAmount: true,
+          netSalaryEstimate: true,
+          bonos: {
+            where: { isActive: true },
+            select: {
+              overrideAmount: true,
+              overridePercentage: true,
+              bonoCatalog: {
+                select: {
+                  bonoType: true,
+                  isTaxable: true,
+                  defaultAmount: true,
+                  defaultPercentage: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const memo = new Map<string, MemoEntry | "error">();
+  const total = emptyBreakdown();
+  const opts = {
+    paramsVersionId: paramsVersion.id,
+    ufValue: references.uf_clp,
+    ufDate: references.uf_date,
+    utmValue: references.utm_clp,
+    utmMonth: references.utm_month,
+    afpName: tenantCfg.afpName,
+    mutualRatePct: tenantCfg.mutualRatePct,
+  };
+
+  for (const p of personas) {
+    const ss = p.salaryStructure as SalaryStructureRow | null;
+    if (!ss) continue;
+    const baseSalary = Number(ss.baseSalary ?? 0);
+    if (baseSalary <= 0) continue;
+
+    let entry = memo.get(ss.id);
+    if (entry === undefined) {
+      try {
+        entry = await computeMemoForStructure(ss, opts);
+        memo.set(ss.id, entry);
+      } catch (err) {
+        console.error(
+          `[PAYROLL-CASH] Error calculando sueldo staff personaId=${p.id}:`,
+          err instanceof Error ? err.message : err,
+        );
+        memo.set(ss.id, "error");
+        total.excludedPuestos += 1;
+        continue;
+      }
+    }
+    if (entry === "error") {
+      total.excludedPuestos += 1;
+      continue;
+    }
+    total.liquido += entry.liquido;
+    total.previred += entry.previred;
+    total.impuestoUnico += entry.impuestoUnico;
+    total.provisiones += entry.provisiones;
+    total.cotizacionesTrabajador += entry.cotizacionesTrabajador;
+    total.aportesEmpleador += entry.aportesEmpleador;
+    total.dotacion += 1;
+    if (entry.liquidoFromMotor) total.liquidoFromMotor += 1;
+  }
+
+  return roundBreakdown(total);
+}

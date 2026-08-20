@@ -579,6 +579,8 @@ model Admin {
   guardiasPlanSeleccionUpdates  OpsGuardia[]                   @relation("ops_guardia_intended_plan_updated_by")
   guardiasReferidos             OpsGuardia[]                   @relation("ops_guardia_referred_by_admin")
   alertasCoberturaCreadas       OpsAlertaCobertura[]           @relation("alertas_cobertura_creador")
+  /// Ficha HR en Personas (equipo interno). Un Admin puede no tener ficha.
+  persona                       OpsPersona?                    @relation("ops_persona_admin")
   googleId                      String?                        @unique @map("google_id") // Google OAuth sub
   verificacionesFisicas         DocVerificacionFisica[]
   aiActionLogs                  AiActionLog[]
@@ -1260,7 +1262,7 @@ model PayrollBonoCatalog {
 model PayrollSalaryStructure {
   id                        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId                  String    @map("tenant_id")
-  sourceType                String    @map("source_type") // PUESTO | GUARDIA_RUT
+  sourceType                String    @map("source_type") // PUESTO | GUARDIA_RUT | PERSONA
   sourceId                  String    @map("source_id") @db.Uuid
   baseSalary                Decimal   @map("base_salary") @db.Decimal(12, 2)
   colacion                  Decimal   @default(0) @db.Decimal(12, 2)
@@ -1279,6 +1281,7 @@ model PayrollSalaryStructure {
   liquidaciones PayrollLiquidacion[]
   puestos       OpsPuestoOperativo[]         @relation("ops_puesto_salary_structure")
   guardias      OpsGuardia[]                 @relation("ops_guardia_salary_structure")
+  personas      OpsPersona[]                 @relation("ops_persona_salary_structure")
 
   @@index([tenantId], map: "idx_payroll_salary_structure_tenant")
   @@index([sourceType, sourceId], map: "idx_payroll_salary_structure_source")
@@ -4027,14 +4030,24 @@ model OpsPersona {
   // ── Resolución Exenta N°38 ──
   personalEmail         String?   @map("personal_email") // Email personal del trabajador (obligatorio Res. 38)
   status                String    @default("active")
+  /// OPERATIVO (costo / guardia) | ADMINISTRATIVO (gasto / equipo interno)
+  laborClass            String    @default("OPERATIVO") @map("labor_class")
+  /// Cargo HR del equipo interno: supervisor | jefe | gerente | administrativo | otro
+  cargoStaff            String?   @map("cargo_staff")
+  salaryStructureId     String?   @map("salary_structure_id") @db.Uuid
+  /// Usuario ERP vinculado (1:1). Null si la persona no entra al sistema.
+  adminId               String?   @unique @map("admin_id")
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  guardia OpsGuardia?
+  guardia         OpsGuardia?
+  salaryStructure PayrollSalaryStructure? @relation("ops_persona_salary_structure", fields: [salaryStructureId], references: [id], onDelete: SetNull)
+  admin           Admin?                  @relation("ops_persona_admin", fields: [adminId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_ops_personas_tenant")
   @@index([status], map: "idx_ops_personas_status")
   @@index([rut], map: "idx_ops_personas_rut")
+  @@index([tenantId, laborClass], map: "idx_ops_personas_tenant_labor_class")
   @@map("personas")
   @@schema("ops")
 }
@@ -9292,8 +9305,14 @@ enum FlowRowKey {
   BANDEJA_INGRESO
   BANDEJA_EGRESO
   SUELDO
+  SUELDO_OPERATIVO
+  SUELDO_ADMIN
   QUINCENA
+  QUINCENA_OPERATIVO
+  QUINCENA_ADMIN
   PREVIRED
+  PREVIRED_OPERATIVO
+  PREVIRED_ADMIN
   TURNO_EXTRA
   FINIQUITO
   IVA_F29

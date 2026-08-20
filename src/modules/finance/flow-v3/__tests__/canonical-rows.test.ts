@@ -37,6 +37,21 @@ describe("SECTION_MOVES", () => {
     });
   });
 
+  it("abre sueldos/quincena/previred en Guardias vs Equipo interno", () => {
+    const children = CANONICAL_FLOW_ROWS.filter((r) => r.parentCanonicalKey);
+    expect(children).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ canonicalKey: "SUELDO_OPERATIVO", parentCanonicalKey: "SUELDO", name: "Guardias" }),
+        expect.objectContaining({ canonicalKey: "SUELDO_ADMIN", parentCanonicalKey: "SUELDO", name: "Equipo interno" }),
+        expect.objectContaining({ canonicalKey: "QUINCENA_OPERATIVO", parentCanonicalKey: "QUINCENA" }),
+        expect.objectContaining({ canonicalKey: "QUINCENA_ADMIN", parentCanonicalKey: "QUINCENA" }),
+        expect.objectContaining({ canonicalKey: "PREVIRED_OPERATIVO", parentCanonicalKey: "PREVIRED" }),
+        expect.objectContaining({ canonicalKey: "PREVIRED_ADMIN", parentCanonicalKey: "PREVIRED" }),
+      ]),
+    );
+    expect(children).toHaveLength(6);
+  });
+
   it("incluye fila Finiquitos en REMUNERACIONES con EGR_FINIQUITO + FINIQUITO", () => {
     expect(CANONICAL_FLOW_ROWS).toContainEqual({
       section: "REMUNERACIONES",

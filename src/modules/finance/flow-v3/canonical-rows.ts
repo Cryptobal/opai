@@ -11,6 +11,8 @@ export interface CanonicalFlowRow {
   categoryCode: string | null;
   /** Llave canónica del renglón (payroll/F29/bandejas). */
   canonicalKey: FlowRowKey | null;
+  /** Si está, esta fila es hijo de la canónica con esa llave. */
+  parentCanonicalKey?: FlowRowKey;
 }
 
 /** Nombres viejos de fallbacks → nuevos (migración idempotente en reconcile). */
@@ -51,8 +53,14 @@ export function resolveSectionMove(
 export const CANONICAL_FLOW_ROWS: CanonicalFlowRow[] = [
   { section: "INGRESOS", name: FALLBACK_INCOME_NAME, categoryCode: null, canonicalKey: "BANDEJA_INGRESO" },
   { section: "REMUNERACIONES", name: "Sueldos líquidos", categoryCode: "EGR_SUELDO", canonicalKey: "SUELDO" },
+  { section: "REMUNERACIONES", name: "Guardias", categoryCode: "EGR_SUELDO", canonicalKey: "SUELDO_OPERATIVO", parentCanonicalKey: "SUELDO" },
+  { section: "REMUNERACIONES", name: "Equipo interno", categoryCode: "EGR_SUELDO", canonicalKey: "SUELDO_ADMIN", parentCanonicalKey: "SUELDO" },
   { section: "REMUNERACIONES", name: "Quincena (anticipos)", categoryCode: "EGR_QUINCENA", canonicalKey: "QUINCENA" },
+  { section: "REMUNERACIONES", name: "Quincena guardias", categoryCode: "EGR_QUINCENA", canonicalKey: "QUINCENA_OPERATIVO", parentCanonicalKey: "QUINCENA" },
+  { section: "REMUNERACIONES", name: "Quincena equipo interno", categoryCode: "EGR_QUINCENA", canonicalKey: "QUINCENA_ADMIN", parentCanonicalKey: "QUINCENA" },
   { section: "REMUNERACIONES", name: "Imposiciones (Previred)", categoryCode: "EGR_PREVIRED", canonicalKey: "PREVIRED" },
+  { section: "REMUNERACIONES", name: "Previred guardias", categoryCode: "EGR_PREVIRED", canonicalKey: "PREVIRED_OPERATIVO", parentCanonicalKey: "PREVIRED" },
+  { section: "REMUNERACIONES", name: "Previred equipo interno", categoryCode: "EGR_PREVIRED", canonicalKey: "PREVIRED_ADMIN", parentCanonicalKey: "PREVIRED" },
   { section: "REMUNERACIONES", name: "Turnos extra", categoryCode: "EGR_TURNO_EXTRA", canonicalKey: "TURNO_EXTRA" },
   { section: "REMUNERACIONES", name: "Finiquitos", categoryCode: "EGR_FINIQUITO", canonicalKey: "FINIQUITO" },
   { section: "IMPUESTOS", name: "IVA F29", categoryCode: "EGR_IVA_F29", canonicalKey: "IVA_F29" },

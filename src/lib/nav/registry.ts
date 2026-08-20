@@ -780,6 +780,7 @@ export const NAV_MODULES: NavNode[] = [
     show: (perms) => hasModuleAccess(perms, "ops"),
     children: [
       { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: User, badge: { notesKey: "guard" }, exactMatch: true },
+      { key: "personas-equipo", href: "/personas/equipo", label: "Equipo interno", shortLabel: "Equipo", icon: Briefcase },
       { key: "personas-conocimiento", href: "/personas/conocimiento", label: "Conocimiento", icon: GraduationCap, badge: { notesKey: "knowledge_alert" } },
       { key: "personas-onboarding", href: "/personas/onboarding", label: "Onboarding", icon: UserRoundCheck, tenantModule: "ops_onboarding" },
       { key: "personas-comunicaciones", href: "/personas/comunicaciones", label: "Comunicaciones", icon: Bell },

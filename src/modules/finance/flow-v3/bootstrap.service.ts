@@ -2,6 +2,8 @@ import "server-only";
 import { Prisma, type FlowSection } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { CANONICAL_FLOW_ROWS } from "./canonical-rows";
+import { linkPayrollSubrows } from "./link-payroll-subrows";
+import { linkPayrollSubrows } from "./link-payroll-subrows";
 
 type Tx = Prisma.TransactionClient;
 
@@ -68,6 +70,7 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
   ]);
 
   let orderIndex = 0;
+  const createdByKey = new Map<string, string>();
   const createRow = async (data: {
     section: FlowSection;
     name: string;
@@ -77,10 +80,9 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
     recurringTemplateId?: string | null;
     categoryId?: string | null;
     canonicalKey?: import("@prisma/client").FlowRowKey | null;
+    parentId?: string | null;
   }) => {
-    // Bajo el lock + recount=0 no hay filas previas, así que el create es
-    // directo (sin findFirst): claves naturales garantizadas únicas por lote.
-    await tx.financeFlowRow.create({
+    const row = await tx.financeFlowRow.create({
       data: {
         tenantId, section: data.section, name: data.name, mapping: data.mapping,
         orderIndex: orderIndex++,
@@ -89,8 +91,12 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
         recurringTemplateId: data.recurringTemplateId ?? null,
         categoryId: data.categoryId ?? null,
         canonicalKey: data.canonicalKey ?? null,
+        parentId: data.parentId ?? null,
       },
+      select: { id: true, canonicalKey: true },
     });
+    if (row.canonicalKey) createdByKey.set(row.canonicalKey, row.id);
+    return row;
   };
 
   // 1. Una fila por programación activa (nombre = template.name).
@@ -114,15 +120,21 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
     });
   }
 
-  // 2. Filas canónicas.
+  // 2. Filas canónicas: padres primero, luego hijos con parentId.
   const catByCode = new Map(categories.map((c) => [c.code, c.id]));
-  for (const c of CANONICAL_FLOW_ROWS) {
+  const parents = CANONICAL_FLOW_ROWS.filter((c) => !c.parentCanonicalKey);
+  const children = CANONICAL_FLOW_ROWS.filter((c) => c.parentCanonicalKey);
+  for (const c of [...parents, ...children]) {
     const categoryId = c.categoryCode ? (catByCode.get(c.categoryCode) ?? null) : null;
+    const parentId = c.parentCanonicalKey
+      ? (createdByKey.get(c.parentCanonicalKey) ?? null)
+      : null;
     await createRow({
       section: c.section, name: c.name,
       mapping: c.canonicalKey || categoryId ? "ACCOUNTS" : "MANUAL",
       categoryId,
       canonicalKey: c.canonicalKey,
+      parentId,
     });
   }
 
@@ -146,4 +158,6 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
       });
     }
   }
+
+  await linkPayrollSubrows(tx, tenantId);
 }

@@ -11,8 +11,14 @@ import type { FlowMatrixCellDto, FlowMatrixRowDto } from "./matrix-assemble";
 
 export const DRIFT_CANONICAL_KEYS = [
   "SUELDO",
+  "SUELDO_OPERATIVO",
+  "SUELDO_ADMIN",
   "QUINCENA",
+  "QUINCENA_OPERATIVO",
+  "QUINCENA_ADMIN",
   "PREVIRED",
+  "PREVIRED_OPERATIVO",
+  "PREVIRED_ADMIN",
   "TURNO_EXTRA",
   "FINIQUITO",
   "IVA_F29",

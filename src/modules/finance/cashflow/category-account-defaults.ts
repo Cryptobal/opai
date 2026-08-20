@@ -27,10 +27,9 @@ export const DEFAULT_CATEGORY_ACCOUNT_MAP: Record<string, string[]> = {
   ING_PRESTAMO_SOCIO: ["2.1.01.003"],
 
   // ─── Egresos: remuneraciones ───
-  // Sueldos cubre tanto guardias (5.1.01.001) como administrativos (6.1.01.001)
   EGR_SUELDO:         ["5.1.01.001", "6.1.01.001"],
-  EGR_QUINCENA:       ["5.1.01.001", "6.1.01.001"],             // Anticipo del mismo
-  EGR_PREVIRED:       ["5.1.01.002", "6.1.01.002"],             // Leyes sociales guardias + admin
+  EGR_QUINCENA:       ["5.1.01.001", "6.1.01.001"],
+  EGR_PREVIRED:       ["5.1.01.002", "6.1.01.002"],
   EGR_TURNO_EXTRA:    ["5.1.01.001"],                           // Pago a guardias por TE
   EGR_FINIQUITO:      ["5.1.01.001"],                           // Liquidación final a guardias
 

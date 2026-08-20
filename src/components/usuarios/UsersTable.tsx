@@ -18,9 +18,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { changeUserRole, toggleUserStatus } from '@/app/(app)/opai/actions/users';
-import { MoreVertical, UserCheck, UserX } from 'lucide-react';
+import { MoreVertical, UserCheck, UserX, UserRound } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 interface RoleTemplate {
   id: string;
@@ -38,6 +40,7 @@ interface User {
   lastLoginAt: Date | null;
   createdAt: Date;
   roleTemplate?: { id: string; name: string; slug: string } | null;
+  persona?: { id: string } | null;
 }
 
 interface Props {
@@ -55,8 +58,36 @@ const ROLE_BADGE_VARIANTS: Record<string, 'default' | 'secondary' | 'outline'> =
 };
 
 export default function UsersTable({ users, roleTemplates, currentUserId, currentUserRole }: Props) {
+  const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [roleChanging, setRoleChanging] = useState<string | null>(null);
+  const [fichaLoading, setFichaLoading] = useState<string | null>(null);
+
+  const openOrCreateFicha = async (user: User) => {
+    if (user.persona?.id) {
+      router.push(`/personas/equipo/${user.persona.id}`);
+      return;
+    }
+    setFichaLoading(user.id);
+    try {
+      const res = await fetch('/api/personas/equipo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: user.id }),
+      });
+      const json = await res.json();
+      if (res.status === 409 && json.personaId) {
+        router.push(`/personas/equipo/${json.personaId}`);
+        return;
+      }
+      if (!res.ok) throw new Error(json.error || 'No se pudo crear la ficha');
+      router.push(`/personas/equipo/${json.data.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo crear la ficha');
+    } finally {
+      setFichaLoading(null);
+    }
+  };
 
   const getRoleDisplay = (user: User) => {
     if (user.roleTemplate) return user.roleTemplate.name;
@@ -186,6 +217,14 @@ export default function UsersTable({ users, roleTemplates, currentUserId, curren
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
+                        onClick={() => void openOrCreateFicha(user)}
+                        disabled={fichaLoading === user.id}
+                      >
+                        <UserRound className="w-4 h-4 mr-2" />
+                        {user.persona?.id ? 'Ver ficha de Personas' : 'Crear ficha de Personas'}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
                         onClick={() => handleToggleStatus(user.id)}
                       >
                         {user.status === 'active' ? (
@@ -205,6 +244,15 @@ export default function UsersTable({ users, roleTemplates, currentUserId, curren
                 )}
                 {isCurrentUser && (
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={fichaLoading === user.id}
+                      onClick={() => void openOrCreateFicha(user)}
+                    >
+                      <UserRound className="w-4 h-4 mr-2" />
+                      {user.persona?.id ? 'Ver ficha' : 'Crear ficha'}
+                    </Button>
                     <span className="text-xs text-muted-foreground">(Tú)</span>
                     {isOnlyUser && (
                       <span className="text-xs text-status-warn-fg">Invita usuarios para ver acciones</span>
@@ -302,6 +350,14 @@ export default function UsersTable({ users, roleTemplates, currentUserId, curren
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
+                          onClick={() => void openOrCreateFicha(user)}
+                          disabled={fichaLoading === user.id}
+                        >
+                          <UserRound className="w-4 h-4 mr-2" />
+                          {user.persona?.id ? 'Ver ficha de Personas' : 'Crear ficha de Personas'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
                           onClick={() => handleToggleStatus(user.id)}
                         >
                           {user.status === 'active' ? (
@@ -321,6 +377,15 @@ export default function UsersTable({ users, roleTemplates, currentUserId, curren
                   )}
                   {isCurrentUser && (
                     <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={fichaLoading === user.id}
+                        onClick={() => void openOrCreateFicha(user)}
+                      >
+                        <UserRound className="w-4 h-4 mr-2" />
+                        {user.persona?.id ? 'Ver ficha' : 'Crear ficha'}
+                      </Button>
                       <span className="text-xs text-muted-foreground">(Tú)</span>
                       {isOnlyUser && (
                         <span className="text-xs text-status-warn-fg">← Invita usuarios para ver acciones</span>

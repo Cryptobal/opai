@@ -448,6 +448,9 @@ export async function listUsers() {
       createdAt: true,
       invitedAt: true,
       activatedAt: true,
+      persona: {
+        select: { id: true },
+      },
       roleTemplate: {
         select: { id: true, name: true, slug: true },
       },

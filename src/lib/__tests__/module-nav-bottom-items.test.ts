@@ -171,6 +171,7 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     const items = getBottomNavItems("/personas/guardias", "owner", ALL_ENABLED);
     const hrefs = items.map((i) => i.href);
     expect(hrefs).toContain("/personas/guardias");
+    expect(hrefs).toContain("/personas/equipo");
     expect(hrefs).toContain("/personas/conocimiento");
     expect(hrefs).toContain("/personas/onboarding");
     expect(hrefs).toContain("/personas/comunicaciones");

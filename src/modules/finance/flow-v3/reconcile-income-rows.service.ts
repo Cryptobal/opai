@@ -16,6 +16,7 @@ import {
   shouldArchiveSurplusAccountRow,
   type AdoptionCandidate,
 } from "./row-visibility";
+import { linkPayrollSubrows } from "./link-payroll-subrows";
 
 type Tx = Prisma.TransactionClient;
 
@@ -43,6 +44,7 @@ export async function reconcileIncomeRows(tenantId: string): Promise<void> {
     await renameFallbacks(tx, tenantId);
     await applySectionMoves(tx, tenantId);
     await ensureCanonicalRows(tx, tenantId);
+    await linkPayrollSubrows(tx, tenantId);
     await backfillCanonicalCategories(tx, tenantId);
     await backfillCanonicalKeys(tx, tenantId);
     await adoptOrCreateTemplateRows(tx, tenantId);
@@ -197,7 +199,7 @@ async function ensureCanonicalRows(tx: Tx, tenantId: string): Promise<void> {
   const [existing, categories, last] = await Promise.all([
     tx.financeFlowRow.findMany({
       where: { tenantId },
-      select: { id: true, name: true, section: true },
+      select: { id: true, name: true, section: true, canonicalKey: true },
     }),
     tx.financeCashflowCategory.findMany({
       where: { tenantId },
@@ -222,12 +224,19 @@ async function ensureCanonicalRows(tx: Tx, tenantId: string): Promise<void> {
 
   const catByCode = new Map(categories.map((c) => [c.code, c.id]));
   let orderIndex = (last?.orderIndex ?? -1) + 1;
+  const idByKey = new Map<string, string>();
+  for (const r of existing) {
+    if (r.canonicalKey) idByKey.set(r.canonicalKey, r.id);
+  }
 
   for (const c of CANONICAL_FLOW_ROWS) {
     const key = `${c.section}::${normalizeNameForDedupe(c.name)}`;
     if (bySectionName.has(key)) continue;
     const categoryId = c.categoryCode ? (catByCode.get(c.categoryCode) ?? null) : null;
-    await tx.financeFlowRow.create({
+    const parentId = c.parentCanonicalKey
+      ? (idByKey.get(c.parentCanonicalKey) ?? null)
+      : null;
+    const created = await tx.financeFlowRow.create({
       data: {
         tenantId,
         section: c.section as FlowSection,
@@ -236,8 +245,11 @@ async function ensureCanonicalRows(tx: Tx, tenantId: string): Promise<void> {
         orderIndex: orderIndex++,
         categoryId,
         canonicalKey: c.canonicalKey,
+        parentId,
       },
+      select: { id: true, canonicalKey: true },
     });
+    if (created.canonicalKey) idByKey.set(created.canonicalKey, created.id);
     bySectionName.add(key);
   }
 }
