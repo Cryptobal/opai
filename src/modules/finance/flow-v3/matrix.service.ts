@@ -26,6 +26,7 @@ import { listClosedV3Weeks, loadSealedBalancesForMatrix } from "./weekly-close.a
 import { loadBalanceAnchors } from "./balance-anchor.service";
 import type { FlowMatrixResponse, OpeningBalanceDetail } from "./matrix-types";
 import { compareFlowRows } from "./row-sort";
+import { nestFlowRows } from "./row-tree";
 import { isFallbackBandejaRow } from "./unmatched-count";
 
 export type { FlowMatrixResponse } from "./matrix-types";
@@ -308,6 +309,8 @@ export async function buildFlowMatrix(
       isArchived: !!r.archivedAt, archivedWeekCutoff: cutoff, isVirtual: false,
       sourceName, nameIsManual,
       ufCaption: ufCaptionByRow.get(r.id) ?? null,
+      parentId: r.parentId ?? null,
+      childCount: 0,
     });
   }
   for (const v of Object.values(VIRTUAL_ROWS)) {
@@ -318,12 +321,41 @@ export async function buildFlowMatrix(
         categoryId: null, canonicalKey: null, supplierId: null,
         isArchived: false, archivedWeekCutoff: null, isVirtual: true,
         sourceName: null, nameIsManual: false,
+        parentId: null, childCount: 0,
       });
     }
   }
+
+  // Si un hijo entra en la ventana, el padre también (aunque no tenga monto propio).
+  const includedIds = new Set(assembleRows.map((r) => r.id));
+  const dbById = new Map(dbRows.map((r) => [r.id, r]));
+  for (const r of [...assembleRows]) {
+    if (!r.parentId || includedIds.has(r.parentId)) continue;
+    const parent = dbById.get(r.parentId);
+    if (!parent) continue;
+    const sourceName = sourceNameFor(parent);
+    const nameIsManual =
+      sourceName != null &&
+      parent.name.trim().localeCompare(sourceName.trim(), undefined, { sensitivity: "accent" }) !== 0;
+    const cutoff = parent.archivedAt ? weekStartYmd(parent.archivedAt) : null;
+    assembleRows.push({
+      id: parent.id, name: parent.name, section: parent.section, mapping: parent.mapping,
+      orderIndex: parent.orderIndex, crmAccountId: parent.crmAccountId,
+      installationId: parent.installationId, recurringTemplateId: parent.recurringTemplateId,
+      categoryId: parent.categoryId, canonicalKey: parent.canonicalKey,
+      supplierId: parent.supplierId,
+      isArchived: !!parent.archivedAt, archivedWeekCutoff: cutoff, isVirtual: false,
+      sourceName, nameIsManual,
+      ufCaption: ufCaptionByRow.get(parent.id) ?? null,
+      parentId: parent.parentId ?? null, childCount: 0,
+    });
+    includedIds.add(parent.id);
+  }
+
   // Presentación v4.8: sección → cuenta/prog → manual → bandeja → virtual,
-  // A→Z dentro de cada bloque. orderIndex se conserva pero no define el orden.
-  assembleRows.sort((a, b) =>
+  // A→Z dentro de cada bloque. Luego anidar subfilas bajo el padre.
+  const roots = assembleRows.filter((r) => !r.parentId);
+  roots.sort((a, b) =>
     compareFlowRows(
       {
         section: a.section,
@@ -343,6 +375,12 @@ export async function buildFlowMatrix(
       },
     ),
   );
+  const nested = nestFlowRows([
+    ...roots,
+    ...assembleRows.filter((r) => r.parentId),
+  ]);
+  assembleRows.length = 0;
+  assembleRows.push(...nested);
 
   const residualCarryEnabled = config?.residualCarryEnabled !== false;
   const residualMinClp = config?.residualMinClp ?? 10_000;

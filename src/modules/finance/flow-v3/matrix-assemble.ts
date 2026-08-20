@@ -68,6 +68,10 @@ export interface AssembleRowInput {
   nameIsManual?: boolean;
   /** Caption UF de egreso recurrente (ej. "UF 24,5"), si aplica. */
   ufCaption?: string | null;
+  /** Categoría padre (subfila GAV/OTROS). */
+  parentId?: string | null;
+  /** Hijos directos (0 en subfilas). */
+  childCount?: number;
 }
 
 export interface FlowMatrixCellDto {

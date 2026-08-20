@@ -9296,6 +9296,10 @@ model FinanceFlowRow {
   /// tenant entre filas activas (índice parcial uq_flow_row_canonical_key).
   canonicalKey   FlowRowKey?    @map("canonical_key")
   supplierId     String?        @map("supplier_id") @db.Uuid
+  /// Categoría padre (GAV/OTROS). Un nivel: el hijo no puede tener hijos.
+  parentId       String?        @map("parent_id") @db.Uuid
+  parent         FinanceFlowRow?  @relation("FlowRowHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children       FinanceFlowRow[] @relation("FlowRowHierarchy")
   /// Fila dada de baja (cuenta cerrada). No se borra: el histórico de plan
   /// queda y el matrix la incluye solo si tiene movimiento en la ventana.
   archivedAt     DateTime?      @map("archived_at") @db.Timestamptz(6)
@@ -9312,6 +9316,7 @@ model FinanceFlowRow {
   @@index([tenantId, section, orderIndex], map: "idx_finance_flow_row_tenant_section")
   @@index([tenantId, crmAccountId, installationId], map: "idx_finance_flow_row_account_inst")
   @@index([tenantId, recurringTemplateId], map: "idx_finance_flow_row_tenant_template")
+  @@index([tenantId, parentId], map: "idx_finance_flow_row_tenant_parent")
   @@map("finance_flow_rows")
   @@schema("finance")
 }
