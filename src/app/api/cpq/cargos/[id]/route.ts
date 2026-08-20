@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { requireTenantModule } from '@/lib/require-module';
+import { cargoNameImpliesSensitive } from "@/lib/salary-privacy";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -49,6 +50,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       );
     }
 
+    const name = body.name.trim();
     const data: {
       name: string;
       description: string | null;
@@ -56,14 +58,16 @@ export async function PUT(request: NextRequest, { params }: Params) {
       colorHex?: string | null;
       salarySensitive?: boolean;
     } = {
-      name: body.name.trim(),
+      name,
       description: body.description?.trim() || null,
       active: body.active ?? true,
     };
     if (body.colorHex !== undefined) {
       data.colorHex = normalizeColorHex(body.colorHex);
     }
-    if (body.salarySensitive !== undefined) {
+    if (cargoNameImpliesSensitive(name)) {
+      data.salarySensitive = true;
+    } else if (body.salarySensitive !== undefined) {
       data.salarySensitive = body.salarySensitive === true;
     }
 

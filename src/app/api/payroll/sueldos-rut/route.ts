@@ -10,7 +10,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
 import { getPermissionsFromAuth } from "@/lib/permissions-server";
-import { canViewSensitiveSalary } from "@/lib/salary-privacy";
+import { canViewSensitiveSalary, isSalarySensitiveCargo } from "@/lib/salary-privacy";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
               orderBy: { startDate: "desc" },
               take: 1,
               select: {
-                puesto: { select: { cargo: { select: { salarySensitive: true } } } },
+                puesto: { select: { name: true, cargo: { select: { name: true, salarySensitive: true } } } },
               },
             },
           },
@@ -69,7 +69,11 @@ export async function GET(req: NextRequest) {
       .filter((s) => s.guardias.length > 0)
       .map((s) => {
         const g = s.guardias[0];
-        const salarySensitive = g.asignaciones[0]?.puesto.cargo?.salarySensitive === true;
+        const puesto = g.asignaciones[0]?.puesto;
+        const salarySensitive = isSalarySensitiveCargo({
+          salarySensitive: puesto?.cargo?.salarySensitive,
+          names: [puesto?.cargo?.name, puesto?.name],
+        });
         const hide = salarySensitive && !canSeeSensitive;
         return {
           structureId: s.id,

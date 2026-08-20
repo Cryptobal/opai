@@ -20,6 +20,7 @@ import {
   getEffectiveLevel,
   LEVEL_RANK,
   applyPermissionCompats,
+  applySensitiveSalaryRoleLock,
 } from "@/lib/permissions";
 
 // ── Role template cache (Next.js Data Cache, TTL 300 s) ──
@@ -92,12 +93,18 @@ export async function resolvePermissions(user: {
     if (template?.permissions) {
       if (template.slug) effectiveRole = normalizeRole(template.slug);
       const merged = mergeRolePermissions(defaultPerms, template.permissions);
-      return applyPermissionCompats(ensureSupervisorSupervisionAccess(effectiveRole, merged));
+      return applySensitiveSalaryRoleLock(
+        effectiveRole,
+        applyPermissionCompats(ensureSupervisorSupervisionAccess(effectiveRole, merged)),
+      );
     }
   }
 
   // Fallback a defaults por rol legacy
-  return applyPermissionCompats(ensureSupervisorSupervisionAccess(effectiveRole, defaultPerms));
+  return applySensitiveSalaryRoleLock(
+    effectiveRole,
+    applyPermissionCompats(ensureSupervisorSupervisionAccess(effectiveRole, defaultPerms)),
+  );
 }
 
 /**
@@ -279,10 +286,16 @@ export async function resolvePermissionsByRoleSlug(
       defaultPerms,
       template.permissions as unknown as RolePermissions,
     );
-    return applyPermissionCompats(ensureSupervisorSupervisionAccess(normalizedSlug, merged));
+    return applySensitiveSalaryRoleLock(
+      normalizedSlug,
+      applyPermissionCompats(ensureSupervisorSupervisionAccess(normalizedSlug, merged)),
+    );
   }
 
-  return applyPermissionCompats(ensureSupervisorSupervisionAccess(normalizedSlug, defaultPerms));
+  return applySensitiveSalaryRoleLock(
+    normalizedSlug,
+    applyPermissionCompats(ensureSupervisorSupervisionAccess(normalizedSlug, defaultPerms)),
+  );
 }
 
 /**

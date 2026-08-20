@@ -1,8 +1,29 @@
 /**
  * Privacidad de sueldos por cargo sensible.
  * Puro: no loguea montos ni RUT.
+ *
+ * El sueldo se marca en el cargo CPQ (`CpqCargo.salarySensitive`), no en la ficha.
+ * Los cargos cuyo nombre es Director (o variante) son sensibles siempre, aunque
+ * el checkbox del catálogo esté apagado.
  */
 import { hasCapability, type RolePermissions } from "@/lib/permissions";
+
+/** Director / Directora / Directores / Subdirector — no “Directorio”. */
+const DIRECTOR_CARGO_RE = /director(?:a|es|as)?\b/i;
+
+export function cargoNameImpliesSensitive(name: string | null | undefined): boolean {
+  if (!name?.trim()) return false;
+  const normalized = name.normalize("NFD").replace(/\p{M}/gu, "");
+  return DIRECTOR_CARGO_RE.test(normalized);
+}
+
+export function isSalarySensitiveCargo(opts: {
+  salarySensitive?: boolean | null;
+  names?: Array<string | null | undefined>;
+}): boolean {
+  if (opts.salarySensitive === true) return true;
+  return (opts.names ?? []).some((n) => cargoNameImpliesSensitive(n));
+}
 
 export function canViewSensitiveSalary(perms: RolePermissions): boolean {
   return hasCapability(perms, "view_sensitive_salary");
@@ -60,13 +81,17 @@ export function redactResolvedSalary<T extends {
 }
 
 export function redactPuestoSalaryFields<T extends {
-  cargo?: { salarySensitive?: boolean } | null;
+  cargo?: { salarySensitive?: boolean; name?: string } | null;
+  name?: string;
   baseSalary?: unknown;
   salaryStructure?: Record<string, unknown> | null;
 }>(puesto: T, canViewSensitive: boolean): T {
   if (
     !shouldHideSalaryAmount({
-      salarySensitive: puesto.cargo?.salarySensitive === true,
+      salarySensitive: isSalarySensitiveCargo({
+        salarySensitive: puesto.cargo?.salarySensitive,
+        names: [puesto.cargo?.name, puesto.name],
+      }),
       canViewSensitive,
     })
   ) {
