@@ -39,6 +39,11 @@ export const flowMatrixQuerySchema = z.object({
   archived: z.enum(["0", "1", "true", "false"]).optional(),
 });
 
+export const flowProjectedPnlQuerySchema = z.object({
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+});
+
 export const flowRowKeySchema = z.enum([
   "BANDEJA_INGRESO",
   "BANDEJA_EGRESO",

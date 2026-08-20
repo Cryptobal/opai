@@ -118,16 +118,18 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).not.toContain("/finanzas/reportes/balance");
   });
 
-  it("Banca / Flujo → bottom nav shows N2 peers, not Banca N3", () => {
+  it("Banca / Flujo → bottom nav shows N2 peers, not Banca/Flujo N3", () => {
     for (const path of [
       "/finanzas/bancos",
       "/finanzas/conciliacion",
       "/finanzas/flujo-caja/planilla",
+      "/finanzas/flujo-caja/resultado",
     ]) {
       const hrefs = getBottomNavItems(path, "owner", ALL_ENABLED).map((i) => i.href);
       expect(hrefs).toContain("/finanzas/bancos");
       expect(hrefs).toContain("/finanzas/flujo-caja/planilla");
       expect(hrefs).not.toContain("/finanzas/conciliacion");
+      expect(hrefs).not.toContain("/finanzas/flujo-caja/resultado");
     }
   });
 

@@ -259,11 +259,20 @@ describe("nav registry", () => {
     it("Flujo de Caja es N2 hermano de Banca y apunta a la planilla", () => {
       expect(flujo).toBeDefined();
       expect(flujo.href).toBe("/finanzas/flujo-caja/planilla");
-      expect(flujo.children).toBeUndefined();
       expect(pathMatchesNode("/finanzas/flujo-caja", flujo)).toBe(true);
       expect(pathMatchesNode("/finanzas/flujo-caja/planilla", flujo)).toBe(true);
+      expect(pathMatchesNode("/finanzas/flujo-caja/resultado", flujo)).toBe(true);
       // Banca ya no reclama las rutas de flujo-caja.
       expect(pathMatchesNode("/finanzas/flujo-caja", banca)).toBe(false);
+    });
+
+    it("Flujo de Caja tiene N3 Caja y Resultado", () => {
+      expect((flujo.children ?? []).map((c) => c.key)).toEqual([
+        "flujo-caja-planilla",
+        "flujo-caja-resultado",
+      ]);
+      expect(findN3Parent("/finanzas/flujo-caja/planilla")?.key).toBe("finance-flujo-caja");
+      expect(findN3Parent("/finanzas/flujo-caja/resultado")?.key).toBe("finance-flujo-caja");
     });
 
     it("findActiveModule resuelve finance para /finanzas/flujo-caja", () => {
@@ -276,6 +285,7 @@ describe("nav registry", () => {
 
     it("findN3Parent no resuelve finance-banca para /finanzas/flujo-caja", () => {
       expect(findN3Parent("/finanzas/flujo-caja")?.key).not.toBe("finance-banca");
+      expect(findN3Parent("/finanzas/flujo-caja/resultado")?.key).not.toBe("finance-banca");
     });
 
     it("trail de /finanzas/conciliacion = [Finanzas, Banca, Conciliación]", () => {
@@ -294,12 +304,19 @@ describe("nav registry", () => {
     });
 
     it("getContextualBottomNavNodes devuelve Finance N2 para Banca y Flujo", () => {
-      for (const r of ["/finanzas/bancos", "/finanzas/flujo-caja", "/finanzas/conciliacion"]) {
+      for (const r of [
+        "/finanzas/bancos",
+        "/finanzas/flujo-caja",
+        "/finanzas/flujo-caja/resultado",
+        "/finanzas/conciliacion",
+      ]) {
         const keys = getContextualBottomNavNodes(r).map((n) => n.key);
         expect(keys).toContain("finance-banca");
         expect(keys).toContain("finance-flujo-caja");
         expect(keys).not.toContain("banca-conciliacion");
         expect(keys).not.toContain("banca-cuentas");
+        expect(keys).not.toContain("flujo-caja-planilla");
+        expect(keys).not.toContain("flujo-caja-resultado");
       }
     });
 

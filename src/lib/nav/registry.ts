@@ -567,8 +567,9 @@ export const NAV_MODULES: NavNode[] = [
           },
         ],
       },
-      // Flujo de Caja — N2 propio (hermano de Banca). Modo Planilla es la
-      // ÚNICA vista del producto; /finanzas/flujo-caja redirige a planilla.
+      // Flujo de Caja — N2 propio (hermano de Banca). N3: Caja (planilla
+      // tesorería, global) y Resultado (P&L operativo proyectado, también
+      // por instalación). /finanzas/flujo-caja redirige a planilla.
       {
         key: "finance-flujo-caja",
         href: "/finanzas/flujo-caja/planilla",
@@ -576,8 +577,26 @@ export const NAV_MODULES: NavNode[] = [
         shortLabel: "Flujo",
         icon: TrendingUp,
         capability: "cashflow_view",
-        // Ruta histórica + sub-rutas (cierre/cuadratura redirigen a planilla).
+        // Ruta histórica + Resultado / cierre / cuadratura.
         activePaths: ["/finanzas/flujo-caja"],
+        children: [
+          {
+            key: "flujo-caja-planilla",
+            href: "/finanzas/flujo-caja/planilla",
+            label: "Caja",
+            shortLabel: "Caja",
+            icon: Wallet,
+            capability: "cashflow_view",
+          },
+          {
+            key: "flujo-caja-resultado",
+            href: "/finanzas/flujo-caja/resultado",
+            label: "Resultado",
+            shortLabel: "Resultado",
+            icon: FileBarChart,
+            capability: "cashflow_view",
+          },
+        ],
       },
       // Contabilidad — restringido a owner/admin (accounting_view)
       {
