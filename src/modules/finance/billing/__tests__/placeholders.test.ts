@@ -77,9 +77,19 @@ describe("resolvePlaceholders — tokens conocidos", () => {
     expect(resolvePlaceholders("{{periodo_corto}}", baseCtx)).toBe("05/2026");
   });
 
-  it("{{uf_valor}} formato CLP con $ y separador de miles", () => {
+  it("{{uf_valor}} formato CLP con $ , miles y 2 decimales", () => {
     expect(resolvePlaceholders("UF al día: {{uf_valor}}", baseCtx)).toBe(
-      "UF al día: $39.485",
+      "UF al día: $39.485,00",
+    );
+  });
+
+  it("{{uf_valor}} conserva los 2 decimales del T/C", () => {
+    const ctx: PlaceholderContext = {
+      ...baseCtx,
+      uf: { value: 40_873.77, date: new Date(Date.UTC(2026, 7, 31)) },
+    };
+    expect(resolvePlaceholders("Valor UF {{uf_valor}}", ctx)).toBe(
+      "Valor UF $40.873,77",
     );
   });
 
@@ -233,7 +243,7 @@ describe("resolvePlaceholders — fallbacks y tokens desconocidos", () => {
         ctx,
       ),
     ).toBe(
-      "Período Mayo 2026\nValor UF al día 01/05/2026: $39.485\nMonto: 40,17 UF",
+      "Período Mayo 2026\nValor UF al día 01/05/2026: $39.485,00\nMonto: 40,17 UF",
     );
   });
 });

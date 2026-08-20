@@ -103,15 +103,15 @@ export function resolvePeriodFromPolicy(
 }
 
 /**
- * Formatea un monto CLP con separadores de miles (`$ 39.485`). Sin
- * decimales (CLP no usa centavos).
+ * Formatea el valor diario de la UF en CLP. Siempre 2 decimales
+ * (formato chileno: `$40.873,77`, `$40.874,00`).
  */
-function formatClp(value: number): string {
+function formatUfValor(value: number): string {
   return new Intl.NumberFormat("es-CL", {
     style: "currency",
     currency: "CLP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -180,7 +180,7 @@ function resolveToken(token: string, ctx: PlaceholderContext): string | undefine
     case "periodo_corto":
       return ctx.period.periodoCorto;
     case "uf_valor":
-      return ctx.uf ? formatClp(ctx.uf.value) : "";
+      return ctx.uf ? formatUfValor(ctx.uf.value) : "";
     case "uf_fecha":
       return ctx.uf ? formatDateDmy(ctx.uf.date) : "";
     case "uf_monto":
@@ -327,7 +327,7 @@ export const PLACEHOLDER_CATALOG: ReadonlyArray<{
   {
     token: "{{uf_valor}}",
     label: "Valor UF",
-    description: "Valor UF del día (ej: $ 39.485)",
+    description: "Valor UF del día (ej: $ 39.485,00)",
     appliesToClp: false,
   },
   {
