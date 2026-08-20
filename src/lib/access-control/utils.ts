@@ -77,6 +77,51 @@ export function formatRutDash(rut: string): string {
   return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
 }
 
+/**
+ * True si el texto parece un RUT (con o sin puntos/guión).
+ * Usado para expandir búsquedas "en sitio" al RUT limpio persistido.
+ */
+export function looksLikeRutQuery(value: string): boolean {
+  const clean = cleanRut(value);
+  return clean.length >= 6 && clean.length <= 9 && /^\d+[0-9K]$/i.test(clean);
+}
+
+export interface AccessRecordSearchClause {
+  fullName?: { contains: string; mode: "insensitive" };
+  rut?: { contains: string };
+  company?: { contains: string; mode: "insensitive" };
+  vehiclePlate?: { contains: string; mode: "insensitive" };
+}
+
+/**
+ * Cláusulas OR para buscar registros de acceso.
+ * Si el query parece RUT, también busca el valor limpio (141700618)
+ * porque así se persiste `AccessControlRecord.rut`.
+ */
+export function buildAccessRecordSearchOr(
+  raw: string,
+  options?: { includeCompany?: boolean },
+): AccessRecordSearchClause[] {
+  const text = raw.trim();
+  if (!text) return [];
+
+  const clauses: AccessRecordSearchClause[] = [
+    { fullName: { contains: text, mode: "insensitive" } },
+    { rut: { contains: text } },
+    { vehiclePlate: { contains: text, mode: "insensitive" } },
+  ];
+  if (options?.includeCompany) {
+    clauses.push({ company: { contains: text, mode: "insensitive" } });
+  }
+  if (looksLikeRutQuery(text)) {
+    const cleaned = cleanRut(text);
+    if (cleaned !== text) {
+      clauses.push({ rut: { contains: cleaned } });
+    }
+  }
+  return clauses;
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  CHILEAN PLATE VALIDATION
 // ═══════════════════════════════════════════════════════════════

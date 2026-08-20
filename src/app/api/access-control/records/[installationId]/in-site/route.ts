@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
+import { buildAccessRecordSearchOr } from "@/lib/access-control/utils";
 
 export async function GET(
   request: NextRequest,
@@ -34,17 +35,12 @@ export async function GET(
       exitAt: null,
     };
 
-    const where: Prisma.AccessControlRecordWhereInput = search
+    const searchOr = search ? buildAccessRecordSearchOr(search) : [];
+    const where: Prisma.AccessControlRecordWhereInput = searchOr.length
       ? {
           AND: [
             baseWhere,
-            {
-              OR: [
-                { fullName: { contains: search, mode: "insensitive" } },
-                { rut: { contains: search } },
-                { vehiclePlate: { contains: search, mode: "insensitive" } },
-              ],
-            },
+            { OR: searchOr },
           ],
         }
       : baseWhere;
