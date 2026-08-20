@@ -430,6 +430,89 @@ describe("buildCellMenu — programaciones movibles", () => {
   });
 });
 
+describe("buildCellMenu — postergación de IVA", () => {
+  const f29Cell: FlowMatrixCellDto = {
+    weekStart: "2026-09-07",
+    plan: 0,
+    committed: {
+      total: 2_500_000,
+      items: [{
+        kind: "scheduled",
+        milestoneKey: "f29",
+        billingPeriod: "2026-09",
+        taxPeriod: "2026-08",
+        label: "IVA F29 2026-08",
+        fecha: "2026-09-12",
+        monto: 2_500_000,
+      }],
+    },
+    real: null,
+    effective: 2_500_000,
+    layer: "committed",
+  };
+
+  it("ofrece Postergar IVA en la celda F29", () => {
+    const onPostponeIva = vi.fn();
+    const items = buildCellMenu(
+      row({ name: "IVA F29", section: "IMPUESTOS", canonicalKey: "IVA_F29" }),
+      f29Cell,
+      { ...ctx, canManage: true, reason: "" },
+      { ...cbs(), onPostponeIva, onMoveMilestone: vi.fn() },
+    );
+    const item = items.find((i) => i.key === "iva-postpone-2026-08");
+    expect(item?.label).toBe("Postergar IVA 2 meses (2026-08)");
+    expect(item?.disabled).toBe(false);
+    item?.onSelect?.();
+    expect(onPostponeIva).toHaveBeenCalledWith("2026-08");
+  });
+
+  it("deshabilita Postergar sin cashflow_manage", () => {
+    const items = buildCellMenu(
+      row({ name: "IVA F29", section: "IMPUESTOS", canonicalKey: "IVA_F29" }),
+      f29Cell,
+      { ...ctx, canManage: false, reason: "Sin permiso de edición" },
+      { ...cbs(), onPostponeIva: vi.fn() },
+    );
+    const item = items.find((i) => i.key === "iva-postpone-2026-08");
+    expect(item?.disabled).toBe(true);
+    expect(item?.reason).toBe("Sin permiso de edición");
+  });
+
+  it("ofrece Deshacer en la fila IVA postergado", () => {
+    const onUndoIvaPostpone = vi.fn();
+    const cell: FlowMatrixCellDto = {
+      weekStart: "2026-11-16",
+      plan: 0,
+      committed: {
+        total: 2_200_000,
+        items: [{
+          kind: "scheduled",
+          milestoneKey: "iva_postergado",
+          billingPeriod: "2026-11",
+          taxPeriod: "2026-08",
+          label: "IVA postergado 2026-08 (vence 20-11-2026)",
+          fecha: "2026-11-20",
+          monto: 2_200_000,
+        }],
+      },
+      real: null,
+      effective: 2_200_000,
+      layer: "committed",
+    };
+    const items = buildCellMenu(
+      row({ name: "IVA postergado", section: "IMPUESTOS", canonicalKey: "IVA_POSTERGADO" }),
+      cell,
+      { ...ctx, canManage: true, reason: "" },
+      { ...cbs(), onUndoIvaPostpone, onMoveMilestone: vi.fn() },
+    );
+    const item = items.find((i) => i.key === "iva-undo-2026-08");
+    expect(item?.label).toBe("Deshacer postergación (2026-08)");
+    expect(item?.danger).toBe(true);
+    item?.onSelect?.();
+    expect(onUndoIvaPostpone).toHaveBeenCalledWith("2026-08");
+  });
+});
+
 describe("panelActionsFromCellMenu", () => {
   it("quita Ver detalle e historial y nota; deja el resto", () => {
     const items = panelActionsFromCellMenu([

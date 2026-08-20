@@ -281,6 +281,32 @@ export function usePlanillaActions(refetch: () => void) {
     [run],
   );
 
+  const postponeIva = useCallback(
+    (taxPeriod: string) =>
+      run(
+        () =>
+          api("/api/finance/flow-v3/iva/postpone", {
+            method: "POST",
+            body: JSON.stringify({ taxPeriod }),
+          }),
+        "IVA postergado 2 meses. Revisa la fila «IVA postergado».",
+      ),
+    [run],
+  );
+
+  const undoIvaPostpone = useCallback(
+    (taxPeriod: string) =>
+      run(
+        () =>
+          api("/api/finance/flow-v3/iva/postpone", {
+            method: "DELETE",
+            body: JSON.stringify({ taxPeriod }),
+          }),
+        "Postergación deshecha.",
+      ),
+    [run],
+  );
+
   /** Mueve un hito de egreso (quincena, sueldos, …). No cambia el día de pago. */
   const moveMilestone = useCallback(
     (milestoneKey: string, billingPeriod: string, toWeek: string) =>
@@ -314,5 +340,6 @@ export function usePlanillaActions(refetch: () => void) {
     archiveRow, setTemplateEndDate, setTemplateDiasCobro, deactivateTemplate,
     createRecurring, updateRecurring, deleteRecurring, closeWeek, reopenWeek, bulkFill,
     excludeDte, restoreDte, moveDte, moveScheduled, moveMilestone,
+    postponeIva, undoIvaPostpone,
   };
 }
