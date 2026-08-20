@@ -78,6 +78,8 @@ export interface TenantCompanyConfig {
   ccoFinanceEnabled: string;
   ccoFinanceEmails: string;
   ccoFinanceReplyTo: string;
+  /** CC visible en envíos automáticos del cron de facturación (CSV). */
+  ccoFinanceCronCc: string;
   ccoSystemEnabled: string;
   ccoSystemEmails: string;
   ccoSystemReplyTo: string;
@@ -154,6 +156,7 @@ const DEFAULTS: TenantCompanyConfig = {
   ccoFinanceEnabled: "",
   ccoFinanceEmails: "",
   ccoFinanceReplyTo: "",
+  ccoFinanceCronCc: "",
   ccoSystemEnabled: "",
   ccoSystemEmails: "",
   ccoSystemReplyTo: "",
@@ -229,6 +232,7 @@ const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
   "empresa.cco.finance.enabled": "ccoFinanceEnabled",
   "empresa.cco.finance.emails": "ccoFinanceEmails",
   "empresa.cco.finance.replyTo": "ccoFinanceReplyTo",
+  "empresa.cco.finance.cronCc": "ccoFinanceCronCc",
   "empresa.cco.system.enabled": "ccoSystemEnabled",
   "empresa.cco.system.emails": "ccoSystemEmails",
   "empresa.cco.system.replyTo": "ccoSystemReplyTo",

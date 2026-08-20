@@ -78,10 +78,10 @@ export async function buildFlowMatrix(
   }
 
   const dbRows = await prisma.financeFlowRow.findMany({ where: { tenantId } });
-  // Matcher solo con filas activas: archivadas no capturan DTEs (van a
-  // template u "Otros ingresos"). Plan/histórico de archivadas sigue en BD.
-  const activeRefs: FlowRowRef[] = dbRows
-    .filter((r) => !r.archivedAt)
+  // Matcher: filas activas + filas de programación aunque archivadas
+  // (histórico de un contrato terminado sigue en su fila, no en la hermana).
+  const matcherRefs: FlowRowRef[] = dbRows
+    .filter((r) => !r.archivedAt || r.recurringTemplateId)
     .map((r) => ({
       id: r.id, name: r.name, section: r.section, mapping: r.mapping,
       crmAccountId: r.crmAccountId, installationId: r.installationId,
@@ -95,9 +95,9 @@ export async function buildFlowMatrix(
       loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
       loadCellNotes(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
       loadCellSettlements(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
-      loadCommittedIncome(tenantId, activeRefs, weeks, todayYmd),
-      loadCommittedExpense(tenantId, activeRefs, weeks, todayYmd),
-      loadReal(tenantId, activeRefs, weeks),
+      loadCommittedIncome(tenantId, matcherRefs, weeks, todayYmd),
+      loadCommittedExpense(tenantId, matcherRefs, weeks, todayYmd),
+      loadReal(tenantId, matcherRefs, weeks),
       resolveOpeningBalance(tenantId),
       prisma.financeCashflowConfig.findUnique({
         where: { tenantId },
@@ -118,7 +118,7 @@ export async function buildFlowMatrix(
   let realNetAfterWindow = 0;
   if (currentWeek > lastWeek) {
     const gapWeeks = enumerateWeeks(addWeeksUTC(ymdToDate(lastWeek)!, 1), ymdToDate(currentWeek)!);
-    const gapReal = await loadReal(tenantId, activeRefs, gapWeeks);
+    const gapReal = await loadReal(tenantId, matcherRefs, gapWeeks);
     for (const byWeek of gapReal.values())
       for (const cell of byWeek.values()) realNetAfterWindow += cell.total;
   }

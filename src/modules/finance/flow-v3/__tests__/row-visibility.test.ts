@@ -139,6 +139,16 @@ describe("shouldArchiveSurplusAccountRow", () => {
     ).toBe(false);
   });
 
+  it("no archiva si el template (inactivo) tiene borrador o DTE impago", () => {
+    expect(
+      shouldArchiveSurplusAccountRow({
+        hasPlanData: false,
+        linkedActiveTemplate: false,
+        hasOpenDraftOrUnpaidDte: true,
+      }),
+    ).toBe(false);
+  });
+
   it("no archiva si hay DTE pendiente con flowRouting OWN_ROW", () => {
     expect(
       shouldArchiveSurplusAccountRow({

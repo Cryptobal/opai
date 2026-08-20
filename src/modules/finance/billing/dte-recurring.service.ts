@@ -31,6 +31,7 @@ export {
   resolveUfDateForPolicy,
   computeNextRunAt,
   computeRecurringIssueYmd,
+  isRunWithinEndDate,
   type Frequency,
   type UfFixingPolicy,
 } from "./dte-recurring-schedule";

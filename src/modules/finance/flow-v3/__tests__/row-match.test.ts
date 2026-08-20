@@ -43,8 +43,8 @@ describe("buildIncomeMatcher — 1 fila por programación", () => {
   });
 });
 
-describe("buildIncomeMatcher — fallback cuenta v4.2", () => {
-  it("cuenta con una sola fila de template captura DTE sin vínculo", () => {
+describe("buildIncomeMatcher — sin fallback de cuenta única", () => {
+  it("una sola fila de template NO captura DTE de otra instalación", () => {
     const rows: FlowRowRef[] = [
       {
         id: "r-asap", name: "ASAP", crmAccountId: "acc-A", installationId: "i1",
@@ -53,12 +53,13 @@ describe("buildIncomeMatcher — fallback cuenta v4.2", () => {
       },
     ];
     const match = buildIncomeMatcher(rows);
+    expect(match("acc-A", "i1", "tpl-a")).toBe("r-asap");
     expect(match("acc-A", "i1", null)).toBe("r-asap");
-    expect(match("acc-A", null, null)).toBe("r-asap");
-    expect(match("acc-A", "otra", null)).toBe("r-asap");
+    expect(match("acc-A", null, null)).toBe(UNMATCHED_INCOME_KEY);
+    expect(match("acc-A", "otra", null)).toBe(UNMATCHED_INCOME_KEY);
   });
 
-  it("multi-programación: instalación que matchea una fila de template → esa", () => {
+  it("Pine Pemuco + Llay Llay: cada instalación a su fila; sin mezcla", () => {
     const rows: FlowRowRef[] = [
       {
         id: "r-pine-pemuco", name: "Pine - Pemuco", crmAccountId: "acc-P",
@@ -72,10 +73,30 @@ describe("buildIncomeMatcher — fallback cuenta v4.2", () => {
       },
     ];
     const match = buildIncomeMatcher(rows);
+    expect(match("acc-P", "inst-llay", "tpl-llay")).toBe("r-pine-llay");
+    expect(match("acc-P", "inst-pemuco", "tpl-pemuco")).toBe("r-pine-pemuco");
     expect(match("acc-P", "inst-llay", null)).toBe("r-pine-llay");
     expect(match("acc-P", "inst-pemuco", null)).toBe("r-pine-pemuco");
     expect(match("acc-P", null, null)).toBe(UNMATCHED_INCOME_KEY);
     expect(match("acc-P", "inst-otra", null)).toBe(UNMATCHED_INCOME_KEY);
+  });
+
+  it("fila archivada de template sigue ruteando sus DTEs (histórico)", () => {
+    const rows: FlowRowRef[] = [
+      {
+        id: "r-pine-pemuco", name: "Pine - Pemuco", crmAccountId: "acc-P",
+        installationId: "inst-pemuco", recurringTemplateId: "tpl-pemuco", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+      {
+        id: "r-pine-llay", name: "Pine - Llay Llay", crmAccountId: "acc-P",
+        installationId: "inst-llay", recurringTemplateId: "tpl-llay", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+    ];
+    const match = buildIncomeMatcher(rows);
+    expect(match("acc-P", "inst-llay", "tpl-llay")).toBe("r-pine-llay");
+    expect(match("acc-P", "inst-pemuco", "tpl-pemuco")).toBe("r-pine-pemuco");
   });
 
   it("cuenta sin filas → UNMATCHED", () => {
@@ -115,7 +136,7 @@ describe("buildIncomeMatcher — fallback cuenta v4.2", () => {
       },
     ];
     const match = buildIncomeMatcher(rows);
-    // Solo 1 ACCOUNT_INSTALLATION → fallback aplica pese al MANUAL.
-    expect(match("acc-A", null, null)).toBe("r-tpl");
+    expect(match("acc-A", "i1", null)).toBe("r-tpl");
+    expect(match("acc-A", null, null)).toBe(UNMATCHED_INCOME_KEY);
   });
 });

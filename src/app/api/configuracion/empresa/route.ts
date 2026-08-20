@@ -47,6 +47,7 @@ const EMPRESA_KEYS = [
   "empresa.cco.finance.enabled",
   "empresa.cco.finance.emails",
   "empresa.cco.finance.replyTo",
+  "empresa.cco.finance.cronCc",
   "empresa.cco.system.enabled",
   "empresa.cco.system.emails",
   "empresa.cco.system.replyTo",

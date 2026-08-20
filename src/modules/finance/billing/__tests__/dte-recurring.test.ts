@@ -67,12 +67,37 @@ describe("computeNextRunAt — monthly", () => {
     expect(r?.toISOString().slice(0, 10)).toBe("2026-06-16");
   });
 
-  it("retorna null si próximo > endDate", () => {
+  it("permite el run si el mes de servicio todavía toca endDate", () => {
+    // 16 jun, endDate 1 jun: inicioDeMes(jun) <= 1 jun → corre (mes parcial).
     const r = computeNextRunAt(
       monthlyTpl({ endDate: new Date("2026-06-01T00:00:00Z") }),
       new Date("2026-05-16T00:00:00Z"),
     );
+    expect(r?.toISOString().slice(0, 10)).toBe("2026-06-16");
+  });
+
+  it("retorna null si el mes de servicio ya no toca endDate", () => {
+    // 16 jul, endDate 1 jun: 1 jul > 1 jun → apaga.
+    const r = computeNextRunAt(
+      monthlyTpl({
+        lastRunAt: new Date("2026-06-16T00:00:00Z"),
+        endDate: new Date("2026-06-01T00:00:00Z"),
+      }),
+    );
     expect(r).toBeNull();
+  });
+
+  it("Llay Llay: 20 sep corre con término 13 sep; 20 oct no", () => {
+    const tpl = monthlyTpl({
+      dayOfMonth: 20,
+      startDate: new Date("2026-01-20T00:00:00Z"),
+      lastRunAt: new Date("2026-08-20T00:00:00Z"),
+      endDate: new Date("2026-09-13T00:00:00Z"),
+    });
+    const sep = computeNextRunAt(tpl);
+    expect(sep?.toISOString().slice(0, 10)).toBe("2026-09-20");
+    const oct = computeNextRunAt({ ...tpl, lastRunAt: sep });
+    expect(oct).toBeNull();
   });
 
   it("dayOfMonth=31 con mes destino abril → clampea a 30 (no salta a mayo)", () => {
