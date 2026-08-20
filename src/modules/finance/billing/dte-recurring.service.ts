@@ -22,6 +22,7 @@ import {
   type BillingDocVariant,
 } from "./billing-document-send.service";
 import { inheritScheduledOverrideToDte } from "@/modules/finance/flow-v3/scheduled-date-override.service";
+import { roundUfTo2, ufToClpNet } from "@/lib/uf-utils";
 
 // La agenda pura (computeNextRunAt / computeRecurringIssueYmd / UF policy)
 // vive en dte-recurring-schedule.ts para que los derivadores del Flujo v3 y
@@ -101,7 +102,7 @@ function resolveLinePriceCurrency(
  * usando el valor de UF que el caller resolvió por política.
  *
  * El DTE final SIEMPRE viaja en CLP. El `unitPriceUf` se conserva en
- * la línea solo como auditoría (lo que el usuario tipeó).
+ * la línea como auditoría, ya normalizado a 2 decimales.
  */
 function templateLineToDraftLine(
   line: TemplateLine,
@@ -110,19 +111,20 @@ function templateLineToDraftLine(
 ): NonNullable<DraftDteInput["lines"]>[number] {
   const quantity = line.quantity ?? 1;
   const linePc = resolveLinePriceCurrency(line, opts.templateCurrency);
-  const unitPriceUf = line.unitPriceUf;
+  const unitPriceUf =
+    line.unitPriceUf != null ? roundUfTo2(line.unitPriceUf) : undefined;
 
-  // Conversión UF → CLP entero (regla SII: pesos sin centavos). Si la
-  // UF falló al resolverse (ufValue=null) caemos a 0 — el preview del
-  // borrador lo mostrará y el operador podrá corregir antes de emitir.
+  // Conversión UF → CLP entero: 2 decimales de UF, después round al peso.
+  // Si la UF falló (ufValue=null) caemos a 0 — el operador corrige antes
+  // de emitir.
   const unitPriceClp =
     linePc === "UF"
-      ? Math.round((unitPriceUf ?? 0) * (opts.ufValue ?? 0))
+      ? ufToClpNet(unitPriceUf ?? 0, opts.ufValue ?? 0)
       : (line.unitPrice ?? 0);
 
   // Ctx específico de la línea: si la línea es UF, exponemos el monto
-  // UF al resolver para que {{uf_monto}} pueda salir tipo "40,1730 UF".
-  // El `currency` se sobreescribe a "UF" solo para esta línea.
+  // UF al resolver para que {{uf_monto}} salga con 2 decimales
+  // ("163,21 UF"). El `currency` se sobreescribe a "UF" solo para esta línea.
   const lineCtx: PlaceholderContext = {
     ...ctx,
     currency: linePc,

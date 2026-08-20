@@ -149,11 +149,8 @@ describe("computeDteAmounts — UF con ufOverride (sin red call)", () => {
     expect(r.ufValue).toBe(38_000);
   });
 
-  it("UF=$38.000 con UF de 4 decimales (26.3158) → unitPrice CLP entero al peso", async () => {
-    // 26.3158 * 38000 = 1.000.000,4 → round = 1.000.000 (entero, sin
-    // arrastrar centavos). El bug viejo redondeaba a 2 decimales primero
-    // (`* 100 / 100`), que multiplicado por qty fraccionario podía
-    // devolver decimales raros y romper el net redondo.
+  it("UF de 4 decimales se normaliza a 2 antes de convertir (26.3158 → 26,32)", async () => {
+    // 26,32 × 38.000 = 1.000.160. El redondeo vive en el neto CLP.
     const r = await computeDteAmounts(
       {
         currency: "UF",
@@ -162,22 +159,15 @@ describe("computeDteAmounts — UF con ufOverride (sin red call)", () => {
       },
       { ufOverride: 38_000 },
     );
-    expect(r.lines[0].unitPrice).toBe(1_000_000);
-    expect(r.totalNet).toBe(1_000_000);
-    expect(r.taxAmount).toBe(190_000);
-    expect(r.totalAmount).toBe(1_190_000);
+    expect(r.lines[0].unitPriceUf).toBe(26.32);
+    expect(r.lines[0].unitPrice).toBe(1_000_160);
+    expect(r.totalNet).toBe(1_000_160);
+    expect(r.taxAmount).toBe(190_030);
+    expect(r.totalAmount).toBe(1_190_190);
   });
 
-  it("UF con valor 'feo' que daría drift (37.999) → resultado entero, no centavos", async () => {
-    // Caso reproducible del bug del usuario: UF del día = $37.999, factura
-    // de 1 UF nominal. Antes el `* 100 / 100` dejaba unitPriceClp =
-    // 37999.00, todo OK. Pero si el unitPriceUf era 26.3158:
-    //   26.3158 * 37999 = 999.972,17 → round con 2dec = 999972,17
-    //   * qty=1 → 999972,17 → round net = 999972 → IVA 189995 → 1.189.967
-    // Con la nueva regla (entero al peso PRIMERO):
-    //   round(26.3158 * 37999) = round(999972.17) = 999972 → entero
-    //   IVA = round(999972 * 19 / 100) = round(189994.68) = 189995
-    //   Total = 1.189.967 (sin drift de centavos arrastrados).
+  it("UF con T/C 'feo' (37.999): 2 decimales de UF, neto CLP entero", async () => {
+    // 26,32 × 37.999 = 1.000.133,68 → 1.000.134
     const r = await computeDteAmounts(
       {
         currency: "UF",
@@ -186,14 +176,43 @@ describe("computeDteAmounts — UF con ufOverride (sin red call)", () => {
       },
       { ufOverride: 37_999 },
     );
-    // round(26.3158 * 37999) = 999.974 (no es 999.972 como salía a mano —
-    // JS hace 26.3158 * 37999 = 999974.20420 con float).
-    expect(r.lines[0].unitPrice).toBe(999_974);
+    expect(r.lines[0].unitPriceUf).toBe(26.32);
+    expect(r.lines[0].unitPrice).toBe(1_000_134);
     expect(Number.isInteger(r.lines[0].unitPrice)).toBe(true);
-    expect(r.totalNet).toBe(999_974);
-    // round(999974 * 19 / 100) = round(189995.06) = 189.995
-    expect(r.taxAmount).toBe(189_995);
-    expect(r.totalAmount).toBe(1_189_969);
+    expect(r.totalNet).toBe(1_000_134);
+    expect(r.taxAmount).toBe(190_025);
+    expect(r.totalAmount).toBe(1_190_159);
+  });
+
+  it("163.2052 UF × $40.874 usa 163,21 y redondea el neto CLP", async () => {
+    // 163,21 × 40.874 = 6.671.045,54 → 6.671.046
+    const r = await computeDteAmounts(
+      {
+        currency: "UF",
+        dteType: 33,
+        lines: [{ ...baseLine, unitPrice: 0, unitPriceUf: 163.2052 }],
+      },
+      { ufOverride: 40_874 },
+    );
+    expect(r.lines[0].unitPriceUf).toBe(163.21);
+    expect(r.lines[0].unitPrice).toBe(6_671_046);
+    expect(r.totalNet).toBe(6_671_046);
+    expect(r.taxAmount).toBe(1_267_499);
+    expect(r.totalAmount).toBe(7_938_545);
+  });
+
+  it("40 UF entero se trata como 40,00 al convertir", async () => {
+    const r = await computeDteAmounts(
+      {
+        currency: "UF",
+        dteType: 33,
+        lines: [{ ...baseLine, unitPrice: 0, unitPriceUf: 40 }],
+      },
+      { ufOverride: 38_000 },
+    );
+    expect(r.lines[0].unitPriceUf).toBe(40);
+    expect(r.lines[0].unitPrice).toBe(1_520_000);
+    expect(r.totalNet).toBe(1_520_000);
   });
 
   it("UF rechaza línea sin unitPriceUf válido", async () => {

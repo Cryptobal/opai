@@ -70,6 +70,7 @@ import {
   type PlaceholderContext,
 } from "@/modules/finance/billing/placeholders";
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
+import { roundUfTo2, ufToClpNet } from "@/lib/uf-utils";
 import { todayChileStr } from "@/lib/fx-date";
 import { normalizeEmailList } from "@/lib/email-address";
 import {
@@ -2438,9 +2439,12 @@ export function DteForm({
             quantity: parseFloat(l.quantity) || 1,
             unitPrice:
               currency === "UF" && ufValue
-                ? Math.round(parseFloat(l.unitPrice) * ufValue * 100) / 100
+                ? ufToClpNet(parseFloat(l.unitPrice) || 0, ufValue)
                 : parseFloat(l.unitPrice) || 0,
-            unitPriceUf: currency === "UF" ? parseFloat(l.unitPrice) || 0 : null,
+            unitPriceUf:
+              currency === "UF"
+                ? roundUfTo2(parseFloat(l.unitPrice) || 0)
+                : null,
           }))}
         defaultBackofficeEmails={tenantBackoffice.emails}
         defaultBackofficeAlwaysSend={tenantBackoffice.alwaysSend}

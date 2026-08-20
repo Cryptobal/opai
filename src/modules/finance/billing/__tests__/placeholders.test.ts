@@ -89,14 +89,14 @@ describe("resolvePlaceholders — tokens conocidos", () => {
     );
   });
 
-  it("{{uf_monto}} usa ufMonto * quantity con 4 decimales y coma", () => {
+  it("{{uf_monto}} usa ufMonto * quantity con 2 decimales y coma", () => {
     const ctx: PlaceholderContext = {
       ...baseCtx,
       ufMonto: 40.173,
       ufMontoQuantity: 1,
     };
     expect(resolvePlaceholders("Monto: {{uf_monto}}", ctx)).toBe(
-      "Monto: 40,1730 UF",
+      "Monto: 40,17 UF",
     );
   });
 
@@ -106,7 +106,16 @@ describe("resolvePlaceholders — tokens conocidos", () => {
       ufMonto: 10.5,
       ufMontoQuantity: 3,
     };
-    expect(resolvePlaceholders("{{uf_monto}}", ctx)).toBe("31,5000 UF");
+    expect(resolvePlaceholders("{{uf_monto}}", ctx)).toBe("31,50 UF");
+  });
+
+  it("{{uf_monto}} entero siempre muestra 2 decimales", () => {
+    const ctx: PlaceholderContext = {
+      ...baseCtx,
+      ufMonto: 40,
+      ufMontoQuantity: 1,
+    };
+    expect(resolvePlaceholders("{{uf_monto}}", ctx)).toBe("40,00 UF");
   });
 
   it("{{cliente}} y {{instalacion}}", () => {
@@ -193,7 +202,7 @@ describe("resolvePlaceholders — fallbacks y tokens desconocidos", () => {
         ctx,
       ),
     ).toBe(
-      "Período Mayo 2026\nValor UF al día 01/05/2026: $39.485\nMonto: 40,1730 UF",
+      "Período Mayo 2026\nValor UF al día 01/05/2026: $39.485\nMonto: 40,17 UF",
     );
   });
 });
