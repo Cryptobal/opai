@@ -37,7 +37,8 @@ function initialWindow() {
  * Edición optimista del plan con reconciliación read-after-write y pila de
  * deshacer/rehacer en memoria (§5A).
  */
-export function usePlanillaMatrix() {
+export function usePlanillaMatrix(opts?: { includeArchived?: boolean }) {
+  const includeArchived = opts?.includeArchived === true;
   const [window_, setWindow] = useState(initialWindow);
   const [granularity, setGranularityState] = useState<"week" | "month">("week");
   const [data, setData] = useState<FlowMatrixResponse | null>(null);
@@ -60,6 +61,7 @@ export function usePlanillaMatrix() {
       setLoading(true);
       try {
         const params = new URLSearchParams({ from: w.from, to: w.to, horizon: g });
+        if (includeArchived) params.set("archived", "1");
         const res = await fetch(`/api/finance/flow-v3/matrix?${params}`, {
           cache: "no-store",
           signal: ac.signal,
@@ -77,7 +79,7 @@ export function usePlanillaMatrix() {
         if (gen === genRef.current) setLoading(false);
       }
     },
-    [],
+    [includeArchived],
   );
 
   useEffect(() => {

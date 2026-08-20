@@ -52,6 +52,19 @@ export function usePlanillaActions(refetch: () => void) {
     [run],
   );
 
+  const updateSubRow = useCallback(
+    (rowId: string, body: Record<string, unknown>) =>
+      run(
+        () =>
+          api(`/api/finance/flow-v3/rows/${rowId}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          }),
+        "Subfila actualizada",
+      ),
+    [run],
+  );
+
   const renameRow = useCallback(
     (rowId: string, name: string) =>
       run(() =>
@@ -342,7 +355,7 @@ export function usePlanillaActions(refetch: () => void) {
   );
 
   return {
-    busy, createRow, createSubRow, renameRow, updateRow, unarchiveRow, deleteRow,
+    busy, createRow, createSubRow, updateSubRow, renameRow, updateRow, unarchiveRow, deleteRow,
     archiveRow, setTemplateEndDate, setTemplateDiasCobro, deactivateTemplate,
     createRecurring, updateRecurring, deleteRecurring, closeWeek, reopenWeek, bulkFill,
     excludeDte, restoreDte, moveDte, moveScheduled, moveMilestone,

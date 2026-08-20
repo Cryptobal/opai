@@ -309,4 +309,35 @@ describe("shouldIncludeFlowRow — visibilidad universal", () => {
       }),
     ).toBe(true);
   });
+
+  it("archivada vacía se oculta por defecto", () => {
+    expect(
+      shouldIncludeFlowRow({
+        ...base,
+        row: { id: "old", mapping: "MANUAL", archivedAt: "2026-07-01" },
+        hasDataBeforeCutoff: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("archivada vacía visible con includeArchived", () => {
+    expect(
+      shouldIncludeFlowRow({
+        ...base,
+        row: { id: "old", mapping: "MANUAL", archivedAt: "2026-07-01" },
+        hasDataBeforeCutoff: false,
+        includeArchived: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("archivada con datos antes del cutoff sigue visible sin toggle", () => {
+    expect(
+      shouldIncludeFlowRow({
+        ...base,
+        row: { id: "old", mapping: "MANUAL", archivedAt: "2026-07-01" },
+        hasDataBeforeCutoff: true,
+      }),
+    ).toBe(true);
+  });
 });

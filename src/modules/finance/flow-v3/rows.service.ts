@@ -7,7 +7,7 @@ import type {
   FlowSection,
 } from "@prisma/client";
 import { Prisma } from "@prisma/client";
-import { addWeeksUTC, enumerateWeeks, startOfIsoWeekUTC, toYmd } from "./weeks";
+import { addWeeksUTC, enumerateWeeks, startOfIsoWeekUTC, toYmd, weekStartYmd } from "./weeks";
 import { loadCommittedIncome } from "./load-committed-income";
 import { loadCommittedExpense } from "./load-committed-expense";
 import { loadReal } from "./load-real";
@@ -15,6 +15,7 @@ import { setAccountsForRow } from "./rowAccount.service";
 import { EXPENSE_ROW_KEYS, isBandejaKey } from "./row-keys";
 import { SUBROW_SECTIONS } from "./row-tree";
 import type { FlowRowRef } from "./types";
+import { listClosedV3Weeks } from "./weekly-close.adapter";
 
 export class FlowRowConflictError extends Error {
   constructor(message: string) {
@@ -458,11 +459,11 @@ async function rowHasDerivedActivity(
 }
 
 /**
- * Elimina físicamente una fila SIN historial. Guarda en el servidor (el 409 no
- * depende del cliente): rechaza si la fila tiene alguna FinanceFlowPlanCell o si
- * muestra comprometido/real en alguna semana; en esos casos la UI ofrece
- * archivar. Eliminar es no-destructivo para las fuentes (DTE/banco se derivan);
- * solo remueve la fila y, en cascada, sus celdas de plan (vacías por la guarda).
+ * Elimina físicamente una fila SIN historial operativo. Guarda en el servidor
+ * (el 409 no depende del cliente). Subfilas: el plan en semanas abiertas no
+ * bloquea (se borra con la fila); real/comprometido o plan en semanas cerradas
+ * sí. Padres: cualquier plan cell histórico bloquea. En esos casos la UI ofrece
+ * archivar. Las fuentes (DTE/banco) no se tocan.
  */
 export async function deleteRow(tenantId: string, rowId: string): Promise<{ deleted: true }> {
   const row = await prisma.financeFlowRow.findFirst({ where: { id: rowId, tenantId } });
@@ -473,6 +474,23 @@ export async function deleteRow(tenantId: string, rowId: string): Promise<{ dele
   });
   if (childCount > 0) {
     throw new Error("Archivá o eliminá las subfilas primero");
+  }
+
+  if (row.parentId) {
+    if (await rowHasDerivedActivity(tenantId, row)) {
+      throw new Error("La fila tiene comprometido o real: archívala en vez de eliminarla");
+    }
+    const planCells = await prisma.financeFlowPlanCell.findMany({
+      where: { tenantId, rowId },
+      select: { weekStart: true },
+    });
+    const weeks = planCells.map((c) => weekStartYmd(c.weekStart));
+    const closed = weeks.length > 0 ? await listClosedV3Weeks(tenantId, weeks) : [];
+    if (closed.length > 0) {
+      throw new Error("Hay semanas cerradas: archívala en vez de eliminarla");
+    }
+    await prisma.financeFlowRow.delete({ where: { id: row.id } });
+    return { deleted: true };
   }
 
   const planCount = await prisma.financeFlowPlanCell.count({ where: { tenantId, rowId } });

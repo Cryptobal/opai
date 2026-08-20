@@ -4,14 +4,17 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeSupplier: { findFirst: vi.fn() },
-    financeFlowRow: { findFirstOrThrow: vi.fn() },
+    financeFlowRow: { findFirst: vi.fn(), findFirstOrThrow: vi.fn() },
+    financeFlowPlanRecurrence: { findFirst: vi.fn() },
   },
 }));
 vi.mock("../rows.service", () => ({
   createRow: vi.fn(),
+  updateRow: vi.fn(),
 }));
 vi.mock("../recurring-plan.service", () => ({
   createRecurrence: vi.fn(),
+  updateRecurrence: vi.fn(),
 }));
 vi.mock("@/modules/finance/banking/automatch-rule.service", () => ({
   upsertFlowRowRuleForRut: vi.fn(),
@@ -19,13 +22,13 @@ vi.mock("@/modules/finance/banking/automatch-rule.service", () => ({
 }));
 
 import { prisma } from "@/lib/prisma";
-import { createRow } from "../rows.service";
-import { createRecurrence } from "../recurring-plan.service";
+import { createRow, updateRow } from "../rows.service";
+import { createRecurrence, updateRecurrence } from "../recurring-plan.service";
 import {
   upsertFlowRowRuleForDescription,
   upsertFlowRowRuleForRut,
 } from "@/modules/finance/banking/automatch-rule.service";
-import { createSubRow } from "../sub-row.service";
+import { createSubRow, updateSubRow } from "../sub-row.service";
 
 const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
 
@@ -110,5 +113,55 @@ describe("createSubRow", () => {
       ),
     ).rejects.toThrow(/RUT inválido/i);
     expect(createRow).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateSubRow", () => {
+  it("actualiza nombre y recurrencia existente", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "child-1",
+      name: "Uniformes",
+      parentId: "parent-1",
+    });
+    asMock(prisma.financeFlowPlanRecurrence.findFirst).mockResolvedValue({ id: "rec-1" });
+    asMock(updateRow).mockResolvedValue({});
+    asMock(updateRecurrence).mockResolvedValue({ rule: { id: "rec-1" }, cells: [] });
+    asMock(prisma.financeFlowRow.findFirstOrThrow).mockResolvedValue({
+      id: "child-1",
+      name: "Uniformes y EPP",
+      parentId: "parent-1",
+    });
+
+    const out = await updateSubRow(
+      "t1",
+      "child-1",
+      {
+        name: "Uniformes y EPP",
+        recurrence: {
+          amount: 700_000,
+          frequency: "MONTHLY",
+          dayOfMonth: 1,
+          startDate: "2026-08-01",
+          currency: "CLP",
+        },
+      },
+      "user-1",
+    );
+
+    expect(updateRow).toHaveBeenCalledWith("t1", "child-1", { name: "Uniformes y EPP" });
+    expect(updateRecurrence).toHaveBeenCalled();
+    expect(createRecurrence).not.toHaveBeenCalled();
+    expect(out.row.name).toBe("Uniformes y EPP");
+  });
+
+  it("rechaza editar una fila padre", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "parent-1",
+      name: "GAV",
+      parentId: null,
+    });
+    await expect(
+      updateSubRow("t1", "parent-1", { name: "X" }, null),
+    ).rejects.toThrow(/subfilas/i);
   });
 });

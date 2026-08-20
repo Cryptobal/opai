@@ -79,6 +79,7 @@ export interface RowMenuCallbacks {
   onSetDiasCobro: (row: FlowMatrixRowDto, t: RowTemplate) => void;
   onRecurring: (row: FlowMatrixRowDto) => void;
   onAddSubRow?: (row: FlowMatrixRowDto) => void;
+  onEditSubRow?: (row: FlowMatrixRowDto) => void;
   onArchive: (row: FlowMatrixRowDto) => void;
   onUnarchive: (row: FlowMatrixRowDto) => void;
   onDelete: (row: FlowMatrixRowDto) => void;
@@ -89,6 +90,20 @@ function mappingSourceLabel(mapping: string): string {
   if (mapping === "SUPPLIER") return "el proveedor";
   if (mapping === "ACCOUNTS" || mapping === "CATEGORY") return "las cuentas";
   return "la fuente";
+}
+
+/** Motivo para bloquear el hard-delete. Plan de subfila en semanas abiertas no cuenta. */
+export function rowDeleteBlockReason(row: FlowMatrixRowDto): string | null {
+  const hasDerived = row.cells.some(
+    (c) =>
+      (c.committed != null && c.committed.total !== 0) ||
+      (c.real != null && c.real.total !== 0),
+  );
+  if (hasDerived) return "Tiene real o comprometido: archívala";
+  if (!row.parentId && row.cells.some((c) => c.plan !== 0)) {
+    return "Tiene plan histórico: archívala";
+  }
+  return null;
 }
 
 /** Menú de la fila (§5C). Sin ítems para filas virtuales. */
@@ -214,6 +229,14 @@ export function buildRowMenu(
       onSelect: () => addSubRow(row),
     });
   }
+  const editSubRow = cb.onEditSubRow;
+  if (editSubRow && row.parentId && !row.isVirtual) {
+    items.push({
+      key: "edit-subrow",
+      label: "Editar subfila…",
+      onSelect: () => editSubRow(row),
+    });
+  }
 
   items.push(
     row.isArchived
@@ -232,14 +255,14 @@ export function buildRowMenu(
         },
   );
 
-  const hasVisibleData = row.cells.some((c) => c.plan !== 0 || c.committed || c.real);
+  const deleteReason = rowDeleteBlockReason(row);
   items.push(
-    hasVisibleData
+    deleteReason
       ? {
           key: "delete",
           label: "Eliminar fila",
           disabled: true,
-          reason: "Tiene movimiento: archívala",
+          reason: deleteReason,
         }
       : { key: "delete", label: "Eliminar fila", danger: true, onSelect: () => cb.onDelete(row) },
   );

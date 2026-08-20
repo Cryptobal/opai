@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
       from: url.searchParams.get("from") ?? undefined,
       to: url.searchParams.get("to") ?? undefined,
       horizon: url.searchParams.get("horizon") ?? undefined,
+      archived: url.searchParams.get("archived") ?? undefined,
     });
     if (!parsed.success) {
       const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
       // (crear filas/backfill). Los de solo-lectura ven la planilla tal cual
       // esté; nunca provocan escrituras desde este GET.
       allowBootstrap: guard.canManage,
+      includeArchived: parsed.data.archived === "1" || parsed.data.archived === "true",
     });
     // Latencia observable en logs de Vercel (diagnóstico de tenants lentos).
     console.log(
