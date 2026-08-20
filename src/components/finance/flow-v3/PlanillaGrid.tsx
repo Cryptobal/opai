@@ -47,6 +47,8 @@ import {
   ChangeAccountsDialog, ChangeSectionDialog, DeferTermDialog, DiasCobroDialog,
 } from "./RowDialogs";
 import { RecurringExpenseDialog } from "./RecurringExpenseDialog";
+import { AddSubRowDialog } from "./AddSubRowDialog";
+import { applySubrowVisibility, canHaveSubRows } from "@/modules/finance/flow-v3/row-tree";
 import { CellActionSheet } from "./CellActionSheet";
 import { SumPill } from "./SumPill";
 import { UnmatchedIncomeList } from "./UnmatchedIncomeList";
@@ -177,6 +179,7 @@ type RowDialogState =
   | { kind: "defer"; row: FlowMatrixRowDto; template: RowTemplate }
   | { kind: "dias"; row: FlowMatrixRowDto; template: RowTemplate }
   | { kind: "recurring"; row: FlowMatrixRowDto }
+  | { kind: "subrow"; row: FlowMatrixRowDto }
   | { kind: "delete"; row: FlowMatrixRowDto }
   | { kind: "deleteBlocked"; row: FlowMatrixRowDto; reason: string }
   | null;
@@ -214,6 +217,32 @@ export function PlanillaGrid({
   onRecurringOpened,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem("opai-flow-expanded-subrows");
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw) as unknown;
+      return new Set(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : []);
+    } catch {
+      return new Set();
+    }
+  });
+  const persistExpanded = useCallback((next: Set<string>) => {
+    setExpandedParents(next);
+    try {
+      localStorage.setItem("opai-flow-expanded-subrows", JSON.stringify([...next]));
+    } catch { /* ignore */ }
+  }, []);
+
+  const toggleParentExpand = useCallback((rowId: string) => {
+    persistExpanded((() => {
+      const next = new Set(expandedParents);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    })());
+  }, [expandedParents, persistExpanded]);
   /** Filas en cero reveladas al tocar "n/m" del encabezado de sección. */
   const [revealedZeroRowIds, setRevealedZeroRowIds] = useState<Set<string>>(() => new Set());
   const [popover, setPopover] = useState<PopoverState | null>(null);
@@ -641,6 +670,13 @@ export function PlanillaGrid({
           return (va - vb) * dir || a.name.localeCompare(b.name, "es", { sensitivity: "base", numeric: true });
         });
       }
+      const tree = applySubrowVisibility({
+        all,
+        filtered: rows,
+        expandedIds: expandedParents,
+        searchActive: Boolean(normSearch),
+      });
+      rows = tree.rows;
       // Subtotales por semana: suma de displayValue de TODAS las filas de la
       // sección (dato, no vista — independiente de colapso/ceros/búsqueda).
       const subtotals = data.columns.map((_, wi) =>
@@ -660,9 +696,25 @@ export function PlanillaGrid({
                 !revealedZeroRowIds.has(r.id),
             )
             .map((r) => r.id);
-      return { key: s, rows, total: all.length, matchCount: rows.length, subtotals, hiddenZeroIds };
+      return {
+        key: s,
+        rows,
+        total: all.length,
+        matchCount: rows.length,
+        subtotals,
+        hiddenZeroIds,
+        rolledUpIds: tree.rolledUpIds,
+      };
     }).filter((s) => (normSearch ? s.matchCount > 0 : s.total > 0));
-  }, [data.rows, data.columns, showZeros, moraFilter, cededFilter, alwaysVisibleRowIds, revealedZeroRowIds, normSearch, amountSort]);
+  }, [data.rows, data.columns, showZeros, moraFilter, cededFilter, alwaysVisibleRowIds, revealedZeroRowIds, normSearch, amountSort, expandedParents]);
+
+  const rolledUpIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const sec of sections) {
+      for (const id of sec.rolledUpIds) s.add(id);
+    }
+    return s;
+  }, [sections]);
 
   const { numbered, footerStart } = useMemo(() => {
     let n = 1;
@@ -717,12 +769,13 @@ export function PlanillaGrid({
       if (!row || !canManage || row.isArchived || row.isVirtual || !colWritable(colIdx)) {
         return false;
       }
+      if (rolledUpIds.has(rowId)) return false;
       const cell = row.cells[colIdx];
       // Ingreso facturado: la factura manda; no se edita el plan encima.
       if (hasInvoicedIncome(row.section, cell?.committed)) return false;
       return true;
     },
-    [rowById, canManage, colWritable],
+    [rowById, canManage, colWritable, rolledUpIds],
   );
 
   const commit = useCallback(
@@ -1136,6 +1189,7 @@ export function PlanillaGrid({
       onDeferTerm: (row: FlowMatrixRowDto, template: RowTemplate) => setRowDialog({ kind: "defer", row, template }),
       onSetDiasCobro: (row: FlowMatrixRowDto, template: RowTemplate) => setRowDialog({ kind: "dias", row, template }),
       onRecurring: (row: FlowMatrixRowDto) => setRowDialog({ kind: "recurring", row }),
+      onAddSubRow: (row: FlowMatrixRowDto) => setRowDialog({ kind: "subrow", row }),
       onArchive,
       onUnarchive: (row: FlowMatrixRowDto) => void actions.unarchiveRow(row.id),
       onDelete: (row: FlowMatrixRowDto) => setRowDialog({ kind: "delete", row }),
@@ -1680,6 +1734,15 @@ export function PlanillaGrid({
                       onRenameCommit={(name) => { setRenamingRowId(null); void actions.renameRow(row.id, name); }}
                       onRenameCancel={() => setRenamingRowId(null)}
                       rowMenu={rowMenuFor(row)}
+                      tree={{
+                        depth: row.parentId ? 1 : 0,
+                        childCount: row.childCount ?? 0,
+                        expanded: !rolledUpIds.has(row.id),
+                        onToggle: () => toggleParentExpand(row.id),
+                        onAddSubRow: canManage && canHaveSubRows(row)
+                          ? () => setRowDialog({ kind: "subrow", row })
+                          : undefined,
+                      }}
                       onRowContext={() => setCtxTarget({ kind: "row", rowId: row.id })}
                       onOpenRowSheet={() => setSheetTarget({ kind: "row", rowId: row.id })}
                       canEditCell={canEditCell}
@@ -2001,6 +2064,18 @@ export function PlanillaGrid({
         onConfirm={(body) => actions.createRecurring(body)}
         onUpdate={(id, body) => actions.updateRecurring(id, body)}
         onDelete={(id) => actions.deleteRecurring(id, false)}
+      />
+      <AddSubRowDialog
+        parent={rowDialog?.kind === "subrow" ? rowDialog.row : null}
+        busy={busy}
+        onClose={() => setRowDialog(null)}
+        onConfirm={async (body) => {
+          const r = await actions.createSubRow(body);
+          if (r && rowDialog?.kind === "subrow") {
+            persistExpanded(new Set([...expandedParents, rowDialog.row.id]));
+          }
+          return r;
+        }}
       />
 
       <ConfirmDialog

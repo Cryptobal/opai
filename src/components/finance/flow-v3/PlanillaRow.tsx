@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal, Plus } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -113,6 +113,14 @@ interface Props {
     crmAccountId: string | null;
     daysOverdue: number;
   }) => void;
+  /** Árbol GAV: indent + chevron + alta de subfila. */
+  tree?: {
+    depth: 0 | 1;
+    childCount: number;
+    expanded: boolean;
+    onToggle: () => void;
+    onAddSubRow?: () => void;
+  };
 }
 
 function highlightName(name: string, query: string): ReactNode {
@@ -224,6 +232,25 @@ export function PlanillaRow(p: Props) {
           />
         ) : (
           <span className="flex min-w-0 items-start gap-0.5">
+            {p.tree && p.tree.depth === 1 && (
+              <span className="mt-0.5 w-3 shrink-0" aria-hidden />
+            )}
+            {p.tree && p.tree.childCount > 0 && (
+              <button
+                type="button"
+                className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 sm:h-7 sm:w-7"
+                aria-expanded={p.tree.expanded}
+                aria-label={p.tree.expanded ? `Contraer ${row.name}` : `Expandir ${row.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  p.tree?.onToggle();
+                }}
+              >
+                {p.tree.expanded
+                  ? <ChevronDown className="h-3.5 w-3.5" />
+                  : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+            )}
             <span className="min-w-0 flex-1">
               <span
                 className={`line-clamp-2 text-xs max-md:text-[12px] max-md:leading-tight ${row.isArchived ? "text-ds-text-3" : "text-ds-text-2"}`}
@@ -253,6 +280,20 @@ export function PlanillaRow(p: Props) {
                 </span>
               )}
             </span>
+            {p.tree?.onAddSubRow && (
+              <button
+                type="button"
+                className="ml-auto shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 opacity-60 focus:opacity-100 md:h-7 md:w-7 md:opacity-0 md:group-hover:opacity-100"
+                aria-label={`Agregar subfila en ${row.name}`}
+                title="Agregar subfila"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  p.tree?.onAddSubRow?.();
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            )}
             {showMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -13,6 +13,7 @@ import { loadCommittedExpense } from "./load-committed-expense";
 import { loadReal } from "./load-real";
 import { setAccountsForRow } from "./rowAccount.service";
 import { EXPENSE_ROW_KEYS, isBandejaKey } from "./row-keys";
+import { SUBROW_SECTIONS } from "./row-tree";
 import type { FlowRowRef } from "./types";
 
 export class FlowRowConflictError extends Error {
@@ -34,6 +35,7 @@ export interface CreateRowInput {
   accountPlanIds?: string[];
   canonicalKey?: FlowRowKey | null;
   supplierId?: string | null;
+  parentId?: string | null;
 }
 
 export interface UpdateRowInput {
@@ -140,13 +142,50 @@ function assertExpenseKeyAllowed(
   }
 }
 
+async function assertParentForSubRow(
+  tenantId: string,
+  parentId: string,
+): Promise<FinanceFlowRow> {
+  const parent = await prisma.financeFlowRow.findFirst({
+    where: { id: parentId, tenantId },
+  });
+  if (!parent) throw new Error("Fila padre no encontrada");
+  if (parent.archivedAt) throw new Error("No se pueden agregar subfilas a una fila archivada");
+  if (parent.parentId) throw new Error("Solo un nivel: el padre ya es una subfila");
+  if (parent.canonicalKey) throw new Error("Las filas de sistema no admiten subfilas");
+  if (!SUBROW_SECTIONS.has(parent.section)) {
+    throw new Error("Las subfilas solo aplican a GAV u Otros");
+  }
+  return parent;
+}
+
 export async function createRow(
   tenantId: string,
   input: CreateRowInput,
 ): Promise<FinanceFlowRow> {
-  await assertMappingRefs(tenantId, input);
+  let section = input.section;
+  let parentId: string | null = null;
+  if (input.parentId) {
+    const parent = await assertParentForSubRow(tenantId, input.parentId);
+    parentId = parent.id;
+    section = parent.section;
+    if (input.canonicalKey) {
+      throw new Error("Una subfila no admite llave de sistema");
+    }
+    if (input.accountPlanIds && input.accountPlanIds.length > 0) {
+      throw new Error("Las cuentas se asignan en la categoría padre");
+    }
+    if (
+      input.mapping !== "MANUAL" &&
+      input.mapping !== "SUPPLIER"
+    ) {
+      throw new Error("Una subfila es manual o de proveedor");
+    }
+  }
+
+  await assertMappingRefs(tenantId, { ...input, section });
   assertExpenseKeyAllowed(
-    input.section,
+    section,
     input.canonicalKey,
     input.accountPlanIds,
   );
@@ -168,7 +207,9 @@ export async function createRow(
   }
 
   const last = await prisma.financeFlowRow.findFirst({
-    where: { tenantId, section: input.section },
+    where: parentId
+      ? { tenantId, parentId }
+      : { tenantId, section, parentId: null },
     orderBy: { orderIndex: "desc" },
     select: { orderIndex: true },
   });
@@ -185,10 +226,11 @@ export async function createRow(
     created = await prisma.financeFlowRow.create({
       data: {
         tenantId,
-        section: input.section,
+        section,
         name: input.name.trim(),
         mapping,
         orderIndex: (last?.orderIndex ?? -1) + 1,
+        parentId,
         crmAccountId: input.mapping === "ACCOUNT_INSTALLATION" ? input.crmAccountId : null,
         installationId: input.mapping === "ACCOUNT_INSTALLATION" ? (input.installationId ?? null) : null,
         recurringTemplateId:
@@ -239,6 +281,13 @@ export async function updateRow(
 ): Promise<FinanceFlowRow> {
   const row = await prisma.financeFlowRow.findFirst({ where: { id: rowId, tenantId } });
   if (!row) throw new Error("Fila no encontrada");
+
+  if (row.parentId && input.section != null && input.section !== row.section) {
+    throw new Error("La subfila sigue la sección del padre");
+  }
+  if (row.parentId && input.accountPlanIds !== undefined) {
+    throw new Error("Las cuentas se asignan en la categoría padre");
+  }
 
   const data: {
     name?: string;
@@ -343,7 +392,7 @@ export async function updateRow(
   if (input.section != null && input.section !== row.section) {
     data.section = input.section;
     const last = await prisma.financeFlowRow.findFirst({
-      where: { tenantId, section: input.section },
+      where: { tenantId, section: input.section, parentId: null },
       orderBy: { orderIndex: "desc" },
       select: { orderIndex: true },
     });
@@ -357,6 +406,12 @@ export async function updateRow(
   if (Object.keys(data).length > 0) {
     try {
       await prisma.financeFlowRow.update({ where: { id: row.id }, data });
+      if (data.section) {
+        await prisma.financeFlowRow.updateMany({
+          where: { tenantId, parentId: row.id },
+          data: { section: data.section },
+        });
+      }
     } catch (e) {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
@@ -413,6 +468,13 @@ export async function deleteRow(tenantId: string, rowId: string): Promise<{ dele
   const row = await prisma.financeFlowRow.findFirst({ where: { id: rowId, tenantId } });
   if (!row) throw new Error("Fila no encontrada");
 
+  const childCount = await prisma.financeFlowRow.count({
+    where: { tenantId, parentId: rowId },
+  });
+  if (childCount > 0) {
+    throw new Error("Archivá o eliminá las subfilas primero");
+  }
+
   const planCount = await prisma.financeFlowPlanCell.count({ where: { tenantId, rowId } });
   if (planCount > 0) {
     throw new Error("La fila tiene plan histórico: archívala en vez de eliminarla");
@@ -430,6 +492,10 @@ export async function unarchiveRow(tenantId: string, rowId: string): Promise<Fin
   const row = await prisma.financeFlowRow.findFirst({ where: { id: rowId, tenantId } });
   if (!row) throw new Error("Fila no encontrada");
   await prisma.financeFlowRow.update({ where: { id: row.id }, data: { archivedAt: null } });
+  await prisma.financeFlowRow.updateMany({
+    where: { tenantId, parentId: row.id },
+    data: { archivedAt: null },
+  });
   return prisma.financeFlowRow.findFirstOrThrow({ where: { id: rowId, tenantId } });
 }
 
@@ -482,9 +548,14 @@ export async function archiveRow(tenantId: string, rowId: string): Promise<Archi
     }
   }
 
+  const now = new Date();
   await prisma.financeFlowRow.update({
     where: { id: row.id },
-    data: { archivedAt: new Date() },
+    data: { archivedAt: now },
+  });
+  await prisma.financeFlowRow.updateMany({
+    where: { tenantId, parentId: row.id, archivedAt: null },
+    data: { archivedAt: now },
   });
   const fresh = await prisma.financeFlowRow.findFirstOrThrow({ where: { id: rowId, tenantId } });
   return { row: fresh, warning };

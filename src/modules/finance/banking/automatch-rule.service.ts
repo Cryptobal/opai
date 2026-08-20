@@ -110,6 +110,8 @@ export function isLegacyAction(a: RuleAction): a is LegacyRuleAction {
   return !("kind" in a) || a.kind == null;
 }
 
+export { isAmountNearUfExpected as evaluateUfAmountNear } from "@/modules/finance/flow-v3/uf-amount-near";
+
 export interface AutoMatchTx {
   amount: number; // ya como number (positivo = depósito, negativo = retiro)
   description: string;

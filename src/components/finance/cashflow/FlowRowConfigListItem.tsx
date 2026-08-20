@@ -38,8 +38,9 @@ export function FlowRowConfigListItem({
 }: Props) {
   const problem = rowHasProblem(row, health);
   const systemLocked = !!row.canonicalKey;
+  const isChild = !!row.parentId;
   /** Sistema: cuentas visibles pero no editables. Custom: editables. */
-  const canEditAccounts = !systemLocked && !isBandejaKey(row.canonicalKey);
+  const canEditAccounts = !systemLocked && !isBandejaKey(row.canonicalKey) && !isChild;
   const scopedAccountOptions = filterAccountOptionsForSection(
     accountOptions.map((a) => ({
       id: a.id,
@@ -75,7 +76,7 @@ export function FlowRowConfigListItem({
     <li
       className={`rounded-ds-md border bg-ds-surface-1 p-3 relative ${
         problem ? "border-status-warn-border" : "border-ds-border-default"
-      }`}
+      } ${isChild ? "ml-6" : ""}`}
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1 space-y-2">
@@ -90,6 +91,11 @@ export function FlowRowConfigListItem({
                 Sistema
               </Tag>
             )}
+            {isChild && (
+              <Tag variant="neutral" size="sm">
+                Subfila
+              </Tag>
+            )}
           </div>
           <Input
             className="h-10 sm:h-9 font-medium"
@@ -100,14 +106,16 @@ export function FlowRowConfigListItem({
               if (next && next !== row.name) onRename(row.id, next);
             }}
           />
-          <RowAccountsEditor
-            rowId={row.id}
-            accountOptions={scopedAccountOptions}
-            initialAccounts={row.accounts}
-            canEdit={canEditAccounts}
-            compact
-            onSaved={() => onAccountsChanged?.()}
-          />
+          {!isChild && (
+            <RowAccountsEditor
+              rowId={row.id}
+              accountOptions={scopedAccountOptions}
+              initialAccounts={row.accounts}
+              canEdit={canEditAccounts}
+              compact
+              onSaved={() => onAccountsChanged?.()}
+            />
+          )}
         </div>
         <Button
           type="button"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { flowV3Error, requireFlowV3 } from "@/modules/finance/flow-v3/api-guard";
 import { createRow, listRows } from "@/modules/finance/flow-v3/rows.service";
+import { createSubRow } from "@/modules/finance/flow-v3/sub-row.service";
 import { flowRowCreateSchema } from "@/lib/validations/flow-v3";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,34 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       const issues = parsed.error.issues.map((i) => i.message).join("; ");
       return NextResponse.json({ success: false, error: issues }, { status: 400 });
+    }
+    if (parsed.data.parentId) {
+      const rec = parsed.data.recurrence;
+      const created = await createSubRow(
+        guard.ctx.tenantId,
+        {
+          parentId: parsed.data.parentId,
+          name: parsed.data.name,
+          recurrence: rec
+            ? {
+                amount: rec.amount ?? 0,
+                frequency: rec.frequency,
+                dayOfMonth: rec.dayOfMonth,
+                startDate: rec.startDate,
+                endDate: rec.endDate,
+                endAfterOccurrences: rec.endAfterOccurrences,
+                currency: rec.currency,
+                amountUf: rec.amountUf,
+                ufPolicy: rec.ufPolicy,
+                ufCustomDay: rec.ufCustomDay,
+                note: rec.note,
+              }
+            : null,
+          matchRule: parsed.data.matchRule,
+        },
+        guard.ctx.userId,
+      );
+      return NextResponse.json({ success: true, data: created.row });
     }
     const row = await createRow(guard.ctx.tenantId, parsed.data);
     return NextResponse.json({ success: true, data: row });
