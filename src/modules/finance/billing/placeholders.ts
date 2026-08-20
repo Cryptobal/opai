@@ -19,6 +19,8 @@
  * arma el `PlaceholderContext` y llama `resolvePlaceholders`.
  */
 
+import { formatUFSuffix } from "@/lib/utils";
+
 export type PeriodPolicy = "CURRENT_MONTH" | "PREVIOUS_MONTH" | "NEXT_MONTH";
 
 export interface PeriodInfo {
@@ -124,14 +126,11 @@ function formatDateDmy(d: Date): string {
 }
 
 /**
- * Formatea un monto UF con 4 decimales (formato chileno: coma decimal,
- * punto miles). Ej: 40,1730 UF.
+ * Formatea un monto UF siempre con 2 decimales (formato chileno:
+ * coma decimal, punto miles). Ej: 40,17 UF, 40,00 UF.
  */
 function formatUf(value: number): string {
-  return `${new Intl.NumberFormat("es-CL", {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4,
-  }).format(value)} UF`;
+  return formatUFSuffix(value);
 }
 
 /**
@@ -289,7 +288,7 @@ export const PLACEHOLDER_CATALOG: ReadonlyArray<{
   {
     token: "{{uf_monto}}",
     label: "Monto UF",
-    description: "Monto de la línea en UF (ej: 40,1730 UF)",
+    description: "Monto de la línea en UF (ej: 40,17 UF)",
     appliesToClp: false,
   },
   {

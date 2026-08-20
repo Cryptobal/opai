@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { formatUFSuffix } from "@/lib/utils";
 
 const DTE_NAMES: Record<number, string> = {
   33: "Factura Electrónica",
@@ -116,7 +117,7 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
               {totals.currency === "UF" && totals.totalUf != null && (
                 <>
                   <span className="text-muted-foreground">≈</span>
-                  <span>{totals.totalUf.toFixed(4)} UF (UF día = ${totals.ufValue?.toLocaleString("es-CL")})</span>
+                  <span>{formatUFSuffix(totals.totalUf)} (UF día = ${totals.ufValue?.toLocaleString("es-CL")})</span>
                 </>
               )}
             </div>
@@ -137,7 +138,7 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
                   </span>
                   <span className="shrink-0 text-muted-foreground">
                     {l.unitPriceUf != null
-                      ? `${l.unitPriceUf} UF c/u`
+                      ? `${formatUFSuffix(l.unitPriceUf)} c/u`
                       : fmtCLP(l.unitPrice)}
                   </span>
                 </li>

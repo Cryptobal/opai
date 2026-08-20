@@ -7,11 +7,11 @@
  *      sin decimales. Si llegamos con $999.998,32 al SII lo redondea a
  *      $999.998 — y ahí nace el bug del "millón que quedó en 999.998".
  *
- *   2. Cuando la factura es en UF, el `unitPriceUf` puede tener hasta 4
- *      decimales (estándar SII), pero el `unitPriceClp` resultante de la
- *      conversión es SIEMPRE entero (sin decimales ni centavos). Antes
- *      redondeábamos a 2 decimales (`* 100 / 100`), que arrastraba el
- *      drift hacia gross y rompía el total redondo.
+ *   2. Cuando la factura es en UF, el monto contractual se normaliza
+ *      SIEMPRE a 2 decimales (`roundUfTo2`) y el neto CLP se obtiene con
+ *      `ufToClpNet` (round al peso). El redondeo vive en el CLP, no en el
+ *      T/C. Antes se multiplicaba el UF crudo (hasta 4 decimales) o se
+ *      redondeaba a centavos (`* 100 / 100`), que arrastraba drift.
  *
  *   3. La fórmula del IVA usa el `IVA_RATE = 19` (entero %, no `0.19`).
  *      `taxAmount = round((totalNet * 19) / 100)` da el mismo resultado
@@ -24,6 +24,7 @@
  * el form = monto emitido al SII.
  */
 import { IVA_RATE } from "../shared/constants/dte-types";
+import { roundUfTo2, ufToClpNet } from "@/lib/uf-utils";
 import type { IssueDteInput } from "./dte-issuer.service";
 
 type AmountsInput = Pick<IssueDteInput, "currency" | "lines" | "dteType">;
@@ -104,13 +105,16 @@ export async function computeDteAmounts(
   const lines: ComputedDteAmountsLine[] = [];
 
   for (const line of input.lines) {
-    // Conversión UF → CLP entero. Redondeamos al peso, no a centavos.
-    // Esto es lo que arregla el bug "1.000.000 quedó en 999.998": antes
-    // hacíamos `round(unitPriceUf * uf * 100) / 100` que dejaba drift de
-    // centavos arrastrándose por el resto del cálculo.
-    const unitPriceClp =
+    // Conversión UF → CLP entero. Primero 2 decimales de UF, después
+    // round al peso. Evita el drift de 4 decimales y el viejo
+    // `round(uf * tc * 100) / 100` que arrastraba centavos.
+    const unitPriceUf =
       input.currency === "UF" && line.unitPriceUf
-        ? Math.round(line.unitPriceUf * (ufValue ?? 0))
+        ? roundUfTo2(line.unitPriceUf)
+        : line.unitPriceUf;
+    const unitPriceClp =
+      input.currency === "UF" && unitPriceUf
+        ? ufToClpNet(unitPriceUf, ufValue ?? 0)
         : line.unitPrice;
 
     if (strict && input.currency !== "UF") {
@@ -135,7 +139,12 @@ export async function computeDteAmounts(
     if (line.isExempt) totalExempt += net;
     else totalNet += net;
 
-    lines.push({ ...line, unitPrice: unitPriceClp, netAmount: net });
+    lines.push({
+      ...line,
+      unitPrice: unitPriceClp,
+      unitPriceUf,
+      netAmount: net,
+    });
   }
 
   const isExempt = input.dteType === 34;

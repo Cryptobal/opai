@@ -565,7 +565,7 @@ export async function renderDtePreviewPdf(
   ) {
     const ufTotal = input.totals.totalAmount / input.totals.ufValue;
     page.drawText(
-      `≈ ${ufTotal.toFixed(4)} UF (UF día = $${formatNumber(input.totals.ufValue)})`,
+      `≈ ${ufTotal.toFixed(2)} UF (UF día = $${formatNumber(input.totals.ufValue)})`,
       {
         x: totalesX + 8,
         y: y - totalesH - 12,
