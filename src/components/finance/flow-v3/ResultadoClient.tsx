@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Building2,
+  ChevronDown,
+  ChevronLeft,
   DollarSign,
   FileBarChart,
   MapPin,
@@ -31,6 +33,12 @@ import type {
   ProjectedPnlInstallationRow,
   ProjectedPnlResult,
 } from "@/modules/finance/flow-v3/projected-pnl";
+import {
+  contributionsForLine,
+  PNL_LINE_META,
+  RANKING_COLUMN_SPECS,
+  type PnlLineId,
+} from "@/modules/finance/flow-v3/projected-pnl-view";
 
 type Scope = "company" | "installations";
 
@@ -61,19 +69,28 @@ function Amount({ n, emphasize }: { n: number; emphasize?: boolean }) {
   );
 }
 
-const LINE_META: Array<{
-  id: keyof PnlLineSeries;
-  label: string;
-  companyHint?: string;
-  instHint?: string;
-}> = [
-  { id: "revenue", label: "Ingresos operacionales" },
-  { id: "personnel", label: "Costo de personal" },
-  { id: "extraShifts", label: "Turnos extra" },
-  { id: "directCost", label: "Costos directos" },
-  { id: "gav", label: "GAV", instHint: "Prorrateado por ingresos" },
-  { id: "result", label: "Resultado" },
-];
+function ReadingLegend() {
+  return (
+    <Surface elevation={1} padding="md">
+      <p className="text-[13px] font-medium text-ds-text-1 mb-2">Cómo leer este resultado</p>
+      <ul className="space-y-1.5 text-[13px] text-ds-text-2">
+        <li>Montos <span className="text-ds-text-1 font-medium">netos de IVA</span>. No es tesorería: cobro y pago siguen en Caja.</li>
+        <li>
+          Personal = líquido + Previred + impuesto único. Sin provisiones ni sueldos
+          administrativos. Es la dotación actual, repetida en cada mes.
+        </li>
+        <li>
+          Compras de faena = DTE recibidos asignados a una instalación. Si la compra no
+          tiene faena, entra en GAV empresa.
+        </li>
+        <li>
+          Fuera de este resultado: retiros de socios, costo de factoring y movimientos de
+          caja.
+        </li>
+      </ul>
+    </Surface>
+  );
+}
 
 function MonthlyMatrix({
   months,
@@ -108,7 +125,7 @@ function MonthlyMatrix({
             </tr>
           </thead>
           <tbody>
-            {LINE_META.map((line) => {
+            {PNL_LINE_META.map((line) => {
               const values = series[line.id];
               const total = values.reduce((a, b) => a + b, 0);
               const isResult = line.id === "result";
@@ -151,7 +168,7 @@ function MonthlyMatrix({
                 {m.label}
               </p>
               <dl className="space-y-1.5">
-                {LINE_META.map((line) => (
+                {PNL_LINE_META.map((line) => (
                   <div key={line.id} className="flex items-center justify-between gap-3">
                     <dt className="text-[13px] text-ds-text-3">{line.label}</dt>
                     <dd>
@@ -163,6 +180,179 @@ function MonthlyMatrix({
             </Surface>
           </li>
         ))}
+      </ul>
+    </>
+  );
+}
+
+function CompanyMonthlyMatrix({
+  months,
+  series,
+  installations,
+  onPickInstallation,
+}: {
+  months: ProjectedPnlResult["months"];
+  series: PnlLineSeries;
+  installations: ProjectedPnlInstallationRow[];
+  onPickInstallation: (id: string) => void;
+}) {
+  const [openLine, setOpenLine] = useState<PnlLineId | null>(null);
+
+  const toggle = (id: PnlLineId) => {
+    setOpenLine((cur) => (cur === id ? null : id));
+  };
+
+  return (
+    <>
+      <p className="text-[12px] text-ds-text-3">
+        Tocá un concepto para ver qué faenas lo componen. Tocá una faena para el mes a mes.
+      </p>
+      <div className="hidden sm:block overflow-x-auto border border-ds-border-subtle rounded-xl">
+        <table className="w-full min-w-[640px] text-[13px]">
+          <thead>
+            <tr className="border-b border-ds-border-subtle bg-ds-surface-2/60">
+              <th className="text-left px-3 py-2.5 font-medium text-ds-text-3 whitespace-nowrap">
+                Concepto
+              </th>
+              {months.map((m) => (
+                <th
+                  key={m.key}
+                  className={cn(
+                    "text-right px-3 py-2.5 font-medium text-ds-text-3 whitespace-nowrap",
+                    m.isCurrent && "text-primary",
+                  )}
+                >
+                  {m.label}
+                </th>
+              ))}
+              <th className="text-right px-3 py-2.5 font-medium text-ds-text-3">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PNL_LINE_META.map((line) => {
+              const values = series[line.id];
+              const total = values.reduce((a, b) => a + b, 0);
+              const isResult = line.id === "result";
+              const open = openLine === line.id;
+              const kids = open ? contributionsForLine(installations, line.id) : [];
+              return (
+                <Fragment key={line.id}>
+                  <tr
+                    className={cn(
+                      "border-t border-ds-border-subtle cursor-pointer hover:bg-ds-surface-2/50",
+                      isResult && "bg-ds-surface-2/40",
+                    )}
+                    onClick={() => toggle(line.id)}
+                  >
+                    <td className="px-3 py-2.5 text-ds-text-1 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-2">
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 shrink-0 text-ds-text-3 transition-transform",
+                            open ? "rotate-0" : "-rotate-90",
+                          )}
+                          aria-hidden
+                        />
+                        {line.label}
+                      </span>
+                    </td>
+                    {values.map((v, i) => (
+                      <td key={months[i]?.key ?? i} className="px-3 py-2.5 text-right">
+                        <Amount n={v} emphasize={isResult} />
+                      </td>
+                    ))}
+                    <td className="px-3 py-2.5 text-right">
+                      <Amount n={total} emphasize />
+                    </td>
+                  </tr>
+                  {open && kids.length === 0 && (
+                    <tr className="border-t border-ds-border-subtle">
+                      <td
+                        colSpan={months.length + 2}
+                        className="px-3 py-2.5 pl-10 text-[13px] text-ds-text-3"
+                      >
+                        Sin faenas con movimiento en esta línea.
+                      </td>
+                    </tr>
+                  )}
+                  {open &&
+                    kids.map((kid) => (
+                      <tr
+                        key={`${line.id}-${kid.installationId}`}
+                        className="border-t border-ds-border-subtle cursor-pointer hover:bg-ds-surface-2/40"
+                        onClick={() => onPickInstallation(kid.installationId)}
+                      >
+                        <td className="px-3 py-2 pl-10 text-ds-text-2 whitespace-nowrap">
+                          {kid.name}
+                        </td>
+                        {kid.monthly.map((v, i) => (
+                          <td key={months[i]?.key ?? i} className="px-3 py-2 text-right">
+                            <Amount n={v} />
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right">
+                          <Amount n={kid.total} emphasize />
+                        </td>
+                      </tr>
+                    ))}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <ul className="sm:hidden space-y-3 ds-list-cascade">
+        {PNL_LINE_META.map((line) => {
+          const total = series[line.id].reduce((a, b) => a + b, 0);
+          const open = openLine === line.id;
+          const kids = open ? contributionsForLine(installations, line.id) : [];
+          return (
+            <li key={line.id}>
+              <Surface elevation={1} padding="md">
+                <button
+                  type="button"
+                  className="flex w-full min-h-11 items-center justify-between gap-3 text-left"
+                  onClick={() => toggle(line.id)}
+                  aria-expanded={open}
+                >
+                  <span className="inline-flex items-center gap-2 text-[13px] font-medium text-ds-text-1">
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-ds-text-3 transition-transform",
+                        open ? "rotate-0" : "-rotate-90",
+                      )}
+                    />
+                    {line.label}
+                  </span>
+                  <Amount n={total} emphasize={line.id === "result"} />
+                </button>
+                {open && (
+                  <ul className="mt-2 space-y-1.5 border-t border-ds-border-subtle pt-2">
+                    {kids.length === 0 ? (
+                      <li className="text-[13px] text-ds-text-3">
+                        Sin faenas con movimiento en esta línea.
+                      </li>
+                    ) : (
+                      kids.map((kid) => (
+                        <li key={kid.installationId}>
+                          <button
+                            type="button"
+                            className="flex w-full min-h-11 items-center justify-between gap-3 text-left"
+                            onClick={() => onPickInstallation(kid.installationId)}
+                          >
+                            <span className="text-[13px] text-ds-text-2">{kid.name}</span>
+                            <Amount n={kid.total} />
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
+              </Surface>
+            </li>
+          );
+        })}
       </ul>
     </>
   );
@@ -181,8 +371,12 @@ function Kpis({ totals, gavProrated }: { totals: PnlLineTotals; gavProrated?: bo
       />
       <Stat
         label="Costo de personal"
-        value={fmtCLPShort(totals.personnel + totals.extraShifts)}
-        hint={fmtCLP(totals.personnel + totals.extraShifts)}
+        value={fmtCLPShort(totals.personnel)}
+        hint={
+          totals.extraShifts
+            ? `${fmtCLP(totals.personnel)} · TE ${fmtCLPShort(totals.extraShifts)} aparte`
+            : fmtCLP(totals.personnel)
+        }
         icon={Users}
         variant="warn"
       />
@@ -242,51 +436,51 @@ export function ResultadoClient() {
     [data, installationId],
   );
 
+  const openInstallation = (id: string) => {
+    setInstallationId(id);
+    setScope("installations");
+  };
+
   const rankingColumns: DataTableColumn<ProjectedPnlInstallationRow>[] = useMemo(
-    () => [
-      {
-        id: "name",
-        header: "Instalación",
-        cell: (r) => <span className="text-ds-text-1">{r.name}</span>,
-      },
-      {
-        id: "revenue",
-        header: "Ingresos",
-        align: "right",
-        hideOnMobile: true,
-        cell: (r) => <Amount n={r.totals.revenue} />,
-      },
-      {
-        id: "cost",
-        header: "Costo directo",
-        align: "right",
-        hideOnMobile: true,
-        cell: (r) => <Amount n={r.totals.personnel + r.totals.extraShifts + r.totals.directCost} />,
-      },
-      {
-        id: "gav",
-        header: "GAV",
-        align: "right",
-        hideOnMobile: true,
-        cell: (r) => <Amount n={r.totals.gav} />,
-      },
-      {
-        id: "result",
-        header: "Resultado",
-        align: "right",
-        cell: (r) => <Amount n={r.totals.result} emphasize />,
-      },
-      {
-        id: "pct",
-        header: "%",
-        align: "right",
-        cell: (r) => (
-          <span className={cn("ds-num text-[12px]", r.totals.result < 0 ? "text-status-danger-fg" : "text-ds-text-3")}>
-            {r.totals.marginPct.toFixed(1)}%
-          </span>
-        ),
-      },
-    ],
+    () =>
+      RANKING_COLUMN_SPECS.map((spec) => {
+        if (spec.id === "name") {
+          return {
+            id: spec.id,
+            header: spec.header,
+            cell: (r: ProjectedPnlInstallationRow) => (
+              <span className="text-ds-text-1">{r.name}</span>
+            ),
+          };
+        }
+        if (spec.id === "pct") {
+          return {
+            id: spec.id,
+            header: spec.header,
+            align: "right" as const,
+            cell: (r: ProjectedPnlInstallationRow) => (
+              <span
+                className={cn(
+                  "ds-num text-[12px]",
+                  r.totals.result < 0 ? "text-status-danger-fg" : "text-ds-text-3",
+                )}
+              >
+                {r.totals.marginPct.toFixed(1)}%
+              </span>
+            ),
+          };
+        }
+        const numeric = spec.id;
+        return {
+          id: spec.id,
+          header: spec.header,
+          align: "right" as const,
+          hideOnMobile: numeric !== "result",
+          cell: (r: ProjectedPnlInstallationRow) => (
+            <Amount n={Number(spec.valueOf(r))} emphasize={numeric === "result"} />
+          ),
+        };
+      }),
     [],
   );
 
@@ -298,8 +492,9 @@ export function ResultadoClient() {
         iconTone="teal"
         title="Resultado proyectado"
         subtitle="estado de resultados mensual"
-        description="Ingresos por período de facturación y costos del servicio. No es tesorería: el cobro y el pago siguen en Caja."
+        description="Ingresos por período de facturación y costos del servicio. Montos netos de IVA. No es tesorería: el cobro y el pago siguen en Caja."
       />
+      <ReadingLegend />
 
       {loading && (
         <div className="flex items-center gap-2 text-[13px] text-ds-text-3 py-8">
@@ -320,21 +515,31 @@ export function ResultadoClient() {
               size="md"
               ariaLabel="Alcance"
               value={scope}
-              onChange={(id) => setScope(id)}
+              onChange={(id) => {
+                setScope(id);
+                if (id === "company") setInstallationId("");
+              }}
               items={[
                 { id: "company", label: "Empresa", icon: Building2 },
                 { id: "installations", label: "Por instalación", icon: MapPin },
               ]}
             />
-            <Tag variant="info" size="md">
-              GAV prorrateado por ingresos
-            </Tag>
+            {scope === "installations" && (
+              <Tag variant="info" size="md">
+                GAV prorrateado por ingresos
+              </Tag>
+            )}
           </div>
 
           {scope === "company" && (
             <>
               <Kpis totals={data.company.totals} />
-              <MonthlyMatrix months={data.months} series={data.company} />
+              <CompanyMonthlyMatrix
+                months={data.months}
+                series={data.company}
+                installations={data.installations}
+                onPickInstallation={openInstallation}
+              />
               {data.unassigned && (
                 <p className="text-[12px] text-ds-text-3">
                   Ingresos sin instalación: {fmtCLP(data.unassigned.revenue)}. No se
@@ -354,6 +559,22 @@ export function ResultadoClient() {
                 />
               ) : (
                 <>
+                  {selected ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-9 text-[13px] text-ds-text-2"
+                      onClick={() => setInstallationId("")}
+                    >
+                      <ChevronLeft className="h-4 w-4" aria-hidden />
+                      Volver al ranking
+                    </button>
+                  ) : (
+                    <p className="text-[12px] text-ds-text-3">
+                      Elegí una faena para ver el mes a mes. El ranking muestra el
+                      período completo, con personal y compras de faena por separado.
+                    </p>
+                  )}
+
                   <label className="flex flex-col gap-1.5 max-w-md">
                     <span className="text-[12px] text-ds-text-3">Instalación</span>
                     <select
@@ -395,7 +616,12 @@ export function ResultadoClient() {
                                 <Amount n={r.totals.result} emphasize />
                               </div>
                               <p className="mt-1 text-[12px] text-ds-text-3">
-                                Ingresos {fmtCLPShort(r.totals.revenue)} · {r.totals.marginPct.toFixed(1)}%
+                                Ingresos {fmtCLPShort(r.totals.revenue)} · Personal{" "}
+                                {fmtCLPShort(r.totals.personnel)}
+                              </p>
+                              <p className="text-[12px] text-ds-text-3">
+                                Compras {fmtCLPShort(r.totals.directCost)} · GAV{" "}
+                                {fmtCLPShort(r.totals.gav)} · {r.totals.marginPct.toFixed(1)}%
                               </p>
                             </Surface>
                           </li>
