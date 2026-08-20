@@ -119,7 +119,12 @@ async function loadCandidates(
     }
   }
   if (lookup.lastName?.trim()) {
-    or.push({ lastName: { equals: lookup.lastName.trim(), mode: "insensitive" } });
+    const lastName = lookup.lastName.trim();
+    or.push({ lastName: { equals: lastName, mode: "insensitive" } });
+    const lastToken = lastName.split(/\s+/).filter(Boolean).pop();
+    if (lastToken && lastToken !== lastName) {
+      or.push({ lastName: { contains: lastToken, mode: "insensitive" } });
+    }
   }
   if (or.length === 0) return [];
 

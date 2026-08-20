@@ -58,5 +58,11 @@ describe("personas-staff", () => {
         { firstName: "Pedro", lastName: "Irigoyen" },
       ),
     ).toBe(false);
+    expect(
+      namesLikelySame(
+        { firstName: "Carlos", lastName: "Cristobal Irigoyen" },
+        { firstName: "Carlos Cristobal", lastName: "Irigoyen" },
+      ),
+    ).toBe(true);
   });
 });

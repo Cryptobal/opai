@@ -31,6 +31,24 @@ describe("personas-staff-ficha", () => {
     expect(emailsLikelySame("a@x.cl", "b@x.cl")).toBe(false);
   });
 
+  it("matchea aunque el Admin parta mal nombre y apellido", () => {
+    const guardia = row({
+      id: "keep",
+      firstName: "Carlos Cristobal",
+      lastName: "Irigoyen",
+      rut: "13255838-8",
+      laborClass: "OPERATIVO",
+      guardia: { id: "g1" },
+    });
+    expect(
+      fichaMatchesLookup(guardia, {
+        firstName: "Carlos",
+        lastName: "Cristobal Irigoyen",
+        adminId: "admin-1",
+      }),
+    ).toBe(true);
+  });
+
   it("matchea ficha operativa por nombre aunque el staff no tenga RUT", () => {
     const guardia = row({
       id: "keep",
