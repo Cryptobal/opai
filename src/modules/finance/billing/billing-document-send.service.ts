@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { sendTenantEmail } from "@/lib/email/send-tenant-email";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { mergeBillingDocumentCc } from "@/modules/finance/billing/billing-document-cc";
 import { buildBillingDocProps } from "@/lib/pdf/templates/billing-doc/build-billing-doc-props";
 import { renderBillingDocPdf } from "@/lib/pdf/templates/billing-doc/render-billing-doc";
 import { resolveBrandColors } from "@/modules/finance/billing/billing-doc-config.service";
@@ -461,13 +462,16 @@ export async function sendBillingDocument(
   const html = await render(emailEl);
 
   // CC: une los del input (modal de envío) con los CC implícitos del
-  // plan (contactos seleccionados después del primary). Dedup contra primary.
+  // plan (contactos seleccionados después del primary). En cron, además
+  // pone en CC visible a cronCc + CCO finanzas (Google Groups no expande BCC).
   const ccCandidates = [...(input.ccEmails ?? []), ...planCcEmails];
-  const ccList = Array.from(
-    new Set(
-      ccCandidates.filter((e) => e && e.trim() && e !== primary),
-    ),
-  );
+  const ccList = mergeBillingDocumentCc({
+    isAutoFromCron: input.isAutoFromCron ?? false,
+    existingCc: ccCandidates,
+    primary,
+    cronCcCsv: company.ccoFinanceCronCc,
+    ccoFinanceCsv: company.ccoFinanceEmails,
+  });
   // Filename del PDF adjunto.
   const filename =
     input.variant === "PROFORMA"
