@@ -14,7 +14,10 @@ import { Prisma } from "@prisma/client";
 import { isDteTypeValid } from "../shared/constants/dte-types";
 import { issueDte, type IssueDteInput } from "./dte-issuer.service";
 import { computeDteAmounts } from "./dte-amounts.helper";
-import { enrichDteEmailRecipientsFromCrm } from "./dte-xml-compliance";
+import {
+  enrichDteEmailRecipientsFromCrm,
+  enrichDteReceiverFromCrm,
+} from "./dte-xml-compliance";
 import {
   matchDraftToOccurrence,
   rebindDraftOccurrencesToIssued,
@@ -91,6 +94,33 @@ export async function createDraftDte(
     if (routed.adjusted) {
       input.receiverEmail = routed.to ?? input.receiverEmail;
       input.receiverEmailCc = routed.cc;
+    }
+
+    const receiver = await enrichDteReceiverFromCrm({
+      tenantId,
+      crmAccountId: input.crmAccountId,
+      current: {
+        giro: input.receiverGiro,
+        direccion: input.receiverDireccion,
+        comuna: input.receiverComuna,
+        ciudad: input.receiverCiudad,
+      },
+    });
+    if (receiver.adjusted) {
+      input.receiverGiro = receiver.giro;
+      input.receiverDireccion = receiver.direccion;
+      input.receiverComuna = receiver.comuna;
+      input.receiverCiudad = receiver.ciudad;
+    }
+  }
+
+  if (!input.installationId && input.recurringTemplateId) {
+    const tpl = await prisma.financeDteRecurringTemplate.findFirst({
+      where: { id: input.recurringTemplateId, tenantId },
+      select: { installationId: true },
+    });
+    if (tpl?.installationId) {
+      input.installationId = tpl.installationId;
     }
   }
 

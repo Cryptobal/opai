@@ -43,6 +43,20 @@ vi.mock("../dte-xml-compliance", () => ({
     to: null,
     cc: [],
   })),
+  enrichDteReceiverFromCrm: vi.fn(async (input: {
+    current?: {
+      giro?: string;
+      direccion?: string;
+      comuna?: string;
+      ciudad?: string;
+    } | null;
+  }) => ({
+    giro: input.current?.giro,
+    direccion: input.current?.direccion,
+    comuna: input.current?.comuna,
+    ciudad: input.current?.ciudad,
+    adjusted: false,
+  })),
   normalizeAdditionalReferencesForSii: vi.fn(() => []),
 }));
 vi.mock("../inherit-template-link", () => ({

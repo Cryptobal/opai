@@ -16,6 +16,7 @@ import { reserveNextFolio } from "./folio-tracker.service";
 import { sendDteEmail, sendDteXmlToBackoffice } from "./dte-email.service";
 import {
   enrichDteEmailRecipientsFromCrm,
+  enrichDteReceiverFromCrm,
   normalizeAdditionalReferencesForSii,
 } from "./dte-xml-compliance";
 import {
@@ -335,6 +336,37 @@ export async function issueDte(
       console.info(
         `[FINANCE] DTE email routing adjusted for account ${input.crmAccountId}: TO=${input.receiverEmail ?? "(none)"} CC=${routed.cc.length}`,
       );
+    }
+
+    // 2d. Giro/dirección/comuna/ciudad: un borrador viejo o una
+    // programación sin snapshot SII no puede emitir "Sin Giro" si la
+    // ficha CRM ya tiene los datos. No pisa valores explícitos.
+    const receiver = await enrichDteReceiverFromCrm({
+      tenantId,
+      crmAccountId: input.crmAccountId,
+      current: {
+        giro: input.receiverGiro,
+        direccion: input.receiverDireccion,
+        comuna: input.receiverComuna,
+        ciudad: input.receiverCiudad,
+      },
+    });
+    if (receiver.adjusted) {
+      input.receiverGiro = receiver.giro;
+      input.receiverDireccion = receiver.direccion;
+      input.receiverComuna = receiver.comuna;
+      input.receiverCiudad = receiver.ciudad;
+    }
+  }
+
+  // 2e. Instalación de la programación si el DTE/borrador no trae una.
+  if (!input.installationId && input.recurringTemplateId) {
+    const tpl = await prisma.financeDteRecurringTemplate.findFirst({
+      where: { id: input.recurringTemplateId, tenantId },
+      select: { installationId: true },
+    });
+    if (tpl?.installationId) {
+      input.installationId = tpl.installationId;
     }
   }
 

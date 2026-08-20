@@ -163,6 +163,78 @@ export function resolveDteEmailRecipients(input: {
  * Carga contactos CRM del account y resuelve TO/CC para emisión/envío DTE.
  * Sin crmAccountId → devuelve los valores actuales sin tocar.
  */
+function blankToUndefined(value?: string | null): string | undefined {
+  const trimmed = (value ?? "").trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+export type ReceiverSiiFields = {
+  giro?: string;
+  direccion?: string;
+  comuna?: string;
+  ciudad?: string;
+};
+
+/**
+ * Completa Giro/Dirección/Comuna/Ciudad del receptor desde la ficha CRM
+ * cuando el caller no los mandó. El SII los exige en facturas (33/34);
+ * si quedan vacíos el provider escribe defaults ("Sin Giro") en el XML.
+ *
+ * No pisa valores ya presentes. Giro formal (`account.giro`) manda;
+ * si falta, cae a `industry` (misma regla que DteForm).
+ */
+export async function enrichDteReceiverFromCrm(input: {
+  tenantId: string;
+  crmAccountId?: string | null;
+  current?: ReceiverSiiFields | null;
+}): Promise<ReceiverSiiFields & { adjusted: boolean }> {
+  const current: ReceiverSiiFields = {
+    giro: blankToUndefined(input.current?.giro),
+    direccion: blankToUndefined(input.current?.direccion),
+    comuna: blankToUndefined(input.current?.comuna),
+    ciudad: blankToUndefined(input.current?.ciudad),
+  };
+
+  if (!input.crmAccountId) {
+    return { ...current, adjusted: false };
+  }
+
+  const missing =
+    !current.giro || !current.direccion || !current.comuna || !current.ciudad;
+  if (!missing) {
+    return { ...current, adjusted: false };
+  }
+
+  const account = await prisma.crmAccount.findFirst({
+    where: { id: input.crmAccountId, tenantId: input.tenantId },
+    select: {
+      giro: true,
+      industry: true,
+      address: true,
+      commune: true,
+      city: true,
+    },
+  });
+  if (!account) {
+    return { ...current, adjusted: false };
+  }
+
+  const giroFromCrm =
+    blankToUndefined(account.giro) ?? blankToUndefined(account.industry);
+  const next: ReceiverSiiFields = {
+    giro: current.giro ?? giroFromCrm,
+    direccion: current.direccion ?? blankToUndefined(account.address),
+    comuna: current.comuna ?? blankToUndefined(account.commune),
+    ciudad: current.ciudad ?? blankToUndefined(account.city),
+  };
+  const adjusted =
+    next.giro !== current.giro ||
+    next.direccion !== current.direccion ||
+    next.comuna !== current.comuna ||
+    next.ciudad !== current.ciudad;
+  return { ...next, adjusted };
+}
+
 export async function enrichDteEmailRecipientsFromCrm(input: {
   tenantId: string;
   crmAccountId?: string | null;
