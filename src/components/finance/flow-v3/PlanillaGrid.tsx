@@ -1131,7 +1131,7 @@ export function PlanillaGrid({
     [rowById, data.columns, data.granularity, canManage, closedSet],
   );
 
-  // ── Drag & drop: plan, F° o P (cada uno por separado). ──
+  // ── Drag & drop: plan, F°, B o P (cada uno por separado). ──
   const onCellDragStart = useCallback((rowId: string, week: string, payload: CellDragPayload) => {
     dragRef.current = { rowId, week, payload };
   }, []);

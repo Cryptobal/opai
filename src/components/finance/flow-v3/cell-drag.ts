@@ -1,6 +1,6 @@
 /**
- * Drag de ítems en la planilla: plan manual, factura (F°) o programación (P).
- * Cada uno se mueve solo. No fija la fecha de emisión del template.
+ * Drag de ítems en la planilla: plan, factura (F°), borrador (B) o programación (P).
+ * B usa el mismo override de fecha que F° (dteId). Cada uno se mueve solo.
  */
 import type { CommittedItem } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
@@ -28,7 +28,7 @@ export function itemDragPayload(it: CommittedItem): CellDragPayload | null {
   if (it.kind === "scheduled" && it.milestoneKey && it.billingPeriod) {
     return { kind: "milestone", milestoneKey: it.milestoneKey, billingPeriod: it.billingPeriod };
   }
-  if (it.kind === "dte" && it.dteId) {
+  if ((it.kind === "dte" || it.kind === "draft") && it.dteId) {
     return { kind: "dte", dteId: it.dteId };
   }
   return null;
@@ -53,7 +53,7 @@ export function stackedCommittedLines(cell: FlowMatrixCellDto): StackedLine[] {
 
 /**
  * Arrastre de la celda entera solo si hay un único destino inequívoco:
- * plan manual, o un solo F°/P. Si conviven, cada línea se arrastra sola.
+ * plan manual, o un solo F°/B/P. Si conviven, cada línea se arrastra sola.
  */
 export function cellLevelDragPayload(cell: FlowMatrixCellDto): CellDragPayload | null {
   if (cell.layer === "plan" && cell.plan !== 0) return { kind: "plan" };

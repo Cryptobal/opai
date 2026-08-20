@@ -74,14 +74,14 @@ interface Props {
   sumMode?: boolean;
   /** Está en el set Σ. */
   inDiscreteSel?: boolean;
-  /** Drag de plan o de un único F°/P (desktop). */
+  /** Drag de plan o de un único F°/B/P (desktop). */
   draggable: boolean;
   onDragStartCell: () => void;
   onDragOverCell: (e: React.DragEvent) => void;
   onDropCell: () => void;
   onDragEndCell: () => void;
   isDropTarget: boolean;
-  /** F° y P en la misma casilla: una línea por cobro, cada una arrastrable. */
+  /** F°/B y P en la misma casilla: una línea por cobro, cada una arrastrable. */
   stackedLines?: StackedLine[];
   canDragItems?: boolean;
   onItemDragStart?: (payload: CellDragPayload) => void;

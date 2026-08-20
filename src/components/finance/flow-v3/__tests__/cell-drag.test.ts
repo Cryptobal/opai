@@ -36,6 +36,14 @@ const scheduled = {
   monto: 5_007_960,
 };
 
+const draft = {
+  kind: "draft" as const,
+  dteId: "draft-scrb",
+  label: "SCRB",
+  fecha: "2026-08-24",
+  monto: 5_350_377,
+};
+
 describe("cell-drag", () => {
   it("P sola: la celda entera se arrastra como programación", () => {
     const c = cell({
@@ -114,5 +122,47 @@ describe("cell-drag", () => {
         monto: 1,
       }),
     ).toBeNull();
+  });
+
+  it("B sola: la celda entera se arrastra con el mismo override que F°", () => {
+    const c = cell({
+      layer: "committed",
+      committed: { total: draft.monto, items: [draft] },
+      effective: draft.monto,
+    });
+    expect(cellLevelDragPayload(c)).toEqual({ kind: "dte", dteId: "draft-scrb" });
+    expect(stackedCommittedLines(c)).toEqual([]);
+  });
+
+  it("B sin dteId no se puede arrastrar", () => {
+    expect(
+      itemDragPayload({
+        kind: "draft",
+        label: "Huérfano",
+        fecha: "2026-08-24",
+        monto: 1,
+      }),
+    ).toBeNull();
+  });
+
+  it("B + P: dos líneas, cada una con su drag; la celda no se arrastra entera", () => {
+    const c = cell({
+      layer: "committed",
+      committed: { total: draft.monto + scheduled.monto, items: [draft, scheduled] },
+      effective: draft.monto + scheduled.monto,
+    });
+    expect(cellLevelDragPayload(c)).toBeNull();
+    const lines = stackedCommittedLines(c);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatchObject({
+      tag: "B",
+      monto: 5_350_377,
+      drag: { kind: "dte", dteId: "draft-scrb" },
+    });
+    expect(lines[1]).toMatchObject({
+      tag: "P",
+      monto: 5_007_960,
+      drag: { kind: "scheduled", templateId: "tpl-cims", billingPeriod: "2026-08" },
+    });
   });
 });
