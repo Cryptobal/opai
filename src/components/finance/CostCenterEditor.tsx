@@ -156,7 +156,15 @@ export function CostCenterEditor({
     )
       .then((r) => r.json())
       .then((j) => {
-        if (j?.success && Array.isArray(j.data)) setInstallations(j.data);
+        if (j?.success && Array.isArray(j.data)) {
+          const rows = j.data as InstallationOption[];
+          setInstallations(rows);
+          setSelectedInstallationName((prev) => {
+            if (prev) return prev;
+            const match = rows.find((inst) => inst.id === selectedInstallationId);
+            return match?.name ?? prev;
+          });
+        }
       })
       .catch(() => {});
     return () => ctrl.abort();
@@ -224,12 +232,12 @@ export function CostCenterEditor({
       <span className="truncate text-[13px] font-medium text-ds-text-1">
         {selectedAccountName}
       </span>
-      {selectedInstallationName && (
+      {selectedInstallationId && (
         <>
           <span className="text-ds-text-3 shrink-0">·</span>
           <MapPin className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
           <span className="truncate text-[13px] text-ds-text-2">
-            {selectedInstallationName}
+            {selectedInstallationName || "Instalación"}
           </span>
         </>
       )}

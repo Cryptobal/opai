@@ -143,6 +143,10 @@ function formatUf(value: number): string {
  */
 const TOKEN_ALIASES: Record<string, string> = {
   periodo_ano: "periodo_anio",
+  periodo_inicio: "fecha_inicio",
+  periodo_termino: "fecha_termino",
+  fecha_inicio_periodo: "fecha_inicio",
+  fecha_termino_periodo: "fecha_termino",
 };
 
 /**
@@ -188,9 +192,55 @@ function resolveToken(token: string, ctx: PlaceholderContext): string | undefine
       return ctx.cliente ?? "";
     case "instalacion":
       return ctx.instalacion ?? "";
+    case "fecha_inicio": {
+      const bounds = periodBounds(ctx.period);
+      return bounds ? formatDateDmy(bounds.start) : "";
+    }
+    case "fecha_termino": {
+      const bounds = periodBounds(ctx.period);
+      return bounds ? formatDateDmy(bounds.end) : "";
+    }
     default:
       return undefined;
   }
+}
+
+function periodBounds(period: PeriodInfo): { start: Date; end: Date } | null {
+  const month = MESES_ES.indexOf(period.mes);
+  if (month < 0) return null;
+  return {
+    start: new Date(Date.UTC(period.anio, month, 1)),
+    end: new Date(Date.UTC(period.anio, month + 1, 0)),
+  };
+}
+
+/**
+ * Varias plantillas viejas dejaron las etiquetas "Fecha inicio" /
+ * "Fecha Término" como texto literal, sin tokens ni fechas. Si la
+ * línea termina ahí (sin dígitos), completamos con el primer/último
+ * día del período de servicio.
+ */
+function fillBarePeriodDateLabels(text: string, ctx: PlaceholderContext): string {
+  const bounds = periodBounds(ctx.period);
+  if (!bounds) return text;
+  const start = formatDateDmy(bounds.start);
+  const end = formatDateDmy(bounds.end);
+  return text
+    .replace(
+      /(^|\n)([ \t]*Fecha[ \t]+inicio[ \t]*:?[ \t]*)(?=\n|$)/gi,
+      (_full, pre: string, label: string) =>
+        `${pre}${normalizeBareDateLabel(label)}${start}`,
+    )
+    .replace(
+      /(^|\n)([ \t]*Fecha[ \t]+t[eé]rmino[ \t]*:?[ \t]*)(?=\n|$)/gi,
+      (_full, pre: string, label: string) =>
+        `${pre}${normalizeBareDateLabel(label)}${end}`,
+    );
+}
+
+function normalizeBareDateLabel(label: string): string {
+  const trimmed = label.replace(/\s+$/, "");
+  return /:$/.test(trimmed) ? `${trimmed} ` : `${trimmed}: `;
 }
 
 /**
@@ -199,12 +249,13 @@ function resolveToken(token: string, ctx: PlaceholderContext): string | undefine
  */
 export function resolvePlaceholders(text: string, ctx: PlaceholderContext): string {
   if (!text) return text;
-  return text.replace(/\{\{([a-zA-ZñÑáéíóúÁÉÍÓÚ_]+)\}\}/g, (whole, raw: string) => {
+  const withTokens = text.replace(/\{\{([a-zA-ZñÑáéíóúÁÉÍÓÚ_]+)\}\}/g, (whole, raw: string) => {
     const norm = normalizeToken(raw);
     const resolved = resolveToken(norm, ctx);
     if (resolved === undefined) return whole; // desconocido → literal
     return resolved;
   });
+  return fillBarePeriodDateLabels(withTokens, ctx);
 }
 
 /**
@@ -301,6 +352,18 @@ export const PLACEHOLDER_CATALOG: ReadonlyArray<{
     token: "{{instalacion}}",
     label: "Instalación",
     description: "Nombre de la instalación si está asignada",
+    appliesToClp: true,
+  },
+  {
+    token: "{{fecha_inicio}}",
+    label: "Fecha inicio del período",
+    description: "Primer día del mes de servicio (ej: 01/07/2026)",
+    appliesToClp: true,
+  },
+  {
+    token: "{{fecha_termino}}",
+    label: "Fecha término del período",
+    description: "Último día del mes de servicio (ej: 31/07/2026)",
     appliesToClp: true,
   },
 ];

@@ -123,6 +123,16 @@ describe("resolvePlaceholders — tokens conocidos", () => {
       resolvePlaceholders("{{cliente}} - {{instalacion}}", baseCtx),
     ).toBe("Andalucía de Montajes Eléctricos - Algarrobo 111");
   });
+
+  it("{{fecha_inicio}} y {{fecha_termino}} son el primer y último día del período", () => {
+    expect(resolvePlaceholders("{{fecha_inicio}}", baseCtx)).toBe("01/05/2026");
+    expect(resolvePlaceholders("{{fecha_termino}}", baseCtx)).toBe("31/05/2026");
+  });
+
+  it("{{periodo_inicio}} es alias de {{fecha_inicio}}", () => {
+    expect(resolvePlaceholders("{{periodo_inicio}}", baseCtx)).toBe("01/05/2026");
+    expect(resolvePlaceholders("{{periodo_termino}}", baseCtx)).toBe("31/05/2026");
+  });
 });
 
 describe("resolvePlaceholders — case-insensitive y sin tilde", () => {
@@ -188,6 +198,27 @@ describe("resolvePlaceholders — fallbacks y tokens desconocidos", () => {
     expect(resolvePlaceholders("Servicio mensual", baseCtx)).toBe(
       "Servicio mensual",
     );
+  });
+
+  it("rellena etiquetas vacías Fecha inicio / Fecha Término del período", () => {
+    const ctx: PlaceholderContext = {
+      ...baseCtx,
+      period: { mes: "Julio", anio: 2026, periodoCorto: "07/2026" },
+    };
+    expect(
+      resolvePlaceholders(
+        "Servicio de Seguridad — Villa Alemana\nFecha inicio\nFecha Término",
+        ctx,
+      ),
+    ).toBe(
+      "Servicio de Seguridad — Villa Alemana\nFecha inicio: 01/07/2026\nFecha Término: 31/07/2026",
+    );
+  });
+
+  it("no pisa Fecha inicio si ya trae una fecha", () => {
+    expect(
+      resolvePlaceholders("Fecha inicio: 15/05/2026\nFecha Término: 20/05/2026", baseCtx),
+    ).toBe("Fecha inicio: 15/05/2026\nFecha Término: 20/05/2026");
   });
 
   it("varios tokens en el mismo texto", () => {

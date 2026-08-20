@@ -1,5 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const findAccountMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    crmAccount: { findFirst: (...a: unknown[]) => findAccountMock(...a) },
+    crmContact: { findMany: vi.fn() },
+  },
+}));
+
 import {
+  enrichDteReceiverFromCrm,
   isDteReceptionEmail,
   normalizeAdditionalReferencesForSii,
   normalizeTipoDocRefForSii,
@@ -143,5 +154,78 @@ describe("resolveDteEmailRecipients", () => {
     expect(r.to).toBe("recepciondte@x.cl");
     expect(r.cc.length).toBeLessThanOrEqual(10);
     expect(r.cc).toContain("a@x.cl");
+  });
+});
+
+describe("enrichDteReceiverFromCrm", () => {
+  beforeEach(() => {
+    findAccountMock.mockReset();
+  });
+
+  it("sin cuenta no toca los campos", async () => {
+    const r = await enrichDteReceiverFromCrm({
+      tenantId: "t1",
+      current: { giro: "X" },
+    });
+    expect(r).toEqual({ giro: "X", adjusted: false });
+    expect(findAccountMock).not.toHaveBeenCalled();
+  });
+
+  it("completa giro/dirección/comuna/ciudad vacíos desde el CRM", async () => {
+    findAccountMock.mockResolvedValue({
+      giro: "CONSTRUCCION DE CARRETERAS",
+      industry: "Energía",
+      address: "PROVIDENCIA 1760 OF 2002",
+      commune: "PROVIDENCIA",
+      city: "Santiago",
+    });
+    const r = await enrichDteReceiverFromCrm({
+      tenantId: "t1",
+      crmAccountId: "acc-1",
+      current: {},
+    });
+    expect(r.adjusted).toBe(true);
+    expect(r.giro).toBe("CONSTRUCCION DE CARRETERAS");
+    expect(r.direccion).toBe("PROVIDENCIA 1760 OF 2002");
+    expect(r.comuna).toBe("PROVIDENCIA");
+    expect(r.ciudad).toBe("Santiago");
+  });
+
+  it("si no hay giro formal usa industry", async () => {
+    findAccountMock.mockResolvedValue({
+      giro: null,
+      industry: "Energía",
+      address: "Av 1",
+      commune: "Santiago",
+      city: "Santiago",
+    });
+    const r = await enrichDteReceiverFromCrm({
+      tenantId: "t1",
+      crmAccountId: "acc-1",
+    });
+    expect(r.giro).toBe("Energía");
+  });
+
+  it("no pisa valores ya presentes", async () => {
+    findAccountMock.mockResolvedValue({
+      giro: "OTRO GIRO",
+      industry: "X",
+      address: "OTRA DIR",
+      commune: "OTRA",
+      city: "Otra",
+    });
+    const r = await enrichDteReceiverFromCrm({
+      tenantId: "t1",
+      crmAccountId: "acc-1",
+      current: {
+        giro: "GIRO MANUAL",
+        direccion: "DIR MANUAL",
+        comuna: "COMUNA MANUAL",
+        ciudad: "CIUDAD MANUAL",
+      },
+    });
+    expect(r.adjusted).toBe(false);
+    expect(r.giro).toBe("GIRO MANUAL");
+    expect(findAccountMock).not.toHaveBeenCalled();
   });
 });

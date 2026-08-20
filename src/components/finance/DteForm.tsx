@@ -611,18 +611,24 @@ export function DteForm({
   // receptor con lo que tenga el CRM (dirección, comuna, ciudad, giro).
   // Si el campo del CRM está vacío, dejamos en blanco (el usuario puede
   // escribir o el provider usa defaults seguros para el SII).
+  // En carga de borrador solo rellenamos campos vacíos: un snapshot viejo
+  // no debe emitir "Sin Giro" si la ficha CRM ya tiene los datos.
   useEffect(() => {
     if (!customer) return;
-    if (skipCustomerAutofillRef.current) return; // carga inicial de draft.
+    const giroFromCrm = (customer.giro ?? "").trim();
+    const industryFromCrm = (customer.industry ?? "").trim();
+    const giro = giroFromCrm || industryFromCrm;
+    if (skipCustomerAutofillRef.current) {
+      setReceiverDireccion((prev) => prev.trim() || customer.address || "");
+      setReceiverComuna((prev) => prev.trim() || customer.commune || "");
+      setReceiverCiudad((prev) => prev.trim() || customer.city || "");
+      setReceiverGiro((prev) => prev.trim() || giro);
+      return;
+    }
     setReceiverDireccion(customer.address ?? "");
     setReceiverComuna(customer.commune ?? "");
     setReceiverCiudad(customer.city ?? "");
-    // Giro estricto del CRM; si está vacío, fallback al `industry`
-    // (sector comercial interno) — al menos llena algo razonable
-    // hasta que actualicen la ficha CRM con el giro formal.
-    const giroFromCrm = (customer.giro ?? "").trim();
-    const industryFromCrm = (customer.industry ?? "").trim();
-    setReceiverGiro(giroFromCrm || industryFromCrm);
+    setReceiverGiro(giro);
   }, [customer]);
 
   // Sincronizar el TO del picker con la fuente del receptor: el email
