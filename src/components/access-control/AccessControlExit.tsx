@@ -22,6 +22,8 @@ import type {
   AccessControlConfigData,
   FormFieldConfig,
 } from "@/lib/access-control/types";
+import { authFetch } from "@/app/portal/acceso/_lib/authFetch";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 interface InSiteRecord {
   id: string;
@@ -39,14 +41,17 @@ interface Props {
   guardId: string;
   config: AccessControlConfigData;
   onClose: () => void;
+  deviceToken?: string | null;
 }
 
 type ExitStep = "list" | "form";
 
-export function AccessControlExit({ installationId, guardId, config, onClose }: Props) {
+export function AccessControlExit({ installationId, guardId, config, onClose, deviceToken }: Props) {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [records, setRecords] = useState<InSiteRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [exitingId, setExitingId] = useState<string | null>(null);
   const [step, setStep] = useState<ExitStep>("list");
   const [selectedRecord, setSelectedRecord] = useState<InSiteRecord | null>(null);
@@ -57,20 +62,35 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const res = await fetch(
-        `/api/access-control/records/${installationId}/in-site${search ? `?search=${encodeURIComponent(search)}` : ""}`
+      const res = await authFetch(
+        `/api/access-control/records/${installationId}/in-site${
+          debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : ""
+        }`,
+        undefined,
+        deviceToken,
       );
-      const json = await res.json();
-      if (json.success) {
+      const json = await res.json().catch(() => ({ success: false, error: "Error al cargar registros" }));
+      if (res.ok && json.success) {
         setRecords(json.data.records);
+      } else {
+        setRecords([]);
+        const message =
+          res.status === 401
+            ? "No se pudo cargar quién está en sitio. Vuelve a emparejar el dispositivo."
+            : json.error || "Error al cargar registros";
+        setLoadError(message);
+        toast.error(message);
       }
     } catch {
+      setRecords([]);
+      setLoadError("Error al cargar registros");
       toast.error("Error al cargar registros");
     } finally {
       setLoading(false);
     }
-  }, [installationId, search]);
+  }, [installationId, debouncedSearch, deviceToken]);
 
   useEffect(() => {
     fetchRecords();
@@ -129,17 +149,21 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
           ? exitCustomFields.observations
           : null;
 
-      const res = await fetch(`/api/access-control/records/item/${record.id}/exit`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          exitGuardId: guardId,
-          gpsLat: gps?.lat,
-          gpsLng: gps?.lng,
-          exitObservations: observations,
-          exitCustomFields,
-        }),
-      });
+      const res = await authFetch(
+        `/api/access-control/records/item/${record.id}/exit`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            exitGuardId: guardId,
+            gpsLat: gps?.lat,
+            gpsLng: gps?.lng,
+            exitObservations: observations,
+            exitCustomFields,
+          }),
+        },
+        deviceToken,
+      );
 
       const json = await res.json();
       if (json.success) {
@@ -296,9 +320,13 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
           <div className="flex justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
           </div>
+        ) : loadError ? (
+          <p className="py-8 text-center text-sm text-status-danger-fg">
+            {loadError}
+          </p>
         ) : records.length === 0 ? (
           <p className="py-8 text-center text-sm text-zinc-500">
-            No hay personas en sitio
+            {debouncedSearch ? "Sin resultados para la búsqueda" : "No hay personas en sitio"}
           </p>
         ) : (
           <div className="space-y-2">

@@ -41,6 +41,7 @@ interface RegistroTabProps {
   onEntryRegistered?: () => void;
   quickEntry?: boolean;
   onQuickEntryConsumed?: () => void;
+  deviceToken?: string | null;
 }
 
 type ActiveFlow = "none" | "entry" | "exit";
@@ -55,6 +56,7 @@ export default function RegistroTab({
   onEntryRegistered,
   quickEntry,
   onQuickEntryConsumed,
+  deviceToken,
 }: RegistroTabProps) {
   const [activeFlow, setActiveFlow] = useState<ActiveFlow>("none");
 
@@ -88,6 +90,7 @@ export default function RegistroTab({
         installationId={installationId}
         guardId={guardId}
         config={config}
+        deviceToken={deviceToken}
         onClose={() => {
           setActiveFlow("none");
           onEntryRegistered?.();

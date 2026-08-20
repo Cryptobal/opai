@@ -32,6 +32,7 @@ import {
   stayDurationColor,
 } from "@/lib/access-control/utils";
 import { authFetch } from "../../_lib/authFetch";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -118,7 +119,9 @@ export default function EnSitioTab({
 }: EnSitioTabProps) {
   const [records, setRecords] = useState<InSiteRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [filterTime, setFilterTime] = useState<FilterTime>("all");
   const [exitingId, setExitingId] = useState<string | null>(null);
@@ -127,7 +130,7 @@ export default function EnSitioTab({
   const fetchRecords = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (search) params.set("search", search);
+      if (debouncedSearch) params.set("search", debouncedSearch);
 
       const url = `/api/access-control/records/${installationId}/in-site${
         params.toString() ? `?${params.toString()}` : ""
@@ -136,18 +139,27 @@ export default function EnSitioTab({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success) {
+        setLoadError(null);
         setRecords(json.data.records);
         setCounts({
           persons: json.data.personCount ?? 0,
           vehicles: json.data.vehicleCount ?? 0,
         });
+      } else {
+        setRecords([]);
+        setLoadError(json.error || "Error al cargar quién está en sitio");
       }
     } catch {
-      // Offline fallback
+      setRecords([]);
+      setLoadError(
+        deviceToken
+          ? "No se pudo cargar quién está en sitio"
+          : "No se pudo cargar quién está en sitio. Vuelve a emparejar el dispositivo.",
+      );
     } finally {
       setLoading(false);
     }
-  }, [installationId, search, deviceToken]);
+  }, [installationId, debouncedSearch, deviceToken]);
 
   // Fetch on mount + auto-refresh every 30s
   useEffect(() => {
@@ -335,7 +347,9 @@ export default function EnSitioTab({
         <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card opai-glass-soft-m py-12 px-4">
           <Inbox className="h-12 w-12 text-muted-foreground" />
           <p className="mt-3 text-sm font-medium text-muted-foreground">
-            {search || filterType !== "all" || filterTime !== "all"
+            {loadError
+              ? loadError
+              : debouncedSearch || filterType !== "all" || filterTime !== "all"
               ? "Sin resultados para los filtros aplicados"
               : "No hay personas o vehiculos en sitio"}
           </p>

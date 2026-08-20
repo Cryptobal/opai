@@ -478,6 +478,7 @@ export function AccessPortalApp() {
             guardId={guardId}
             tenantId=""
             config={config}
+            deviceToken={device.deviceToken}
             onEntryRegistered={() => {}}
             quickEntry={quickEntryRequested}
             onQuickEntryConsumed={() => setQuickEntryRequested(false)}

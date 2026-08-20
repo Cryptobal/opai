@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
+import { buildAccessRecordSearchOr } from "@/lib/access-control/utils";
 
 export async function GET(
   request: NextRequest,
@@ -48,12 +49,7 @@ export async function GET(
     }
 
     if (search) {
-      where.OR = [
-        { fullName: { contains: search, mode: "insensitive" } },
-        { rut: { contains: search } },
-        { company: { contains: search, mode: "insensitive" } },
-        { vehiclePlate: { contains: search, mode: "insensitive" } },
-      ];
+      where.OR = buildAccessRecordSearchOr(search, { includeCompany: true });
     }
 
     if (listMatch === "none") {
