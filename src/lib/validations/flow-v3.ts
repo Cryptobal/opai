@@ -2,6 +2,27 @@ import { z } from "zod";
 
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD");
 
+export const flowSubRowRecurrenceSchema = z.object({
+  amount: z.number().finite().min(-99_999_999_999).max(99_999_999_999).optional().default(0),
+  frequency: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
+  dayOfMonth: z.number().int().min(1).max(31).nullish(),
+  startDate: ymd,
+  endDate: ymd.nullish(),
+  endAfterOccurrences: z.number().int().min(1).max(240).nullish(),
+  currency: z.enum(["CLP", "UF"]).optional().default("CLP"),
+  amountUf: z.number().finite().positive().max(1_000_000).nullish(),
+  ufPolicy: z
+    .enum(["RUN_DAY", "LAST_DAY_MONTH", "LAST_DAY_PREV_MONTH", "CUSTOM_DAY", "FIRST_DAY_MONTH"])
+    .nullish(),
+  ufCustomDay: z.number().int().min(1).max(31).nullish(),
+  note: z.string().max(2000).nullish(),
+});
+
+export const flowSubRowMatchRuleSchema = z.object({
+  rut: z.string().trim().max(32).optional(),
+  description: z.string().trim().max(200).optional(),
+});
+
 export const flowSectionSchema = z.enum([
   "INGRESOS",
   "REMUNERACIONES",
@@ -15,6 +36,7 @@ export const flowMatrixQuerySchema = z.object({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
   horizon: z.enum(["week", "month"]).default("week"),
+  archived: z.enum(["0", "1", "true", "false"]).optional(),
 });
 
 export const flowRowKeySchema = z.enum([
@@ -57,29 +79,8 @@ export const flowRowCreateSchema = z
     /** Categoría padre (GAV/OTROS). Solo un nivel. */
     parentId: z.string().uuid().optional(),
     /** Egreso recurrente de la subfila (opcional; el diálogo lo envía). */
-    recurrence: z
-      .object({
-        amount: z.number().finite().min(-99_999_999_999).max(99_999_999_999).optional().default(0),
-        frequency: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
-        dayOfMonth: z.number().int().min(1).max(31).nullish(),
-        startDate: ymd,
-        endDate: ymd.nullish(),
-        endAfterOccurrences: z.number().int().min(1).max(240).nullish(),
-        currency: z.enum(["CLP", "UF"]).optional().default("CLP"),
-        amountUf: z.number().finite().positive().max(1_000_000).nullish(),
-        ufPolicy: z
-          .enum(["RUN_DAY", "LAST_DAY_MONTH", "LAST_DAY_PREV_MONTH", "CUSTOM_DAY", "FIRST_DAY_MONTH"])
-          .nullish(),
-        ufCustomDay: z.number().int().min(1).max(31).nullish(),
-        note: z.string().max(2000).nullish(),
-      })
-      .optional(),
-    matchRule: z
-      .object({
-        rut: z.string().trim().max(32).optional(),
-        description: z.string().trim().max(200).optional(),
-      })
-      .optional(),
+    recurrence: flowSubRowRecurrenceSchema.optional(),
+    matchRule: flowSubRowMatchRuleSchema.optional(),
   })
   .refine((v) => v.mapping !== "ACCOUNT_INSTALLATION" || !!v.crmAccountId, {
     message: "crmAccountId requerido para mapping ACCOUNT_INSTALLATION",
@@ -115,6 +116,8 @@ export const flowRowUpdateSchema = z
     /** @deprecated Preferir accountPlanIds. */
     categoryId: z.string().uuid().optional(),
     mapping: z.enum(["ACCOUNTS", "CATEGORY", "MANUAL"]).optional(),
+    recurrence: flowSubRowRecurrenceSchema.optional(),
+    matchRule: flowSubRowMatchRuleSchema.optional(),
   })
   .refine(
     (v) =>
@@ -123,7 +126,9 @@ export const flowRowUpdateSchema = z
       v.accountPlanIds != null ||
       v.canonicalKey !== undefined ||
       v.categoryId != null ||
-      v.mapping != null,
+      v.mapping != null ||
+      v.recurrence != null ||
+      v.matchRule != null,
     { message: "Nada que actualizar" },
   );
 

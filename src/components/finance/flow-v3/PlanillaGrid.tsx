@@ -48,7 +48,7 @@ import {
 } from "./RowDialogs";
 import { RecurringExpenseDialog } from "./RecurringExpenseDialog";
 import { AddSubRowDialog } from "./AddSubRowDialog";
-import { applySubrowVisibility, canHaveSubRows } from "@/modules/finance/flow-v3/row-tree";
+import { applySubrowVisibility } from "@/modules/finance/flow-v3/row-tree";
 import { CellActionSheet } from "./CellActionSheet";
 import { SumPill } from "./SumPill";
 import { UnmatchedIncomeList } from "./UnmatchedIncomeList";
@@ -1190,6 +1190,7 @@ export function PlanillaGrid({
       onSetDiasCobro: (row: FlowMatrixRowDto, template: RowTemplate) => setRowDialog({ kind: "dias", row, template }),
       onRecurring: (row: FlowMatrixRowDto) => setRowDialog({ kind: "recurring", row }),
       onAddSubRow: (row: FlowMatrixRowDto) => setRowDialog({ kind: "subrow", row }),
+      onEditSubRow: (row: FlowMatrixRowDto) => setRowDialog({ kind: "subrow", row }),
       onArchive,
       onUnarchive: (row: FlowMatrixRowDto) => void actions.unarchiveRow(row.id),
       onDelete: (row: FlowMatrixRowDto) => setRowDialog({ kind: "delete", row }),
@@ -1745,9 +1746,6 @@ export function PlanillaGrid({
                         childCount: row.childCount ?? 0,
                         expanded: !rolledUpIds.has(row.id),
                         onToggle: () => toggleParentExpand(row.id),
-                        onAddSubRow: canManage && canHaveSubRows(row)
-                          ? () => setRowDialog({ kind: "subrow", row })
-                          : undefined,
                       }}
                       onRowContext={() => setCtxTarget({ kind: "row", rowId: row.id })}
                       onOpenRowSheet={() => setSheetTarget({ kind: "row", rowId: row.id })}
@@ -2072,15 +2070,38 @@ export function PlanillaGrid({
         onDelete={(id) => actions.deleteRecurring(id, false)}
       />
       <AddSubRowDialog
-        parent={rowDialog?.kind === "subrow" ? rowDialog.row : null}
+        parent={
+          rowDialog?.kind === "subrow"
+            ? (rowDialog.row.parentId
+              ? (data.rows.find((r) => r.id === rowDialog.row.parentId) ?? rowDialog.row)
+              : rowDialog.row)
+            : null
+        }
+        children={
+          rowDialog?.kind === "subrow"
+            ? data.rows.filter((r) => r.parentId === (rowDialog.row.parentId ?? rowDialog.row.id))
+            : []
+        }
+        initialChildId={
+          rowDialog?.kind === "subrow" && rowDialog.row.parentId ? rowDialog.row.id : null
+        }
         busy={busy}
         onClose={() => setRowDialog(null)}
         onConfirm={async (body) => {
           const r = await actions.createSubRow(body);
           if (r && rowDialog?.kind === "subrow") {
-            persistExpanded(new Set([...expandedParents, rowDialog.row.id]));
+            const parentId = rowDialog.row.parentId ?? rowDialog.row.id;
+            persistExpanded(new Set([...expandedParents, parentId]));
           }
           return r;
+        }}
+        onUpdate={(childId, body) => actions.updateSubRow(childId, body)}
+        onDelete={async (childId) => {
+          const child = data.rows.find((r) => r.id === childId);
+          const r = await actions.deleteRow(childId);
+          if (r.ok) return r;
+          if (child) setRowDialog({ kind: "deleteBlocked", row: child, reason: r.reason });
+          return null;
         }}
       />
 
@@ -2088,7 +2109,11 @@ export function PlanillaGrid({
         open={rowDialog?.kind === "delete"}
         onOpenChange={(o) => !o && setRowDialog(null)}
         title={`Eliminar «${rowDialog?.kind === "delete" ? rowDialog.row.name : ""}»`}
-        description="La fila se elimina definitivamente. Solo es posible si no tiene plan, comprometido ni real en ninguna semana."
+        description={
+          rowDialog?.kind === "delete" && rowDialog.row.parentId
+            ? "Se elimina la subfila y su proyección en semanas abiertas. Semanas cerradas y movimientos reales no se tocan."
+            : "La fila se elimina definitivamente. Solo es posible si no tiene plan, comprometido ni real en ninguna semana."
+        }
         confirmLabel="Eliminar"
         loading={busy}
         onConfirm={async () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -113,13 +113,12 @@ interface Props {
     crmAccountId: string | null;
     daysOverdue: number;
   }) => void;
-  /** Árbol GAV: indent + chevron + alta de subfila. */
+  /** Árbol GAV: indent + chevron. El alta de subfila va en el menú ⋮. */
   tree?: {
     depth: 0 | 1;
     childCount: number;
     expanded: boolean;
     onToggle: () => void;
-    onAddSubRow?: () => void;
   };
 }
 
@@ -280,20 +279,6 @@ export function PlanillaRow(p: Props) {
                 </span>
               )}
             </span>
-            {p.tree?.onAddSubRow && (
-              <button
-                type="button"
-                className="ml-auto shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 opacity-60 focus:opacity-100 md:h-7 md:w-7 md:opacity-0 md:group-hover:opacity-100"
-                aria-label={`Agregar subfila en ${row.name}`}
-                title="Agregar subfila"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  p.tree?.onAddSubRow?.();
-                }}
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            )}
             {showMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

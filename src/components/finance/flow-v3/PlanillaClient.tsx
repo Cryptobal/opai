@@ -54,9 +54,9 @@ export function PlanillaClient({
 }) {
   const isMobile = useIsMobileViewport();
   const { theme: appTheme } = useTheme();
-  const m = usePlanillaMatrix();
-  const actions = usePlanillaActions(m.refetch);
   const view = usePlanillaViewPrefs(tenantId);
+  const m = usePlanillaMatrix({ includeArchived: view.prefs.showArchived });
+  const actions = usePlanillaActions(m.refetch);
 
   // Hoja sigue al shell: noche → planilla dark; día → papel. Solo scoped.
   useEffect(() => {
@@ -550,6 +550,7 @@ export function PlanillaClient({
         freeze={view.prefs.freeze}
         showChips={view.prefs.showChips}
         showZeros={showZeros}
+        showArchived={view.prefs.showArchived}
         numberFormat={view.prefs.numberFormat}
         canManage={canManage}
         hasSelection={!!cellSel}
@@ -565,6 +566,7 @@ export function PlanillaClient({
         onFreeze={view.setFreeze}
         onChips={view.setShowChips}
         onZeros={toggleZeros}
+        onArchived={() => view.setShowArchived(!view.prefs.showArchived)}
         onDensity={view.setDensity}
         onFullscreen={() => void doFullscreen()}
         onBold={() => {

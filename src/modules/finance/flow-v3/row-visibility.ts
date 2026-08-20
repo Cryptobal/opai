@@ -43,7 +43,8 @@ export function normalizeNameForDedupe(s: string): string {
  * ACCOUNT_INSTALLATION sin (b)/(c) se oculta (fantasmas de programaciones
  * pausadas/eliminadas o filas genéricas archivables).
  *
- * Archivadas: solo si tienen datos con week ≤ cutoff (regla previa).
+ * Archivadas: solo si tienen datos con week ≤ cutoff (regla previa),
+ * salvo `includeArchived` (toggle Ver → Filas archivadas).
  */
 export function shouldIncludeFlowRow(opts: {
   row: VisibilityRow;
@@ -53,10 +54,13 @@ export function shouldIncludeFlowRow(opts: {
   hasDataBeforeCutoff: boolean;
   archivedCutoffYmd: string | null;
   template: ActiveTemplateRef | null | undefined;
+  /** Incluir archivadas aunque no tengan monto en la ventana. */
+  includeArchived?: boolean;
 }): boolean {
   const { row } = opts;
 
   if (row.archivedAt) {
+    if (opts.includeArchived) return true;
     return opts.hasDataBeforeCutoff;
   }
 

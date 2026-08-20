@@ -6,6 +6,9 @@ vi.mock("../load-committed-income", () => ({
 }));
 vi.mock("../load-committed-expense", () => ({ loadCommittedExpense: vi.fn(async () => new Map()) }));
 vi.mock("../load-real", () => ({ loadReal: vi.fn(async () => new Map()) }));
+vi.mock("../weekly-close.adapter", () => ({
+  listClosedV3Weeks: vi.fn(async () => []),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $transaction: vi.fn(),
@@ -14,7 +17,7 @@ vi.mock("@/lib/prisma", () => ({
     financeCashflowCategory: { findFirst: vi.fn() },
     financeSupplier: { findFirst: vi.fn() },
     financeDteRecurringTemplate: { findMany: vi.fn() },
-    financeFlowPlanCell: { count: vi.fn() },
+    financeFlowPlanCell: { count: vi.fn(), findMany: vi.fn() },
     financeFlowRow: {
       findFirst: vi.fn(),
       findFirstOrThrow: vi.fn(),
@@ -31,6 +34,7 @@ vi.mock("@/lib/prisma", () => ({
 import { prisma } from "@/lib/prisma";
 import { loadCommittedIncome } from "../load-committed-income";
 import { loadReal } from "../load-real";
+import { listClosedV3Weeks } from "../weekly-close.adapter";
 import { createRow, archiveRow, deleteRow, updateRow } from "../rows.service";
 
 const TENANT = "t1";
@@ -38,6 +42,8 @@ const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  asMock(prisma.financeFlowPlanCell.findMany).mockResolvedValue([]);
+  asMock(listClosedV3Weeks).mockResolvedValue([]);
 });
 
 describe("createRow", () => {
@@ -226,6 +232,33 @@ describe("deleteRow", () => {
     asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(cleanRow);
     asMock(prisma.financeFlowRow.count).mockResolvedValue(2);
     await expect(deleteRow(TENANT, "row-1")).rejects.toThrow(/subfilas/i);
+    expect(prisma.financeFlowRow.delete).not.toHaveBeenCalled();
+  });
+
+  it("elimina una subfila con plan en semanas abiertas", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      ...cleanRow, id: "child-1", parentId: "parent-1",
+    });
+    asMock(prisma.financeFlowRow.count).mockResolvedValue(0);
+    asMock(prisma.financeFlowPlanCell.findMany).mockResolvedValue([
+      { weekStart: new Date("2026-08-10T00:00:00Z") },
+    ]);
+    asMock(prisma.financeFlowRow.delete).mockResolvedValue({});
+    const res = await deleteRow(TENANT, "child-1");
+    expect(res).toEqual({ deleted: true });
+    expect(prisma.financeFlowRow.delete).toHaveBeenCalledWith({ where: { id: "child-1" } });
+  });
+
+  it("409 si la subfila tiene plan en una semana cerrada", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      ...cleanRow, id: "child-1", parentId: "parent-1",
+    });
+    asMock(prisma.financeFlowRow.count).mockResolvedValue(0);
+    asMock(prisma.financeFlowPlanCell.findMany).mockResolvedValue([
+      { weekStart: new Date("2026-08-03T00:00:00Z") },
+    ]);
+    asMock(listClosedV3Weeks).mockResolvedValue(["2026-08-03"]);
+    await expect(deleteRow(TENANT, "child-1")).rejects.toThrow(/semanas cerradas/i);
     expect(prisma.financeFlowRow.delete).not.toHaveBeenCalled();
   });
 });

@@ -69,6 +69,8 @@ export interface PlanillaViewPrefs {
   cellStyles: CellStylesMap;
   /** Ancho columna Concepto (desktop), px. */
   nameW: number;
+  /** Mostrar filas archivadas en la planilla. */
+  showArchived: boolean;
 }
 
 const NAME_W_MIN = 140;
@@ -106,6 +108,7 @@ const DEFAULTS: PlanillaViewPrefs = {
   freeze: true,
   cellStyles: {},
   nameW: NAME_W_DEFAULT,
+  showArchived: false,
 };
 
 function storageKey(tenantId: string): string {
@@ -146,6 +149,7 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
     o.numberFormat === "m" || o.numberFormat === "mm" ? o.numberFormat : "clp";
   const freeze = o.freeze !== false;
   const nameW = typeof o.nameW === "number" ? clampNameW(o.nameW) : NAME_W_DEFAULT;
+  const showArchived = o.showArchived === true;
   const cellStyles: CellStylesMap = {};
   if (o.cellStyles && typeof o.cellStyles === "object") {
     for (const [k, v] of Object.entries(o.cellStyles as Record<string, unknown>)) {
@@ -162,7 +166,7 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
   }
   return {
     theme, density, zoom, showChips, visualStages, showToolbarLabels,
-    numberFormat, freeze, cellStyles, nameW,
+    numberFormat, freeze, cellStyles, nameW, showArchived,
   };
 }
 
@@ -240,6 +244,7 @@ export function usePlanillaViewPrefs(tenantId: string) {
     [patch],
   );
   const setFreeze = useCallback((freeze: boolean) => patch({ freeze }), [patch]);
+  const setShowArchived = useCallback((showArchived: boolean) => patch({ showArchived }), [patch]);
   const setNameW = useCallback((nameW: number) => patch({ nameW: clampNameW(nameW) }), [patch]);
 
   const getCellStyle = useCallback(
@@ -335,6 +340,7 @@ export function usePlanillaViewPrefs(tenantId: string) {
     setShowToolbarLabels,
     setNumberFormat,
     setFreeze,
+    setShowArchived,
     setNameW,
     getCellStyle,
     setCellStyle,

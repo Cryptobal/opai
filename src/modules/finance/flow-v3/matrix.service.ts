@@ -50,7 +50,13 @@ function remapSentinels<T>(map: Map<string, T>, keyFor: (sentinel: string) => st
 
 export async function buildFlowMatrix(
   tenantId: string,
-  q: { from?: Date; to?: Date; granularity?: "week" | "month"; allowBootstrap?: boolean },
+  q: {
+    from?: Date;
+    to?: Date;
+    granularity?: "week" | "month";
+    allowBootstrap?: boolean;
+    includeArchived?: boolean;
+  },
 ): Promise<FlowMatrixResponse> {
   const today = new Date();
   const todayYmd = toYmd(today);
@@ -296,6 +302,7 @@ export async function buildFlowMatrix(
       hasDataBeforeCutoff: cutoff != null ? hasAnyData(r.id, cutoff) : false,
       archivedCutoffYmd: cutoff,
       template: tpl,
+      includeArchived: q.includeArchived === true,
     });
     if (!include) continue;
     const sourceName = sourceNameFor(r);

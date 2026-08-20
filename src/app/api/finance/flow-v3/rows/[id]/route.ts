@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { flowV3Error, requireFlowV3 } from "@/modules/finance/flow-v3/api-guard";
 import { deleteRow, updateRow } from "@/modules/finance/flow-v3/rows.service";
+import { updateSubRow } from "@/modules/finance/flow-v3/sub-row.service";
 import { flowRowUpdateSchema } from "@/lib/validations/flow-v3";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,28 @@ export async function PATCH(
       const issues = parsed.error.issues.map((i) => i.message).join("; ");
       return NextResponse.json({ success: false, error: issues }, { status: 400 });
     }
-    const row = await updateRow(guard.ctx.tenantId, id, parsed.data);
+    const { recurrence, matchRule, ...rowPatch } = parsed.data;
+    const row = recurrence != null || matchRule != null
+      ? (await updateSubRow(guard.ctx.tenantId, id, {
+          name: parsed.data.name,
+          recurrence: recurrence
+            ? {
+                amount: recurrence.amount ?? 0,
+                frequency: recurrence.frequency,
+                dayOfMonth: recurrence.dayOfMonth,
+                startDate: recurrence.startDate,
+                endDate: recurrence.endDate,
+                endAfterOccurrences: recurrence.endAfterOccurrences,
+                currency: recurrence.currency,
+                amountUf: recurrence.amountUf,
+                ufPolicy: recurrence.ufPolicy,
+                ufCustomDay: recurrence.ufCustomDay,
+                note: recurrence.note,
+              }
+            : null,
+          matchRule,
+        }, guard.ctx.userId)).row
+      : await updateRow(guard.ctx.tenantId, id, rowPatch);
     return NextResponse.json({ success: true, data: row });
   } catch (error) {
     console.error("[Finance/FlowV3] PATCH row:", error);
@@ -27,7 +49,7 @@ export async function PATCH(
   }
 }
 
-/** Elimina una fila SIN historial. 409 (con motivo) si tiene plan/comprometido/real. */
+/** Elimina una fila SIN historial operativo. 409 (con motivo) si hay que archivar. */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },

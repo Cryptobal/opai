@@ -12,6 +12,7 @@ interface Props {
   freeze: boolean;
   showChips: boolean;
   showZeros: boolean;
+  showArchived: boolean;
   numberFormat: NumberFormatMode;
   canManage: boolean;
   hasSelection: boolean;
@@ -27,6 +28,7 @@ interface Props {
   onFreeze: (v: boolean) => void;
   onChips: (v: boolean) => void;
   onZeros: () => void;
+  onArchived: () => void;
   onDensity: (d: PlanillaDensity) => void;
   onFullscreen: () => void;
   onBold: () => void;
@@ -164,6 +166,10 @@ export function PlanillaMenubar(p: Props) {
                     onClick={close(() => p.onChips(false))}
                   />
                   <Item label={p.showZeros ? "Ocultar ceros" : "Mostrar ceros"} onClick={close(p.onZeros)} />
+                  <Item
+                    label={`Filas archivadas${p.showArchived ? " ✓" : ""}`}
+                    onClick={close(p.onArchived)}
+                  />
                   <div className="my-1 border-t border-ds-border-subtle" />
                   {([["compact", "Densidad compacta"], ["standard", "Densidad estándar"], ["comfortable", "Densidad cómoda"]] as const).map(([k, l]) => (
                     <Item
