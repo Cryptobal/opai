@@ -10,6 +10,7 @@ export const MOVABLE_MILESTONE_KEYS: readonly ExpenseMilestoneKey[] = [
   "previred",
   "impuesto_unico",
   "f29",
+  "iva_postergado",
   "turnos_extra",
   "retiro_socio",
   "finiquitos",

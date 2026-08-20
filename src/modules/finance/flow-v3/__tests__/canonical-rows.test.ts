@@ -27,6 +27,16 @@ describe("SECTION_MOVES", () => {
     expect(RETIRED_CANONICAL_ROW_NAMES).toContain("Devolución préstamo socios");
   });
 
+  it("incluye IVA postergado inmediatamente después de IVA F29", () => {
+    const ivaIdx = CANONICAL_FLOW_ROWS.findIndex((r) => r.canonicalKey === "IVA_F29");
+    expect(CANONICAL_FLOW_ROWS[ivaIdx + 1]).toEqual({
+      section: "IMPUESTOS",
+      name: "IVA postergado",
+      categoryCode: null,
+      canonicalKey: "IVA_POSTERGADO",
+    });
+  });
+
   it("incluye fila Finiquitos en REMUNERACIONES con EGR_FINIQUITO + FINIQUITO", () => {
     expect(CANONICAL_FLOW_ROWS).toContainEqual({
       section: "REMUNERACIONES",

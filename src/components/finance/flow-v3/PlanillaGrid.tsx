@@ -1240,6 +1240,12 @@ export function PlanillaGrid({
       onMoveMilestone: (milestoneKey: string, billingPeriod: string, targetWeek: string) => {
         void actions.moveMilestone(milestoneKey, billingPeriod, targetWeek);
       },
+      onPostponeIva: (taxPeriod: string) => {
+        void actions.postponeIva(taxPeriod);
+      },
+      onUndoIvaPostpone: (taxPeriod: string) => {
+        void actions.undoIvaPostpone(taxPeriod);
+      },
       onViewDetail: () => openPopover(sel),
       onEditNote: canManage ? () => openPopover(sel, undefined, { focusNote: true }) : undefined,
       onViewDte: (dteId: string) => onViewDte?.(dteId),

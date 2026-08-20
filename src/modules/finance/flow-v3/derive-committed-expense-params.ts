@@ -96,7 +96,8 @@ export function computeFiniquitosMonthly(
  * debito = round(0.19 * ventasNetasProyectadas)
  * credito = round(0.19 * netoFacturasRecibidas) + round(fraccionRestante * avgCreditoHistorico)
  * total = max(0, debito - credito + ppm)
- * Devuelve { total, debito, credito, ppm, clamped }
+ * ivaDeterminado = debito - credito (puede ser ≤ 0; no cambia `total`)
+ * Devuelve { total, debito, credito, ppm, ivaDeterminado, clamped }
  */
 export function computeF29FutureClp(args: {
   ventasNetasProyectadas: number;
@@ -104,7 +105,14 @@ export function computeF29FutureClp(args: {
   avgCreditoHistorico: number;
   fractionElapsed: number; // 0..1 del período
   ppmClp: number;
-}): { total: number; debito: number; credito: number; ppm: number; clamped: boolean } {
+}): {
+  total: number;
+  debito: number;
+  credito: number;
+  ppm: number;
+  ivaDeterminado: number;
+  clamped: boolean;
+} {
   const ventas = Number.isFinite(args.ventasNetasProyectadas) ? args.ventasNetasProyectadas : 0;
   const neto = Number.isFinite(args.netoFacturasRecibidas) ? args.netoFacturasRecibidas : 0;
   const avgCredito = Number.isFinite(args.avgCreditoHistorico) ? args.avgCreditoHistorico : 0;
@@ -117,9 +125,10 @@ export function computeF29FutureClp(args: {
   const fraccionRestante = 1 - elapsed;
   const credito =
     Math.round(0.19 * neto) + Math.round(fraccionRestante * avgCredito);
-  const raw = debito - credito + ppm;
+  const ivaDeterminado = debito - credito;
+  const raw = ivaDeterminado + ppm;
   const total = Math.max(0, raw);
-  return { total, debito, credito, ppm, clamped: raw < 0 };
+  return { total, debito, credito, ppm, ivaDeterminado, clamped: raw < 0 };
 }
 
 /** Desviación: projected (plan≠0 ? plan : committed), real, delta=real-projected, pct. */

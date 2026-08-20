@@ -8768,6 +8768,9 @@ model FinanceCashflowConfig {
   /// 10 = día 10 hábil del mes siguiente al período trabajado.
   previRedPayDay                 Int                    @default(10) @map("previred_pay_day")
   ivaPayDay                      Int                    @default(12) @map("iva_pay_day")
+  /// Vencimiento del giro de IVA postergado (SII art. 64 DL 825). Día 20
+  /// para facturadores electrónicos. No altera registros ya persistidos.
+  ivaPostponedPayDay             Int                    @default(20) @map("iva_postponed_pay_day")
   /// Tasa PPM (Pago Provisional Mensual obligatorio) en % sobre los
   /// ingresos brutos del giro (ej. 0.125 = 0,125%; 1.0 = 1%). Se suma al
   /// IVA determinado para componer el total a pagar del F29. Default 0 =
@@ -9118,6 +9121,33 @@ model FinanceCashflowMilestoneDateOverride {
   @@schema("finance")
 }
 
+/// Decisión de postergar el pago del IVA de un período tributario (SII,
+/// hasta 2 meses). Solo reubica caja en el flujo: no altera el F29, el
+/// remanente ni el Libro IVA. Deshacer = borrar la fila.
+/// Las fechas persistidas no se recalculan si cambia ivaPayDay /
+/// ivaPostponedPayDay después.
+model FinanceIvaPostponement {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String   @map("tenant_id")
+  /// Período tributario del IVA postergado (YYYY-MM, mes de las ventas).
+  taxPeriod        String   @map("tax_period")
+  /// Fecha natural de pago del F29 (día ivaPayDay del mes siguiente).
+  originalPayDate  DateTime @map("original_pay_date") @db.Date
+  /// Vencimiento del giro postergado (original + 2 meses).
+  postponedPayDate DateTime @map("postponed_pay_date") @db.Date
+  /// Snapshot del IVA determinado al postergar (auditoría; el monto que se
+  /// muestra siempre se recalcula al vuelo).
+  deferredAmountClp Decimal @map("deferred_amount_clp") @db.Decimal(14, 2)
+  createdBy        String   @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, taxPeriod], map: "uq_finance_iva_postponement")
+  @@index([tenantId, postponedPayDate], map: "idx_finance_iva_postponement_pay")
+  @@map("finance_iva_postponements")
+  @@schema("finance")
+}
+
 model FinanceCashflowDteDateOverride {
   id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId     String     @map("tenant_id")
@@ -9267,6 +9297,7 @@ enum FlowRowKey {
   TURNO_EXTRA
   FINIQUITO
   IVA_F29
+  IVA_POSTERGADO
   OTRO_IMPUESTO
   FACTORING
   RETIRO_SOCIO

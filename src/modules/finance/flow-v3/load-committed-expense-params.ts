@@ -29,6 +29,12 @@ import { loadReal } from "./load-real";
 import { expandOccurrenceDates } from "./recurring-plan.service";
 import { weekStartYmd, ymdToDate, enumerateWeeks, toYmd as dateToYmd } from "./weeks";
 import type { FlowRowRef } from "./types";
+import {
+  F29_LOOKBACK_MONTHS,
+  lookbackFromYmd,
+  splitF29Milestone,
+  type IvaPostponementRef,
+} from "./iva-postponement";
 
 const IVA = 1.19;
 
@@ -390,6 +396,37 @@ export async function sumProjectedVentasNetasForPeriod(
   return sumEmissionNetSalesForPeriod(tenantId, periodo);
 }
 
+/**
+ * F29 proyectado de un período en curso/futuro (misma fórmula que el loader).
+ * `avgCreditoHistorico` opcional evita repetir el promedio en el loop.
+ */
+export async function computeProjectedF29ForPeriod(args: {
+  tenantId: string;
+  taxPeriod: string;
+  todayYmd: string;
+  ppmRatePct: number;
+  avgCreditoHistorico?: number;
+}): Promise<ReturnType<typeof computeF29FutureClp>> {
+  const [y, mo] = args.taxPeriod.split("-").map(Number);
+  const monthZero = mo - 1;
+  const [ventasNetas, netoRecibidas, avgCredito] = await Promise.all([
+    sumProjectedVentasNetasForPeriod(args.tenantId, [], [], args.todayYmd, args.taxPeriod),
+    sumReceivedNetForPeriod(args.tenantId, args.taxPeriod),
+    args.avgCreditoHistorico != null
+      ? Promise.resolve(args.avgCreditoHistorico)
+      : avgHistoricalCreditoFiscal(args.tenantId, args.taxPeriod),
+  ]);
+  const ventasBrutas = Math.round(ventasNetas * 1.19);
+  const ppmClp = Math.round(ventasBrutas * (args.ppmRatePct / 100));
+  return computeF29FutureClp({
+    ventasNetasProyectadas: ventasNetas,
+    netoFacturasRecibidas: netoRecibidas,
+    avgCreditoHistorico: avgCredito,
+    fractionElapsed: fractionElapsedInPeriod(args.todayYmd, y, monthZero),
+    ppmClp,
+  });
+}
+
 function fractionElapsedInPeriod(todayYmd: string, y: number, monthZeroIdx: number): number {
   const start = new Date(`${periodoKey(y, monthZeroIdx)}-01T00:00:00.000Z`);
   const end = new Date(Date.UTC(y, monthZeroIdx + 1, 1));
@@ -432,6 +469,7 @@ export async function loadExpenseParametrics(
     previredDay: number;
     ivaDay: number;
     pendingTeTotal: number;
+    postponements?: Map<string, IvaPostponementRef>;
   },
 ): Promise<ExpenseParametricsResult> {
   const milestones: ExpenseMilestoneInput[] = [];
@@ -702,38 +740,38 @@ export async function loadExpenseParametrics(
   }
 
   // ── D. IVA F29 futuro (período en curso y futuros) ──
+  const postponements = payroll.postponements ?? new Map<string, IvaPostponementRef>();
   const avgCredito = await avgHistoricalCreditoFiscal(
     tenantId,
     periodoKey(today.getUTCFullYear(), today.getUTCMonth()),
   );
-  for (const { y, m } of horizonMonths) {
+  const f29Months = monthsBetween(lookbackFromYmd(fromYmd, F29_LOOKBACK_MONTHS), toYmd);
+  for (const { y, m } of f29Months) {
     const periodEnd = new Date(Date.UTC(y, m + 1, 1));
     if (periodEnd.getTime() <= today.getTime()) continue;
     const periodo = periodoKey(y, m);
     const payYmd = ymdOf(m === 11 ? y + 1 : y, (m + 1) % 12, payroll.ivaDay);
-    if (payYmd < fromYmd || payYmd > toYmd) continue;
+    const postponement = postponements.get(periodo) ?? null;
 
-    const [ventasNetas, netoRecibidas] = await Promise.all([
-      sumProjectedVentasNetasForPeriod(tenantId, rows, weeks, todayYmd, periodo),
-      sumReceivedNetForPeriod(tenantId, periodo),
-    ]);
-    const ventasBrutas = Math.round(ventasNetas * 1.19);
-    const ppmClp = Math.round(ventasBrutas * (ppmRatePct / 100));
-    const f29 = computeF29FutureClp({
-      ventasNetasProyectadas: ventasNetas,
-      netoFacturasRecibidas: netoRecibidas,
+    const f29 = await computeProjectedF29ForPeriod({
+      tenantId,
+      taxPeriod: periodo,
+      todayYmd,
+      ppmRatePct,
       avgCreditoHistorico: avgCredito,
-      fractionElapsed: fractionElapsedInPeriod(todayYmd, y, m),
-      ppmClp,
     });
-    if (f29.total <= 0 && !f29.clamped) continue;
-    milestones.push({
-      key: "f29",
-      label: `IVA F29 ${periodo} (proy.)`,
-      dateYmd: payYmd,
-      amountClp: f29.total,
-      metaNote: f29.clamped ? "IVA a favor — pago clamp 0" : undefined,
-    });
+    if (f29.total <= 0 && !f29.clamped && !postponement) continue;
+    milestones.push(
+      ...splitF29Milestone({
+        taxPeriod: periodo,
+        payYmd,
+        totalAPagarClp: f29.total,
+        ivaDeterminadoClp: f29.ivaDeterminado,
+        postponement,
+        labelSuffix: "(proy.)",
+        metaNote: f29.clamped ? "IVA a favor — pago clamp 0" : undefined,
+      }),
+    );
   }
 
   return {

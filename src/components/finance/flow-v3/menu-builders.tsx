@@ -259,6 +259,10 @@ export interface CellMenuCallbacks {
   onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
   /** Mueve un hito de egreso (quincena, sueldos, …). */
   onMoveMilestone?: (milestoneKey: string, billingPeriod: string, targetWeek: string) => void;
+  /** Posterga el IVA determinado de un período tributario (2 meses). */
+  onPostponeIva?: (taxPeriod: string) => void;
+  /** Deshace la postergación de IVA de un período. */
+  onUndoIvaPostpone?: (taxPeriod: string) => void;
   onViewDetail: () => void;
   /** Abre el detalle enfocado en el editor de nota. */
   onEditNote?: () => void;
@@ -764,6 +768,69 @@ function planCellItems(
   return items;
 }
 
+/** Postergar / deshacer IVA desde la celda F29 o IVA postergado. */
+function ivaPostponeItems(
+  row: FlowMatrixRowDto,
+  cell: FlowMatrixCellDto,
+  ctx: CellMenuContext,
+  cb: CellMenuCallbacks,
+): MenuItemDesc[] {
+  const items = cell.committed?.items ?? [];
+  const sealed = ctx.reason === "Semana cerrada";
+  const disabled = !ctx.canManage || sealed;
+  const reason = !ctx.canManage
+    ? "Sin permiso de edición"
+    : sealed
+      ? "Semana cerrada"
+      : undefined;
+
+  if (row.canonicalKey === "IVA_F29") {
+    if (!cb.onPostponeIva) return [];
+    const periods = [
+      ...new Set(
+        items
+          .filter((it) => it.kind === "scheduled" && it.milestoneKey === "f29" && it.taxPeriod)
+          .map((it) => it.taxPeriod as string),
+      ),
+    ];
+    return periods.map((taxPeriod, i) => ({
+      key: `iva-postpone-${taxPeriod}`,
+      label: `Postergar IVA 2 meses (${taxPeriod})`,
+      separatorBefore: i === 0,
+      disabled,
+      reason,
+      onSelect: disabled ? undefined : () => cb.onPostponeIva?.(taxPeriod),
+    }));
+  }
+
+  if (row.canonicalKey === "IVA_POSTERGADO") {
+    if (!cb.onUndoIvaPostpone) return [];
+    const periods = [
+      ...new Set(
+        items
+          .filter(
+            (it) =>
+              it.kind === "scheduled" &&
+              it.milestoneKey === "iva_postergado" &&
+              it.taxPeriod,
+          )
+          .map((it) => it.taxPeriod as string),
+      ),
+    ];
+    return periods.map((taxPeriod, i) => ({
+      key: `iva-undo-${taxPeriod}`,
+      label: `Deshacer postergación (${taxPeriod})`,
+      separatorBefore: i === 0,
+      danger: true,
+      disabled,
+      reason,
+      onSelect: disabled ? undefined : () => cb.onUndoIvaPostpone?.(taxPeriod),
+    }));
+  }
+
+  return [];
+}
+
 /** Acciones para mover committed paramétrico (Retiro / opcional TE·Finiquitos). */
 function parametricCommittedMoveItems(
   row: FlowMatrixRowDto,
@@ -813,6 +880,7 @@ export function buildCellMenu(
       separatorBeforeFirst: items.length > 0,
     }),
   );
+  items.push(...ivaPostponeItems(row, cell, ctx, cb));
 
   if (!hasDocs) {
     items.push(...parametricCommittedMoveItems(row, cell, ctx, cb));
