@@ -8,8 +8,8 @@ export default async function FlujoCajaLayout({ children }: { children: ReactNod
   if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/flujo-caja");
   const perms = await resolvePagePerms(session.user);
   if (!hasCapability(perms, "cashflow_view")) redirect("/finanzas");
-  // Flujo de Caja es N2 propio (hermano de Banca); sin ModuleSubNav N3.
+  // Flujo de Caja es N2 propio (hermano de Banca) con N3 Caja | Resultado.
   // sheet-focus-flat: ver AppShell — en el modo hoja móvil de la planilla se
-  // anulan los espaciadores; las demás páginas de flujo-caja no cambian.
+  // anulan los espaciadores; Resultado no usa sheet-focus.
   return <div className="min-w-0 sheet-focus-flat">{children}</div>;
 }
