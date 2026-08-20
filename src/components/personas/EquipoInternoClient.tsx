@@ -24,11 +24,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatPersonName, formatRutForInput, isValidChileanRut } from "@/lib/personas";
-import { STAFF_CARGOS, STAFF_CARGO_LABELS, type StaffCargo } from "@/lib/personas-staff";
 import { PersonasClassSwitch } from "@/components/personas/PersonasClassSwitch";
 
 export type EquipoInternoRow = {
   id: string;
+  personaId?: string;
+  guardiaId?: string | null;
   firstName: string;
   lastName: string;
   rut: string | null;
@@ -64,9 +65,32 @@ export function EquipoInternoClient({
     rut: "",
     email: "",
     phone: "",
-    cargoStaff: "administrativo" as StaffCargo,
     baseSalary: "",
   });
+
+  function openFicha(row: EquipoInternoRow) {
+    if (row.guardiaId) {
+      router.push(`/personas/guardias/${row.guardiaId}`);
+      return;
+    }
+    void (async () => {
+      try {
+        const res = await fetch("/api/personas/equipo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ personaId: row.id }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "No se pudo abrir la ficha");
+        const guardiaId = json.data?.guardiaId as string | undefined;
+        if (!guardiaId) throw new Error("La ficha no tiene guardia asociado");
+        router.push(`/personas/guardias/${guardiaId}`);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "No se pudo abrir la ficha");
+      }
+    })();
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -146,7 +170,6 @@ export function EquipoInternoClient({
           rut: form.rut.trim() || null,
           email: form.email.trim() || null,
           phone: form.phone.trim() || null,
-          cargoStaff: form.cargoStaff,
           baseSalary: salary,
         }),
       });
@@ -154,7 +177,8 @@ export function EquipoInternoClient({
       if (!res.ok) throw new Error(json.error || "No se pudo crear");
       toast.success("Ficha creada");
       setCreateOpen(false);
-      router.push(`/personas/equipo/${json.data.id}`);
+      const guardiaId = json.data?.guardiaId as string | undefined;
+      router.push(guardiaId ? `/personas/guardias/${guardiaId}` : `/personas/equipo/${json.data.id}`);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo crear");
@@ -169,8 +193,8 @@ export function EquipoInternoClient({
         icon={<Briefcase />}
         iconTone="sky"
         title="Equipo interno"
-        subtitle="gasto de administración"
-        description="Supervisores, jefes, gerentes y administrativos. No entran a pauta ni marcación. El sueldo alimenta las filas de gasto 6.x del flujo de caja."
+        subtitle="misma ficha 360"
+        description="Vista de las fichas laborales con tipo Administrativo. Contrato, banco, AFP y finiquito viven en la ficha 360. Art. 22 por defecto: no marcan."
         actions={
           canEdit ? (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -182,9 +206,9 @@ export function EquipoInternoClient({
               </DialogTrigger>
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Nueva persona — equipo interno</DialogTitle>
+                  <DialogTitle>Nueva ficha — administrativo</DialogTitle>
                   <DialogDescription>
-                    Ficha HR con cargo y sueldo. No se crea un guardia ni se asigna instalación.
+                    Crea la misma ficha 360 con tipo Administrativo y Art. 22. Instalación y puesto se asignan ahí.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-3 py-2">
@@ -240,23 +264,6 @@ export function EquipoInternoClient({
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="staff-cargo">Cargo</Label>
-                    <select
-                      id="staff-cargo"
-                      className="h-10 sm:h-9 w-full rounded-md border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
-                      value={form.cargoStaff}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, cargoStaff: e.target.value as StaffCargo }))
-                      }
-                    >
-                      {STAFF_CARGOS.map((c) => (
-                        <option key={c} value={c}>
-                          {STAFF_CARGO_LABELS[c]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
                     <Label htmlFor="staff-salary">Sueldo base (CLP)</Label>
                     <Input
                       id="staff-salary"
@@ -295,7 +302,7 @@ export function EquipoInternoClient({
         <EmptyState
           icon={Briefcase}
           title="Sin equipo interno"
-          description="Alta de supervisores, jefes, gerentes o administrativos. No se mezclan con guardias de terreno."
+          description="Las fichas administrativas se listan aquí y se abren en la ficha 360."
           compact
         />
       ) : (
@@ -308,7 +315,7 @@ export function EquipoInternoClient({
                   elevation={1}
                   padding="sm"
                   className="cursor-pointer"
-                  onClick={() => router.push(`/personas/equipo/${row.id}`)}
+                  onClick={() => openFicha(row)}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -329,7 +336,7 @@ export function EquipoInternoClient({
             columns={columns}
             rows={filtered}
             rowKey={(r) => r.id}
-            onRowClick={(r) => router.push(`/personas/equipo/${r.id}`)}
+            onRowClick={(r) => openFicha(r)}
           />
         </>
       )}

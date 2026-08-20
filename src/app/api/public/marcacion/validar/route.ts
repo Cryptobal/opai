@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizeRut, isValidChileanRut } from "@/lib/personas";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { getUltimaMarcacion } from "@/lib/marcacion-jornada";
+import { rejectArticulo22Marcacion } from "@/lib/marcacion-art22";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
             lifecycleStatus: true,
             isBlacklisted: true,
             marcacionPin: true,
+            isArticulo22: true,
           },
         },
       },
@@ -112,6 +114,11 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Guardia no habilitado" },
         { status: 403 }
       );
+    }
+
+    const art22Error = rejectArticulo22Marcacion(guardia.isArticulo22);
+    if (art22Error) {
+      return NextResponse.json({ success: false, error: art22Error }, { status: 403 });
     }
 
     // Verificar PIN

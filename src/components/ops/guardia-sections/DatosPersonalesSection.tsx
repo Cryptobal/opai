@@ -146,6 +146,7 @@ type Persona = {
   jacketSize?: string | null;
   heightCm?: string | null;
   weightKg?: string | null;
+  laborClass?: string | null;
 };
 
 type AsignacionHistorial = {
@@ -169,6 +170,7 @@ interface DatosPersonalesSectionProps {
   persona: Persona;
   hiredAt?: string | null;
   availableExtraShifts?: boolean;
+  isArticulo22?: boolean;
   recibeAnticipo?: boolean;
   montoAnticipo?: number;
   bankAccounts: BankAccount[];
@@ -186,6 +188,7 @@ export default function DatosPersonalesSection({
   persona,
   hiredAt,
   availableExtraShifts,
+  isArticulo22,
   recibeAnticipo,
   montoAnticipo,
   bankAccounts,
@@ -625,6 +628,27 @@ export default function DatosPersonalesSection({
       <div>
         <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Laboral</p>
         <DetailFieldGrid columns={3}>
+          <InlineEditField
+            label="Tipo de puesto"
+            fieldKey="laborClass"
+            type="select"
+            value={persona.laborClass === "ADMINISTRATIVO" ? "ADMINISTRATIVO" : "OPERATIVO"}
+            canEdit={canEdit}
+            options={[
+              { value: "OPERATIVO", label: "Guardia" },
+              { value: "ADMINISTRATIVO", label: "Administrativo" },
+            ]}
+            onCommit={onCommitField}
+          />
+          <InlineEditField
+            label="Artículo 22"
+            fieldKey="isArticulo22"
+            type="select"
+            value={boolToSelect(!!isArticulo22)}
+            canEdit={canEdit}
+            options={YES_NO_OPTIONS}
+            onCommit={onCommitField}
+          />
           <InlineEditField
             label="Movilización"
             fieldKey="hasMobilization"

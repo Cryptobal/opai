@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       where: {
         tenantId: ctx.tenantId,
         lifecycleStatus: { in: ["contratado", "seleccionado", "te"] },
+        persona: { laborClass: { not: "ADMINISTRATIVO" } },
         OR: [
           { code: { contains: q, mode: "insensitive" } },
           { persona: { firstName: { contains: q, mode: "insensitive" } } },
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
         where: {
           tenantId: ctx.tenantId,
           lifecycleStatus: { in: ["contratado", "seleccionado", "te"] },
+          persona: { laborClass: { not: "ADMINISTRATIVO" } },
         },
         take: 100,
         select: {

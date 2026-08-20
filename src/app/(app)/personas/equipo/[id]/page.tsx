@@ -1,10 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { formatPersonName } from "@/lib/personas";
-import { staffCargoLabel } from "@/lib/personas-staff";
-import { EquipoInternoDetailClient } from "@/components/personas/EquipoInternoDetailClient";
+import { decideStaffMerge, fichaMatchesLookup, type FichaRow } from "@/lib/personas-staff-ficha";
 
 export default async function EquipoInternoDetailPage({
   params,
@@ -22,10 +20,33 @@ export default async function EquipoInternoDetailPage({
   }
 
   const persona = await prisma.opsPersona.findFirst({
+    where: { id, tenantId: session.user.tenantId },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      rut: true,
+      email: true,
+      adminId: true,
+      laborClass: true,
+      salaryStructureId: true,
+      guardia: { select: { id: true } },
+    },
+  });
+
+  if (!persona) notFound();
+  if (persona.guardia) {
+    redirect(`/personas/guardias/${persona.guardia.id}`);
+  }
+
+  const siblings = await prisma.opsPersona.findMany({
     where: {
-      id,
       tenantId: session.user.tenantId,
-      laborClass: "ADMINISTRATIVO",
+      OR: [
+        ...(persona.adminId ? [{ adminId: persona.adminId }] : []),
+        ...(persona.email ? [{ email: { equals: persona.email, mode: "insensitive" as const } }] : []),
+        { lastName: { equals: persona.lastName, mode: "insensitive" } },
+      ],
     },
     select: {
       id: true,
@@ -33,28 +54,53 @@ export default async function EquipoInternoDetailPage({
       lastName: true,
       rut: true,
       email: true,
-      phone: true,
-      personalEmail: true,
-      cargoStaff: true,
-      status: true,
-      afp: true,
-      healthSystem: true,
-      isapreName: true,
       adminId: true,
-      admin: { select: { id: true, name: true, email: true, cargo: true } },
+      laborClass: true,
+      salaryStructureId: true,
+      guardia: { select: { id: true } },
     },
   });
 
-  if (!persona) notFound();
+  const lookup = {
+    personaId: persona.id,
+    adminId: persona.adminId,
+    rut: persona.rut,
+    email: persona.email,
+    firstName: persona.firstName,
+    lastName: persona.lastName,
+  };
+  const matches: FichaRow[] = siblings
+    .filter((p) =>
+      fichaMatchesLookup(
+        {
+          id: p.id,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          rut: p.rut,
+          email: p.email,
+          adminId: p.adminId,
+          laborClass: p.laborClass,
+          salaryStructureId: p.salaryStructureId,
+          guardia: p.guardia,
+        },
+        lookup,
+      ),
+    )
+    .map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      rut: p.rut,
+      email: p.email,
+      adminId: p.adminId,
+      laborClass: p.laborClass,
+      salaryStructureId: p.salaryStructureId,
+      guardia: p.guardia,
+    }));
+  const decision = decideStaffMerge(matches);
+  if (decision?.keep.guardia) {
+    redirect(`/personas/guardias/${decision.keep.guardia.id}`);
+  }
 
-  return (
-    <EquipoInternoDetailClient
-      canEdit={canEdit(perms, "ops", "guardias")}
-      initial={{
-        ...JSON.parse(JSON.stringify(persona)),
-        displayName: formatPersonName(persona.firstName, persona.lastName),
-        cargoLabel: staffCargoLabel(persona.cargoStaff),
-      }}
-    />
-  );
+  redirect("/personas/equipo");
 }

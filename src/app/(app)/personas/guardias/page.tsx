@@ -17,7 +17,7 @@ export default async function GuardiasPage() {
 
   const tenantId = session.user.tenantId;
   const guardiasRaw = await prisma.opsGuardia.findMany({
-    where: { tenantId },
+    where: { tenantId, persona: { laborClass: { not: "ADMINISTRATIVO" } } },
     select: {
       id: true,
       code: true,

@@ -3,6 +3,8 @@ import {
   isPersonaLaborClass,
   isStaffCargo,
   laborClassIsCost,
+  laborClassLabel,
+  namesLikelySame,
   staffCargoFromAdminCargo,
   staffCargoLabel,
   splitPersonName,
@@ -35,5 +37,32 @@ describe("personas-staff", () => {
     expect(staffCargoFromAdminCargo("Gerente General")).toBe("gerente");
     expect(staffCargoFromAdminCargo("supervisor")).toBe("supervisor");
     expect(staffCargoFromAdminCargo(null)).toBeNull();
+  });
+
+  it("etiqueta clase laboral", () => {
+    expect(laborClassLabel("OPERATIVO")).toBe("Guardia");
+    expect(laborClassLabel("ADMINISTRATIVO")).toBe("Administrativo");
+    expect(laborClassLabel(null)).toBe("Guardia");
+  });
+
+  it("reconoce el mismo nombre con segundo nombre extra", () => {
+    expect(
+      namesLikelySame(
+        { firstName: "Carlos", lastName: "Irigoyen" },
+        { firstName: "Carlos Cristobal", lastName: "Irigoyen" },
+      ),
+    ).toBe(true);
+    expect(
+      namesLikelySame(
+        { firstName: "Carlos", lastName: "Irigoyen" },
+        { firstName: "Pedro", lastName: "Irigoyen" },
+      ),
+    ).toBe(false);
+    expect(
+      namesLikelySame(
+        { firstName: "Carlos", lastName: "Cristobal Irigoyen" },
+        { firstName: "Carlos Cristobal", lastName: "Irigoyen" },
+      ),
+    ).toBe(true);
   });
 });

@@ -149,12 +149,14 @@ type GuardiaDetail = {
     jacketSize?: string | null;
     heightCm?: string | null;
     weightKg?: string | null;
+    laborClass?: string | null;
   };
   hiredAt?: string | null;
   terminatedAt?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   availableExtraShifts?: boolean;
+  isArticulo22?: boolean;
   personalEmail?: string | null;
   marcacionPin?: string | null;
   marcacionPinVisible?: string | null;
@@ -368,9 +370,10 @@ export function GuardiaDetailClient({
     "cotizaSalud",
     "availableExtraShifts",
     "isapreHasExtraPercent",
+    "isArticulo22",
   ]);
   const NUM_KEYS = new Set(["heightCm", "weightKg", "isapreExtraPercent"]);
-  const GUARDIA_TOP_KEYS = new Set(["availableExtraShifts", "hiredAt", "personalEmail"]);
+  const GUARDIA_TOP_KEYS = new Set(["availableExtraShifts", "hiredAt", "personalEmail", "isArticulo22"]);
 
   const commitPersonaAddress = async (payload: GeoreferencedAddressPayload) => {
     const body = {
@@ -448,6 +451,7 @@ export function GuardiaDetailClient({
 
     const data = json?.data as {
       availableExtraShifts?: boolean;
+      isArticulo22?: boolean;
       hiredAt?: string | null;
       personalEmail?: string | null;
       persona?: Record<string, unknown>;
@@ -457,6 +461,13 @@ export function GuardiaDetailClient({
       const next = { ...prev };
       if (key === "availableExtraShifts" && data?.availableExtraShifts !== undefined) {
         next.availableExtraShifts = !!data.availableExtraShifts;
+      }
+      if (key === "isArticulo22" || key === "laborClass") {
+        if (data?.isArticulo22 !== undefined) next.isArticulo22 = !!data.isArticulo22;
+        else if (key === "isArticulo22") next.isArticulo22 = !!apiValue;
+        if (key === "laborClass" && data?.isArticulo22 === undefined) {
+          next.isArticulo22 = apiValue === "ADMINISTRATIVO";
+        }
       }
       if (key === "hiredAt") {
         next.hiredAt = data?.hiredAt
@@ -505,6 +516,11 @@ export function GuardiaDetailClient({
     if (key === "hiredAt") {
       const raw = data?.hiredAt ?? value;
       return raw ? String(raw).slice(0, 10) : null;
+    }
+    if (key === "isArticulo22") {
+      if (typeof data?.isArticulo22 === "boolean") return data.isArticulo22 ? "true" : "false";
+      if (typeof apiValue === "boolean") return apiValue ? "true" : "false";
+      return value;
     }
     if (BOOL_KEYS.has(key)) {
       const fromPersona = data?.persona?.[key];
@@ -832,7 +848,8 @@ export function GuardiaDetailClient({
               </div>
               <DatosPersonalesSection
                 guardiaId={guardia.id} persona={guardia.persona} hiredAt={guardia.hiredAt}
-                availableExtraShifts={guardia.availableExtraShifts} recibeAnticipo={guardia.recibeAnticipo}
+                availableExtraShifts={guardia.availableExtraShifts} isArticulo22={guardia.isArticulo22}
+                recibeAnticipo={guardia.recibeAnticipo}
                 montoAnticipo={guardia.montoAnticipo} bankAccounts={guardia.bankAccounts}
                 asignaciones={asignaciones} canManageGuardias={canManageGuardias}
                 onBankAccountsChange={(bankAccounts) => setGuardia((prev) => ({ ...prev, bankAccounts }))}
