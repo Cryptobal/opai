@@ -3,6 +3,8 @@ import {
   MODULE_KEYS,
   SUBMODULE_KEYS,
   SUBMODULE_META,
+  pathToPermission,
+  apiPathToSubmodule,
   type ModuleKey,
 } from "../permissions";
 
@@ -38,5 +40,22 @@ describe("permissions catalog consistency", () => {
     }
 
     expect(missing).toEqual([]);
+  });
+});
+
+describe("pathToPermission — equipo interno", () => {
+  it("mapea /personas/equipo al mismo submódulo que guardias", () => {
+    expect(pathToPermission("/personas/equipo")).toEqual({
+      module: "ops",
+      submodule: "guardias",
+    });
+    expect(pathToPermission("/personas/equipo/abc")).toEqual({
+      module: "ops",
+      submodule: "guardias",
+    });
+    expect(apiPathToSubmodule("/api/personas/equipo")).toEqual({
+      module: "ops",
+      submodule: "guardias",
+    });
   });
 });

@@ -1152,6 +1152,8 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/ops/inventario")) return { module: "ops", submodule: "inventario" };
   if (pathname.startsWith("/ops/gamificacion")) return { module: "ops", submodule: "gamificacion" };
+  if (pathname.startsWith("/personas/equipo"))
+    return { module: "ops", submodule: "guardias" };
   if (pathname.startsWith("/personas/guardias"))
     return { module: "ops", submodule: "guardias" };
   if (pathname === "/ops" || pathname.startsWith("/ops/")) return { module: "ops" };
@@ -1281,6 +1283,7 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/ops/gamificacion") || pathname.startsWith("/api/gamification")) return { module: "ops", submodule: "gamificacion" };
   if (pathname.startsWith("/api/te/")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/ops/refuerzos")) return { module: "ops", submodule: "turnos_extra" };
+  if (pathname.startsWith("/api/personas/equipo")) return { module: "ops", submodule: "guardias" };
   if (pathname.startsWith("/api/personas/guardias")) return { module: "ops", submodule: "guardias" };
   // CRM
   if (pathname.startsWith("/api/crm/leads")) return { module: "crm", submodule: "leads" };

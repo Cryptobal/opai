@@ -26,6 +26,7 @@ import { loadPayrollCandidates } from "@/modules/finance/banking/payroll-candida
 import {
   resolvePayrollFlowRows,
   resolveSupplierCategoryRow,
+  laborClassByStaffRuts,
 } from "@/modules/finance/banking/classify-flow-rows";
 import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
 import {
@@ -228,6 +229,14 @@ export async function GET(
       }
     }
 
+    const staffClassMap = beneficiaryRut
+      ? await laborClassByStaffRuts(ctx.tenantId, [beneficiaryRut])
+      : new Map();
+    const laborClass =
+      identity?.kind === "guardia"
+        ? "OPERATIVO"
+        : (staffClassMap.get(beneficiaryRut ?? "") ?? null);
+
     const suggestions: ClassifySuggestion[] = rankClassifySuggestions({
       beneficiaryRut,
       amountAbs,
@@ -245,6 +254,9 @@ export async function GET(
       supplierCategoryRow,
       supplierCategoryName,
       dteReceived,
+      laborClass,
+      liquidacionAdminRow: payrollRows.liquidacionAdminRow,
+      anticipoAdminRow: payrollRows.anticipoAdminRow,
     });
 
     return NextResponse.json({

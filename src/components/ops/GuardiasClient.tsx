@@ -51,6 +51,7 @@ import { SeleccionadoDestinoFields } from "@/components/ops/SeleccionadoDestinoF
 import { UnassignedHiredBadge, isContratadoSinAsignacion } from "@/components/ops/UnassignedHiredBadge";
 import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
 import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
+import { PersonasClassSwitch } from "@/components/personas/PersonasClassSwitch";
 
 type GuardiaItem = {
   id: string;
@@ -594,6 +595,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
   return (
     <div className="space-y-4 min-w-0 overflow-x-hidden">
+      <PersonasClassSwitch active="guardias" />
       <div className="flex items-center justify-end gap-2 flex-wrap">
         {canIngresoTe && (
           <Button
