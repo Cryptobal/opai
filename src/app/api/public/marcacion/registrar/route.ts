@@ -16,6 +16,7 @@ import { formatPersonName, normalizeRut, isValidChileanRut } from "@/lib/persona
 import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
 import { sendMarcacionComprobante } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
+import { rejectArticulo22Marcacion } from "@/lib/marcacion-art22";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { uploadMarcacionPhoto } from "@/lib/marcacion-photo";
 import {
@@ -138,6 +139,7 @@ export async function POST(req: NextRequest) {
             marcacionPin: true,
             dtResolucionJornada: true,
             personalEmail: true,
+            isArticulo22: true,
           },
         },
       },
@@ -165,6 +167,11 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Guardia no habilitado" },
         { status: 403 }
       );
+    }
+
+    const art22Error = rejectArticulo22Marcacion(guardia.isArticulo22);
+    if (art22Error) {
+      return NextResponse.json({ success: false, error: art22Error }, { status: 403 });
     }
 
     if (!guardia.marcacionPin) {

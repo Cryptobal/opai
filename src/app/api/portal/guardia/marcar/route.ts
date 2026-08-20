@@ -21,6 +21,7 @@ import { sendMarcacionComprobante, sendNotificacionFueraDeRango } from "@/lib/ma
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { formatPersonName } from "@/lib/personas";
+import { rejectArticulo22Marcacion } from "@/lib/marcacion-art22";
 import {
   resolverProximoTipo,
   calcularAtrasoMinutos,
@@ -41,6 +42,15 @@ export async function GET(request: NextRequest) {
     const guardAuth = await requirePortalGuardiaAuth(guardiaId);
     if (!guardAuth) {
       return NextResponse.json({ success: false, error: "Guardia no encontrado o inactivo" }, { status: 401 });
+    }
+
+    const art22 = await prisma.opsGuardia.findFirst({
+      where: { id: guardAuth.guardiaId, tenantId: guardAuth.tenantId },
+      select: { isArticulo22: true },
+    });
+    const art22Error = rejectArticulo22Marcacion(art22?.isArticulo22);
+    if (art22Error) {
+      return NextResponse.json({ success: false, error: art22Error }, { status: 403 });
     }
 
     const nextTipo = await resolverProximoTipo(prisma, {
@@ -98,6 +108,7 @@ export async function POST(req: NextRequest) {
         code: true,
         dtResolucionJornada: true,
         personalEmail: true,
+        isArticulo22: true,
         persona: {
           select: {
             id: true,
@@ -121,6 +132,11 @@ export async function POST(req: NextRequest) {
 
     if (guardia.isBlacklisted) {
       return NextResponse.json({ success: false, error: "Guardia no habilitado" }, { status: 403 });
+    }
+
+    const art22Error = rejectArticulo22Marcacion(guardia.isArticulo22);
+    if (art22Error) {
+      return NextResponse.json({ success: false, error: art22Error }, { status: 403 });
     }
 
     // Idempotencia: si ya existe una marca con esta key (doble-tap / retry), devolverla.

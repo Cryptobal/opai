@@ -42,6 +42,7 @@ export default async function OpsAsistenciaDiariaPage() {
         status: "active",
         isBlacklisted: false,
         lifecycleStatus: { in: ["contratado", "te"] },
+        persona: { laborClass: { not: "ADMINISTRATIVO" } },
       },
       select: {
         id: true,

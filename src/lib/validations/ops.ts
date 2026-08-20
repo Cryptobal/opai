@@ -314,6 +314,10 @@ export const updateGuardiaSchema = z.object({
   personalEmail: z.string().trim().email("Email personal inválido").max(200).optional().nullable().or(z.literal("")),
   availableExtraShifts: z.boolean().optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
+  /** Guardia de terreno vs administrativo de oficina. Vive en OpsPersona. */
+  laborClass: z.enum(["OPERATIVO", "ADMINISTRATIVO"]).optional(),
+  /** Art. 22: exento de jornada y de marcación. Default al pasar a administrativo. */
+  isArticulo22: z.boolean().optional(),
   lifecycleStatus: z.enum(GUARDIA_LIFECYCLE_STATUSES).optional(),
   status: z.string().trim().max(50).optional(),
   hiredAt: z.string().regex(dateRegex, "hiredAt debe tener formato YYYY-MM-DD").optional().nullable(),

@@ -42,6 +42,7 @@ export default async function OpsPautaMensualPage() {
         status: "active",
         isBlacklisted: false,
         lifecycleStatus: { in: ["contratado", "te"] },
+        persona: { laborClass: { not: "ADMINISTRATIVO" } },
       },
       select: {
         id: true,

@@ -245,6 +245,7 @@ export async function PATCH(
           cotizaAFC: body.cotizaAFC !== undefined ? body.cotizaAFC : undefined,
           cotizaSalud: body.cotizaSalud !== undefined ? body.cotizaSalud : undefined,
           personalEmail: body.personalEmail !== undefined ? normalizeNullable(body.personalEmail) : undefined,
+          laborClass: body.laborClass ?? undefined,
         }),
       });
       }
@@ -288,6 +289,14 @@ export async function PATCH(
                   : undefined,
               availableExtraShifts:
                 body.availableExtraShifts ?? undefined,
+              isArticulo22:
+                body.isArticulo22 !== undefined
+                  ? body.isArticulo22
+                  : body.laborClass === "ADMINISTRATIVO"
+                    ? true
+                    : body.laborClass === "OPERATIVO"
+                      ? false
+                      : undefined,
               intendedInstallationId:
                 body.intendedInstallationId === undefined ? undefined : body.intendedInstallationId,
               intendedContractDate:
@@ -331,6 +340,7 @@ export async function PATCH(
         "addressFormatted", "commune", "city",
         "region", "regimenPrevisional", "tipoPension", "isJubilado", "cotizaAFP",
         "cotizaAFC", "cotizaSalud", "availableExtraShifts",
+        "laborClass", "isArticulo22",
       ];
       const changedFields = personalFields.filter((f) => (body as Record<string, unknown>)[f] !== undefined);
       if (changedFields.length > 0) {

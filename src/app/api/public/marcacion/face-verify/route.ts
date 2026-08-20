@@ -22,6 +22,7 @@ import { sendMarcacionComprobante } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { verifyFace } from "@/lib/services/rekognition";
 import { uploadMarcacionPhoto } from "@/lib/marcacion-photo";
+import { rejectArticulo22Marcacion } from "@/lib/marcacion-art22";
 import { z } from "zod";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { resolverProximoTipo, calcularAtrasoMinutos, chileDayStart } from "@/lib/marcacion-jornada";
@@ -192,6 +193,7 @@ export async function POST(req: NextRequest) {
         faceIdConsentRevoked: true,
         personalEmail: true,
         dtResolucionJornada: true,
+        isArticulo22: true,
         persona: {
           select: {
             id: true,
@@ -225,6 +227,11 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Guardia no habilitado" },
         { status: 403 }
       );
+    }
+
+    const art22Error = rejectArticulo22Marcacion(guardia.isArticulo22);
+    if (art22Error) {
+      return NextResponse.json({ success: false, error: art22Error }, { status: 403 });
     }
 
     if (guardia.faceIdConsentRevoked) {
