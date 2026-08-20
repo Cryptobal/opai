@@ -54,6 +54,32 @@ export const flowRowCreateSchema = z
     /** @deprecated Preferir accountPlanIds. */
     categoryId: z.string().uuid().nullish(),
     supplierId: z.string().uuid().nullish(),
+    /** Categoría padre (GAV/OTROS). Solo un nivel. */
+    parentId: z.string().uuid().optional(),
+    /** Egreso recurrente de la subfila (opcional; el diálogo lo envía). */
+    recurrence: z
+      .object({
+        amount: z.number().finite().min(-99_999_999_999).max(99_999_999_999).optional().default(0),
+        frequency: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
+        dayOfMonth: z.number().int().min(1).max(31).nullish(),
+        startDate: ymd,
+        endDate: ymd.nullish(),
+        endAfterOccurrences: z.number().int().min(1).max(240).nullish(),
+        currency: z.enum(["CLP", "UF"]).optional().default("CLP"),
+        amountUf: z.number().finite().positive().max(1_000_000).nullish(),
+        ufPolicy: z
+          .enum(["RUN_DAY", "LAST_DAY_MONTH", "LAST_DAY_PREV_MONTH", "CUSTOM_DAY", "FIRST_DAY_MONTH"])
+          .nullish(),
+        ufCustomDay: z.number().int().min(1).max(31).nullish(),
+        note: z.string().max(2000).nullish(),
+      })
+      .optional(),
+    matchRule: z
+      .object({
+        rut: z.string().trim().max(32).optional(),
+        description: z.string().trim().max(200).optional(),
+      })
+      .optional(),
   })
   .refine((v) => v.mapping !== "ACCOUNT_INSTALLATION" || !!v.crmAccountId, {
     message: "crmAccountId requerido para mapping ACCOUNT_INSTALLATION",
@@ -63,7 +89,18 @@ export const flowRowCreateSchema = z
   })
   .refine((v) => v.mapping !== "SUPPLIER" || !!v.supplierId, {
     message: "supplierId requerido para mapping SUPPLIER",
-  });
+  })
+  .refine((v) => !v.parentId || !v.canonicalKey, {
+    message: "Una subfila no admite llave de sistema",
+  })
+  .refine(
+    (v) =>
+      !v.recurrence ||
+      (v.recurrence.currency === "UF"
+        ? v.recurrence.amountUf != null && v.recurrence.amountUf > 0
+        : (v.recurrence.amount ?? 0) !== 0),
+    { message: "Monto requerido (CLP o UF) en la recurrencia de la subfila" },
+  );
 
 export const flowRowRenameSchema = z.object({
   name: z.string().trim().min(1).max(120),

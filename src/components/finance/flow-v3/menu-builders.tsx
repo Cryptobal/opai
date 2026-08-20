@@ -6,6 +6,7 @@ import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow
 import type { MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
 import { isFallbackBandejaRow } from "@/modules/finance/flow-v3/unmatched-count";
+import { canHaveSubRows } from "@/modules/finance/flow-v3/row-tree";
 import { draftGroupLabel, terminoStatusLine } from "./cell-meta";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import type { MenuItemDesc } from "./menu-render";
@@ -77,6 +78,7 @@ export interface RowMenuCallbacks {
   onDeferTerm: (row: FlowMatrixRowDto, t: RowTemplate) => void;
   onSetDiasCobro: (row: FlowMatrixRowDto, t: RowTemplate) => void;
   onRecurring: (row: FlowMatrixRowDto) => void;
+  onAddSubRow?: (row: FlowMatrixRowDto) => void;
   onArchive: (row: FlowMatrixRowDto) => void;
   onUnarchive: (row: FlowMatrixRowDto) => void;
   onDelete: (row: FlowMatrixRowDto) => void;
@@ -121,12 +123,22 @@ export function buildRowMenu(
     items.push({ key: "rename", label: "Renombrar", onSelect: () => cb.onRename(row) });
   }
 
-  items.push({ key: "section", label: "Cambiar sección…", onSelect: () => cb.onChangeSection(row) });
+  if (row.parentId) {
+    items.push({
+      key: "section",
+      label: "Cambiar sección…",
+      disabled: true,
+      reason: "La subfila sigue la sección del padre",
+    });
+  } else {
+    items.push({ key: "section", label: "Cambiar sección…", onSelect: () => cb.onChangeSection(row) });
+  }
 
   const isBandeja = isFallbackBandejaRow(row);
   const canAssignAccounts =
     !row.isVirtual &&
     !isBandeja &&
+    !row.parentId &&
     row.section !== "INGRESOS" &&
     (row.mapping === "ACCOUNTS" ||
       row.mapping === "CATEGORY" ||
@@ -144,6 +156,8 @@ export function buildRowMenu(
           disabled: true,
           reason: isBandeja
             ? "La bandeja no usa cuentas propias"
+            : row.parentId
+              ? "Las cuentas se asignan en la categoría padre"
             : row.mapping === "ACCOUNT_INSTALLATION"
               ? "Filas de cuenta/instalación"
               : "Solo renglones de egreso",
@@ -189,6 +203,15 @@ export function buildRowMenu(
       label: row.section === "FINANCIAMIENTO" ? "Recurrencia…" : "Egreso recurrente…",
       separatorBefore: true,
       onSelect: () => cb.onRecurring(row),
+    });
+  }
+
+  const addSubRow = cb.onAddSubRow;
+  if (addSubRow && canHaveSubRows(row)) {
+    items.push({
+      key: "add-subrow",
+      label: "Agregar subfila…",
+      onSelect: () => addSubRow(row),
     });
   }
 

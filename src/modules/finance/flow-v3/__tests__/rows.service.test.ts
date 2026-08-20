@@ -19,8 +19,10 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: vi.fn(),
       findFirstOrThrow: vi.fn(),
       findMany: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
     },
   },
@@ -84,6 +86,68 @@ describe("createRow", () => {
     expect(row.id).toBe("row-2");
     expect(asMock(prisma.financeFlowRow.create).mock.calls[0][0].data.orderIndex).toBe(0);
   });
+
+  it("crea subfila bajo un padre GAV", async () => {
+    asMock(prisma.financeFlowRow.findFirst)
+      .mockResolvedValueOnce({
+        id: "parent-1",
+        section: "GAV",
+        parentId: null,
+        canonicalKey: null,
+        archivedAt: null,
+      })
+      .mockResolvedValueOnce({ orderIndex: 1 });
+    asMock(prisma.financeFlowRow.create).mockResolvedValue({ id: "child-1" });
+    asMock(prisma.financeFlowRow.findFirstOrThrow).mockResolvedValue({ id: "child-1", parentId: "parent-1" });
+
+    const row = await createRow(TENANT, {
+      section: "GAV",
+      name: "Contador",
+      mapping: "MANUAL",
+      parentId: "parent-1",
+    });
+    expect(row.id).toBe("child-1");
+    const data = asMock(prisma.financeFlowRow.create).mock.calls[0][0].data;
+    expect(data.parentId).toBe("parent-1");
+    expect(data.section).toBe("GAV");
+    expect(data.orderIndex).toBe(2);
+  });
+
+  it("rechaza subfila si el padre ya es hijo", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "child-1",
+      section: "GAV",
+      parentId: "parent-1",
+      canonicalKey: null,
+      archivedAt: null,
+    });
+    await expect(
+      createRow(TENANT, {
+        section: "GAV",
+        name: "Nieto",
+        mapping: "MANUAL",
+        parentId: "child-1",
+      }),
+    ).rejects.toThrow(/un nivel/i);
+  });
+
+  it("rechaza subfila en bandeja / sistema", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "bandeja",
+      section: "GAV",
+      parentId: null,
+      canonicalKey: "BANDEJA_EGRESO",
+      archivedAt: null,
+    });
+    await expect(
+      createRow(TENANT, {
+        section: "GAV",
+        name: "X",
+        mapping: "MANUAL",
+        parentId: "bandeja",
+      }),
+    ).rejects.toThrow(/sistema/i);
+  });
 });
 
 describe("archiveRow", () => {
@@ -130,6 +194,7 @@ describe("deleteRow", () => {
 
   it("409 (archívala) si la fila tiene plan histórico", async () => {
     asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(cleanRow);
+    asMock(prisma.financeFlowRow.count).mockResolvedValue(0);
     asMock(prisma.financeFlowPlanCell.count).mockResolvedValue(3);
     await expect(deleteRow(TENANT, "row-1")).rejects.toThrow(/archívala/i);
     expect(prisma.financeFlowRow.delete).not.toHaveBeenCalled();
@@ -137,6 +202,7 @@ describe("deleteRow", () => {
 
   it("409 (archívala) si la fila muestra comprometido/real", async () => {
     asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(cleanRow);
+    asMock(prisma.financeFlowRow.count).mockResolvedValue(0);
     asMock(prisma.financeFlowPlanCell.count).mockResolvedValue(0);
     asMock(loadCommittedIncome).mockResolvedValueOnce({
       committed: new Map([["row-1", new Map([["2026-07-20", { total: 100 }]])]]),
@@ -148,11 +214,19 @@ describe("deleteRow", () => {
 
   it("elimina una fila sin plan ni comprometido ni real", async () => {
     asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(cleanRow);
+    asMock(prisma.financeFlowRow.count).mockResolvedValue(0);
     asMock(prisma.financeFlowPlanCell.count).mockResolvedValue(0);
     asMock(prisma.financeFlowRow.delete).mockResolvedValue({});
     const res = await deleteRow(TENANT, "row-1");
     expect(res).toEqual({ deleted: true });
     expect(prisma.financeFlowRow.delete).toHaveBeenCalledWith({ where: { id: "row-1" } });
+  });
+
+  it("rechaza eliminar un padre con subfilas", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(cleanRow);
+    asMock(prisma.financeFlowRow.count).mockResolvedValue(2);
+    await expect(deleteRow(TENANT, "row-1")).rejects.toThrow(/subfilas/i);
+    expect(prisma.financeFlowRow.delete).not.toHaveBeenCalled();
   });
 });
 

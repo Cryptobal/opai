@@ -26,6 +26,7 @@ export interface FlowRowConfigItem {
   archivedAt: string | null;
   canonicalKey: string | null;
   crmAccountId: string | null;
+  parentId: string | null;
   accounts: FlowRowConfigAccount[];
 }
 
@@ -60,6 +61,7 @@ export async function getFlowRowsConfig(
         archivedAt: true,
         canonicalKey: true,
         crmAccountId: true,
+        parentId: true,
       },
     }),
     getFlowHealth(tenantId),
@@ -94,6 +96,7 @@ export async function getFlowRowsConfig(
     archivedAt: r.archivedAt ? r.archivedAt.toISOString() : null,
     canonicalKey: r.canonicalKey,
     crmAccountId: r.crmAccountId,
+    parentId: r.parentId ?? null,
     accounts: accountsByRow.get(r.id) ?? [],
   }));
 
@@ -160,6 +163,7 @@ export async function patchFlowRowConfig(
     where: { id: rowId, tenantId },
     select: {
       id: true,
+      parentId: true,
       name: true,
       section: true,
       mapping: true,

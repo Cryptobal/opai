@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { SECTION_LABELS } from "@/components/finance/flow-v3/grid-classes";
 import { FLOW_SECTION_ORDER } from "@/modules/finance/flow-v3/row-sort";
+import { nestFlowRows } from "@/modules/finance/flow-v3/row-tree";
 import type { FlowRowConfigItem } from "@/modules/finance/cashflow/flow-rows-config.service";
 import { AddRowDialog } from "@/components/finance/flow-v3/AddRowDialog";
 import type { AccountOption } from "./cashflow-config-types";
@@ -35,6 +36,10 @@ type Props = {
 };
 
 type SectionGroup = { key: string; rows: FlowRowConfigItem[] };
+
+function nestConfigRows(rows: FlowRowConfigItem[]): FlowRowConfigItem[] {
+  return nestFlowRows(rows);
+}
 
 type RowDialogState =
   | { kind: "delete"; row: FlowRowConfigItem }
@@ -352,7 +357,7 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
                           Sin renglones. Usa el botón para agregar uno.
                         </li>
                       ) : (
-                        group.rows.map((row) => (
+                        nestConfigRows(group.rows).map((row) => (
                           <FlowRowConfigListItem
                             key={row.id}
                             row={row}
