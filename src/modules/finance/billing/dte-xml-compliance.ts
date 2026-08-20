@@ -10,6 +10,16 @@
  */
 import { prisma } from "@/lib/prisma";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
+import {
+  filterUnlinkedDteRecipients,
+  isDteReceptionEmail,
+} from "./dte-recipient-guard";
+
+export {
+  filterUnlinkedDteRecipients,
+  isDteReceptionEmail,
+  isLinkedDteRecipient,
+} from "./dte-recipient-guard";
 
 export type AdditionalRef = {
   tipoDocRef: string;
@@ -76,20 +86,6 @@ export function normalizeAdditionalReferencesForSii(
   }
 
   return out;
-}
-
-/** Casillas típicas de recepción DTE registradas como contacto CRM. */
-export function isDteReceptionEmail(email: string): boolean {
-  const e = normalizeEmailAddress(email);
-  if (!e.includes("@")) return false;
-  return (
-    e.includes("recepciondte") ||
-    e.includes("recepcion_dte") ||
-    e.includes("recepcion.dte") ||
-    e.includes("dte.recepcion") ||
-    e.startsWith("dte@") ||
-    e.startsWith("xml@")
-  );
 }
 
 export type ResolvedDteEmailRecipients = {
@@ -240,7 +236,16 @@ export async function enrichDteEmailRecipientsFromCrm(input: {
   crmAccountId?: string | null;
   currentTo?: string | null;
   currentCc?: string[] | null;
+  /**
+   * Default true: descarta TO/CC que no son contacto de la cuenta ni
+   * casilla DTE. El auto-envío SIEMPRE filtra. El reenvío manual pasa
+   * `explicitEmails` con lo que el usuario tipeó en el modal.
+   */
+  dropUnlinked?: boolean;
+  /** Emails del override manual; no se descartan aunque no sean contacto. */
+  explicitEmails?: string[] | null;
 }): Promise<ResolvedDteEmailRecipients> {
+  const dropUnlinked = input.dropUnlinked !== false;
   const base = resolveDteEmailRecipients({
     currentTo: input.currentTo,
     currentCc: input.currentCc,
@@ -264,20 +269,39 @@ export async function enrichDteEmailRecipientsFromCrm(input: {
     },
   });
 
+  const accountEmails: string[] = [];
   const receptionEmails: string[] = [];
   const billingEmails: string[] = [];
   for (const c of contacts) {
     if (!c.email) continue;
     const email = normalizeEmailAddress(c.email);
     if (!email.includes("@")) continue;
+    accountEmails.push(email);
     if (isDteReceptionEmail(email)) receptionEmails.push(email);
     else if (c.recibeFacturacion) billingEmails.push(email);
   }
 
-  return resolveDteEmailRecipients({
+  const routed = resolveDteEmailRecipients({
     currentTo: input.currentTo,
     currentCc: input.currentCc,
     receptionEmails,
     billingEmails,
   });
+
+  if (!dropUnlinked) {
+    return routed;
+  }
+
+  const filtered = filterUnlinkedDteRecipients({
+    to: routed.to,
+    cc: routed.cc,
+    accountEmails,
+    explicitEmails: input.explicitEmails,
+  });
+
+  return {
+    to: filtered.to,
+    cc: filtered.cc,
+    adjusted: routed.adjusted || filtered.adjusted,
+  };
 }
