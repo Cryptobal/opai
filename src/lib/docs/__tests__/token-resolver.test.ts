@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { resolveTokenValue, resolveDocument, buildEmpresaEntityData } from "../token-resolver";
+import {
+  resolveTokenValue,
+  resolveDocument,
+  buildEmpresaEntityData,
+  normalizeEmpresaSettingKey,
+  mergeEmpresaSettings,
+} from "../token-resolver";
 
 describe("token-resolver — buildEmpresaEntityData", () => {
   it("maps normalized empresa.* setting keys to entity fields", () => {
@@ -32,6 +38,41 @@ describe("token-resolver — buildEmpresaEntityData", () => {
     const data = buildEmpresaEntityData(normalized);
     expect(data.repLegalNombre).toBe("Carlos Ruiz");
     expect(data.fechaEscrituraPublica).toBe("1 de enero de 2019");
+  });
+
+  it("auto-maps any empresa.* suffix even if not in the hardcoded allowlist", () => {
+    const data = buildEmpresaEntityData([
+      { key: "empresa.fechaEscrituraPublica", value: "24 de Enero de 2024" },
+      { key: "empresa.nombreNotaria", value: "Rolando Prussinger Sepulveda" },
+      { key: "empresa.campoNuevo", value: "extra" },
+    ]);
+    expect(data.fechaEscrituraPublica).toBe("24 de Enero de 2024");
+    expect(data.nombreNotaria).toBe("Rolando Prussinger Sepulveda");
+    expect(data.campoNuevo).toBe("extra");
+  });
+});
+
+describe("token-resolver — empresa setting key merge", () => {
+  it("strips empresa:{tenantId}: prefix used by Configuración → Empresa", () => {
+    const tenantId = "clgard00000000000000001";
+    expect(
+      normalizeEmpresaSettingKey(
+        `empresa:${tenantId}:empresa.fechaEscrituraPublica`,
+        tenantId
+      )
+    ).toBe("empresa.fechaEscrituraPublica");
+  });
+
+  it("prefers new-format keys over legacy empresa.* when both exist", () => {
+    const tenantId = "clgard00000000000000001";
+    const merged = mergeEmpresaSettings(
+      tenantId,
+      [{ key: `empresa:${tenantId}:empresa.fechaEscrituraPublica`, value: "24 de Enero de 2024" }],
+      [{ key: "empresa.razonSocial", value: "Gard SpA" }]
+    );
+    const data = buildEmpresaEntityData(merged);
+    expect(data.fechaEscrituraPublica).toBe("24 de Enero de 2024");
+    expect(data.razonSocial).toBe("Gard SpA");
   });
 
   it("resolves empresa.repLegalNombre token from entity data", () => {
@@ -166,5 +207,43 @@ describe("token-resolver — resolveDocument contractToken nodes", () => {
     // When the token has no value, we keep the original node so the editor
     // renders a visible "missing data" badge instead of corrupting the doc.
     expect(para.content[0].type).toBe("contractToken");
+  });
+
+  it("fills tenant personería tokens from empresa settings (fecha + notaría)", () => {
+    const data = buildEmpresaEntityData([
+      { key: "empresa.fechaEscrituraPublica", value: "24 de Enero de 2024" },
+      { key: "empresa.nombreNotaria", value: "Rolando Prussinger Sepulveda" },
+    ]);
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "escritura pública de fecha " },
+            {
+              type: "contractToken",
+              attrs: { tokenKey: "empresa.fechaEscrituraPublica", label: "empresa.fechaEscrituraPublica" },
+            },
+            { type: "text", text: ", otorgada ante " },
+            {
+              type: "contractToken",
+              attrs: { tokenKey: "empresa.nombreNotaria", label: "empresa.nombreNotaria" },
+            },
+          ],
+        },
+      ],
+    };
+
+    const { resolvedContent, tokenValues } = resolveDocument(doc, { empresa: data });
+    expect(tokenValues["empresa.fechaEscrituraPublica"]).toBe("24 de Enero de 2024");
+    expect(tokenValues["empresa.nombreNotaria"]).toBe("Rolando Prussinger Sepulveda");
+
+    const texts = (resolvedContent as any).content[0].content
+      .filter((n: any) => n.type === "text")
+      .map((n: any) => n.text);
+    expect(texts).toContain("24 de Enero de 2024");
+    expect(texts).toContain("Rolando Prussinger Sepulveda");
+    expect((resolvedContent as any).content[0].content.some((n: any) => n.type === "contractToken")).toBe(false);
   });
 });

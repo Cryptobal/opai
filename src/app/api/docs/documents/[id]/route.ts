@@ -12,6 +12,17 @@ import { requireDocsView, requireDocsEdit, requireDocsDelete } from "@/lib/api-a
 import { updateDocumentSchema } from "@/lib/validations/docs";
 import { deactivateContractCashflowItems } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 import { cascadeRecurringDteForDeletedContractDocument } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
+import { resolveDocumentContentForDisplay } from "@/lib/docs/resolve-document-content";
+
+function countContractTokenNodes(node: unknown): number {
+  if (!node || typeof node !== "object") return 0;
+  const n = node as { type?: string; content?: unknown[] };
+  let count = n.type === "contractToken" ? 1 : 0;
+  if (Array.isArray(n.content)) {
+    for (const child of n.content) count += countContractTokenNodes(child);
+  }
+  return count;
+}
 
 export async function GET(
   request: NextRequest,
@@ -44,6 +55,41 @@ export async function GET(
       );
     }
 
+    // Draft/review CRM contracts keep unresolved contractToken chips in stored
+    // content (resolver leaves the node when the value was empty at generation).
+    // Re-resolve with current Empresa settings so personería (fecha escritura /
+    // notaría) fills without forcing the user to regenerate the contract.
+    let content = document.content;
+    if (
+      document.module === "crm" &&
+      ["draft", "review"].includes(document.status)
+    ) {
+      try {
+        const resolved = await resolveDocumentContentForDisplay({
+          tenantId: ctx.tenantId,
+          documentId: id,
+          document: {
+            content: document.content,
+            templateId: document.templateId,
+            module: document.module,
+          },
+        });
+        const beforeTokens = countContractTokenNodes(document.content);
+        const afterTokens = countContractTokenNodes(resolved);
+        if (afterTokens < beforeTokens || JSON.stringify(resolved) !== JSON.stringify(document.content)) {
+          content = resolved;
+        }
+        if (afterTokens < beforeTokens) {
+          await prisma.document.update({
+            where: { id },
+            data: { content: resolved as object },
+          });
+        }
+      } catch (err) {
+        console.warn("[docs GET] re-resolve of draft tokens failed:", err);
+      }
+    }
+
     // Enrich associations with entity names for display
     const enrichedAssociations = await Promise.all(
       (document.associations ?? []).map(async (assoc) => {
@@ -67,7 +113,10 @@ export async function GET(
       })
     );
 
-    return NextResponse.json({ success: true, data: { ...document, associations: enrichedAssociations } });
+    return NextResponse.json({
+      success: true,
+      data: { ...document, content, associations: enrichedAssociations },
+    });
   } catch (error) {
     console.error("Error fetching document:", error);
     return NextResponse.json(

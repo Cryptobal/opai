@@ -836,9 +836,36 @@ export function buildGuardiaEntityData(guardia: {
   };
 }
 
+/** Strip `empresa:{tenantId}:` prefix used by Configuración → Empresa. */
+export function normalizeEmpresaSettingKey(key: string, tenantId: string): string {
+  const prefix = `empresa:${tenantId}:`;
+  return key.startsWith(prefix) ? key.slice(prefix.length) : key;
+}
+
+/**
+ * Merge new-format (`empresa:{tenantId}:empresa.xxx`) and legacy (`empresa.xxx`)
+ * rows. Prefixed keys win when both exist.
+ */
+export function mergeEmpresaSettings(
+  tenantId: string,
+  prefixed: Array<{ key: string; value: string }>,
+  legacy: Array<{ key: string; value: string }>
+): Array<{ key: string; value: string }> {
+  const map = new Map<string, string>();
+  for (const s of legacy) {
+    map.set(normalizeEmpresaSettingKey(s.key, tenantId), s.value);
+  }
+  for (const s of prefixed) {
+    map.set(normalizeEmpresaSettingKey(s.key, tenantId), s.value);
+  }
+  return [...map.entries()].map(([key, value]) => ({ key, value }));
+}
+
 /**
  * Load tenant empresa settings for contract token resolution.
- * Supports new format `empresa:{tenantId}:empresa.xxx` and legacy `empresa.xxx`.
+ * Always merges new format `empresa:{tenantId}:empresa.xxx` with legacy `empresa.xxx`
+ * (new format wins). Previously, ANY prefixed row skipped the legacy fallback, so
+ * fields that only existed in one format (fecha escritura / notaría) never reached tokens.
  */
 export async function loadEmpresaSettingsForTokens(
   tenantId: string
@@ -846,21 +873,18 @@ export async function loadEmpresaSettingsForTokens(
   const { prisma } = await import("@/lib/prisma");
   const prefix = `empresa:${tenantId}:`;
 
-  let rawEmpresa = await prisma.setting.findMany({
-    where: { tenantId, key: { startsWith: prefix } },
-    select: { key: true, value: true },
-  });
-  if (rawEmpresa.length === 0) {
-    rawEmpresa = await prisma.setting.findMany({
+  const [prefixed, legacy] = await Promise.all([
+    prisma.setting.findMany({
+      where: { tenantId, key: { startsWith: prefix } },
+      select: { key: true, value: true },
+    }),
+    prisma.setting.findMany({
       where: { tenantId, key: { startsWith: "empresa." } },
       select: { key: true, value: true },
-    });
-  }
+    }),
+  ]);
 
-  return rawEmpresa.map((s) => ({
-    key: s.key.includes(":") ? s.key.replace(prefix, "") : s.key,
-    value: s.value,
-  }));
+  return mergeEmpresaSettings(tenantId, prefixed, legacy);
 }
 
 /** Load empresa entity data ready for resolveDocument(). */
@@ -889,7 +913,9 @@ export function buildEmpresaEntityData(settings: Array<{ key: string; value: str
     "empresa.nombreNotaria": "nombreNotaria",
   };
   for (const s of settings) {
-    const field = EMPRESA_KEYS[s.key];
+    const field =
+      EMPRESA_KEYS[s.key] ??
+      (s.key.startsWith("empresa.") ? s.key.slice("empresa.".length) : undefined);
     if (field) data[field] = s.value;
   }
   return data;
