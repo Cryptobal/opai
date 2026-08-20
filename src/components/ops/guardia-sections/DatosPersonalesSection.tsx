@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { MapPin } from "lucide-react";
+import { ErpUserPicker } from "@/components/personas/ErpUserPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DetailField, DetailFieldGrid } from "@/components/opai/DetailField";
@@ -147,6 +148,8 @@ type Persona = {
   heightCm?: string | null;
   weightKg?: string | null;
   laborClass?: string | null;
+  adminId?: string | null;
+  admin?: { id: string; name: string; email: string } | null;
 };
 
 type AsignacionHistorial = {
@@ -210,6 +213,9 @@ export default function DatosPersonalesSection({
     holderName: "",
   });
   const [creatingAccount, setCreatingAccount] = useState(false);
+  const [erpAdmin, setErpAdmin] = useState<{ id: string; name: string; email: string } | null>(
+    persona.admin ?? (persona.adminId ? { id: persona.adminId, name: "", email: "Usuario ERP" } : null),
+  );
 
   useEffect(() => {
     if (existingAccount) {
@@ -640,6 +646,18 @@ export default function DatosPersonalesSection({
             ]}
             onCommit={onCommitField}
           />
+          <div className="space-y-1.5">
+            <p className="text-[12px] font-medium text-ds-text-3">Usuario ERP</p>
+            <ErpUserPicker
+              value={erpAdmin}
+              excludeIds={[]}
+              disabled={!canEdit}
+              onChange={async (admin) => {
+                await onCommitField("adminId", admin?.id ?? null);
+                setErpAdmin(admin);
+              }}
+            />
+          </div>
           <InlineEditField
             label="Artículo 22"
             fieldKey="isArticulo22"

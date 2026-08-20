@@ -211,6 +211,8 @@ export const CAPABILITY_KEYS = [
   "ats_config",
   // Copiloto de correos (extracción bajo demanda desde la bandeja).
   "copiloto_correos",
+  // Sueldos de cargos marcados sensibles (Director, Reclutador, …).
+  "view_sensitive_salary",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -413,6 +415,7 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "ats_publicar", label: "Publicar avisos ATS", description: "Puede crear y publicar avisos de empleo en portales externos", moduleKey: "ops", submoduleKey: "ats" },
   { key: "ats_config", label: "Configurar ATS", description: "Puede modificar pesos de match score y config del módulo ATS", moduleKey: "ops", submoduleKey: "ats_config" },
   { key: "copiloto_correos", label: "Copiloto de correos", description: "Puede extraer estructura CRM desde correos y crear cuenta, contacto, instalación, negocio y cotización.", moduleKey: "productividad", submoduleKey: "correos" },
+  { key: "view_sensitive_salary", label: "Ver sueldos sensibles", description: "Puede ver el monto de sueldo de cargos marcados como sensibles (p. ej. Director, Reclutador). Sin este permiso se ve la persona y el cargo, no el monto.", moduleKey: "ops", submoduleKey: "guardias" },
 ];
 
 // ═══════════════════════════════════════════════════════════════

@@ -9,6 +9,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
+import { getPermissionsFromAuth } from "@/lib/permissions-server";
+import { canViewSensitiveSalary } from "@/lib/salary-privacy";
 
 export const dynamic = "force-dynamic";
 
@@ -48,16 +50,27 @@ export async function GET(req: NextRequest) {
             currentInstallation: {
               select: { id: true, name: true },
             },
+            asignaciones: {
+              where: { isActive: true },
+              orderBy: { startDate: "desc" },
+              take: 1,
+              select: {
+                puesto: { select: { cargo: { select: { salarySensitive: true } } } },
+              },
+            },
           },
         },
       },
       orderBy: { createdAt: "desc" },
     });
 
+    const canSeeSensitive = canViewSensitiveSalary(await getPermissionsFromAuth(ctx));
     const data = structures
       .filter((s) => s.guardias.length > 0)
       .map((s) => {
         const g = s.guardias[0];
+        const salarySensitive = g.asignaciones[0]?.puesto.cargo?.salarySensitive === true;
+        const hide = salarySensitive && !canSeeSensitive;
         return {
           structureId: s.id,
           guardiaId: g.id,
@@ -66,22 +79,34 @@ export async function GET(req: NextRequest) {
           name: `${g.persona.firstName} ${g.persona.lastName}`,
           installationName: g.currentInstallation?.name || null,
           installationId: g.currentInstallation?.id || null,
-          baseSalary: Number(s.baseSalary),
-          colacion: Number(s.colacion),
-          movilizacion: Number(s.movilizacion),
+          salarySensitive,
+          salaryHidden: hide,
+          baseSalary: hide ? 0 : Number(s.baseSalary),
+          colacion: hide ? 0 : Number(s.colacion),
+          movilizacion: hide ? 0 : Number(s.movilizacion),
           gratificationType: s.gratificationType,
-          gratificationCustomAmount: s.gratificationCustomAmount ? Number(s.gratificationCustomAmount) : 0,
-          netSalaryEstimate: s.netSalaryEstimate ? Number(s.netSalaryEstimate) : null,
+          gratificationCustomAmount: hide
+            ? 0
+            : s.gratificationCustomAmount
+              ? Number(s.gratificationCustomAmount)
+              : 0,
+          netSalaryEstimate: hide
+            ? null
+            : s.netSalaryEstimate
+              ? Number(s.netSalaryEstimate)
+              : null,
           isActive: s.isActive,
           effectiveFrom: s.effectiveFrom,
           effectiveUntil: s.effectiveUntil,
-          bonos: s.bonos.map((b) => ({
-            name: b.bonoCatalog.name,
-            bonoType: b.bonoCatalog.bonoType,
-            isTaxable: b.bonoCatalog.isTaxable,
-            amount: b.overrideAmount ? Number(b.overrideAmount) : null,
-            percentage: b.overridePercentage ? Number(b.overridePercentage) : null,
-          })),
+          bonos: hide
+            ? []
+            : s.bonos.map((b) => ({
+                name: b.bonoCatalog.name,
+                bonoType: b.bonoCatalog.bonoType,
+                isTaxable: b.bonoCatalog.isTaxable,
+                amount: b.overrideAmount ? Number(b.overrideAmount) : null,
+                percentage: b.overridePercentage ? Number(b.overridePercentage) : null,
+              })),
         };
       });
 

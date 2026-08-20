@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { getPermissionsFromAuth } from "@/lib/permissions-server";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
 import { createStaffPersonaSchema } from "@/lib/validations/personas-equipo";
 import { formatPersonName, normalizeRut } from "@/lib/personas";
 import { splitPersonName, staffCargoFromAdminCargo, staffCargoLabel } from "@/lib/personas-staff";
+import { loadStaffAssignmentByGuardia, staffRowFromPersona } from "@/lib/personas-staff-list";
+import { canViewSensitiveSalary, maskSalaryAmount } from "@/lib/salary-privacy";
 import { ensureUnifiedStaffFicha } from "@/lib/personas-staff-merge";
 
 export const dynamic = "force-dynamic";
@@ -63,15 +66,38 @@ export async function GET(request: NextRequest) {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
 
+    const assignments = await loadStaffAssignmentByGuardia(
+      ctx.tenantId,
+      personas.map((p) => p.guardia?.id).filter((id): id is string => Boolean(id)),
+    );
+    const canSeeSensitive = canViewSensitiveSalary(await getPermissionsFromAuth(ctx));
+
     return NextResponse.json({
-      data: personas.map((p) => ({
-        ...p,
-        displayName: formatPersonName(p.firstName, p.lastName),
-        cargoLabel: staffCargoLabel(p.cargoStaff),
-        baseSalary: p.salaryStructure ? Number(p.salaryStructure.baseSalary) : null,
-        personaId: p.id,
-        guardiaId: p.guardia?.id ?? null,
-      })),
+      data: personas.map((p) => {
+        const personaSalary =
+          p.salaryStructure?.isActive && p.salaryStructure.baseSalary != null
+            ? Number(p.salaryStructure.baseSalary)
+            : null;
+        const display = staffRowFromPersona({
+          cargoStaff: p.cargoStaff,
+          personaBaseSalary:
+            personaSalary != null && Number.isFinite(personaSalary) ? personaSalary : null,
+          guardiaId: p.guardia?.id ?? null,
+          assignments,
+        });
+        return {
+          ...p,
+          displayName: formatPersonName(p.firstName, p.lastName),
+          cargoLabel: display.cargoLabel,
+          salarySensitive: display.salarySensitive,
+          baseSalary: maskSalaryAmount(display.baseSalary, {
+            salarySensitive: display.salarySensitive,
+            canViewSensitive: canSeeSensitive,
+          }),
+          personaId: p.id,
+          guardiaId: p.guardia?.id ?? null,
+        };
+      }),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Error interno";

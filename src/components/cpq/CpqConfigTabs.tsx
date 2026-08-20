@@ -127,9 +127,10 @@ export function CpqConfigTabs() {
         {activeTab === "cargos" && (
           <CpqSimpleCatalogConfig
             title="Cargos"
-            description="Define los cargos asignables a cada posición en una cotización (ej: Guardia, Supervisor, Jefe de Grupo)."
+            description="Define los cargos asignables a cada posición. Marca «Sueldo sensible» en Director, Reclutador u otros cargos cuyo monto solo deben ver owner/admin (o quien tenga el permiso)."
             apiPath="/api/cpq/cargos"
             hasDescription={true}
+            hasSalarySensitive={true}
           />
         )}
 

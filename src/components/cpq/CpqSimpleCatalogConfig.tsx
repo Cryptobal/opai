@@ -29,6 +29,7 @@ type CatalogEntry = {
   patternWork?: number | null;
   patternOff?: number | null;
   salary?: number | null;
+  salarySensitive?: boolean;
   active: boolean;
   createdAt: string;
 };
@@ -41,6 +42,8 @@ interface CpqSimpleCatalogConfigProps {
   hasPattern?: boolean;
   /** Muestra un campo de sueldo bruto (CLP) — usado por Roles/Turnos. */
   hasSalary?: boolean;
+  /** Toggle “sueldo sensible” — usado por Cargos. */
+  hasSalarySensitive?: boolean;
 }
 
 export function CpqSimpleCatalogConfig({
@@ -50,6 +53,7 @@ export function CpqSimpleCatalogConfig({
   hasDescription = false,
   hasPattern = false,
   hasSalary = false,
+  hasSalarySensitive = false,
 }: CpqSimpleCatalogConfigProps) {
   const [items, setItems] = useState<CatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +63,7 @@ export function CpqSimpleCatalogConfig({
   const [newPatternWork, setNewPatternWork] = useState<string>("");
   const [newPatternOff, setNewPatternOff] = useState<string>("");
   const [newSalary, setNewSalary] = useState<string>("");
+  const [newSalarySensitive, setNewSalarySensitive] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -66,6 +71,7 @@ export function CpqSimpleCatalogConfig({
   const [editPatternWork, setEditPatternWork] = useState<string>("");
   const [editPatternOff, setEditPatternOff] = useState<string>("");
   const [editSalary, setEditSalary] = useState<string>("");
+  const [editSalarySensitive, setEditSalarySensitive] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<CatalogEntry | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -114,6 +120,7 @@ export function CpqSimpleCatalogConfig({
           ...(hasPattern && newPatternWork ? { patternWork: Number(newPatternWork) } : {}),
           ...(hasPattern && newPatternOff ? { patternOff: Number(newPatternOff) } : {}),
           ...(hasSalary ? { salary: newSalary ? Number(newSalary) : 0 } : {}),
+          ...(hasSalarySensitive ? { salarySensitive: newSalarySensitive } : {}),
         }),
       });
       const data = await res.json();
@@ -125,6 +132,7 @@ export function CpqSimpleCatalogConfig({
         setNewPatternWork("");
         setNewPatternOff("");
         setNewSalary("");
+        setNewSalarySensitive(false);
         toast.success("Agregado correctamente");
       } else {
         toast.error(data.error || "Error al agregar");
@@ -150,6 +158,7 @@ export function CpqSimpleCatalogConfig({
           ...(hasPattern ? { patternWork: editPatternWork ? Number(editPatternWork) : null } : {}),
           ...(hasPattern ? { patternOff: editPatternOff ? Number(editPatternOff) : null } : {}),
           ...(hasSalary ? { salary: editSalary ? Number(editSalary) : 0 } : {}),
+          ...(hasSalarySensitive ? { salarySensitive: editSalarySensitive } : {}),
         }),
       });
       const data = await res.json();
@@ -196,6 +205,7 @@ export function CpqSimpleCatalogConfig({
     setEditPatternWork(item.patternWork != null ? String(item.patternWork) : "");
     setEditPatternOff(item.patternOff != null ? String(item.patternOff) : "");
     setEditSalary(item.salary != null && item.salary > 0 ? String(item.salary) : "");
+    setEditSalarySensitive(item.salarySensitive === true);
   };
 
   const cancelEdit = () => {
@@ -241,6 +251,16 @@ export function CpqSimpleCatalogConfig({
               placeholder="Sueldo bruto"
               className={`${inputClass} w-32`}
             />
+          )}
+          {hasSalarySensitive && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground h-9 px-2">
+              <input
+                type="checkbox"
+                checked={newSalarySensitive}
+                onChange={(e) => setNewSalarySensitive(e.target.checked)}
+              />
+              Sueldo sensible
+            </label>
           )}
           {hasPattern && (
             <>
@@ -350,6 +370,16 @@ export function CpqSimpleCatalogConfig({
                         }}
                       />
                     )}
+                    {hasSalarySensitive && (
+                      <label className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={editSalarySensitive}
+                          onChange={(e) => setEditSalarySensitive(e.target.checked)}
+                        />
+                        Sensible
+                      </label>
+                    )}
                     {hasPattern && (
                       <>
                         <Input
@@ -409,6 +439,9 @@ export function CpqSimpleCatalogConfig({
                           <span className="ml-2 text-xs font-mono text-status-ok-fg">
                             ${item.salary.toLocaleString("es-CL")}
                           </span>
+                        )}
+                        {hasSalarySensitive && item.salarySensitive && (
+                          <span className="ml-2 text-xs text-status-warn-fg">Sueldo sensible</span>
                         )}
                       </p>
                       {hasDescription && item.description && (

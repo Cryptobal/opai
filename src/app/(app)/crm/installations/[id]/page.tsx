@@ -5,6 +5,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit, canViewInstallations, canEditInstallations } from "@/lib/permissions-server";
+import { canViewSensitiveSalary, redactPuestoSalaryFields } from "@/lib/salary-privacy";
 import { prisma } from "@/lib/prisma";
 import { CrmInstallationDetailClient } from "@/components/crm";
 export default async function CrmInstallationDetailPage({
@@ -75,7 +76,7 @@ export default async function CrmInstallationDetailPage({
         teMontoClp: true,
         activeFrom: true,
         puestoTrabajo: { select: { id: true, name: true } },
-        cargo: { select: { id: true, name: true } },
+        cargo: { select: { id: true, name: true, salarySensitive: true } },
         rol: { select: { id: true, name: true } },
         salaryStructure: {
           select: {
@@ -222,10 +223,11 @@ export default async function CrmInstallationDetailPage({
     redirect("/crm/installations");
   }
 
+  const canSeeSensitive = canViewSensitiveSalary(perms);
   const data = JSON.parse(
     JSON.stringify({
       ...installation,
-      puestosActivos,
+      puestosActivos: puestosActivos.map((p) => redactPuestoSalaryFields(p, canSeeSensitive)),
       puestosHistorial,
       quotesInstalacion,
       asignacionGuardias,

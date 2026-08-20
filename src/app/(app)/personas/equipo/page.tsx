@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { formatPersonName } from "@/lib/personas";
-import { staffCargoLabel } from "@/lib/personas-staff";
+import { loadStaffAssignmentByGuardia, staffRowFromPersona } from "@/lib/personas-staff-list";
+import { canViewSensitiveSalary, maskSalaryAmount } from "@/lib/salary-privacy";
 import { EquipoInternoClient, type EquipoInternoRow } from "@/components/personas/EquipoInternoClient";
 
 export default async function EquipoInternoPage() {
@@ -15,6 +16,8 @@ export default async function EquipoInternoPage() {
   if (!canView(perms, "ops", "guardias")) {
     redirect("/hub");
   }
+
+  const canSeeSensitive = canViewSensitiveSalary(perms);
 
   const personas = await prisma.opsPersona.findMany({
     where: {
@@ -31,34 +34,56 @@ export default async function EquipoInternoPage() {
       phone: true,
       cargoStaff: true,
       status: true,
-      salaryStructure: { select: { baseSalary: true } },
+      salaryStructure: { select: { baseSalary: true, isActive: true } },
       admin: { select: { id: true, name: true, email: true } },
       guardia: { select: { id: true } },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
-  const initialRows: EquipoInternoRow[] = personas.map((p) => ({
-    id: p.id,
-    personaId: p.id,
-    guardiaId: p.guardia?.id ?? null,
-    firstName: p.firstName,
-    lastName: p.lastName,
-    rut: p.rut,
-    email: p.email,
-    phone: p.phone,
-    cargoStaff: p.cargoStaff,
-    cargoLabel: staffCargoLabel(p.cargoStaff),
-    status: p.status,
-    displayName: formatPersonName(p.firstName, p.lastName),
-    baseSalary: p.salaryStructure ? Number(p.salaryStructure.baseSalary) : null,
-    admin: p.admin,
-  }));
+  const assignments = await loadStaffAssignmentByGuardia(
+    session.user.tenantId,
+    personas.map((p) => p.guardia?.id).filter((id): id is string => Boolean(id)),
+  );
+
+  const initialRows: EquipoInternoRow[] = personas.map((p) => {
+    const personaSalary =
+      p.salaryStructure?.isActive && p.salaryStructure.baseSalary != null
+        ? Number(p.salaryStructure.baseSalary)
+        : null;
+    const display = staffRowFromPersona({
+      cargoStaff: p.cargoStaff,
+      personaBaseSalary: personaSalary != null && Number.isFinite(personaSalary) ? personaSalary : null,
+      guardiaId: p.guardia?.id ?? null,
+      assignments,
+    });
+    return {
+      id: p.id,
+      personaId: p.id,
+      guardiaId: p.guardia?.id ?? null,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      rut: p.rut,
+      email: p.email,
+      phone: p.phone,
+      cargoStaff: p.cargoStaff,
+      cargoLabel: display.cargoLabel,
+      status: p.status,
+      displayName: formatPersonName(p.firstName, p.lastName),
+      baseSalary: maskSalaryAmount(display.baseSalary, {
+        salarySensitive: display.salarySensitive,
+        canViewSensitive: canSeeSensitive,
+      }),
+      salarySensitive: display.salarySensitive,
+      admin: p.admin,
+    };
+  });
 
   return (
     <EquipoInternoClient
       initialRows={JSON.parse(JSON.stringify(initialRows))}
       canEdit={canEdit(perms, "ops", "guardias")}
+      canViewSensitiveSalary={canSeeSensitive}
     />
   );
 }

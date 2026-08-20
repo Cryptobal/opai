@@ -70,15 +70,25 @@ export default async function GuardiaDetailPage({
   const docLabels = buildDocLabelMap(postulacionDocs);
 
   // Find matching Admin for this persona (by email) for rendiciones link - use adminUsers to avoid extra DB query
-  const personaAdminId =
-    guardia.persona.email
-      ? adminUsers.find((a) => a.email === guardia.persona.email)?.id ?? null
-      : null;
+  const linkedAdmin =
+    (guardia.persona.adminId
+      ? adminUsers.find((a) => a.id === guardia.persona.adminId)
+      : null) ??
+    (guardia.persona.email
+      ? adminUsers.find((a) => a.email === guardia.persona.email)
+      : null);
+  const personaAdminId = linkedAdmin?.id ?? null;
 
   // Enrich history events and comments with user names
   const userMap = new Map(adminUsers.map((u) => [u.id, u.name]));
   const enrichedGuardia = {
     ...guardia,
+    persona: {
+      ...guardia.persona,
+      admin: linkedAdmin
+        ? { id: linkedAdmin.id, name: linkedAdmin.name, email: linkedAdmin.email }
+        : null,
+    },
     historyEvents: guardia.historyEvents.map((e) => ({
       ...e,
       createdByName: e.createdBy ? userMap.get(e.createdBy) ?? null : null,

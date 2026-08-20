@@ -49,13 +49,22 @@ export async function PUT(request: NextRequest, { params }: Params) {
       );
     }
 
-    const data: { name: string; description: string | null; active: boolean; colorHex?: string | null } = {
+    const data: {
+      name: string;
+      description: string | null;
+      active: boolean;
+      colorHex?: string | null;
+      salarySensitive?: boolean;
+    } = {
       name: body.name.trim(),
       description: body.description?.trim() || null,
       active: body.active ?? true,
     };
     if (body.colorHex !== undefined) {
       data.colorHex = normalizeColorHex(body.colorHex);
+    }
+    if (body.salarySensitive !== undefined) {
+      data.salarySensitive = body.salarySensitive === true;
     }
 
     const cargo = await prisma.cpqCargo.update({

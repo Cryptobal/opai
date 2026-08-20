@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
     const guardias = await prisma.opsGuardia.findMany({
       where: {
         tenantId: ctx.tenantId,
+        persona: { laborClass: { not: "ADMINISTRATIVO" } },
         ...(status ? { status } : {}),
         ...(blacklisted === "true" ? { isBlacklisted: true } : {}),
         ...(blacklisted === "false" ? { isBlacklisted: false } : {}),
