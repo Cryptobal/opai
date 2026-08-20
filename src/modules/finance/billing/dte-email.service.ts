@@ -17,6 +17,7 @@ import { renderDteEmailHtml, renderDteEmailSubject } from "./dte-email-template"
 import { getFileBuffer } from "@/lib/storage";
 import { buildDteAttachmentBaseName } from "./dte-filename";
 import { enrichDteEmailRecipientsFromCrm } from "./dte-xml-compliance";
+import { explicitDteEmailsForSend } from "./dte-recipient-guard";
 
 /**
  * Resuelve el kind del catálogo transaccional según el tipo de DTE.
@@ -117,34 +118,34 @@ export async function sendDteEmail(
     return { success: false, error: "No se puede enviar email de un borrador" };
   }
 
-  // Primario (TO): receptor explícito > receiverEmail del DTE. Si el DTE no
-  // tiene receiverEmail pero SÍ tiene CC (caso típico: cliente sin email
-  // primario guardado pero con contactos CRM cargados como CC), promovemos el
-  // primer CC válido a TO para que el correo igual salga. Regla: el envío
-  // nunca queda mudo si existe AL MENOS un destinatario válido.
+  // Primario (TO): receptor explícito > receiverEmail del DTE.
+  // La promoción de un CC a TO (si no hay TO) ocurre DESPUÉS de filtrar
+  // emails ajenos a la cuenta: nunca promovemos un tercero no-contacto.
   let primary = recipientEmail ?? dte.receiverEmail ?? null;
   let ccSource = ccOverride ?? dte.receiverEmailCc ?? [];
-  if (!primary?.trim()) {
-    const firstCc = ccSource.find((e) => typeof e === "string" && e.trim());
-    if (firstCc) {
-      primary = firstCc;
-      ccSource = ccSource.filter((e) => e !== firstCc);
-    }
-  }
+  const explicitEmails = explicitDteEmailsForSend(
+    kind,
+    recipientEmail,
+    ccOverride,
+    dte.receiverEmail,
+    dte.receiverEmailCc,
+  );
 
-  // Re-envíos: si el CRM tiene casilla DTE (recepciondte*) y no estaba
-  // en TO/CC, la promovemos a TO para que el XML llegue al buzón automático.
-  // No mutamos el DTE persistido — solo el envelope de este envío.
   if (dte.crmAccountId) {
     const routed = await enrichDteEmailRecipientsFromCrm({
       tenantId,
       crmAccountId: dte.crmAccountId,
       currentTo: primary,
       currentCc: ccSource,
+      explicitEmails,
     });
-    if (routed.adjusted) {
-      primary = routed.to;
-      ccSource = routed.cc;
+    primary = routed.to;
+    ccSource = routed.cc;
+  } else if (!primary?.trim()) {
+    const firstCc = ccSource.find((e) => typeof e === "string" && e.trim());
+    if (firstCc) {
+      primary = firstCc;
+      ccSource = ccSource.filter((e) => e !== firstCc);
     }
   }
 

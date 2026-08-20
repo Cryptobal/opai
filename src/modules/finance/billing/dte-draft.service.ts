@@ -91,10 +91,10 @@ export async function createDraftDte(
       currentTo: input.receiverEmail,
       currentCc: input.receiverEmailCc,
     });
-    if (routed.adjusted) {
-      input.receiverEmail = routed.to ?? input.receiverEmail;
-      input.receiverEmailCc = routed.cc;
-    }
+    // Siempre aplicar: si se descartó un TO huérfano, `routed.to` puede
+    // ser null y NO debemos restaurar el email ajeno con `?? input`.
+    input.receiverEmail = routed.to ?? undefined;
+    input.receiverEmailCc = routed.cc;
 
     const receiver = await enrichDteReceiverFromCrm({
       tenantId,

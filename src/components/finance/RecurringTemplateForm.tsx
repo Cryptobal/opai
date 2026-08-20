@@ -56,6 +56,8 @@ import {
 } from "@/modules/finance/billing/placeholders";
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
+import { isLinkedDteRecipient } from "@/modules/finance/billing/dte-recipient-guard";
+import { UnlinkedDteRecipientsHint } from "./DteRecipientsPicker";
 import {
   FacturaTimingSection,
   type FacturaTimingValue,
@@ -634,6 +636,30 @@ export function RecurringTemplateForm({
     periodPolicy,
   ]);
 
+  const unlinkedTemplateEmails = React.useMemo(() => {
+    if (!crmSuggestions?.account) return [];
+    const accountEmails = crmSuggestions.contacts.map((c) => c.email);
+    const candidates = [
+      (customer?.email || receiverEmail).trim(),
+      ...parseCcEmailsFromRaw(ccEmailsRaw),
+    ];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of candidates) {
+      const e = normalizeEmailAddress(raw);
+      if (!e || !e.includes("@") || seen.has(e)) continue;
+      if (isLinkedDteRecipient(e, accountEmails)) continue;
+      seen.add(e);
+      out.push(e);
+    }
+    return out;
+  }, [
+    crmSuggestions,
+    customer?.email,
+    receiverEmail,
+    ccEmailsRaw,
+  ]);
+
   // ── Submit ──
   const handleSubmit = async () => {
     const effRut = (customer?.rut || receiverRut).trim();
@@ -1142,6 +1168,9 @@ export function RecurringTemplateForm({
                   <p className="text-[12px] text-muted-foreground">
                     Separá con coma o espacio. Hasta 10 destinatarios.
                   </p>
+                  {unlinkedTemplateEmails.length > 0 && (
+                    <UnlinkedDteRecipientsHint emails={unlinkedTemplateEmails} />
+                  )}
                 </div>
               </CardContent>
             </Card>

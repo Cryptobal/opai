@@ -330,9 +330,10 @@ export async function issueDte(
       currentTo: input.receiverEmail,
       currentCc: input.receiverEmailCc,
     });
+    // Siempre aplicar: un TO huérfano descartado queda null (no se restaura).
+    input.receiverEmail = routed.to ?? undefined;
+    input.receiverEmailCc = routed.cc;
     if (routed.adjusted) {
-      input.receiverEmail = routed.to ?? input.receiverEmail;
-      input.receiverEmailCc = routed.cc;
       console.info(
         `[FINANCE] DTE email routing adjusted for account ${input.crmAccountId}: TO=${input.receiverEmail ?? "(none)"} CC=${routed.cc.length}`,
       );
@@ -716,8 +717,9 @@ export async function issueDte(
   let emailStatus: "sent" | "failed" | "no_receiver" | "skipped" = "skipped";
   let emailError: string | null = null;
   // Hay destinatario si el DTE tiene receiverEmail (TO) O al menos un CC
-  // válido. sendDteEmail promueve el primer CC a TO cuando no hay receiverEmail,
-  // así que con sólo CC el correo igual sale. No marcamos no_receiver en ese caso.
+  // válido. sendDteEmail filtra emails ajenos a la cuenta y, si no queda TO,
+  // promueve el primer CC que sobrevivió (nunca un huérfano). Si no queda
+  // nadie, no enviamos (`no_receiver`).
   const effectiveCc = input.receiverEmailCc ?? dte.receiverEmailCc ?? [];
   const hasAnyRecipient =
     !!dte.receiverEmail?.trim() ||
@@ -739,6 +741,8 @@ export async function issueDte(
       );
       if (r.success) {
         emailStatus = "sent";
+      } else if (r.error === "Receptor no tiene email") {
+        emailStatus = "no_receiver";
       } else {
         emailStatus = "failed";
         emailError = r.error ?? "Error desconocido al enviar email";

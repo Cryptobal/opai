@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { normalizeEmailAddress } from "@/lib/email-address";
+import { isLinkedDteRecipient } from "@/modules/finance/billing/dte-recipient-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +55,7 @@ export function DteRecipientsPicker({
   const [crmContacts, setCrmContacts] = useState<
     { email: string; label?: string }[]
   >([]);
+  const [contactsLoaded, setContactsLoaded] = useState(false);
   // Marca para evitar volver a aplicar `defaultCheckedCc` cuando la
   // referencia cambia por motivos no semánticos (ej: nuevo array vacío
   // cada render del padre).
@@ -92,9 +94,11 @@ export function DteRecipientsPicker({
         : null;
     if (!param) {
       setCrmContacts([]);
+      setContactsLoaded(false);
       return;
     }
     const ctrl = new AbortController();
+    setContactsLoaded(false);
     fetch(`/api/crm/contacts?${param}`, { signal: ctrl.signal })
       .then((r) => r.json())
       .then((j) => {
@@ -107,6 +111,7 @@ export function DteRecipientsPicker({
           list.push({ email, label: name ? `${name} <${email}>` : email });
         }
         setCrmContacts(list);
+        setContactsLoaded(true);
       })
       .catch(() => {});
     return () => ctrl.abort();
@@ -130,6 +135,24 @@ export function DteRecipientsPicker({
     return out;
   }, [suggestedContacts, crmContacts]);
 
+  const accountEmails = useMemo(
+    () => crmContacts.map((c) => c.email),
+    [crmContacts],
+  );
+  const unlinkedEmails = useMemo(() => {
+    if (!contactsLoaded) return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of [value.to, ...value.cc]) {
+      const e = normalizeEmailAddress(raw);
+      if (!e || !EMAIL_RE.test(e) || seen.has(e)) continue;
+      if (isLinkedDteRecipient(e, accountEmails)) continue;
+      seen.add(e);
+      out.push(e);
+    }
+    return out;
+  }, [contactsLoaded, value.to, value.cc, accountEmails]);
+  const unlinkedSet = useMemo(() => new Set(unlinkedEmails), [unlinkedEmails]);
   const ccKeys = new Set(value.cc.map((e) => normalizeEmailAddress(e)));
   const toKey = normalizeEmailAddress(value.to);
   const ccSuggestionsToShow = allSuggestions.filter(
@@ -201,6 +224,12 @@ export function DteRecipientsPicker({
             El receptor no tiene email guardado. Ingresá uno acá.
           </p>
         )}
+        {unlinkedSet.has(toKey) && (
+          <p className="text-[12px] text-status-warn-fg">
+            Este correo no está en los contactos de esta cuenta. El envío
+            automático lo omitirá.
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -214,6 +243,7 @@ export function DteRecipientsPicker({
           list={value.cc}
           onRemove={(e) => removeChip("cc", e)}
           disabled={disabled}
+          unlinked={unlinkedSet}
         />
         <div className="flex gap-2">
           <Input
@@ -265,6 +295,11 @@ export function DteRecipientsPicker({
               </button>
             ))}
           </div>
+        )}
+        {unlinkedEmails.filter((e) => e !== toKey).length > 0 && (
+          <UnlinkedDteRecipientsHint
+            emails={unlinkedEmails.filter((e) => e !== toKey)}
+          />
         )}
       </div>
 
@@ -319,33 +354,58 @@ function ChipList({
   onRemove,
   variant,
   disabled,
+  unlinked,
 }: {
   list: string[];
   onRemove: (email: string) => void;
   variant?: "bcc";
   disabled?: boolean;
+  unlinked?: Set<string>;
 }) {
   if (list.length === 0) return null;
   const baseClass =
     variant === "bcc"
       ? "inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md bg-ds-surface-3 text-ds-text-2 border border-ds-border-subtle"
       : "inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md bg-status-info-soft text-status-info-fg border border-status-info-border";
+  const unlinkedClass =
+    "inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md bg-status-warn-soft text-status-warn-fg border border-status-warn-border";
   return (
     <div className="flex flex-wrap gap-1.5">
-      {list.map((email) => (
-        <span key={email} className={baseClass}>
-          {email}
-          <button
-            type="button"
-            onClick={() => onRemove(email)}
-            disabled={disabled}
-            className="hover:opacity-70 disabled:opacity-40"
-            aria-label={`Quitar ${email}`}
+      {list.map((email) => {
+        const isUnlinked = Boolean(
+          unlinked?.has(normalizeEmailAddress(email)),
+        );
+        return (
+          <span
+            key={email}
+            className={isUnlinked && variant !== "bcc" ? unlinkedClass : baseClass}
           >
-            <X className="h-3 w-3" />
-          </button>
-        </span>
-      ))}
+            {email}
+            <button
+              type="button"
+              onClick={() => onRemove(email)}
+              disabled={disabled}
+              className="hover:opacity-70 disabled:opacity-40"
+              aria-label={`Quitar ${email}`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        );
+      })}
     </div>
+  );
+}
+
+export function UnlinkedDteRecipientsHint({ emails }: { emails: string[] }) {
+  if (emails.length === 0) return null;
+  const list = emails.join(", ");
+  return (
+    <p className="text-[12px] text-status-warn-fg">
+      {emails.length === 1
+        ? `${list} no está en los contactos de esta cuenta.`
+        : `Estos correos no están en los contactos de esta cuenta: ${list}.`}{" "}
+      El envío automático los omitirá.
+    </p>
   );
 }

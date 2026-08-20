@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findAccountMock = vi.hoisted(() => vi.fn());
+const findContactsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     crmAccount: { findFirst: (...a: unknown[]) => findAccountMock(...a) },
-    crmContact: { findMany: vi.fn() },
+    crmContact: { findMany: (...a: unknown[]) => findContactsMock(...a) },
   },
 }));
 
 import {
+  enrichDteEmailRecipientsFromCrm,
   enrichDteReceiverFromCrm,
   isDteReceptionEmail,
   normalizeAdditionalReferencesForSii,
@@ -103,6 +105,10 @@ describe("isDteReceptionEmail", () => {
     expect(isDteReceptionEmail("recepciondte_polpaico@polpaico.cl")).toBe(true);
     expect(isDteReceptionEmail("RecepcionDTE@ejemplo.cl")).toBe(true);
     expect(isDteReceptionEmail("kurt.neumann@polpaicosoluciones.cl")).toBe(false);
+  });
+
+  it("detecta portal Febos", () => {
+    expect(isDteReceptionEmail("76090823-1@prd.inbox.febos.cl")).toBe(true);
   });
 });
 
@@ -227,5 +233,110 @@ describe("enrichDteReceiverFromCrm", () => {
     expect(r.adjusted).toBe(false);
     expect(r.giro).toBe("GIRO MANUAL");
     expect(findAccountMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("enrichDteEmailRecipientsFromCrm", () => {
+  beforeEach(() => {
+    findContactsMock.mockReset();
+  });
+
+  const glContacts = [
+    {
+      email: "valesca.ortega@gl-events.com",
+      recibeFacturacion: false,
+    },
+    {
+      email: "andres.tagle@glemans.com",
+      recibeFacturacion: false,
+    },
+    {
+      email: "pablo.alvarez@gl-events.com",
+      recibeFacturacion: false,
+    },
+  ];
+
+  it("sin cuenta no toca los destinatarios", async () => {
+    const r = await enrichDteEmailRecipientsFromCrm({
+      tenantId: "t1",
+      currentTo: "a@x.cl",
+      currentCc: ["b@x.cl"],
+    });
+    expect(r.to).toBe("a@x.cl");
+    expect(r.cc).toEqual(["b@x.cl"]);
+    expect(r.adjusted).toBe(false);
+    expect(findContactsMock).not.toHaveBeenCalled();
+  });
+
+  it("descarta un CC que no es contacto de la cuenta", async () => {
+    findContactsMock.mockResolvedValue(glContacts);
+    const r = await enrichDteEmailRecipientsFromCrm({
+      tenantId: "t1",
+      crmAccountId: "acc-gl",
+      currentTo: null,
+      currentCc: [
+        "luisalberto.coeymans@glemans.com",
+        "valesca.ortega@gl-events.com",
+        "andres.tagle@glemans.com",
+        "pablo.alvarez@gl-events.com",
+      ],
+    });
+    expect(r.to).toBe("valesca.ortega@gl-events.com");
+    expect(r.cc).toEqual([
+      "andres.tagle@glemans.com",
+      "pablo.alvarez@gl-events.com",
+    ]);
+    expect(r.adjusted).toBe(true);
+  });
+
+  it("conserva contacto con recibeFacturacion false", async () => {
+    findContactsMock.mockResolvedValue(glContacts);
+    const r = await enrichDteEmailRecipientsFromCrm({
+      tenantId: "t1",
+      crmAccountId: "acc-gl",
+      currentTo: "pablo.alvarez@gl-events.com",
+      currentCc: ["andres.tagle@glemans.com"],
+    });
+    expect(r.to).toBe("pablo.alvarez@gl-events.com");
+    expect(r.cc).toContain("andres.tagle@glemans.com");
+    expect(r.adjusted).toBe(false);
+  });
+
+  it("conserva casilla Febos que no es contacto", async () => {
+    findContactsMock.mockResolvedValue([
+      { email: "tesoreriacims@cimsjri.cl", recibeFacturacion: true },
+    ]);
+    const r = await enrichDteEmailRecipientsFromCrm({
+      tenantId: "t1",
+      crmAccountId: "acc-cims",
+      currentTo: "tesoreriacims@cimsjri.cl",
+      currentCc: ["76090823-1@prd.inbox.febos.cl"],
+    });
+    expect(r.cc).toContain("76090823-1@prd.inbox.febos.cl");
+  });
+
+  it("lista solo huérfanos deja to null", async () => {
+    findContactsMock.mockResolvedValue(glContacts);
+    const r = await enrichDteEmailRecipientsFromCrm({
+      tenantId: "t1",
+      crmAccountId: "acc-gl",
+      currentTo: "luisalberto.coeymans@glemans.com",
+      currentCc: ["otro.ajeno@example.com"],
+    });
+    expect(r.to).toBeNull();
+    expect(r.cc).toEqual([]);
+    expect(r.adjusted).toBe(true);
+  });
+
+  it("respeta explicitEmails en reenvío manual", async () => {
+    findContactsMock.mockResolvedValue(glContacts);
+    const r = await enrichDteEmailRecipientsFromCrm({
+      tenantId: "t1",
+      crmAccountId: "acc-gl",
+      currentTo: "valesca.ortega@gl-events.com",
+      currentCc: ["contador-externo@estudio.cl"],
+      explicitEmails: ["contador-externo@estudio.cl"],
+    });
+    expect(r.cc).toContain("contador-externo@estudio.cl");
   });
 });
