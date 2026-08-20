@@ -3,7 +3,6 @@ import { Prisma, type FlowSection } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { CANONICAL_FLOW_ROWS } from "./canonical-rows";
 import { linkPayrollSubrows } from "./link-payroll-subrows";
-import { linkPayrollSubrows } from "./link-payroll-subrows";
 
 type Tx = Prisma.TransactionClient;
 
