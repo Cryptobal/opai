@@ -48,7 +48,7 @@ import { IssuedDteSlideOver } from "./IssuedDteSlideOver";
 import { CobranzaSendDialog } from "@/components/finance/cobranza/CobranzaSendDialog";
 import { useDteFilters } from "./hooks/useDteFilters";
 import { fmtCLP, sortDteRows } from "./shared/constants";
-import { normalizeAdditionalRefs } from "./shared/references";
+import { applyBillingDocSent, mapIssuedApiDteToRow } from "./shared/map-issued-dte";
 import type {
   DteRow,
   CostCenterOption,
@@ -327,76 +327,9 @@ export function DtesEmitidosClient({
         if (!res.ok) throw new Error();
         const json = await res.json();
         const list: DteRow[] = Array.isArray(json?.data?.dtes)
-          ? json.data.dtes.map((d: Record<string, unknown>) => ({
-              id: String(d.id),
-              dteType: Number(d.dteType),
-              folio: Number(d.folio),
-              receiverRut: String(d.receiverRut ?? ""),
-              receiverName: String(d.receiverName ?? ""),
-              receiverEmail: (d.receiverEmail as string | null) ?? null,
-              receiverEmailCc: Array.isArray(d.receiverEmailCc)
-                ? (d.receiverEmailCc as string[])
-                : [],
-              netAmount: Number(d.netAmount),
-              taxAmount: Number(d.taxAmount),
-              totalAmount: Number(d.totalAmount),
-              siiStatus: String(d.siiStatus ?? ""),
-              currency: String(d.currency ?? "CLP"),
-              linesCount: Array.isArray(d.lines)
-                ? (d.lines as unknown[]).length
-                : 0,
-              createdAt: String(d.createdAt ?? ""),
-              emailSentAt: (d.emailSentAt as string | null) ?? null,
-              emailStatus: (d.emailStatus as string | null) ?? null,
-              referenceType: (d.referenceType as number | null) ?? null,
-              referenceFolio: (d.referenceFolio as number | null) ?? null,
-              additionalReferences: normalizeAdditionalRefs(
-                d.additionalReferences,
-              ),
-              hasXml: Boolean(d.hasXml),
-              crmAccountId: (d.crmAccountId as string | null) ?? null,
-              installationId: (d.installationId as string | null) ?? null,
-              crmAccount:
-                (d.crmAccount as
-                  | { id: string; name: string; legalName: string | null }
-                  | null) ?? null,
-              installation:
-                (d.installation as
-                  | { id: string; name: string; commune: string | null }
-                  | null) ?? null,
-              canBeCeded: Boolean(d.canBeCeded),
-              activeCession:
-                (d.activeCession as
-                  | {
-                      id: string;
-                      code: string;
-                      status: string;
-                      factoringCompany?: string | null;
-                    }
-                  | null) ?? null,
-              date:
-                typeof d.date === "string" ? d.date : String(d.date ?? ""),
-              dueDate: (d.dueDate as string | null) ?? null,
-              paymentStatus: (d.paymentStatus as string | null) ?? null,
-              lastReconciliation:
-                (d.lastReconciliation as DteRow["lastReconciliation"]) ?? null,
-              linkedCreditNote:
-                (d.linkedCreditNote as
-                  | {
-                      count: number;
-                      hasFullAnnulment: boolean;
-                      creditedNet: number;
-                      primaryFolio: number;
-                    }
-                  | null) ?? null,
-              voidedByCreditNoteId:
-                (d.voidedByCreditNoteId as string | null) ?? null,
-              voidedAt: (d.voidedAt as string | null) ?? null,
-              creditedNetAmount:
-                d.creditedNetAmount != null
-                  ? Number(d.creditedNetAmount)
-                  : 0,
-            }))
+          ? json.data.dtes.map((d: Record<string, unknown>) =>
+              mapIssuedApiDteToRow(d),
+            )
           : [];
         setDtes(list);
         if (typeof json?.data?.pagination?.total === "number") {
@@ -546,6 +479,23 @@ export function DtesEmitidosClient({
   const handleEditDraft = (id: string) => {
     router.push(`/finanzas/facturacion/emitir?draftId=${id}&from=dtes`);
   };
+
+  const openSendAsModal = useCallback(
+    (id: string, variant?: "PROFORMA" | "ESTADO_DE_PAGO") => {
+      const row = dtes.find((d) => d.id === id);
+      if (!row) return;
+      const isDraft = row.siiStatus === "DRAFT";
+      setSendAsModal({
+        dteId: id,
+        target: isDraft ? "draft" : "issued",
+        defaultVariant:
+          variant ?? (isDraft ? "PROFORMA" : "ESTADO_DE_PAGO"),
+        defaultRecipientEmail: row.receiverEmail ?? null,
+        receiverName: row.receiverName,
+      });
+    },
+    [dtes],
+  );
 
   const handleCloneDraft = async (id: string) => {
     setCloningDraft(id);
@@ -1097,6 +1047,7 @@ export function DtesEmitidosClient({
               onIssueDraft={handleIssueDraft}
               onDeleteDraft={handleDeleteDraft}
               onCloneDraft={handleCloneDraft}
+              onSendAs={openSendAsModal}
               onUnreconcile={handleUnreconcile}
               onMarkUnpaid={handleMarkUnpaid}
               sort={filters.sort}
@@ -1133,6 +1084,7 @@ export function DtesEmitidosClient({
               onIssueDraft={handleIssueDraft}
               onDeleteDraft={handleDeleteDraft}
               onCloneDraft={handleCloneDraft}
+              onSendAs={openSendAsModal}
             />
           </div>
           <PaginationControls
@@ -1176,16 +1128,7 @@ export function DtesEmitidosClient({
         onSendAs={() => {
           if (selectedIds.size !== 1) return;
           const [dteId] = Array.from(selectedIds);
-          const row = dtes.find((d) => d.id === dteId);
-          if (!row) return;
-          const isDraft = row.siiStatus === "DRAFT";
-          setSendAsModal({
-            dteId,
-            target: isDraft ? "draft" : "issued",
-            defaultVariant: isDraft ? "PROFORMA" : "ESTADO_DE_PAGO",
-            defaultRecipientEmail: row.receiverEmail ?? null,
-            receiverName: row.receiverName,
-          });
+          openSendAsModal(dteId);
         }}
       />
 
@@ -1198,10 +1141,21 @@ export function DtesEmitidosClient({
           defaultVariant={sendAsModal.defaultVariant}
           defaultRecipientEmail={sendAsModal.defaultRecipientEmail}
           receiverName={sendAsModal.receiverName}
-          onSent={() => {
+          onSent={(info) => {
+            const dteId = sendAsModal.dteId;
             setSendAsModal(null);
-            // Refrescar listado para reflejar nuevo proformaStatus.
-            setDtes((prev) => prev.slice());
+            setDtes((prev) =>
+              prev.map((row) =>
+                row.id === dteId
+                  ? applyBillingDocSent(
+                      row,
+                      info.variant,
+                      new Date().toISOString(),
+                      info.recipientEmail,
+                    )
+                  : row,
+              ),
+            );
           }}
         />
       )}

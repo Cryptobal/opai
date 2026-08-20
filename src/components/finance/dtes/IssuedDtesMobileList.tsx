@@ -15,7 +15,7 @@
  * compartido para evitar refactor del componente desktop estable.
  */
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -30,9 +30,9 @@ import {
   FileMinus,
   FilePlus,
   FileSearch,
+  ClipboardCheck,
   Copy,
-  Mail,
-  MailX,
+  FileText,
   MessageCircle,
   MoreHorizontal,
   RefreshCw,
@@ -52,6 +52,7 @@ import { RelationRow } from "./RelationRow";
 import { ReferenceBadges } from "./ReferenceBadges";
 import { fmtCLPSmart } from "./shared/constants";
 import { DteAmountCell } from "./shared/DteAmountCell";
+import { DteSendStatusCell } from "./DteSendStatusCell";
 import type { DteRow } from "./shared/types";
 import {
   MobileActionSheet,
@@ -83,6 +84,7 @@ interface Props {
   onIssueDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
   onCloneDraft: (id: string) => void;
+  onSendAs: (id: string, variant?: "PROFORMA" | "ESTADO_DE_PAGO") => void;
 }
 
 /**
@@ -112,6 +114,8 @@ function buildActionItems(
     onIssueDraft: () => void;
     onDeleteDraft: () => void;
     onCloneDraft: () => void;
+    onSendProforma: () => void;
+    onSendEstadoPago: () => void;
     onOpenCession: () => void;
   },
 ): MobileActionSheetItem[] {
@@ -127,6 +131,22 @@ function buildActionItems(
         disabled:
           deletingDraft === row.id || cloningDraft === row.id,
         onSelect: handlers.onEditDraft,
+      });
+      items.push({
+        key: "send-proforma",
+        label: "Enviar proforma",
+        icon: <FileText className="h-4 w-4" />,
+        disabled:
+          deletingDraft === row.id || cloningDraft === row.id,
+        onSelect: handlers.onSendProforma,
+      });
+      items.push({
+        key: "send-estado-pago",
+        label: "Enviar estado de pago",
+        icon: <ClipboardCheck className="h-4 w-4" />,
+        disabled:
+          deletingDraft === row.id || cloningDraft === row.id,
+        onSelect: handlers.onSendEstadoPago,
       });
       items.push({
         key: "clone-draft",
@@ -317,30 +337,11 @@ export function IssuedDtesMobileList({
   onIssueDraft,
   onDeleteDraft,
   onCloneDraft,
+  onSendAs,
 }: Props) {
   const selectionMode = selectedIds.size > 0;
   const [actionFor, setActionFor] = useState<string | null>(null);
   const actionRow = actionFor ? rows.find((r) => r.id === actionFor) : null;
-
-  const emailIcon = (d: DteRow): ReactNode => {
-    if (d.emailSentAt) {
-      return (
-        <Mail
-          className="h-4 w-4 text-status-ok-fg"
-          aria-label={`Email enviado ${format(new Date(d.emailSentAt), "dd MMM", { locale: es })}`}
-        />
-      );
-    }
-    if (d.emailStatus === "FAILED") {
-      return (
-        <MailX
-          className="h-4 w-4 text-status-danger-fg"
-          aria-label="Email falló"
-        />
-      );
-    }
-    return <Mail className="h-4 w-4 text-ds-text-4" aria-label="Sin enviar" />;
-  };
 
   return (
     <>
@@ -420,7 +421,9 @@ export function IssuedDtesMobileList({
                           siiStatus={d.siiStatus}
                         />
                       )}
-                      <span className="ml-auto inline-flex">{emailIcon(d)}</span>
+                      <span className="ml-auto inline-flex">
+                        <DteSendStatusCell row={d} />
+                      </span>
                     </div>
                     {d.linkedCreditNote && (
                       <div className="mb-1">
@@ -576,6 +579,9 @@ export function IssuedDtesMobileList({
                   onIssueDraft: () => onIssueDraft(actionRow.id),
                   onDeleteDraft: () => onDeleteDraft(actionRow.id),
                   onCloneDraft: () => onCloneDraft(actionRow.id),
+                  onSendProforma: () => onSendAs(actionRow.id, "PROFORMA"),
+                  onSendEstadoPago: () =>
+                    onSendAs(actionRow.id, "ESTADO_DE_PAGO"),
                   onOpenCession: () => {
                     if (actionRow.activeCession) {
                       window.location.href = `/finanzas/facturacion/cesiones/${actionRow.activeCession.id}`;

@@ -211,6 +211,18 @@ export default async function DtesEmitidosPage({
       createdAt: d.createdAt.toISOString(),
       emailSentAt: d.emailSentAt ? d.emailSentAt.toISOString() : null,
       emailStatus: d.emailStatus,
+      requireProforma: d.requireProforma,
+      proformaStatus: d.proformaStatus,
+      proformaSentAt: d.proformaSentAt ? d.proformaSentAt.toISOString() : null,
+      proformaSentCount: d.proformaSentCount,
+      proformaLastRecipient: d.proformaLastRecipient,
+      requireEstadoPago: d.requireEstadoPago,
+      estadoPagoStatus: d.estadoPagoStatus,
+      estadoPagoSentAt: d.estadoPagoSentAt
+        ? d.estadoPagoSentAt.toISOString()
+        : null,
+      estadoPagoSentCount: d.estadoPagoSentCount,
+      estadoPagoLastRecipient: d.estadoPagoLastRecipient,
       referenceType: d.referenceType,
       referenceFolio: d.referenceFolio,
       additionalReferences: normalizeAdditionalRefs(d.additionalReferences),

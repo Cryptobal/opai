@@ -29,11 +29,13 @@ import {
   Download,
   ExternalLink,
   Eye,
+  ClipboardCheck,
   FileCode,
   FileEdit,
   FileMinus,
   FilePlus,
   FileSearch,
+  FileText,
   Loader2,
   Mail,
   MessageCircle,
@@ -120,6 +122,8 @@ interface Props {
   onDeleteDraft?: () => void;
   /** Duplicar borrador → otro DRAFT nuevo. */
   onCloneDraft?: () => void;
+  /** Enviar proforma o estado de pago (borrador o emitido). */
+  onSendAs?: (variant: "PROFORMA" | "ESTADO_DE_PAGO") => void;
   /** Desconciliar: borra link a movimiento bancario sin tocar paymentStatus. */
   onUnreconcile?: () => void;
   /** Desmarcar como pagada: vuelve paymentStatus a UNPAID. */
@@ -155,6 +159,7 @@ export function DteActionsMenu({
   onIssueDraft,
   onDeleteDraft,
   onCloneDraft,
+  onSendAs,
   onUnreconcile,
   onMarkUnpaid,
   hideViewDetail,
@@ -162,10 +167,12 @@ export function DteActionsMenu({
 }: Props) {
   const isDraft = row.siiStatus === "DRAFT";
 
-  // Borrador: solo Editar / Emitir / Eliminar. Las acciones SII estándar
-  // (PDF/XML/Email/Anular/NC/ND/Ceder) no aplican porque el borrador no
-  // existe aún en SII.
+  // Borrador: Editar visible + menú (enviar / emitir / duplicar / borrar).
+  // Las acciones SII (PDF/XML/Anular/NC/ND/Ceder) no aplican: el borrador
+  // no existe aún en SII. El menú evita que 4 íconos se desborden sobre
+  // la columna Envío.
   if (isDraft) {
+    const draftBusy = deletingDraft === row.id || cloningDraft === row.id;
     return (
       <div className="flex items-center gap-1">
         {canManage && onEditDraft && (
@@ -176,63 +183,80 @@ export function DteActionsMenu({
               e.stopPropagation();
               onEditDraft();
             }}
-            disabled={deletingDraft === row.id || cloningDraft === row.id}
+            disabled={draftBusy}
             title="Editar borrador"
           >
             <FileEdit className="h-3.5 w-3.5" />
           </Button>
         )}
-        {canManage && onIssueDraft && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onIssueDraft();
-            }}
-            disabled={deletingDraft === row.id || cloningDraft === row.id}
-            title="Emitir al SII"
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant={triggerVariant}
+              size="sm"
+              onClick={(e) => e.stopPropagation()}
+              disabled={draftBusy}
+              title="Más acciones"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="w-56"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Send className="h-3.5 w-3.5" />
-          </Button>
-        )}
-        {canManage && onCloneDraft && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCloneDraft();
-            }}
-            disabled={cloningDraft === row.id || deletingDraft === row.id}
-            title="Duplicar borrador"
-          >
-            {cloningDraft === row.id ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
+            {canManage && onSendAs && (
+              <>
+                <DropdownMenuLabel className={SECTION_LABEL}>
+                  Documento de cobro
+                </DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onSendAs("PROFORMA")}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Enviar proforma
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSendAs("ESTADO_DE_PAGO")}>
+                  <ClipboardCheck className="h-4 w-4 mr-2" />
+                  Enviar estado de pago
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
             )}
-          </Button>
-        )}
-        {canManage && onDeleteDraft && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteDraft();
-            }}
-            disabled={deletingDraft === row.id || cloningDraft === row.id}
-            title="Eliminar borrador"
-            className="text-status-danger-fg hover:text-status-danger-fg"
-          >
-            {deletingDraft === row.id ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="h-3.5 w-3.5" />
+            {canManage && onIssueDraft && (
+              <DropdownMenuItem onClick={onIssueDraft} disabled={draftBusy}>
+                <Send className="h-4 w-4 mr-2" />
+                Emitir al SII
+              </DropdownMenuItem>
             )}
-          </Button>
-        )}
+            {canManage && onCloneDraft && (
+              <DropdownMenuItem onClick={onCloneDraft} disabled={draftBusy}>
+                {cloningDraft === row.id ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-2" />
+                )}
+                Duplicar borrador
+              </DropdownMenuItem>
+            )}
+            {canManage && onDeleteDraft && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={onDeleteDraft}
+                  disabled={draftBusy}
+                  className="text-status-danger-fg focus:text-status-danger-fg"
+                >
+                  {deletingDraft === row.id ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Eliminar borrador
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
   }

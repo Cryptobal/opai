@@ -61,7 +61,10 @@ interface Props {
   /** Nombre del receptor para el preview/heading. */
   receiverName: string;
   /** Callback cuando el envío se completa con éxito. */
-  onSent?: () => void;
+  onSent?: (info: {
+    variant: BillingDocVariant;
+    recipientEmail: string;
+  }) => void;
 }
 
 export function BillingDocSendModal({
@@ -235,7 +238,7 @@ export function BillingDocSendModal({
           ? `Proforma enviada a ${recipient.trim()}`
           : `Estado de Pago enviado a ${recipient.trim()}`,
       );
-      onSent?.();
+      onSent?.({ variant, recipientEmail: recipient.trim() });
       onOpenChange(false);
     } catch (err) {
       toast.error((err as Error).message);
