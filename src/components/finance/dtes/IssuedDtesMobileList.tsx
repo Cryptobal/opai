@@ -33,6 +33,7 @@ import {
   ClipboardCheck,
   Copy,
   FileText,
+  Mail,
   MessageCircle,
   MoreHorizontal,
   RefreshCw,
