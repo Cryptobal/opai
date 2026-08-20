@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { isSalarySensitiveCargo } from "@/lib/salary-privacy";
 
 export interface ResolvedSalary {
   source: "RUT" | "PUESTO" | "PERSONA" | "NONE";
@@ -150,7 +151,10 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
 
   const assignment = guardia.asignaciones[0];
   const cargoName = assignment?.puesto?.cargo?.name ?? null;
-  const salarySensitive = assignment?.puesto?.cargo?.salarySensitive ?? false;
+  const salarySensitive = isSalarySensitiveCargo({
+    salarySensitive: assignment?.puesto?.cargo?.salarySensitive,
+    names: [cargoName, assignment?.puesto?.name],
+  });
 
   // Priority 1: RUT override (check dates)
   const now = new Date();
@@ -274,7 +278,25 @@ export async function resolvePersonaSalaryStructure(personaId: string): Promise<
   const persona = await prisma.opsPersona.findUnique({
     where: { id: personaId },
     select: {
+      cargoStaff: true,
       salaryStructureId: true,
+      guardia: {
+        select: {
+          asignaciones: {
+            where: { isActive: true },
+            orderBy: { startDate: "desc" },
+            take: 1,
+            select: {
+              puesto: {
+                select: {
+                  name: true,
+                  cargo: { select: { name: true, salarySensitive: true } },
+                },
+              },
+            },
+          },
+        },
+      },
       salaryStructure: {
         select: {
           id: true,
@@ -312,6 +334,13 @@ export async function resolvePersonaSalaryStructure(personaId: string): Promise<
 
   if (!persona) return emptyResolved();
 
+  const assignment = persona.guardia?.asignaciones[0];
+  const cargoName = assignment?.puesto.cargo?.name ?? null;
+  const salarySensitive = isSalarySensitiveCargo({
+    salarySensitive: assignment?.puesto.cargo?.salarySensitive,
+    names: [cargoName, assignment?.puesto.name, persona.cargoStaff],
+  });
+
   const now = new Date();
   const ss = persona.salaryStructure;
   const valid =
@@ -319,7 +348,9 @@ export async function resolvePersonaSalaryStructure(personaId: string): Promise<
     (!ss.effectiveFrom || new Date(ss.effectiveFrom) <= now) &&
     (!ss.effectiveUntil || new Date(ss.effectiveUntil) >= now);
 
-  if (!valid || !ss) return emptyResolved();
+  if (!valid || !ss) {
+    return { ...emptyResolved(), cargoName, salarySensitive };
+  }
 
   return {
     source: "PERSONA",
@@ -333,9 +364,9 @@ export async function resolvePersonaSalaryStructure(personaId: string): Promise<
     installationId: null,
     installationName: null,
     puestoId: null,
-    puestoName: null,
-    cargoName: null,
-    salarySensitive: false,
+    puestoName: assignment?.puesto.name ?? null,
+    cargoName,
+    salarySensitive,
   };
 }
 

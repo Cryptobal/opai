@@ -53,7 +53,7 @@ function clp(n: number | null): string {
 export function EquipoInternoClient({
   initialRows,
   canEdit,
-  canViewSensitiveSalary = true,
+  canViewSensitiveSalary = false,
 }: {
   initialRows: EquipoInternoRow[];
   canEdit: boolean;

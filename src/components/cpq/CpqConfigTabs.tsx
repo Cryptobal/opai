@@ -127,7 +127,7 @@ export function CpqConfigTabs() {
         {activeTab === "cargos" && (
           <CpqSimpleCatalogConfig
             title="Cargos"
-            description="Define los cargos asignables a cada posición. Marca «Sueldo sensible» en Director, Reclutador u otros cargos cuyo monto solo deben ver owner/admin (o quien tenga el permiso)."
+            description="Define los cargos asignables a cada posición. El sueldo sensible se marca aquí (no en la ficha 360). Director es sensible siempre. En otros cargos (p. ej. Reclutador) activa «Sueldo sensible»: solo Propietario y Administración ven el monto."
             apiPath="/api/cpq/cargos"
             hasDescription={true}
             hasSalarySensitive={true}

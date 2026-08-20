@@ -61,6 +61,20 @@ describe("resolveStaffListDisplay", () => {
     expect(row.salarySensitive).toBe(true);
   });
 
+  it("Director es sensible aunque el cargo CPQ no tenga el flag", () => {
+    const row = resolveStaffListDisplay(
+      { cargoStaff: "otro", personaBaseSalary: 550_000 },
+      {
+        cargoName: "Director",
+        puestoName: "Director Gard",
+        puestoBaseSalary: 553_553,
+        cargoSalarySensitive: false,
+      },
+    );
+    expect(row.salarySensitive).toBe(true);
+    expect(row.baseSalary).toBe(550_000);
+  });
+
   it("sin PERSONA usa sueldo del puesto", () => {
     const row = resolveStaffListDisplay(
       { cargoStaff: "jefe", personaBaseSalary: null },

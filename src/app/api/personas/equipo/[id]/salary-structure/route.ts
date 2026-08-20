@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
 import { resolvePersonaSalaryStructure } from "@/lib/payroll/resolve-salary";
+import { getPermissionsFromAuth } from "@/lib/permissions-server";
+import { canViewSensitiveSalary, redactResolvedSalary } from "@/lib/salary-privacy";
 import { staffSalaryStructureSchema } from "@/lib/validations/personas-equipo";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +37,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     }
 
     const resolved = await resolvePersonaSalaryStructure(id);
-    return NextResponse.json({ data: resolved });
+    const canSeeSensitive = canViewSensitiveSalary(await getPermissionsFromAuth(ctx));
+    return NextResponse.json({ data: redactResolvedSalary(resolved, canSeeSensitive) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Error interno";
     console.error("[GET staff salary-structure]", err);

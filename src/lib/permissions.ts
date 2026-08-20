@@ -415,7 +415,7 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "ats_publicar", label: "Publicar avisos ATS", description: "Puede crear y publicar avisos de empleo en portales externos", moduleKey: "ops", submoduleKey: "ats" },
   { key: "ats_config", label: "Configurar ATS", description: "Puede modificar pesos de match score y config del módulo ATS", moduleKey: "ops", submoduleKey: "ats_config" },
   { key: "copiloto_correos", label: "Copiloto de correos", description: "Puede extraer estructura CRM desde correos y crear cuenta, contacto, instalación, negocio y cotización.", moduleKey: "productividad", submoduleKey: "correos" },
-  { key: "view_sensitive_salary", label: "Ver sueldos sensibles", description: "Puede ver el monto de sueldo de cargos marcados como sensibles (p. ej. Director, Reclutador). Sin este permiso se ve la persona y el cargo, no el monto.", moduleKey: "ops", submoduleKey: "guardias" },
+  { key: "view_sensitive_salary", label: "Ver sueldos sensibles", description: "Puede ver el monto de sueldo de cargos sensibles (Director siempre; otros si están marcados en el catálogo CPQ). Solo Propietario y Administración; el resto ve la persona y el cargo, no el monto.", moduleKey: "ops", submoduleKey: "guardias" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -457,6 +457,25 @@ const ROLE_ALIASES: Record<string, string> = {
 export function normalizeRole(role: string): string {
   const key = role.trim().toLowerCase();
   return ROLE_ALIASES[key] ?? key;
+}
+
+/** Propietario y Administración: únicos perfiles que pueden ver sueldos sensibles. */
+export function isOwnerOrAdminRole(role: string): boolean {
+  const r = normalizeRole(role);
+  return r === "owner" || r === "admin";
+}
+
+/** Impide que un template custom otorgue view_sensitive_salary a otro perfil. */
+export function applySensitiveSalaryRoleLock(
+  role: string,
+  perms: RolePermissions,
+): RolePermissions {
+  if (isOwnerOrAdminRole(role)) return perms;
+  if (perms.capabilities.view_sensitive_salary !== true) return perms;
+  return {
+    ...perms,
+    capabilities: { ...perms.capabilities, view_sensitive_salary: false },
+  };
 }
 
 function fullPermissions(): RolePermissions {

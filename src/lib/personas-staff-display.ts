@@ -9,6 +9,7 @@
  * El cargo visible es el del puesto (catálogo CPQ), no el dropdown corto STAFF_CARGOS.
  */
 import { staffCargoLabel } from "@/lib/personas-staff";
+import { isSalarySensitiveCargo } from "@/lib/salary-privacy";
 
 export type StaffAssignmentDisplay = {
   cargoName: string | null;
@@ -59,10 +60,19 @@ export function resolveStaffListDisplay(
     personaBaseSalary: persona.personaBaseSalary,
     puestoBaseSalary: assignment?.puestoBaseSalary ?? null,
   });
+  const cargoLabel = pickStaffCargoLabel(persona.cargoStaff, assignment);
   return {
-    cargoLabel: pickStaffCargoLabel(persona.cargoStaff, assignment),
+    cargoLabel,
     baseSalary: salary.amount,
     salarySource: salary.source,
-    salarySensitive: assignment?.cargoSalarySensitive ?? false,
+    salarySensitive: isSalarySensitiveCargo({
+      salarySensitive: assignment?.cargoSalarySensitive,
+      names: [
+        assignment?.cargoName,
+        assignment?.puestoName,
+        persona.cargoStaff,
+        cargoLabel,
+      ],
+    }),
   };
 }

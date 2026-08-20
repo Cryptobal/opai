@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { cargoNameImpliesSensitive } from "@/lib/salary-privacy";
 
 type CatalogEntry = {
   id: string;
@@ -120,7 +121,9 @@ export function CpqSimpleCatalogConfig({
           ...(hasPattern && newPatternWork ? { patternWork: Number(newPatternWork) } : {}),
           ...(hasPattern && newPatternOff ? { patternOff: Number(newPatternOff) } : {}),
           ...(hasSalary ? { salary: newSalary ? Number(newSalary) : 0 } : {}),
-          ...(hasSalarySensitive ? { salarySensitive: newSalarySensitive } : {}),
+          ...(hasSalarySensitive
+            ? { salarySensitive: newSalarySensitive || cargoNameImpliesSensitive(newName) }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -158,7 +161,9 @@ export function CpqSimpleCatalogConfig({
           ...(hasPattern ? { patternWork: editPatternWork ? Number(editPatternWork) : null } : {}),
           ...(hasPattern ? { patternOff: editPatternOff ? Number(editPatternOff) : null } : {}),
           ...(hasSalary ? { salary: editSalary ? Number(editSalary) : 0 } : {}),
-          ...(hasSalarySensitive ? { salarySensitive: editSalarySensitive } : {}),
+          ...(hasSalarySensitive
+            ? { salarySensitive: editSalarySensitive || cargoNameImpliesSensitive(editName) }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -227,7 +232,13 @@ export function CpqSimpleCatalogConfig({
         <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-border/30">
           <Input
             value={newName}
-            onChange={(e) => setNewName(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setNewName(v);
+              if (hasSalarySensitive && cargoNameImpliesSensitive(v)) {
+                setNewSalarySensitive(true);
+              }
+            }}
             placeholder="Nombre"
             className={`${inputClass} flex-1`}
             onKeyDown={(e) => e.key === "Enter" && addItem()}
@@ -256,7 +267,8 @@ export function CpqSimpleCatalogConfig({
             <label className="flex items-center gap-2 text-xs text-muted-foreground h-9 px-2">
               <input
                 type="checkbox"
-                checked={newSalarySensitive}
+                checked={newSalarySensitive || cargoNameImpliesSensitive(newName)}
+                disabled={cargoNameImpliesSensitive(newName)}
                 onChange={(e) => setNewSalarySensitive(e.target.checked)}
               />
               Sueldo sensible
@@ -335,7 +347,13 @@ export function CpqSimpleCatalogConfig({
                     />
                     <Input
                       value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setEditName(v);
+                        if (hasSalarySensitive && cargoNameImpliesSensitive(v)) {
+                          setEditSalarySensitive(true);
+                        }
+                      }}
                       className={`${inputClass} flex-1`}
                       autoFocus
                       onKeyDown={(e) => {
@@ -374,7 +392,8 @@ export function CpqSimpleCatalogConfig({
                       <label className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                         <input
                           type="checkbox"
-                          checked={editSalarySensitive}
+                          checked={editSalarySensitive || cargoNameImpliesSensitive(editName)}
+                          disabled={cargoNameImpliesSensitive(editName)}
                           onChange={(e) => setEditSalarySensitive(e.target.checked)}
                         />
                         Sensible
@@ -440,7 +459,8 @@ export function CpqSimpleCatalogConfig({
                             ${item.salary.toLocaleString("es-CL")}
                           </span>
                         )}
-                        {hasSalarySensitive && item.salarySensitive && (
+                        {hasSalarySensitive &&
+                          (item.salarySensitive || cargoNameImpliesSensitive(item.name)) && (
                           <span className="ml-2 text-xs text-status-warn-fg">Sueldo sensible</span>
                         )}
                       </p>

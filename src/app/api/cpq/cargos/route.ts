@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { requireTenantModule } from '@/lib/require-module';
+import { cargoNameImpliesSensitive } from "@/lib/salary-privacy";
 
 function normalizeColorHex(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -66,14 +67,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const name = body.name.trim();
     const cargo = await prisma.cpqCargo.create({
       data: {
         tenantId: ctx.tenantId,
-        name: body.name.trim(),
+        name,
         description: body.description?.trim() || null,
         colorHex: normalizeColorHex(body.colorHex),
         active: body.active ?? true,
-        salarySensitive: body.salarySensitive === true,
+        salarySensitive: body.salarySensitive === true || cargoNameImpliesSensitive(name),
       },
     });
 
