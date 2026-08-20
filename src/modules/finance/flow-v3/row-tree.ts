@@ -26,7 +26,7 @@ export function canHaveSubRows(row: FlowTreeRowRef): boolean {
   return true;
 }
 
-export function nestFlowRows<T extends { id: string; name: string; parentId?: string | null }>(
+export function nestFlowRows<T extends { id: string; name: string; parentId?: string | null; orderIndex?: number }>(
   rows: T[],
 ): Array<T & { childCount: number }> {
   const byParent = new Map<string, T[]>();
@@ -41,9 +41,12 @@ export function nestFlowRows<T extends { id: string; name: string; parentId?: st
     }
   }
   for (const list of byParent.values()) {
-    list.sort((a, b) =>
-      a.name.localeCompare(b.name, "es", { sensitivity: "base", numeric: true }),
-    );
+    list.sort((a, b) => {
+      const ao = a.orderIndex;
+      const bo = b.orderIndex;
+      if (typeof ao === "number" && typeof bo === "number" && ao !== bo) return ao - bo;
+      return a.name.localeCompare(b.name, "es", { sensitivity: "base", numeric: true });
+    });
   }
   const out: Array<T & { childCount: number }> = [];
   const placed = new Set<string>();

@@ -23,7 +23,7 @@ import {
   matchExpenseRow,
   normalizeRowName,
 } from "./row-match";
-import { PAYROLL_LINK_KEY } from "./row-keys";
+import { payrollLinkKeys } from "./row-keys";
 import { COST_FACTORING_ROW_NAME } from "./canonical-rows";
 import {
   hasPartnerSocioPair,
@@ -143,8 +143,8 @@ export function deriveReal(args: RealArgs): RealByRow {
   };
 
   const resolveExpenseLinkRow = (link: RealLinkInput): string => {
-    const payrollKey = PAYROLL_LINK_KEY[link.targetType];
-    if (payrollKey) return matchExpenseRow(idx, { canonicalKey: payrollKey });
+    const payrollKeys = payrollLinkKeys(link.targetType);
+    if (payrollKeys.length > 0) return matchExpenseRow(idx, { canonicalKeys: payrollKeys });
     if (link.targetType === "DTE_RECEIVED" && link.targetId) {
       const dte = args.dteById.get(link.targetId);
       if (dte) {

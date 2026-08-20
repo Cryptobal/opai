@@ -113,6 +113,11 @@ export interface RankClassifyInput {
   supplierCategoryName?: string | null;
   /** DTE recibido pendiente (empresa, RUT+monto≈). */
   dteReceived?: DteReceivedHit | null;
+  /** Clase económica si el RUT es ficha de Personas (staff o guardia). */
+  laborClass?: "OPERATIVO" | "ADMINISTRATIVO" | null;
+  /** Subfila de sueldo/anticipo de equipo interno (gasto 6.x). */
+  liquidacionAdminRow?: FlowRowDest | null;
+  anticipoAdminRow?: FlowRowDest | null;
 }
 
 /** Normaliza RUT al canónico del repo (dígitos + K). */
@@ -320,13 +325,22 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
       return out;
     }
 
+    const liqRow =
+      input.laborClass === "ADMINISTRATIVO"
+        ? (input.liquidacionAdminRow ?? input.liquidacionRow)
+        : input.liquidacionRow;
+    const antRow =
+      input.laborClass === "ADMINISTRATIVO"
+        ? (input.anticipoAdminRow ?? input.anticipoRow)
+        : input.anticipoRow;
+
     // 4. Liquidación APPROVED sin paidAt que calza
     const liq = pickCandidate(candidates, "LIQUIDACION", input.amountAbs, tol);
-    if (liq && input.liquidacionRow) {
+    if (liq && liqRow) {
       out.push({
         kind: "FLOW_ROW",
-        flowRowId: input.liquidacionRow.flowRowId,
-        label: input.liquidacionRow.label,
+        flowRowId: liqRow.flowRowId,
+        label: liqRow.label,
         source: "payroll",
         requiresReview: true,
         reason: `${liq.label} pendiente, calza exacto`,
@@ -349,11 +363,11 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
 
     // 5. Anticipo PENDING que calza
     const ant = pickCandidate(candidates, "ANTICIPO", input.amountAbs, tol);
-    if (ant && input.anticipoRow) {
+    if (ant && antRow) {
       out.push({
         kind: "FLOW_ROW",
-        flowRowId: input.anticipoRow.flowRowId,
-        label: input.anticipoRow.label,
+        flowRowId: antRow.flowRowId,
+        label: antRow.label,
         source: "payroll",
         requiresReview: true,
         reason: "Anticipo pendiente, calza exacto",
@@ -373,6 +387,19 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
         reason: finAny
           ? finiquitoReason(finAny, input.amountAbs, tol)
           : "Guardia finiquitado; sin finiquito registrado que calce",
+      });
+      return out;
+    }
+
+    // 6a. Equipo interno (gasto): sugerir subfila admin aunque no haya liquidación.
+    if (input.laborClass === "ADMINISTRATIVO" && input.liquidacionAdminRow) {
+      out.push({
+        kind: "FLOW_ROW",
+        flowRowId: input.liquidacionAdminRow.flowRowId,
+        label: input.liquidacionAdminRow.label,
+        source: "payroll",
+        requiresReview: true,
+        reason: "Equipo interno · remuneraciones administrativas (6.x)",
       });
       return out;
     }

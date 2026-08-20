@@ -111,6 +111,23 @@ describe("deriveReal", () => {
     expect(out.get("row-sueldos")?.get("2026-07-13")?.total).toBe(-2_000_000);
   });
 
+  it("PAYROLL_LIQUIDACION prefiere SUELDO_OPERATIVO si existe", () => {
+    const rows: FlowRowRef[] = [
+      ...ROWS,
+      { id: "row-sueldo-op", name: "Guardias", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "SUELDO_OPERATIVO", accountPlanIds: ["plan-rem"], supplierId: null, section: "REMUNERACIONES", mapping: "ACCOUNTS" },
+    ];
+    const out = deriveReal({
+      ...base,
+      rows,
+      txs: [tx({
+        amountClp: -2_000_000,
+        links: [{ targetType: "PAYROLL_LIQUIDACION", targetId: "liq-1", amountClp: 2_000_000, accountPlanId: "plan-rem" }],
+      })],
+    });
+    expect(out.get("row-sueldo-op")?.get("2026-07-13")?.total).toBe(-2_000_000);
+    expect(out.get("row-sueldos")).toBeUndefined();
+  });
+
   it("abono sin match NO va a Otros ingresos (fila manual)", () => {
     const out = deriveReal({
       ...base,

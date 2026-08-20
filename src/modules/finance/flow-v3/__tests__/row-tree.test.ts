@@ -43,6 +43,15 @@ describe("nestFlowRows", () => {
     expect(nested[0]!.childCount).toBe(2);
     expect(nested[1]!.childCount).toBe(0);
   });
+
+  it("ordena hijos por orderIndex y después por nombre", () => {
+    const nested = nestFlowRows([
+      { id: "p", name: "Sueldos", parentId: null, orderIndex: 1 },
+      { id: "admin", name: "Equipo interno", parentId: "p", orderIndex: 3 },
+      { id: "op", name: "Guardias", parentId: "p", orderIndex: 2 },
+    ]);
+    expect(nested.map((r) => r.id)).toEqual(["p", "op", "admin"]);
+  });
 });
 
 describe("rollupCollapsedCells + subtotales sin doble conteo", () => {

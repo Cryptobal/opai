@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import type { FlowRowKey } from "@prisma/client";
 import { bulkAccountToRow } from "@/modules/finance/flow-v3/rowAccount.service";
 import type { FlowRowDest } from "./flow-classify.service";
+import { cleanRut } from "@/lib/chile-rut";
+import { isPersonaLaborClass, type PersonaLaborClass } from "@/lib/personas-staff";
 
 /**
  * Resuelve las filas canónicas de remuneraciones usadas por la cascada.
@@ -15,14 +17,20 @@ export async function resolvePayrollFlowRows(tenantId: string): Promise<{
   teRow: FlowRowDest | null;
   retiroSocioRow: FlowRowDest | null;
   devolPrestamoSocioRow: FlowRowDest | null;
+  liquidacionAdminRow: FlowRowDest | null;
+  anticipoAdminRow: FlowRowDest | null;
 }> {
   const keys: FlowRowKey[] = [
+    "SUELDO_OPERATIVO",
     "SUELDO",
+    "QUINCENA_OPERATIVO",
     "QUINCENA",
     "FINIQUITO",
     "TURNO_EXTRA",
     "RETIRO_SOCIO",
     "DEVOL_PRESTAMO_SOCIO",
+    "SUELDO_ADMIN",
+    "QUINCENA_ADMIN",
   ];
   const rows = await prisma.financeFlowRow.findMany({
     where: {
@@ -44,13 +52,36 @@ export async function resolvePayrollFlowRows(tenantId: string): Promise<{
   }
 
   return {
-    liquidacionRow: byKey.get("SUELDO") ?? null,
-    anticipoRow: byKey.get("QUINCENA") ?? null,
+    liquidacionRow: byKey.get("SUELDO_OPERATIVO") ?? byKey.get("SUELDO") ?? null,
+    anticipoRow: byKey.get("QUINCENA_OPERATIVO") ?? byKey.get("QUINCENA") ?? null,
     finiquitoRow: byKey.get("FINIQUITO") ?? null,
     teRow: byKey.get("TURNO_EXTRA") ?? null,
     retiroSocioRow: byKey.get("RETIRO_SOCIO") ?? null,
     devolPrestamoSocioRow: byKey.get("DEVOL_PRESTAMO_SOCIO") ?? null,
+    liquidacionAdminRow: byKey.get("SUELDO_ADMIN") ?? null,
+    anticipoAdminRow: byKey.get("QUINCENA_ADMIN") ?? null,
   };
+}
+
+/** Clase económica de fichas staff (ADMINISTRATIVO) por RUT canónico. */
+export async function laborClassByStaffRuts(
+  tenantId: string,
+  rutsCanon: string[],
+): Promise<Map<string, PersonaLaborClass>> {
+  const out = new Map<string, PersonaLaborClass>();
+  const want = new Set(rutsCanon.map((r) => cleanRut(r)).filter((r) => r.length >= 2));
+  if (want.size === 0) return out;
+
+  const personas = await prisma.opsPersona.findMany({
+    where: { tenantId, laborClass: "ADMINISTRATIVO", rut: { not: null } },
+    select: { rut: true, laborClass: true },
+  });
+  for (const p of personas) {
+    const k = cleanRut(p.rut ?? "");
+    if (!k || !want.has(k)) continue;
+    if (isPersonaLaborClass(p.laborClass)) out.set(k, p.laborClass);
+  }
+  return out;
 }
 
 /**

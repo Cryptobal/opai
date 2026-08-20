@@ -139,6 +139,8 @@ export function matchExpenseRow(
   opts: {
     supplierId?: string | null;
     canonicalKey?: string | null;
+    /** Probar varias llaves en orden (hijo operativo → padre). */
+    canonicalKeys?: Array<string | null | undefined>;
     accountPlanId?: string | null;
   },
 ): string {
@@ -146,8 +148,14 @@ export function matchExpenseRow(
     const hit = idx.bySupplierId.get(opts.supplierId);
     if (hit) return hit;
   }
-  if (opts.canonicalKey) {
-    const hit = idx.byCanonicalKey.get(opts.canonicalKey);
+  const keys = opts.canonicalKeys?.length
+    ? opts.canonicalKeys
+    : opts.canonicalKey
+      ? [opts.canonicalKey]
+      : [];
+  for (const key of keys) {
+    if (!key) continue;
+    const hit = idx.byCanonicalKey.get(key);
     if (hit) return hit;
   }
   if (opts.accountPlanId) {

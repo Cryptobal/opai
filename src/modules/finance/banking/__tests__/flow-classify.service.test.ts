@@ -407,4 +407,20 @@ describe("rankClassifySuggestions", () => {
       flowRowId: "row-sueldo",
     });
   });
+
+  it("RUT de equipo interno sugiere subfila admin y no socio", () => {
+    const s = rankClassifySuggestions({
+      beneficiaryRut: "123456785",
+      amountAbs: 1_500_000,
+      laborClass: "ADMINISTRATIVO",
+      liquidacionAdminRow: { flowRowId: "row-sueldo-admin", label: "Equipo interno" },
+      retiroSocioRow: RETIRO_SOCIO_ROW,
+    });
+    expect(s[0]).toMatchObject({
+      kind: "FLOW_ROW",
+      flowRowId: "row-sueldo-admin",
+      source: "payroll",
+      requiresReview: true,
+    });
+  });
 });

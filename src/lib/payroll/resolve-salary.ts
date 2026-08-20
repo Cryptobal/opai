@@ -6,7 +6,7 @@
 import { prisma } from "@/lib/prisma";
 
 export interface ResolvedSalary {
-  source: "RUT" | "PUESTO" | "NONE";
+  source: "RUT" | "PUESTO" | "PERSONA" | "NONE";
   structureId: string | null;
   baseSalary: number;
   colacion: number;
@@ -184,6 +184,89 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
   }
 
   return noSalary;
+}
+
+const emptyResolved = (): ResolvedSalary => ({
+  source: "NONE",
+  structureId: null,
+  baseSalary: 0,
+  colacion: 0,
+  movilizacion: 0,
+  gratificationType: "AUTO_25",
+  gratificationCustomAmount: 0,
+  bonos: [],
+  installationId: null,
+  installationName: null,
+  puestoId: null,
+  puestoName: null,
+});
+
+/** Sueldo de equipo interno: solo estructura `PERSONA` (sin puesto). */
+export async function resolvePersonaSalaryStructure(personaId: string): Promise<ResolvedSalary> {
+  const persona = await prisma.opsPersona.findUnique({
+    where: { id: personaId },
+    select: {
+      salaryStructureId: true,
+      salaryStructure: {
+        select: {
+          id: true,
+          baseSalary: true,
+          colacion: true,
+          movilizacion: true,
+          gratificationType: true,
+          gratificationCustomAmount: true,
+          isActive: true,
+          effectiveFrom: true,
+          effectiveUntil: true,
+          bonos: {
+            where: { isActive: true },
+            select: {
+              overrideAmount: true,
+              overridePercentage: true,
+              bonoCatalog: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  bonoType: true,
+                  isTaxable: true,
+                  isTributable: true,
+                  defaultAmount: true,
+                  defaultPercentage: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!persona) return emptyResolved();
+
+  const now = new Date();
+  const ss = persona.salaryStructure;
+  const valid =
+    ss?.isActive &&
+    (!ss.effectiveFrom || new Date(ss.effectiveFrom) <= now) &&
+    (!ss.effectiveUntil || new Date(ss.effectiveUntil) >= now);
+
+  if (!valid || !ss) return emptyResolved();
+
+  return {
+    source: "PERSONA",
+    structureId: ss.id,
+    baseSalary: Number(ss.baseSalary),
+    colacion: Number(ss.colacion),
+    movilizacion: Number(ss.movilizacion),
+    gratificationType: ss.gratificationType,
+    gratificationCustomAmount: Number(ss.gratificationCustomAmount ?? 0),
+    bonos: mapBonos(ss.bonos, Number(ss.baseSalary)),
+    installationId: null,
+    installationName: null,
+    puestoId: null,
+    puestoName: null,
+  };
 }
 
 function mapBonos(

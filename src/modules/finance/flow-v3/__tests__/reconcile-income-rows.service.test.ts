@@ -43,6 +43,13 @@ beforeEach(() => {
       financeCashflowConfig: prisma.financeCashflowConfig,
       financeDte: prisma.financeDte,
       crmAccount: prisma.crmAccount,
+      financeFlowRowAccount: {
+        count: vi.fn().mockResolvedValue(0),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      financeAccountPlan: { findMany: vi.fn().mockResolvedValue([]) },
+      financeBankTransactionLink: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
     };
     return cb(tx as unknown as typeof prisma);
   });
