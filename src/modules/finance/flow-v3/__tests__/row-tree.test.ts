@@ -80,6 +80,27 @@ describe("rollupCollapsedCells + subtotales sin doble conteo", () => {
   });
 });
 
+describe("rollupCollapsedCells — padres de remuneraciones", () => {
+  it("SUELDO contraído ignora plan del padre y solo suma hijos", () => {
+    const parentCells = [cell({ plan: 80_000_000, effective: -80_000_000, layer: "plan" })];
+    const childOp = [cell({
+      plan: 0,
+      effective: -90_751_268,
+      layer: "committed",
+      committed: { total: 90_751_268, items: [] },
+    })];
+    const childAd = [cell({ plan: 0, effective: 0, layer: "empty" })];
+    const rolled = rollupCollapsedCells(
+      { section: "REMUNERACIONES", canonicalKey: "SUELDO", cells: parentCells },
+      [{ cells: childOp }, { cells: childAd }],
+    );
+    expect(rolled[0]!.plan).toBe(0);
+    expect(rolled[0]!.effective).toBe(-90_751_268);
+    expect(rolled[0]!.committed?.total).toBe(90_751_268);
+    expect(displayValue("REMUNERACIONES", rolled[0]!.layer, rolled[0]!.effective)).toBe(90_751_268);
+  });
+});
+
 describe("applySubrowVisibility", () => {
   const parent = {
     id: "p",
@@ -106,6 +127,18 @@ describe("applySubrowVisibility", () => {
     expect(out.rows.map((r) => r.id)).toEqual(["p"]);
     expect(out.rolledUpIds.has("p")).toBe(true);
     expect(out.rows[0]!.cells[0]!.plan).toBe(10);
+    expect(out.rows[0]!.childCount).toBe(1);
+  });
+
+  it("childCount usa all aunque los hijos no estén en filtered", () => {
+    const out = applySubrowVisibility({
+      all: [parent, child],
+      filtered: [parent],
+      expandedIds: new Set(),
+      searchActive: false,
+    });
+    expect(out.rows[0]!.childCount).toBe(1);
+    expect(out.rows.map((r) => r.id)).toEqual(["p"]);
   });
 
   it("expandido muestra el detalle", () => {

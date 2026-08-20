@@ -2,8 +2,10 @@
  * Árbol de un nivel para renglones GAV/OTROS (categoría → subfilas).
  * Puro: lo usan el matrix, la planilla y los tests.
  */
+import type { FlowRowKey } from "@prisma/client";
 import { computeCellExecution } from "./residual";
 import type { FlowMatrixCellDto } from "./matrix-assemble";
+import { PAYROLL_PARENT_KEYS } from "./row-keys";
 
 export const SUBROW_SECTIONS = new Set(["GAV", "OTROS"]);
 
@@ -67,24 +69,33 @@ export function nestFlowRows<T extends { id: string; name: string; parentId?: st
   return out;
 }
 
+export function isPayrollHeaderKey(canonicalKey?: string | null): boolean {
+  return !!canonicalKey && PAYROLL_PARENT_KEYS.has(canonicalKey as FlowRowKey);
+}
+
 export function rollupCollapsedCells(
   parent: { section: string; canonicalKey?: string | null; cells: FlowMatrixCellDto[] },
   children: Array<{ cells: FlowMatrixCellDto[] }>,
 ): FlowMatrixCellDto[] {
+  const headerOnly = isPayrollHeaderKey(parent.canonicalKey);
   return parent.cells.map((own, i) => {
     const kids = children.map((c) => c.cells[i]).filter(Boolean) as FlowMatrixCellDto[];
-    const plan = (own.plan ?? 0) + kids.reduce((s, c) => s + (c.plan ?? 0), 0);
-    const effective = (own.effective ?? 0) + kids.reduce((s, c) => s + (c.effective ?? 0), 0);
+    const ownPlan = headerOnly ? 0 : (own.plan ?? 0);
+    const ownEffective = headerOnly ? 0 : (own.effective ?? 0);
+    const ownCommitted = headerOnly ? 0 : (own.committed?.total ?? 0);
+    const ownReal = headerOnly ? 0 : (own.real?.total ?? 0);
+    const plan = ownPlan + kids.reduce((s, c) => s + (c.plan ?? 0), 0);
+    const effective = ownEffective + kids.reduce((s, c) => s + (c.effective ?? 0), 0);
     const committedTotal =
-      (own.committed?.total ?? 0) + kids.reduce((s, c) => s + (c.committed?.total ?? 0), 0);
+      ownCommitted + kids.reduce((s, c) => s + (c.committed?.total ?? 0), 0);
     const realSigned =
-      (own.real?.total ?? 0) + kids.reduce((s, c) => s + (c.real?.total ?? 0), 0);
+      ownReal + kids.reduce((s, c) => s + (c.real?.total ?? 0), 0);
     const committedItems = [
-      ...(own.committed?.items ?? []),
+      ...(headerOnly ? [] : (own.committed?.items ?? [])),
       ...kids.flatMap((c) => c.committed?.items ?? []),
     ];
     const realItems = [
-      ...(own.real?.items ?? []),
+      ...(headerOnly ? [] : (own.real?.items ?? [])),
       ...kids.flatMap((c) => c.real?.items ?? []),
     ];
     let layer: FlowMatrixCellDto["layer"] = "empty";
@@ -172,12 +183,13 @@ export function applySubrowVisibility<
   const rolledUpIds = new Set<string>();
   const out = nested.map((r) => {
     const kids = childrenByParent.get(r.id) ?? [];
+    const childCount = r.parentId ? 0 : kids.length;
     const expanded = args.expandedIds.has(r.id) || searchExpand.has(r.id);
     if (!r.parentId && kids.length > 0 && !expanded) {
       rolledUpIds.add(r.id);
-      return { ...r, cells: rollupCollapsedCells(r, kids) };
+      return { ...r, childCount, cells: rollupCollapsedCells(r, kids) };
     }
-    return r;
+    return { ...r, childCount };
   });
   return { rows: out, rolledUpIds };
 }

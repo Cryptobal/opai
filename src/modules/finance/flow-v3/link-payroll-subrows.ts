@@ -8,6 +8,7 @@ import { CANONICAL_FLOW_ROWS } from "./canonical-rows";
 import {
   PAYROLL_CHILD_ACCOUNT_CODES,
   PAYROLL_CHILD_KEYS,
+  PAYROLL_PARENT_KEYS,
 } from "./row-keys";
 
 type Tx = Prisma.TransactionClient;
@@ -74,6 +75,17 @@ export async function linkPayrollSubrows(tx: Tx, tenantId: string): Promise<void
     await tx.financeBankTransactionLink.updateMany({
       where: { tenantId, flowRowId: parent.id },
       data: { flowRowId: operativo.id },
+    });
+  }
+
+  // Padres SUELDO/QUINCENA/PREVIRED son cabecera: el plan viejo del padre
+  // se sumaba a los hijos y duplicaba el líquido (~80M + ~90M = 170M).
+  const parentIds = [...PAYROLL_PARENT_KEYS]
+    .map((key) => byKey.get(key)?.id)
+    .filter((id): id is string => !!id);
+  if (parentIds.length > 0) {
+    await tx.financeFlowPlanCell.deleteMany({
+      where: { tenantId, rowId: { in: parentIds } },
     });
   }
 }
