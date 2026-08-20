@@ -27,6 +27,8 @@ export interface ResolvedSalary {
   installationName: string | null;
   puestoId: string | null;
   puestoName: string | null;
+  cargoName: string | null;
+  salarySensitive: boolean;
 }
 
 export async function resolveSalaryStructure(guardiaId: string): Promise<ResolvedSalary> {
@@ -43,6 +45,8 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
     installationName: null,
     puestoId: null,
     puestoName: null,
+    cargoName: null,
+    salarySensitive: false,
   };
 
   // 1. Check if guard has a RUT override
@@ -50,6 +54,33 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
     where: { id: guardiaId },
     select: {
       salaryStructureId: true,
+      persona: {
+        select: {
+          salaryStructure: {
+            select: {
+              id: true,
+              baseSalary: true,
+              colacion: true,
+              movilizacion: true,
+              gratificationType: true,
+              gratificationCustomAmount: true,
+              isActive: true,
+              effectiveFrom: true,
+              effectiveUntil: true,
+              bonos: {
+                where: { isActive: true },
+                select: {
+                  overrideAmount: true,
+                  overridePercentage: true,
+                  bonoCatalog: {
+                    select: { id: true, code: true, name: true, bonoType: true, isTaxable: true, isTributable: true, defaultAmount: true, defaultPercentage: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       salaryStructure: {
         select: {
           id: true,
@@ -86,6 +117,7 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
               id: true,
               name: true,
               baseSalary: true,
+              cargo: { select: { name: true, salarySensitive: true } },
               salaryStructure: {
                 select: {
                   id: true,
@@ -116,6 +148,10 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
 
   if (!guardia) return noSalary;
 
+  const assignment = guardia.asignaciones[0];
+  const cargoName = assignment?.puesto?.cargo?.name ?? null;
+  const salarySensitive = assignment?.puesto?.cargo?.salarySensitive ?? false;
+
   // Priority 1: RUT override (check dates)
   const now = new Date();
   const rutStructure = guardia.salaryStructure;
@@ -125,7 +161,6 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
 
   if (rutIsValid && rutStructure) {
     const ss = rutStructure;
-    const assignment = guardia.asignaciones[0];
     return {
       source: "RUT",
       structureId: ss.id,
@@ -139,12 +174,39 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
       installationName: assignment?.installation?.name ?? null,
       puestoId: assignment?.puesto?.id ?? null,
       puestoName: assignment?.puesto?.name ?? null,
+      cargoName,
+      salarySensitive,
     };
   }
 
-  // Priority 2: Puesto assignment
-  const assignment = guardia.asignaciones[0];
-  if (!assignment) return noSalary;
+  // Priority 2: override PERSONA (equipo interno / ficha)
+  const personaStructure = guardia.persona?.salaryStructure;
+  const personaIsValid = personaStructure?.isActive &&
+    (!personaStructure.effectiveFrom || new Date(personaStructure.effectiveFrom) <= now) &&
+    (!personaStructure.effectiveUntil || new Date(personaStructure.effectiveUntil) >= now);
+
+  if (personaIsValid && personaStructure) {
+    const ss = personaStructure;
+    return {
+      source: "PERSONA",
+      structureId: ss.id,
+      baseSalary: Number(ss.baseSalary),
+      colacion: Number(ss.colacion),
+      movilizacion: Number(ss.movilizacion),
+      gratificationType: ss.gratificationType,
+      gratificationCustomAmount: Number(ss.gratificationCustomAmount ?? 0),
+      bonos: mapBonos(ss.bonos, Number(ss.baseSalary)),
+      installationId: assignment?.installation?.id ?? null,
+      installationName: assignment?.installation?.name ?? null,
+      puestoId: assignment?.puesto?.id ?? null,
+      puestoName: assignment?.puesto?.name ?? null,
+      cargoName,
+      salarySensitive,
+    };
+  }
+
+  // Priority 3: Puesto assignment
+  if (!assignment) return { ...noSalary, cargoName, salarySensitive };
 
   const puestoSS = assignment.puesto.salaryStructure;
   if (puestoSS?.isActive) {
@@ -161,6 +223,8 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
       installationName: assignment.installation?.name ?? null,
       puestoId: assignment.puesto.id,
       puestoName: assignment.puesto.name,
+      cargoName,
+      salarySensitive,
     };
   }
 
@@ -180,10 +244,12 @@ export async function resolveSalaryStructure(guardiaId: string): Promise<Resolve
       installationName: assignment.installation?.name ?? null,
       puestoId: assignment.puesto.id,
       puestoName: assignment.puesto.name,
+      cargoName,
+      salarySensitive,
     };
   }
 
-  return noSalary;
+  return { ...noSalary, cargoName, salarySensitive };
 }
 
 const emptyResolved = (): ResolvedSalary => ({
@@ -195,11 +261,13 @@ const emptyResolved = (): ResolvedSalary => ({
   gratificationType: "AUTO_25",
   gratificationCustomAmount: 0,
   bonos: [],
-  installationId: null,
-  installationName: null,
-  puestoId: null,
-  puestoName: null,
-});
+    installationId: null,
+    installationName: null,
+    puestoId: null,
+    puestoName: null,
+    cargoName: null,
+    salarySensitive: false,
+  });
 
 /** Sueldo de equipo interno: solo estructura `PERSONA` (sin puesto). */
 export async function resolvePersonaSalaryStructure(personaId: string): Promise<ResolvedSalary> {
@@ -266,6 +334,8 @@ export async function resolvePersonaSalaryStructure(personaId: string): Promise<
     installationName: null,
     puestoId: null,
     puestoName: null,
+    cargoName: null,
+    salarySensitive: false,
   };
 }
 

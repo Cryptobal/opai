@@ -137,39 +137,64 @@ async function loadTenantPayrollConfig(tenantId: string): Promise<TenantPayrollC
   };
 }
 
+const salaryStructureSelect = {
+  id: true,
+  baseSalary: true,
+  colacion: true,
+  movilizacion: true,
+  gratificationType: true,
+  gratificationCustomAmount: true,
+  netSalaryEstimate: true,
+  isActive: true,
+  bonos: {
+    where: { isActive: true },
+    select: {
+      overrideAmount: true,
+      overridePercentage: true,
+      bonoCatalog: {
+        select: {
+          bonoType: true,
+          isTaxable: true,
+          defaultAmount: true,
+          defaultPercentage: true,
+        },
+      },
+    },
+  },
+} as const;
+
 function puestoSelect() {
   return {
     id: true,
     installationId: true,
     requiredGuards: true,
     installation: { select: { id: true, name: true } },
-    salaryStructure: {
-      select: {
-        id: true,
-        baseSalary: true,
-        colacion: true,
-        movilizacion: true,
-        gratificationType: true,
-        gratificationCustomAmount: true,
-        netSalaryEstimate: true,
-        bonos: {
-          where: { isActive: true },
-          select: {
-            overrideAmount: true,
-            overridePercentage: true,
-            bonoCatalog: {
-              select: {
-                bonoType: true,
-                isTaxable: true,
-                defaultAmount: true,
-                defaultPercentage: true,
-              },
-            },
-          },
-        },
-      },
-    },
+    salaryStructure: { select: salaryStructureSelect },
   } as const;
+}
+
+async function loadAdminAssignedPuestoIds(
+  tenantId: string,
+  installationId?: string,
+): Promise<Set<string>> {
+  const rows = await prisma.opsAsignacionGuardia.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+      ...(installationId ? { installationId } : {}),
+      guardia: { persona: { laborClass: "ADMINISTRATIVO" } },
+    },
+    select: { puestoId: true },
+  });
+  return new Set(rows.map((r) => r.puestoId));
+}
+
+function excludeAdminPuestos<T extends { id: string }>(
+  puestos: T[],
+  adminPuestoIds: Set<string>,
+): T[] {
+  if (adminPuestoIds.size === 0) return puestos;
+  return puestos.filter((p) => !adminPuestoIds.has(p.id));
 }
 
 async function computeMemoForStructure(
@@ -387,8 +412,9 @@ export async function computePayrollCashForTenant(tenantId: string): Promise<{
   }
 
   const tenantCfg = await loadTenantPayrollConfig(tenantId);
+  const adminPuestoIds = await loadAdminAssignedPuestoIds(tenantId);
 
-  const puestos = (await prisma.opsPuestoOperativo.findMany({
+  const puestosRaw = (await prisma.opsPuestoOperativo.findMany({
     where: {
       tenantId,
       active: true,
@@ -401,6 +427,7 @@ export async function computePayrollCashForTenant(tenantId: string): Promise<{
     },
     select: puestoSelect(),
   })) as unknown as PuestoRow[];
+  const puestos = excludeAdminPuestos(puestosRaw, adminPuestoIds);
 
   const { total, byInstallation, computeCalls } = await accumulatePuestos(puestos, {
     paramsVersionId: paramsVersion.id,
@@ -455,8 +482,9 @@ export async function computePayrollCashForInstallation(
   }
 
   const tenantCfg = await loadTenantPayrollConfig(tenantId);
+  const adminPuestoIds = await loadAdminAssignedPuestoIds(tenantId, installationId);
 
-  const puestos = (await prisma.opsPuestoOperativo.findMany({
+  const puestosRaw = (await prisma.opsPuestoOperativo.findMany({
     where: {
       tenantId,
       installationId,
@@ -465,6 +493,7 @@ export async function computePayrollCashForInstallation(
     },
     select: puestoSelect(),
   })) as unknown as PuestoRow[];
+  const puestos = excludeAdminPuestos(puestosRaw, adminPuestoIds);
 
   if (puestos.length === 0) return null;
 
@@ -484,8 +513,9 @@ export async function computePayrollCashForInstallation(
 }
 
 /**
- * Totales de caja del equipo interno (personas ADMINISTRATIVO con sueldo).
- * No usa puestos ni instalaciones.
+ * Totales de caja del equipo interno.
+ * Misma resolución que la ficha: override PERSONA > puesto asignado.
+ * Un puesto asignado a ADMINISTRATIVO no se suma también en el total operativo.
  */
 export async function computeStaffPayrollCashForTenant(
   tenantId: string,
@@ -515,39 +545,32 @@ export async function computeStaffPayrollCashForTenant(
       tenantId,
       status: "active",
       laborClass: "ADMINISTRATIVO",
-      salaryStructureId: { not: null },
-      salaryStructure: { isActive: true },
     },
     select: {
       id: true,
-      salaryStructure: {
-        select: {
-          id: true,
-          baseSalary: true,
-          colacion: true,
-          movilizacion: true,
-          gratificationType: true,
-          gratificationCustomAmount: true,
-          netSalaryEstimate: true,
-          bonos: {
-            where: { isActive: true },
-            select: {
-              overrideAmount: true,
-              overridePercentage: true,
-              bonoCatalog: {
-                select: {
-                  bonoType: true,
-                  isTaxable: true,
-                  defaultAmount: true,
-                  defaultPercentage: true,
-                },
-              },
-            },
-          },
-        },
-      },
+      salaryStructure: { select: salaryStructureSelect },
+      guardia: { select: { id: true } },
     },
   });
+
+  const guardiaIds = personas
+    .map((p) => p.guardia?.id)
+    .filter((id): id is string => Boolean(id));
+  const assignments = guardiaIds.length
+    ? await prisma.opsAsignacionGuardia.findMany({
+        where: { tenantId, isActive: true, guardiaId: { in: guardiaIds } },
+        orderBy: { startDate: "desc" },
+        select: {
+          guardiaId: true,
+          puesto: { select: { salaryStructure: { select: salaryStructureSelect } } },
+        },
+      })
+    : [];
+  const puestoByGuardia = new Map<string, SalaryStructureRow | null>();
+  for (const a of assignments) {
+    if (puestoByGuardia.has(a.guardiaId)) continue;
+    puestoByGuardia.set(a.guardiaId, (a.puesto.salaryStructure as SalaryStructureRow | null) ?? null);
+  }
 
   const memo = new Map<string, MemoEntry | "error">();
   const total = emptyBreakdown();
@@ -562,7 +585,14 @@ export async function computeStaffPayrollCashForTenant(
   };
 
   for (const p of personas) {
-    const ss = p.salaryStructure as SalaryStructureRow | null;
+    const personaSs = p.salaryStructure as (SalaryStructureRow & { isActive?: boolean }) | null;
+    const personaValid =
+      personaSs &&
+      personaSs.isActive !== false &&
+      Number(personaSs.baseSalary ?? 0) > 0;
+    const puestoSs = p.guardia?.id ? puestoByGuardia.get(p.guardia.id) ?? null : null;
+    const puestoValid = puestoSs && Number(puestoSs.baseSalary ?? 0) > 0;
+    const ss = personaValid ? personaSs : puestoValid ? puestoSs : null;
     if (!ss) continue;
     const baseSalary = Number(ss.baseSalary ?? 0);
     if (baseSalary <= 0) continue;

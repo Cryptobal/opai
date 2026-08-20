@@ -1887,6 +1887,8 @@ model CpqCargo {
   description String?
   colorHex    String?  @map("color_hex")
   active      Boolean  @default(true)
+  /// Si true, el sueldo de este cargo solo lo ven quienes tienen view_sensitive_salary.
+  salarySensitive Boolean @default(false) @map("salary_sensitive")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

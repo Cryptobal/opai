@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { resolveSalaryStructure } from "@/lib/payroll/resolve-salary";
+import { getPermissionsFromAuth } from "@/lib/permissions-server";
+import { canViewSensitiveSalary, redactResolvedSalary } from "@/lib/salary-privacy";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +36,12 @@ export async function GET(req: NextRequest, { params }: Params) {
     }
 
     const resolved = await resolveSalaryStructure(id);
+    const canSeeSensitive = canViewSensitiveSalary(await getPermissionsFromAuth(ctx));
+    const safe = redactResolvedSalary(resolved, canSeeSensitive);
 
     return NextResponse.json({
       data: {
-        ...resolved,
+        ...safe,
         hasRutOverride: guardia.salaryStructureId != null,
       },
     });

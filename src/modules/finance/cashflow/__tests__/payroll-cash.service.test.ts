@@ -30,6 +30,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeCashflowConfig: { findUnique: vi.fn() },
     opsPuestoOperativo: { findMany: vi.fn() },
+    opsAsignacionGuardia: { findMany: vi.fn() },
+    opsPersona: { findMany: vi.fn() },
     crmInstallation: { findFirst: vi.fn() },
   },
 }));
@@ -38,6 +40,7 @@ import { prisma } from "@/lib/prisma";
 import {
   computePayrollCashForInstallation,
   computePayrollCashForTenant,
+  computeStaffPayrollCashForTenant,
 } from "../payroll-cash.service";
 
 const TENANT = "tenant-gard";
@@ -83,6 +86,8 @@ beforeEach(() => {
     payrollAfpName: null,
     payrollMutualRatePct: null,
   });
+  (prisma.opsAsignacionGuardia.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (prisma.opsPersona.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   computeEmployerCost.mockImplementation(async (input: { base_salary_clp: number }) => {
     const base = input.base_salary_clp;
     // Números redondos para asserts: cotiz trab ~17%, aportes ~8%, sin impuesto.
@@ -347,5 +352,78 @@ describe("computePayrollCashForInstallation", () => {
     expect(r!.liquido).toBe(720_000); // preferido persistido
     expect(r!.name).toBe("Sitio A");
     expect(r!.liquido + r!.previred + r!.impuestoUnico).toBe(r!.costoDirecto);
+  });
+});
+
+const gardPuesto = {
+  id: "puesto-gard-dir",
+  installationId: "inst-gard",
+  requiredGuards: 1,
+  installation: { id: "inst-gard", name: "Gard" },
+  salaryStructure: {
+    id: "ss-puesto",
+    baseSalary: 553_553,
+    colacion: 0,
+    movilizacion: 0,
+    gratificationType: "AUTO_25",
+    gratificationCustomAmount: null,
+    netSalaryEstimate: 400_000,
+    isActive: true,
+    bonos: [],
+  },
+};
+
+const personaSs = {
+  id: "ss-persona",
+  baseSalary: 900_000,
+  colacion: 0,
+  movilizacion: 0,
+  gratificationType: "AUTO_25",
+  gratificationCustomAmount: null,
+  netSalaryEstimate: 700_000,
+  isActive: true,
+  bonos: [],
+};
+
+describe("staff vs operativo — un peso una fila", () => {
+  it("excluye del operativo el puesto asignado a ADMINISTRATIVO", async () => {
+    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([gardPuesto]);
+    (prisma.opsAsignacionGuardia.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { puestoId: "puesto-gard-dir" },
+    ]);
+
+    const { total } = await computePayrollCashForTenant(TENANT);
+    expect(total.dotacion).toBe(0);
+    expect(total.liquido).toBe(0);
+    expect(computeEmployerCost).not.toHaveBeenCalled();
+  });
+
+  it("staff con PERSONA no vuelve a contar el puesto; sin PERSONA usa el puesto", async () => {
+    (prisma.opsAsignacionGuardia.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([{ puestoId: "puesto-gard-dir" }]) // exclusión operativo
+      .mockResolvedValueOnce([
+        { guardiaId: "g-admin", puesto: { salaryStructure: gardPuesto.salaryStructure } },
+      ]);
+    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([gardPuesto]);
+    (prisma.opsPersona.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "per-1", salaryStructure: personaSs, guardia: { id: "g-admin" } },
+    ]);
+
+    const operativo = await computePayrollCashForTenant(TENANT);
+    const staff = await computeStaffPayrollCashForTenant(TENANT);
+
+    expect(operativo.total.liquido).toBe(0);
+    expect(staff.dotacion).toBe(1);
+    expect(staff.liquido).toBe(700_000);
+
+    (prisma.opsPersona.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "per-2", salaryStructure: null, guardia: { id: "g-admin" } },
+    ]);
+    (prisma.opsAsignacionGuardia.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { guardiaId: "g-admin", puesto: { salaryStructure: gardPuesto.salaryStructure } },
+    ]);
+    const staffFromPuesto = await computeStaffPayrollCashForTenant(TENANT);
+    expect(staffFromPuesto.dotacion).toBe(1);
+    expect(staffFromPuesto.liquido).toBe(400_000);
   });
 });

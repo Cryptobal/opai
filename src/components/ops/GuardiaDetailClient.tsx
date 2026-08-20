@@ -150,6 +150,8 @@ type GuardiaDetail = {
     heightCm?: string | null;
     weightKg?: string | null;
     laborClass?: string | null;
+    adminId?: string | null;
+    admin?: { id: string; name: string; email: string } | null;
   };
   hiredAt?: string | null;
   terminatedAt?: string | null;

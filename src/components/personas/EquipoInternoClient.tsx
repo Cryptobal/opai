@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Briefcase, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { ErpUserPicker } from "@/components/personas/ErpUserPicker";
 import {
   DataTable,
   EmptyState,
@@ -40,6 +41,7 @@ export type EquipoInternoRow = {
   status: string;
   displayName: string;
   baseSalary: number | null;
+  salarySensitive?: boolean;
   admin: { id: string; name: string; email: string } | null;
 };
 
@@ -51,12 +53,19 @@ function clp(n: number | null): string {
 export function EquipoInternoClient({
   initialRows,
   canEdit,
+  canViewSensitiveSalary = true,
 }: {
   initialRows: EquipoInternoRow[];
   canEdit: boolean;
+  canViewSensitiveSalary?: boolean;
 }) {
   const router = useRouter();
+  const [rows, setRows] = useState(initialRows);
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    setRows(initialRows);
+  }, [initialRows]);
   const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -95,11 +104,30 @@ export function EquipoInternoClient({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return initialRows;
-    return initialRows.filter((r) => {
+    return rows.filter((r) => {
       const hay = `${r.displayName} ${r.rut ?? ""} ${r.email ?? ""} ${r.cargoLabel}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [initialRows, search]);
+  }, [rows, search]);
+
+  const linkedAdminIds = useMemo(
+    () => rows.map((r) => r.admin?.id).filter((id): id is string => Boolean(id)),
+    [rows],
+  );
+
+  async function patchAdmin(row: EquipoInternoRow, admin: { id: string; name: string; email: string } | null) {
+    const res = await fetch(`/api/personas/equipo/${row.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminId: admin?.id ?? null }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "No se pudo vincular el usuario");
+    setRows((prev) =>
+      prev.map((r) => (r.id === row.id ? { ...r, admin } : r)),
+    );
+    router.refresh();
+  }
 
   const columns: DataTableColumn<EquipoInternoRow>[] = [
     {
@@ -121,14 +149,24 @@ export function EquipoInternoClient({
       id: "sueldo",
       header: "Sueldo base",
       align: "right",
-      cell: (row) => clp(row.baseSalary),
+      cell: (row) =>
+        row.salarySensitive && !canViewSensitiveSalary ? "—" : clp(row.baseSalary),
     },
     {
       id: "erp",
       header: "Usuario ERP",
       hideOnMobile: true,
       cell: (row) =>
-        row.admin ? (
+        canEdit ? (
+          <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <ErpUserPicker
+              compact
+              value={row.admin}
+              excludeIds={linkedAdminIds}
+              onChange={(admin) => patchAdmin(row, admin)}
+            />
+          </div>
+        ) : row.admin ? (
           <span className="text-ds-text-2 truncate">{row.admin.email}</span>
         ) : (
           <span className="text-ds-text-4">Sin usuario</span>
@@ -326,7 +364,9 @@ export function EquipoInternoClient({
                     </div>
                     <Tag size="sm">{row.cargoLabel}</Tag>
                   </div>
-                  <p className="mt-2 text-[13px] text-ds-text-2">{clp(row.baseSalary)}</p>
+                  <p className="mt-2 text-[13px] text-ds-text-2">
+                    {row.salarySensitive && !canViewSensitiveSalary ? "—" : clp(row.baseSalary)}
+                  </p>
                 </Surface>
               </li>
             ))}

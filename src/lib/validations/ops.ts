@@ -316,6 +316,8 @@ export const updateGuardiaSchema = z.object({
   notes: z.string().trim().max(2000).optional().nullable(),
   /** Guardia de terreno vs administrativo de oficina. Vive en OpsPersona. */
   laborClass: z.enum(["OPERATIVO", "ADMINISTRATIVO"]).optional(),
+  /** Usuario ERP vinculado (1:1). Null desvincula. */
+  adminId: z.string().trim().min(1).max(64).optional().nullable(),
   /** Art. 22: exento de jornada y de marcación. Default al pasar a administrativo. */
   isArticulo22: z.boolean().optional(),
   lifecycleStatus: z.enum(GUARDIA_LIFECYCLE_STATUSES).optional(),

@@ -45,6 +45,7 @@ interface SueldoRut {
   rut: string;
   name: string;
   installationName: string | null;
+  salaryHidden?: boolean;
   baseSalary: number;
   colacion: number;
   movilizacion: number;
@@ -371,14 +372,14 @@ export function SueldosRutListClient() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-muted-foreground">Base</p>
-                    <p className="text-sm font-semibold">{formatCLP(s.baseSalary)}</p>
+                    <p className="text-sm font-semibold">{s.salaryHidden ? "—" : formatCLP(s.baseSalary)}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-muted-foreground">Total</p>
-                    <p className="text-sm font-semibold text-status-ok-fg">{formatCLP(totalHaberes)}</p>
+                    <p className="text-sm font-semibold text-status-ok-fg">{s.salaryHidden ? "—" : formatCLP(totalHaberes)}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver desglose" onClick={() => openBreakdownFor(s)}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Ver desglose" onClick={() => !s.salaryHidden && openBreakdownFor(s)} disabled={s.salaryHidden}>
                       <FileSpreadsheet className="h-3.5 w-3.5" />
                     </Button>
                     <Link href={`/personas/guardias/${s.guardiaId}`}>

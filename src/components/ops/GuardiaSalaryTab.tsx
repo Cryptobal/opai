@@ -13,7 +13,8 @@ import {
 /* ── Types ──────────────────────────── */
 
 interface ResolvedSalary {
-  source: "RUT" | "PUESTO" | "NONE";
+  source: "RUT" | "PUESTO" | "PERSONA" | "NONE";
+  salaryHidden?: boolean;
   structureId: string | null;
   baseSalary: number;
   colacion: number;
@@ -68,6 +69,16 @@ export function GuardiaSalaryTab({ guardiaId }: { guardiaId: string }) {
     );
   }
 
+  if (salary?.salaryHidden) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-ds-text-3">
+          El sueldo de este cargo es sensible. No tienes permiso para ver el monto.
+        </p>
+      </div>
+    );
+  }
+
   if (!salary || salary.source === "NONE") {
     return (
       <div className="space-y-4">
@@ -86,10 +97,10 @@ export function GuardiaSalaryTab({ guardiaId }: { guardiaId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        {salary.source === "RUT" ? (
+        {salary.source === "RUT" || salary.source === "PERSONA" ? (
           <Badge className="bg-status-warn-soft text-status-warn-fg border-status-warn-border text-[10px]">
             <User className="mr-1 h-3 w-3" />
-            Por RUT
+            {salary.source === "PERSONA" ? "Por ficha" : "Por RUT"}
           </Badge>
         ) : (
           <Badge className="bg-status-info-soft text-status-info-fg border-status-info-border text-[10px]">

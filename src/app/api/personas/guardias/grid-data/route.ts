@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
+      persona: { laborClass: { not: "ADMINISTRATIVO" } },
     };
 
     if (activeFilter === "all") {

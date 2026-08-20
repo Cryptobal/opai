@@ -153,6 +153,25 @@ export async function PATCH(
       );
     }
 
+    if (body.adminId !== undefined && body.adminId) {
+      const admin = await prisma.admin.findFirst({
+        where: { id: body.adminId, tenantId: ctx.tenantId },
+        select: { id: true, persona: { select: { id: true } } },
+      });
+      if (!admin) {
+        return NextResponse.json(
+          { success: false, error: "Usuario ERP no encontrado" },
+          { status: 404 },
+        );
+      }
+      if (admin.persona && admin.persona.id !== existing.personaId) {
+        return NextResponse.json(
+          { success: false, error: "Ese usuario ya está vinculado a otra ficha" },
+          { status: 409 },
+        );
+      }
+    }
+
     if (body.intendedInstallationId !== undefined && body.intendedInstallationId !== null) {
       const inst = await prisma.crmInstallation.findFirst({
         where: {
@@ -246,6 +265,7 @@ export async function PATCH(
           cotizaSalud: body.cotizaSalud !== undefined ? body.cotizaSalud : undefined,
           personalEmail: body.personalEmail !== undefined ? normalizeNullable(body.personalEmail) : undefined,
           laborClass: body.laborClass ?? undefined,
+          adminId: body.adminId !== undefined ? body.adminId : undefined,
         }),
       });
       }
@@ -340,7 +360,7 @@ export async function PATCH(
         "addressFormatted", "commune", "city",
         "region", "regimenPrevisional", "tipoPension", "isJubilado", "cotizaAFP",
         "cotizaAFC", "cotizaSalud", "availableExtraShifts",
-        "laborClass", "isArticulo22",
+        "laborClass", "isArticulo22", "adminId",
       ];
       const changedFields = personalFields.filter((f) => (body as Record<string, unknown>)[f] !== undefined);
       if (changedFields.length > 0) {

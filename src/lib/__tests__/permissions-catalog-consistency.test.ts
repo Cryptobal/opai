@@ -3,6 +3,8 @@ import {
   MODULE_KEYS,
   SUBMODULE_KEYS,
   SUBMODULE_META,
+  CAPABILITY_KEYS,
+  CAPABILITY_META,
   pathToPermission,
   apiPathToSubmodule,
   type ModuleKey,
@@ -40,6 +42,15 @@ describe("permissions catalog consistency", () => {
     }
 
     expect(missing).toEqual([]);
+  });
+});
+
+describe("CAPABILITY_META", () => {
+  it("cubre todas las keys, incluida view_sensitive_salary", () => {
+    const metaKeys = new Set(CAPABILITY_META.map((c) => c.key));
+    const missing = CAPABILITY_KEYS.filter((k) => !metaKeys.has(k));
+    expect(missing).toEqual([]);
+    expect(metaKeys.has("view_sensitive_salary")).toBe(true);
   });
 });
 

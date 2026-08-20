@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
         description: body.description?.trim() || null,
         colorHex: normalizeColorHex(body.colorHex),
         active: body.active ?? true,
+        salarySensitive: body.salarySensitive === true,
       },
     });
 

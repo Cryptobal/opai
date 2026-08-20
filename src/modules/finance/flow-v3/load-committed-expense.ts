@@ -9,6 +9,7 @@ import {
   type ReceivedDteExpenseInput,
 } from "./derive-committed-expense";
 import { loadExpenseParametrics } from "./load-committed-expense-params";
+import { applyPayrollPatchesToMilestones } from "./apply-payroll-patches";
 import { loadMilestoneDateOverrides } from "./milestone-date-override.service";
 import { loadIvaPostponements } from "./iva-postponement.service";
 import {
@@ -135,7 +136,7 @@ export async function loadCommittedExpense(
   const quincenaDay = config?.quincenaPayDay ?? 15;
   const ivaDay = config?.ivaPayDay ?? 12;
 
-  const milestones: ExpenseMilestoneInput[] = [];
+  let milestones: ExpenseMilestoneInput[] = [];
   for (const { y, m } of monthsBetween(fromYmd, toYmd)) {
     if (liquidoTotal > 0)
       milestones.push({
@@ -257,26 +258,7 @@ export async function loadCommittedExpense(
       postponements,
     },
   );
-  for (const patch of parametrics.payrollPatches) {
-    const idx = milestones.findIndex(
-      (m) =>
-        m.key === patch.key &&
-        m.dateYmd === patch.dateYmd &&
-        (m.laborClass ?? "OPERATIVO") === "OPERATIVO",
-    );
-    if (idx >= 0) {
-      const prev = milestones[idx];
-      // Concatenar metaNote: el patch de descuento TE no debe pisar el
-      // desglose de cotizaciones del hito Previred.
-      const metaNote = [prev.metaNote, patch.metaNote].filter(Boolean).join(" · ") || undefined;
-      milestones[idx] = {
-        ...prev,
-        amountClp: patch.amountClp,
-        label: patch.label,
-        metaNote,
-      };
-    }
-  }
+  milestones = applyPayrollPatchesToMilestones(milestones, parametrics.payrollPatches);
   milestones.push(...parametrics.milestones);
 
   // ── DTEs recibidos por pagar ──
