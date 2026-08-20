@@ -22,9 +22,9 @@ function isAccountInstallationIncome(r: FlowRowRef): boolean {
  *  1. Fila de la programación (`recurringTemplateId`) — 1 fila = 1 template.
  *  2. Fila exacta cuenta+instalación (solo filas SIN template).
  *  3. Fila genérica de la cuenta (sin instalación, sin template).
- *  3.5 Fallback cuenta: exactamente una fila ACCOUNT_INSTALLATION activa
- *      (aunque sea de template); si hay varias, match por instalación entre
- *      filas de template; si sigue ambiguo → Otros ingresos.
+ *  3.5 Match por instalación entre filas de template (1 hit). Nunca
+ *      "cuenta con una sola fila → esa": un DTE de otra instalación
+ *      va a Otros ingresos, no a la hermana.
  *  4. "Otros ingresos" (UNMATCHED_INCOME_KEY).
  */
 export function buildIncomeMatcher(
@@ -70,8 +70,7 @@ export function buildIncomeMatcher(
     if (gen) return gen;
 
     const candidates = byAccount.get(accountId) ?? [];
-    if (candidates.length === 1) return candidates[0].id;
-    if (candidates.length > 1 && installationId) {
+    if (installationId) {
       const byInst = candidates.filter(
         (r) => r.recurringTemplateId && r.installationId === installationId,
       );

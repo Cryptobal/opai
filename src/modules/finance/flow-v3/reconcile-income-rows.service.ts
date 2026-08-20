@@ -500,7 +500,7 @@ async function archiveSurplusRows(
   tenantId: string,
   ownRowAccounts: Set<string> = new Set(),
 ): Promise<void> {
-  const [rows, activeTemplates, planRows] = await Promise.all([
+  const [rows, activeTemplates, planRows, openDtes] = await Promise.all([
     tx.financeFlowRow.findMany({
       where: {
         tenantId,
@@ -522,10 +522,30 @@ async function archiveSurplusRows(
       select: { rowId: true },
       distinct: ["rowId"],
     }),
+    tx.financeDte.findMany({
+      where: {
+        tenantId,
+        recurringTemplateId: { not: null },
+        voidedByCreditNoteId: null,
+        OR: [
+          { siiStatus: "DRAFT" },
+          {
+            paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE", "CEDED"] },
+            creditedNetAmount: 0,
+          },
+        ],
+      },
+      select: { recurringTemplateId: true },
+    }),
   ]);
 
   const activeTplIds = new Set(activeTemplates.map((t) => t.id));
   const planRowIds = new Set(planRows.map((p) => p.rowId));
+  const openTplIds = new Set(
+    openDtes
+      .map((d) => d.recurringTemplateId)
+      .filter((id): id is string => !!id),
+  );
 
   // 1) Duplicados exactos por nombre NFD + misma cuenta.
   const byKey = new Map<string, typeof rows>();
@@ -560,6 +580,8 @@ async function archiveSurplusRows(
         hasPlanData: planRowIds.has(r.id),
         linkedActiveTemplate: linkedActive,
         hasExplicitOwnRowDte: !!r.crmAccountId && ownRowAccounts.has(r.crmAccountId),
+        hasOpenDraftOrUnpaidDte:
+          !!r.recurringTemplateId && openTplIds.has(r.recurringTemplateId),
       })
     ) {
       archiveIds.add(r.id);

@@ -24,7 +24,7 @@ describe("unmatched income matcher (B8)", () => {
     expect(match(null, null, null)).toBe(UNMATCHED_INCOME_KEY);
   });
 
-  it("v4.2: cuenta con sola fila de template no es unmatched", () => {
+  it("cuenta con sola fila de template sin instalación → unmatched (no mezcla)", () => {
     const m = buildIncomeMatcher([
       {
         id: "r-tpl", name: "Cliente T", crmAccountId: "acc-t",
@@ -32,6 +32,8 @@ describe("unmatched income matcher (B8)", () => {
         mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
       },
     ]);
-    expect(m("acc-t", null, null)).toBe("r-tpl");
+    expect(m("acc-t", null, null)).toBe(UNMATCHED_INCOME_KEY);
+    expect(m("acc-t", "i1", null)).toBe("r-tpl");
+    expect(m("acc-t", "otra", null)).toBe(UNMATCHED_INCOME_KEY);
   });
 });
