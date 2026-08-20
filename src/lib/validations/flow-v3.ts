@@ -26,6 +26,7 @@ export const flowRowKeySchema = z.enum([
   "TURNO_EXTRA",
   "FINIQUITO",
   "IVA_F29",
+  "IVA_POSTERGADO",
   "OTRO_IMPUESTO",
   "FACTORING",
   "RETIRO_SOCIO",
@@ -168,12 +169,18 @@ export const flowMilestoneMoveSchema = z.object({
     "previred",
     "impuesto_unico",
     "f29",
+    "iva_postergado",
     "turnos_extra",
     "retiro_socio",
     "finiquitos",
   ]),
   billingPeriod: z.string().regex(/^\d{4}-\d{2}$/, "Período YYYY-MM"),
   toWeek: ymd,
+});
+
+/** Postergar / deshacer el IVA de un período tributario (YYYY-MM). */
+export const flowIvaPostponeSchema = z.object({
+  taxPeriod: z.string().regex(/^\d{4}-\d{2}$/, "Período YYYY-MM"),
 });
 
 export const flowRecurrenceFrequencySchema = z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]);

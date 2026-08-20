@@ -56,6 +56,7 @@ export const CANONICAL_FLOW_ROWS: CanonicalFlowRow[] = [
   { section: "REMUNERACIONES", name: "Turnos extra", categoryCode: "EGR_TURNO_EXTRA", canonicalKey: "TURNO_EXTRA" },
   { section: "REMUNERACIONES", name: "Finiquitos", categoryCode: "EGR_FINIQUITO", canonicalKey: "FINIQUITO" },
   { section: "IMPUESTOS", name: "IVA F29", categoryCode: "EGR_IVA_F29", canonicalKey: "IVA_F29" },
+  { section: "IMPUESTOS", name: "IVA postergado", categoryCode: null, canonicalKey: "IVA_POSTERGADO" },
   { section: "GAV", name: FALLBACK_EXPENSE_NAME, categoryCode: null, canonicalKey: "BANDEJA_EGRESO" },
   { section: "FINANCIAMIENTO", name: "Créditos / financiamiento", categoryCode: null, canonicalKey: "CREDITO" },
   { section: "FINANCIAMIENTO", name: "Costo factoring", categoryCode: "EGR_FACTORING", canonicalKey: "FACTORING" },

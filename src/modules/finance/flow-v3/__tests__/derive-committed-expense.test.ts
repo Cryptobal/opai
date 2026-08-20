@@ -12,6 +12,7 @@ const WEEKS = enumerateWeeks(
 const ROWS: FlowRowRef[] = [
   { id: "row-sueldos", name: "Sueldos líquidos", mapping: "ACCOUNTS", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "SUELDO", supplierId: null },
   { id: "row-f29", name: "IVA F29", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "IVA_F29", supplierId: null },
+  { id: "row-iva-post", name: "IVA postergado", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "IVA_POSTERGADO", supplierId: null },
   { id: "row-arriendo", name: "Arriendo", mapping: "ACCOUNTS", crmAccountId: null, installationId: null, categoryId: null, accountPlanIds: ["plan-arr"], supplierId: null },
   { id: "row-prov", name: "Proveedor X", mapping: "SUPPLIER", crmAccountId: null, installationId: null, categoryId: null, supplierId: "sup-1" },
   { id: "row-te", name: "Turnos extra", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "TURNO_EXTRA", supplierId: null },
@@ -195,6 +196,52 @@ describe("deriveCommittedExpense — hitos payroll/F29", () => {
       }],
     });
     expect(out2.get("row-f29")?.get("2026-09-07")?.items[0].label).toContain("IVA a favor");
+  });
+
+  it("iva_postergado cae en fila IVA_POSTERGADO y propaga taxPeriod", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      milestones: [{
+        key: "iva_postergado",
+        label: "IVA postergado 2026-08 (vence 20-11-2026)",
+        dateYmd: "2026-11-20",
+        amountClp: 2_200_000,
+        taxPeriod: "2026-08",
+        metaNote: "IVA del período 2026-08",
+      }],
+    });
+    const cell = out.get("row-iva-post")?.get("2026-11-16");
+    expect(cell?.total).toBe(2_200_000);
+    expect(cell?.items[0]).toMatchObject({
+      kind: "scheduled",
+      milestoneKey: "iva_postergado",
+      billingPeriod: "2026-11",
+      taxPeriod: "2026-08",
+      monto: 2_200_000,
+    });
+    expect(out.get("row-f29")).toBeUndefined();
+  });
+
+  it("iva_postergado respeta override de semana", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      milestones: [{
+        key: "iva_postergado",
+        label: "IVA postergado 2026-08",
+        dateYmd: "2026-11-20",
+        amountClp: 1_000_000,
+        taxPeriod: "2026-08",
+      }],
+      milestoneOverrides: new Map([["iva_postergado::2026-11", "2026-11-30"]]),
+    });
+    expect(out.get("row-iva-post")?.get("2026-11-16")).toBeUndefined();
+    expect(out.get("row-iva-post")?.get("2026-11-30")?.items[0]).toMatchObject({
+      milestoneKey: "iva_postergado",
+      billingPeriod: "2026-11",
+      taxPeriod: "2026-08",
+      fecha: "2026-11-30",
+      monto: 1_000_000,
+    });
   });
 });
 

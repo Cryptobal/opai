@@ -10,6 +10,12 @@ import {
 } from "./derive-committed-expense";
 import { loadExpenseParametrics } from "./load-committed-expense-params";
 import { loadMilestoneDateOverrides } from "./milestone-date-override.service";
+import { loadIvaPostponements } from "./iva-postponement.service";
+import {
+  F29_LOOKBACK_MONTHS,
+  lookbackFromYmd,
+  splitF29Milestone,
+} from "./iva-postponement";
 import { bulkAccountToRow } from "./rowAccount.service";
 import type { CommittedByRow, FlowRowRef } from "./types";
 
@@ -56,7 +62,7 @@ export async function loadCommittedExpense(
   const toYmd = weeks[weeks.length - 1];
   if (!fromYmd || !toYmd) return new Map();
 
-  const [config, receivedRaw, exclusions, pendingTes, payrollCash] = await Promise.all([
+  const [config, receivedRaw, exclusions, pendingTes, payrollCash, postponements] = await Promise.all([
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
       select: {
@@ -97,6 +103,7 @@ export async function loadCommittedExpense(
     }),
     // Fuente única: cotizaciones explícitas (sin residual ni provisiones).
     computePayrollCashForTenant(tenantId),
+    loadIvaPostponements(tenantId),
   ]);
 
   const liquidoTotal = payrollCash.total.liquido;
@@ -159,23 +166,27 @@ export async function loadCommittedExpense(
   }
 
   // ── F29: solo períodos VENCIDOS (DTEs reales); se paga el mes siguiente ──
+  // Lookback: un hito postergado cae en P+3 y debe verse aunque el mes de
+  // pago original quede fuera de la ventana.
   const today = new Date(`${todayYmd}T00:00:00.000Z`);
-  for (const { y, m } of monthsBetween(fromYmd, toYmd)) {
+  for (const { y, m } of monthsBetween(lookbackFromYmd(fromYmd, F29_LOOKBACK_MONTHS), toYmd)) {
     const periodEnd = new Date(Date.UTC(y, m + 1, 1));
     if (periodEnd.getTime() > today.getTime()) continue;
     const payYmd = ymdOf(m === 11 ? y + 1 : y, (m + 1) % 12, ivaDay);
-    if (payYmd < fromYmd || payYmd > toYmd) continue;
     const periodo = `${y}-${String(m + 1).padStart(2, "0")}`;
+    const postponement = postponements.get(periodo) ?? null;
     try {
       const f29 = await computeF29Period(tenantId, periodo);
-      if (f29.f29.totalAPagar > 0) {
-        milestones.push({
-          key: "f29",
-          label: `IVA F29 ${periodo}`,
-          dateYmd: payYmd,
-          amountClp: Math.round(f29.f29.totalAPagar),
-        });
-      }
+      if (f29.f29.totalAPagar <= 0 && !postponement) continue;
+      milestones.push(
+        ...splitF29Milestone({
+          taxPeriod: periodo,
+          payYmd,
+          totalAPagarClp: f29.f29.totalAPagar,
+          ivaDeterminadoClp: f29.f29.ivaDeterminado,
+          postponement,
+        }),
+      );
     } catch {
       // Período sin datos: omitir, jamás inventar montos.
     }
@@ -196,6 +207,7 @@ export async function loadCommittedExpense(
       previredDay: previredDay,
       ivaDay,
       pendingTeTotal: teTotal,
+      postponements,
     },
   );
   for (const patch of parametrics.payrollPatches) {

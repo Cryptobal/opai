@@ -51,6 +51,20 @@ describe("moveMilestoneQuota", () => {
     ).rejects.toThrow(/lunes ISO/);
   });
 
+  it("acepta mover el hito iva_postergado", async () => {
+    asMock(prisma.financeCashflowMilestoneDateOverride.upsert).mockResolvedValue({});
+    const r = await moveMilestoneQuota({
+      tenantId: "t1",
+      milestoneKey: "iva_postergado",
+      billingPeriod: "2026-11",
+      toWeek: "2026-11-30",
+      createdBy: "u1",
+    });
+    expect(r.milestoneKey).toBe("iva_postergado");
+    expect(r.billingPeriod).toBe("2026-11");
+    expect(r.customDate).toBe("2026-11-30");
+  });
+
   it("rechaza hito desconocido", async () => {
     await expect(
       moveMilestoneQuota({

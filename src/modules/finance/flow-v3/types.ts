@@ -24,6 +24,9 @@ export interface CommittedItem {
   billingPeriod?: string;
   /** Solo kind=scheduled de egreso: hito payroll/F29 (quincena, liquido, …). */
   milestoneKey?: string;
+  /// Solo hitos f29 / iva_postergado: período tributario YYYY-MM (mes de ventas).
+  /// No confundir con billingPeriod, que es el mes de pago.
+  taxPeriod?: string;
   folio?: number;
   /** Nombre visible: cliente/proveedor/hito (popover). */
   label: string;

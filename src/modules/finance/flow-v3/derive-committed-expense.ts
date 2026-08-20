@@ -23,6 +23,7 @@ export type ExpenseMilestoneKey =
   | "previred"
   | "impuesto_unico"
   | "f29"
+  | "iva_postergado"
   | "turnos_extra"
   | "retiro_socio"
   | "finiquitos"
@@ -38,6 +39,8 @@ export interface ExpenseMilestoneInput {
   metaNote?: string;
   /** v5.1: fila destino explícita (PCT_SALES); salta el mapa canónico. */
   targetRowId?: string;
+  /// Solo hitos f29 / iva_postergado: período tributario YYYY-MM (mes de ventas).
+  taxPeriod?: string;
 }
 
 export interface TeWeeklyProjectionInput {
@@ -132,6 +135,7 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
       label,
       fecha: placementYmd,
       monto: Math.round(m.amountClp),
+      taxPeriod: m.taxPeriod,
     });
   }
 

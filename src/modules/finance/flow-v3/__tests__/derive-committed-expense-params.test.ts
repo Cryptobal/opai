@@ -120,6 +120,7 @@ describe("computeF29FutureClp", () => {
     expect(r.debito).toBe(Math.round(0.19 * 10_000_000));
     expect(r.credito).toBe(Math.round(0.19 * 1_000_000) + Math.round(0.5 * 500_000));
     expect(r.ppm).toBe(100_000);
+    expect(r.ivaDeterminado).toBe(r.debito - r.credito);
     expect(r.total).toBe(Math.max(0, r.debito - r.credito + r.ppm));
     expect(r.clamped).toBe(r.debito - r.credito + r.ppm < 0);
   });
