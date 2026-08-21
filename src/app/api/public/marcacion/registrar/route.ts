@@ -430,6 +430,10 @@ export async function POST(req: NextRequest) {
     }
     const result = outcome.value;
 
+    void import("@/lib/devices/device-guards").then((m) =>
+      m.rememberDeviceGuard(devicePairingId, guardia.id),
+    );
+
     // Refresca el tablero de relevo activo de la instalación (semáforo → presente).
     // Idempotente y no-op si no hay tablero OPEN. Fire-and-forget.
     import("@/lib/ops/relevo-board")

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
+import { listDeviceGuards } from "@/lib/devices/device-guards";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,94 +11,52 @@ export async function GET(request: NextRequest) {
     if (!token) {
       return NextResponse.json(
         { success: false, error: "Token de autorización requerido" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    // Try legacy table first
+    const query = request.nextUrl.searchParams.get("q") ?? undefined;
+
     const legacyDevice = await safeAccessControlQuery(
       () =>
         prisma.accessControlDevice.findUnique({
           where: { deviceToken: token },
         }),
-      null
+      null,
     );
 
     let installationId: string | null = null;
+    let tenantId: string | null = null;
 
     if (legacyDevice && legacyDevice.isActive) {
       installationId = legacyDevice.installationId;
+      tenantId = legacyDevice.tenantId;
     } else {
-      // Fallback: unified DevicePairing table
       const unifiedDevice = await prisma.devicePairing.findFirst({
-        where: { deviceToken: token },
-        select: { installationId: true },
+        where: { deviceToken: token, status: "ACTIVE" },
+        select: { installationId: true, tenantId: true },
       });
       if (unifiedDevice) {
         installationId = unifiedDevice.installationId;
+        tenantId = unifiedDevice.tenantId;
       }
     }
 
-    if (!installationId) {
+    if (!installationId || !tenantId) {
       return NextResponse.json(
         { success: false, error: "Dispositivo no válido o desvinculado" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    // Fetch guards assigned to this device's installation
-    const assignments = await prisma.opsAsignacionGuardia.findMany({
-      where: {
-        installationId,
-        isActive: true,
-        guardia: { status: "active" },
-      },
-      select: {
-        guardia: {
-          select: {
-            id: true,
-            code: true,
-            persona: {
-              select: {
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        guardia: {
-          persona: {
-            lastName: "asc",
-          },
-        },
-      },
-    });
+    const guards = await listDeviceGuards({ tenantId, installationId, query });
 
-    // Deduplicate (a guard may have multiple assignments)
-    const seen = new Set<string>();
-    const guards = assignments
-      .map((a) => a.guardia)
-      .filter((g) => {
-        if (seen.has(g.id)) return false;
-        seen.add(g.id);
-        return true;
-      });
-
-    const formattedGuards = guards.map((g) => ({
-      id: g.id,
-      name: `${g.persona.firstName} ${g.persona.lastName}`,
-      code: g.code,
-      role: "guardia",
-    }));
-
-    return NextResponse.json({ success: true, data: formattedGuards });
+    return NextResponse.json({ success: true, data: guards });
   } catch (error) {
     console.error("[AccessControl] Error fetching guards:", error);
     return NextResponse.json(
       { success: false, error: "Error al obtener guardias" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

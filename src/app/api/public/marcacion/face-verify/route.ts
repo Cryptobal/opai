@@ -444,6 +444,10 @@ export async function POST(req: NextRequest) {
       return marcacion;
     });
 
+    void import("@/lib/devices/device-guards").then((m) =>
+      m.rememberDeviceGuard(devicePairingId, guardia.id),
+    );
+
     // Refresca el tablero de relevo activo (semáforo → presente). No-op si no
     // hay tablero OPEN. Fire-and-forget.
     import("@/lib/ops/relevo-board")
