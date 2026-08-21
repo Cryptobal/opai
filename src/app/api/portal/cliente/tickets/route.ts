@@ -11,6 +11,7 @@ import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 import { notify } from "@/lib/notifications/notify";
 import { normalizeTicketAttachments } from "@/lib/portal-cliente-ticket-attachments";
 import { sendClientTicketConfirmationEmail } from "@/lib/tickets-confirmation-email";
+import { INCIDENTE_TICKET_SLUG } from "@/lib/incidentes-instalacion/constants";
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,43 +58,76 @@ export async function GET(request: NextRequest) {
     }
 
     if (installationIds.length === 0) {
-      return NextResponse.json({ success: true, data: [] });
+      return NextResponse.json({
+        success: true,
+        data: [],
+        incidentesKpis: { enAtencion: 0, resueltosMes: 0 },
+      });
     }
 
-    // IMPORTANTE: forzamos `source: "portal_cliente"` para que el cliente SOLO
-    // vea tickets que él mismo generó desde el portal, nunca tickets internos
-    // (hallazgos de supervisión, guard events, manuales de operaciones, etc.).
-    const tickets = await prisma.opsTicket.findMany({
-      where: {
-        tenantId: session.tenantId,
-        installationId: { in: installationIds },
-        source: "portal_cliente",
-        ...(statusFilter ? { status: statusFilter } : {}),
-      },
-      select: {
-        id: true,
-        code: true,
-        status: true,
-        priority: true,
-        title: true,
-        description: true,
-        assignedTeam: true,
-        installationId: true,
-        source: true,
-        slaDueAt: true,
-        resolvedAt: true,
-        closedAt: true,
-        tags: true,
-        createdAt: true,
-        ticketType: {
-          select: { name: true, slug: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
+    // El cliente ve tickets que él creó y los incidentes QR públicos de sus
+    // instalaciones. Nunca tickets internos (supervisión, guard events, manual).
+    const sourceFilter = { in: ["portal_cliente", "public_qr"] };
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
 
-    return NextResponse.json({ success: true, data: tickets });
+    const [tickets, enAtencion, resueltosMes] = await Promise.all([
+      prisma.opsTicket.findMany({
+        where: {
+          tenantId: session.tenantId,
+          installationId: { in: installationIds },
+          source: sourceFilter,
+          ...(statusFilter ? { status: statusFilter } : {}),
+        },
+        select: {
+          id: true,
+          code: true,
+          status: true,
+          priority: true,
+          title: true,
+          description: true,
+          assignedTeam: true,
+          installationId: true,
+          source: true,
+          slaDueAt: true,
+          resolvedAt: true,
+          closedAt: true,
+          tags: true,
+          createdAt: true,
+          ticketType: {
+            select: { name: true, slug: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId: session.tenantId,
+          installationId: { in: installationIds },
+          source: sourceFilter,
+          ticketType: { slug: INCIDENTE_TICKET_SLUG },
+          status: { in: ["open", "in_progress"] },
+        },
+      }),
+      prisma.opsTicket.count({
+        where: {
+          tenantId: session.tenantId,
+          installationId: { in: installationIds },
+          source: sourceFilter,
+          ticketType: { slug: INCIDENTE_TICKET_SLUG },
+          status: { in: ["resolved", "closed"] },
+          OR: [{ resolvedAt: { gte: monthStart } }, { closedAt: { gte: monthStart } }],
+        },
+      }),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: tickets,
+      incidentesKpis: { enAtencion, resueltosMes },
+    });
   } catch (error) {
     console.error("[Portal Cliente] tickets GET error:", error);
     return NextResponse.json(

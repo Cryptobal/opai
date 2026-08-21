@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Clock, Shield, DoorOpen } from "lucide-react";
+import { Clock, Shield, DoorOpen, Siren } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
  * provocaban exactamente ese salto al cruzar con `location.href`.
  */
 
-type Mode = "marcacion" | "rondas" | "acceso";
+type Mode = "marcacion" | "rondas" | "acceso" | "incidentes";
 
 const MODES: Array<{
   id: Mode;
@@ -30,6 +30,7 @@ const MODES: Array<{
   { id: "marcacion", label: "Marcación", shortLabel: "Marca", href: "/portal/marcacion", Icon: Clock },
   { id: "rondas", label: "Rondas", shortLabel: "Rondas", href: "/portal/rondas", Icon: Shield },
   { id: "acceso", label: "Acceso", shortLabel: "Acceso", href: "/portal/acceso", Icon: DoorOpen },
+  { id: "incidentes", label: "Incidentes", shortLabel: "Incid.", href: "/portal/incidentes", Icon: Siren },
 ];
 
 interface TerrenoModeSwitcherProps {

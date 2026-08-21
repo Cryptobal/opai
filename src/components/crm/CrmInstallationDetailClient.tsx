@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon, Siren } from "lucide-react";
 import { EntityConversations } from "./EntityConversations";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
@@ -64,6 +64,8 @@ import { InstallationPhoneLines } from "@/components/inventario/InstallationPhon
 import { InstalacionDocumentosGuardiasTab } from "./InstalacionDocumentosGuardiasTab";
 import { InstalacionDocsOperacionalesTab } from "@/components/ops/InstalacionDocsOperacionalesTab";
 import { InstalacionVraReportsTab } from "@/components/vra/InstalacionVraReportsTab";
+import { InstalacionIncidentesTab } from "./InstalacionIncidentesTab";
+import { InstalacionQrReporteTab } from "./InstalacionQrReporteTab";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -2426,6 +2428,8 @@ export function CrmInstallationDetailClient({
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "docs-operacionales", label: "Docs. Operacionales", icon: ShieldCheck },
     { id: "rondas", label: "Rondas", icon: Route },
+    { id: "incidentes", label: "Incidentes", icon: Siren },
+    { id: "qr-reporte", label: "QR de reporte", icon: QrCode },
     { id: "marcaciones", label: "Marcaciones", icon: Clock },
     { id: "documentos-guardias", label: "Documentos de Guardias", icon: FileCheck },
     { id: "access-control", label: "Control Acceso", icon: Shield },
@@ -3097,6 +3101,12 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "rondas" && (
           <InstalacionRondasTab installationId={installation.id} />
+        )}
+        {activeTab === "incidentes" && (
+          <InstalacionIncidentesTab installationId={installation.id} />
+        )}
+        {activeTab === "qr-reporte" && (
+          <InstalacionQrReporteTab installationId={installation.id} />
         )}
         {activeTab === "marcaciones" && (
           <InstalacionMarcacionesTab installationId={installation.id} />

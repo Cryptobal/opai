@@ -8,6 +8,7 @@
  * hace su propia autorización/validación antes. NO es HTTP-aware.
  */
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { generateTicketCode } from "@/lib/tickets";
 import { notifyTicketCreated } from "@/lib/tickets-notify";
@@ -27,6 +28,9 @@ export interface CreateOpsTicketInput {
   guardiaId?: string | null;
   sourceGuardEventId?: string | null;
   tags?: string[];
+  metadata?: Prisma.InputJsonValue | null;
+  publicFollowToken?: string | null;
+  skipNotify?: boolean;
 }
 
 export type CreateOpsTicketResult =
@@ -106,6 +110,8 @@ export async function createOpsTicket(input: CreateOpsTicketInput): Promise<Crea
         slaDueAt,
         slaBreached: false,
         tags: input.tags ?? [],
+        metadata: input.metadata ?? undefined,
+        publicFollowToken: input.publicFollowToken ?? undefined,
         currentApprovalStep: requiresApproval ? 1 : null,
         approvalStatus: requiresApproval ? "pending" : null,
         approvals: { create: approvalCreateData },
@@ -120,7 +126,7 @@ export async function createOpsTicket(input: CreateOpsTicketInput): Promise<Crea
     return created;
   });
 
-  await notifyTicketCreated({
+  if (!input.skipNotify) await notifyTicketCreated({
     tenantId: input.tenantId, actorId: input.actorId, requiresApproval,
     ticket: {
       id: ticket.id, code: ticket.code, title: ticket.title, description: ticket.description,

@@ -87,6 +87,7 @@ function mapTicket(
   t: any,
   assigneeMap?: Map<string, string>,
   reporterMap?: Map<string, string>,
+  installationMap?: Map<string, string>,
 ): Ticket {
   const guardiaName =
     t.guardia?.persona
@@ -116,6 +117,9 @@ function mapTicket(
     assignedTo: t.assignedTo,
     assignedToName,
     installationId: t.installationId,
+    installationName: t.installationId
+      ? (installationMap?.get(t.installationId) ?? t.installation?.name ?? null)
+      : null,
     source: t.source,
     sourceLogId: null,
     sourceGuardEventId: t.sourceGuardEventId,
@@ -168,6 +172,7 @@ export async function GET(request: NextRequest) {
     const priorities = parseCsv(searchParams.get("priorities"), VALID_PRIORITIES);
     const assignedTeam = searchParams.get("assignedTeam");
     const ticketTypeId = searchParams.get("ticketTypeId");
+    const typeSlug = searchParams.get("type");
     const guardiaId = searchParams.get("guardiaId");
     const installationId = searchParams.get("installationId");
     const originParam = searchParams.get("origin");
@@ -211,6 +216,7 @@ export async function GET(request: NextRequest) {
 
     if (assignedTeam) where.assignedTeam = assignedTeam;
     if (ticketTypeId) where.ticketTypeId = ticketTypeId;
+    if (typeSlug) where.ticketType = { slug: typeSlug };
     if (guardiaId) where.guardiaId = guardiaId;
     if (installationId) where.installationId = installationId;
     if (slaBreachedOnly) where.slaBreached = true;
@@ -380,7 +386,19 @@ export async function GET(request: NextRequest) {
       reporterMap = new Map(Array.from(actors.entries()).map(([id, a]) => [id, a.name]));
     }
 
-    const items: Ticket[] = rows.map((r) => mapTicket(r, assigneeMap, reporterMap));
+    const installationIdsForNames = [
+      ...new Set(rows.map((r) => r.installationId).filter(Boolean)),
+    ] as string[];
+    let installationMap = new Map<string, string>();
+    if (installationIdsForNames.length > 0) {
+      const installations = await prisma.crmInstallation.findMany({
+        where: { tenantId: ctx.tenantId, id: { in: installationIdsForNames } },
+        select: { id: true, name: true },
+      });
+      installationMap = new Map(installations.map((i) => [i.id, i.name]));
+    }
+
+    const items: Ticket[] = rows.map((r) => mapTicket(r, assigneeMap, reporterMap, installationMap));
 
     return NextResponse.json({
       success: true,

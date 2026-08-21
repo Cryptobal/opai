@@ -29,13 +29,14 @@ describe("TerrenoModeSwitcher", () => {
     });
   });
 
-  it("always renders the three portal modes", () => {
+  it("always renders the four portal modes", () => {
     render(<TerrenoModeSwitcher active="acceso" />);
 
     expect(screen.getByRole("tablist", { name: /portal terreno/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Marcación" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Rondas" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Acceso" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Incidentes" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Acceso" })).toHaveAttribute("aria-selected", "true");
   });
 

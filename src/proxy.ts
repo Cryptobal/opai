@@ -166,6 +166,10 @@ function isPublicPath(pathname: string): boolean {
   // Tickets — portal público read-only por PIN (L2).
   // /api/public-tickets/ ya queda cubierto por el prefijo /api/public/.
   if (pathname.startsWith('/t/')) return true;
+  // Reporte público de incidentes por QR (sin login)
+  if (pathname.startsWith('/r/')) return true;
+  if (pathname.startsWith('/portal/incidentes')) return true;
+  if (pathname.startsWith('/api/portal/incidentes')) return true;
 
   // Assets y estáticos
   if (pathname.startsWith('/_next') || pathname.startsWith('/favicon') || pathname.startsWith('/images') || pathname.startsWith('/logos')) return true;

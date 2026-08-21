@@ -47,6 +47,7 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/ops/alertas-cobertura");
     expect(hrefs).toContain("/ops/inventario");
     expect(hrefs).toContain("/crm/installations");
+    expect(hrefs).toContain("/ops/incidentes-terreno");
   });
 
   it("Pautas inner page → mensual, diaria, ppc, refuerzos, marcaciones, auditoría", () => {

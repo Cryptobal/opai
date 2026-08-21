@@ -19,7 +19,10 @@ export type TicketEventType =
   | "link_removed"
   | "csat_submitted"
   | "attachment_added"
-  | "attachment_removed";
+  | "attachment_removed"
+  | "incidente_validado"
+  | "incidente_rechazado"
+  | "incidente_auto_closed";
 
 export interface RecordTicketEventInput {
   tenantId: string;

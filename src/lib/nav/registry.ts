@@ -698,6 +698,14 @@ export const NAV_MODULES: NavNode[] = [
         show: canViewInstallations,
         badge: { notesKey: "installation" },
       },
+      {
+        key: "ops-incidentes-terreno",
+        href: "/ops/incidentes-terreno",
+        label: "Incidentes en terreno",
+        icon: Siren,
+        module: "ops",
+        submodule: "tickets",
+      },
       // Supervisión (sub-módulo con N3)
       {
         key: "ops-supervision",
@@ -710,6 +718,7 @@ export const NAV_MODULES: NavNode[] = [
         badge: { notesKey: "supervision_visit" },
         children: [
           { key: "sup-grilla", href: "/ops/supervision", label: "Grilla", icon: Grid3x3, module: "ops", submodule: "supervision", exactMatch: true },
+          { key: "sup-incidentes", href: "/ops/supervision/incidentes", label: "Incidentes", icon: Siren, module: "ops", submodule: "supervision" },
           { key: "sup-hallazgos", href: "/ops/supervision/hallazgos", label: "Hallazgos", icon: ShieldAlert, module: "ops", submodule: "supervision" },
           { key: "sup-dashboard", href: "/ops/supervision/dashboard", label: "Dashboard", icon: BarChart3, module: "ops", submodule: "supervision" },
           { key: "sup-historial", href: "/ops/supervision/historial", label: "Historial", icon: ClipboardList, module: "ops", submodule: "supervision" },

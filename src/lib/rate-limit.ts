@@ -125,3 +125,31 @@ export function getPublicMessageRateLimit(): Ratelimit | null {
   }
   return _publicMessageLimiter;
 }
+
+let _publicReporteLimiter: Ratelimit | null | undefined;
+let _publicReporteUploadLimiter: Ratelimit | null | undefined;
+let _publicReporteTokenHourLimiter: Ratelimit | null | undefined;
+
+/** 3 reportes / IP / 10 min. */
+export function getPublicReporteRateLimit(): Ratelimit | null {
+  if (_publicReporteLimiter === undefined) {
+    _publicReporteLimiter = makeLimiter(3, "10 m", "ratelimit:public-reporte");
+  }
+  return _publicReporteLimiter;
+}
+
+/** 20 URLs de upload / token+IP / 10 min. */
+export function getPublicReporteUploadRateLimit(): Ratelimit | null {
+  if (_publicReporteUploadLimiter === undefined) {
+    _publicReporteUploadLimiter = makeLimiter(20, "10 m", "ratelimit:public-reporte-upload");
+  }
+  return _publicReporteUploadLimiter;
+}
+
+/** 10 reportes / token / hora. */
+export function getPublicReporteTokenHourRateLimit(): Ratelimit | null {
+  if (_publicReporteTokenHourLimiter === undefined) {
+    _publicReporteTokenHourLimiter = makeLimiter(10, "1 h", "ratelimit:public-reporte-token");
+  }
+  return _publicReporteTokenHourLimiter;
+}

@@ -108,7 +108,7 @@ export const NAV_ITEMS: Record<PortalSection, NavItem> = {
   'control-acceso': { label: 'Accesos', icon: ShieldCheck },
   'desempeno': { label: 'Desempeño', icon: TrendingUp, configKey: 'gamificacion' },
   'chat': { label: 'Chat', icon: MessageSquare, configKey: 'chat_instalacion' },
-  'tickets': { label: 'Tickets', icon: Ticket, configKey: 'tickets' },
+  'tickets': { label: 'Incidentes', icon: Ticket, configKey: 'tickets' },
   'alertas': { label: 'Actividad', icon: Bell, configKey: 'alertas' },
   'encuestas': { label: 'Encuestas', icon: ClipboardList, configKey: 'encuestas' },
   'reportes': { label: 'Reportes', icon: BarChart3, configKey: 'reportes' },

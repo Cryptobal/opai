@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Shield, DoorOpen } from "lucide-react";
+import { Clock, Shield, DoorOpen, Siren } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
 import { AuthPairingInput } from "@/components/auth/AuthPairingInput";
@@ -17,6 +17,7 @@ interface DeviceConfig {
   portalMarcacionEnabled: boolean;
   portalRondasEnabled: boolean;
   portalAccesoEnabled: boolean;
+  portalIncidentesEnabled: boolean;
 }
 
 interface TenantBrand {
@@ -88,6 +89,7 @@ export function TerrenoHubClient() {
           portalMarcacionEnabled: data.portalMarcacionEnabled !== false,
           portalRondasEnabled: data.portalRondasEnabled !== false,
           portalAccesoEnabled: data.portalAccesoEnabled !== false,
+          portalIncidentesEnabled: data.portalIncidentesEnabled !== false,
         };
         setConfig(cfg);
         setState("ready");
@@ -190,6 +192,16 @@ export function TerrenoHubClient() {
       Icon: DoorOpen,
       accent: "#f59e0b",
       glow: "rgba(245,158,11,0.14)",
+    },
+    {
+      id: "incidentes",
+      name: "Incidentes",
+      description: "Reportes QR en la instalación",
+      href: "/portal/incidentes",
+      enabled: config?.portalIncidentesEnabled ?? true,
+      Icon: Siren,
+      accent: "#14b8a6",
+      glow: "rgba(20,184,166,0.14)",
     },
   ];
 

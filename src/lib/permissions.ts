@@ -1170,7 +1170,7 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/audit-pautas")) return { module: "ops", submodule: "pauta_mensual" };
   if (pathname.startsWith("/ops/control-nocturno")) return { module: "ops", submodule: "control_nocturno" };
   if (pathname.startsWith("/ops/rondas")) return { module: "ops", submodule: "rondas" };
-  if (pathname.startsWith("/ops/tickets")) return { module: "ops", submodule: "tickets" };
+  if (pathname.startsWith("/ops/incidentes-terreno") || pathname.startsWith("/ops/tickets")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/ops/inventario")) return { module: "ops", submodule: "inventario" };
   if (pathname.startsWith("/ops/gamificacion")) return { module: "ops", submodule: "gamificacion" };

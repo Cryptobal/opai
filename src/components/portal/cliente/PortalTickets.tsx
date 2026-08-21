@@ -6,6 +6,9 @@ import { ClienteSession } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 import { PortalCreateTicket } from './PortalCreateTicket'
 import { ExportButton } from './shared/ExportButton'
+import { PortalIncidenteTimeline } from './PortalIncidenteTimeline'
+import { IncidenteStatusBadge } from '@/components/incidentes/IncidenteStatusBadge'
+import { INCIDENTE_TICKET_SLUG } from '@/lib/incidentes-instalacion/constants'
 
 interface TicketAttachment {
   id: string
@@ -62,6 +65,17 @@ interface TicketItem {
   createdAt: string
   ticketType?: { name: string; slug: string } | null
   comments?: TicketComment[]
+  timeline?: {
+    steps: Array<{
+      key: string
+      label: string
+      at: string | null
+      guardName?: string | null
+      elapsedLabel?: string | null
+      comment?: string | null
+      photoUrl?: string | null
+    }>
+  }
 }
 
 interface Props {
@@ -118,6 +132,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
   )
 
   const [tickets, setTickets] = useState<TicketItem[]>([])
+  const [incidentesKpis, setIncidentesKpis] = useState({ enAtencion: 0, resueltosMes: 0 })
   const [loading, setLoading] = useState(true)
   const [activeStatus, setActiveStatus] = useState('')
   const [selectedTicket, setSelectedTicket] = useState<TicketItem | null>(null)
@@ -137,7 +152,12 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
 
     fetch(`/api/portal/cliente/tickets?${params.toString()}`, { credentials: 'include' })
       .then((r) => r.json())
-      .then((j) => { if (j.success) setTickets(j.data) })
+      .then((j) => {
+        if (j.success) {
+          setTickets(j.data)
+          if (j.incidentesKpis) setIncidentesKpis(j.incidentesKpis)
+        }
+      })
       .finally(() => setLoading(false))
   }, [selectedInstallation, activeStatus])
 
@@ -216,6 +236,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
   if (selectedTicket) {
     const statusCfg = STATUS_CONFIG[selectedTicket.status] ?? STATUS_CONFIG.open
     const priorityCfg = PRIORITY_CONFIG[selectedTicket.priority] ?? PRIORITY_CONFIG.p3
+    const isIncidente = selectedTicket.ticketType?.slug === INCIDENTE_TICKET_SLUG
 
     return (
       <div className="flex flex-col h-full max-w-lg mx-auto px-4 py-4 pb-24">
@@ -225,18 +246,24 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
           className="flex items-center gap-1.5 text-muted-foreground text-sm mb-4 hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
-          Volver a tickets
+          Volver
         </button>
 
         {/* Ticket header */}
         <div className="bg-card opai-glass-soft-m border border-border rounded-xl p-4 mb-4">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', priorityCfg.color)}>
-              {priorityCfg.label}
-            </span>
-            <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', statusCfg.color)}>
-              {statusCfg.label}
-            </span>
+            {isIncidente ? (
+              <IncidenteStatusBadge status={selectedTicket.status} />
+            ) : (
+              <>
+                <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', priorityCfg.color)}>
+                  {priorityCfg.label}
+                </span>
+                <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', statusCfg.color)}>
+                  {statusCfg.label}
+                </span>
+              </>
+            )}
             <span className="text-xs text-muted-foreground">{selectedTicket.code}</span>
           </div>
           <h2 className="text-foreground font-semibold text-base mb-1">{selectedTicket.title}</h2>
@@ -246,6 +273,21 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
           <p className="text-muted-foreground text-xs mt-2">{formatDate(selectedTicket.createdAt)}</p>
         </div>
 
+        {isIncidente ? (
+          <div className="flex-1 mb-4">
+            {ticketLoading ? (
+              <div className="flex items-center justify-center h-16">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <PortalIncidenteTimeline
+                status={selectedTicket.status}
+                steps={selectedTicket.timeline?.steps ?? []}
+              />
+            )}
+          </div>
+        ) : (
+          <>
         {/* Comments */}
         <div className="flex-1 space-y-3 mb-4">
           <h3 className="text-muted-foreground text-xs font-medium uppercase tracking-wide flex items-center gap-1.5">
@@ -373,6 +415,8 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
             </div>
           </div>
         )}
+          </>
+        )}
       </div>
     )
   }
@@ -384,7 +428,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-foreground font-semibold text-lg flex items-center gap-2">
           <Ticket className="h-5 w-5 text-status-info-fg" />
-          Tickets de Soporte
+          Incidentes de seguridad
         </h2>
         <ExportButton
           baseName="tickets"
@@ -437,6 +481,10 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
         />
       </div>
 
+      <p className="text-[12px] text-ds-text-3 mb-4">
+        {incidentesKpis.enAtencion} en atención · {incidentesKpis.resueltosMes} resueltos este mes
+      </p>
+
       {/* Status filter tabs */}
       <div className="flex gap-1 mb-4 bg-muted p-1 rounded-xl overflow-x-auto">
         {STATUS_FILTERS.map((f) => (
@@ -478,12 +526,18 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                 className="w-full text-left bg-card opai-glass-soft-m border border-border rounded-xl p-4 hover:border-border hover:bg-muted transition-all active:scale-[0.99]"
               >
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', priorityCfg.color)}>
-                    {priorityCfg.label}
-                  </span>
-                  <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', statusCfg.color)}>
-                    {statusCfg.label}
-                  </span>
+                  {ticket.ticketType?.slug === INCIDENTE_TICKET_SLUG ? (
+                    <IncidenteStatusBadge status={ticket.status} />
+                  ) : (
+                    <>
+                      <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', priorityCfg.color)}>
+                        {priorityCfg.label}
+                      </span>
+                      <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', statusCfg.color)}>
+                        {statusCfg.label}
+                      </span>
+                    </>
+                  )}
                   {ticket.ticketType && (
                     <span className="text-xs text-muted-foreground">{ticket.ticketType.name}</span>
                   )}

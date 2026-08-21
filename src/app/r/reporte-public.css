@@ -1,0 +1,124 @@
+:root:has(#reporte-publico) {
+  color-scheme: light;
+}
+
+#reporte-publico {
+  --rp-ink: #121714;
+  --rp-paper: #f4f6f3;
+  --rp-card: #ffffff;
+  --rp-line: #e2e7e1;
+  --rp-muted: #5b675f;
+  --rp-brand: #175e3f;
+  --rp-brand-2: #0f4a30;
+  --rp-tint: #e9f2ec;
+  --rp-info: #1d4ed8;
+  --rp-warn: #b45309;
+  --rp-ok: #1f7a4d;
+  --rp-danger: #c2410c;
+  --rp-radius: 14px;
+  --rp-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  min-height: 100dvh;
+  background: var(--rp-paper);
+  color: var(--rp-ink);
+}
+
+#reporte-publico *,
+#reporte-publico *::before,
+#reporte-publico *::after {
+  box-sizing: border-box;
+}
+
+#reporte-publico button:focus-visible,
+#reporte-publico a:focus-visible,
+#reporte-publico textarea:focus-visible,
+#reporte-publico input:focus-visible {
+  outline: 2px solid var(--rp-brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #reporte-publico * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes rp-stamp {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.r-page {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 20px 16px 140px;
+}
+
+.r-header { margin-bottom: 16px; }
+.r-brand { display: flex; align-items: center; gap: 12px; }
+.r-brand img { height: 40px; width: auto; object-fit: contain; }
+.r-brand-mark {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--rp-brand); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+}
+.r-kicker {
+  margin: 0; font-size: 12px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--rp-brand); font-weight: 600;
+}
+.r-tenant { margin: 2px 0 0; font-size: 14px; font-weight: 600; }
+.r-install {
+  background: var(--rp-card); border: 1px solid var(--rp-line);
+  border-radius: var(--rp-radius); padding: 16px; margin: 16px 0;
+}
+.r-install-label { margin: 0; font-size: 12px; color: var(--rp-muted); }
+.r-install h1 { margin: 4px 0 0; font-size: 22px; line-height: 1.2; }
+.r-address { margin: 6px 0 0; font-size: 13px; color: var(--rp-muted); }
+.r-step { margin: 22px 0; }
+.r-step-n { margin: 0 0 4px; font-size: 12px; color: var(--rp-muted); font-weight: 600; }
+.r-step h2 { margin: 0 0 12px; font-size: 18px; }
+.r-textarea {
+  width: 100%; border-radius: var(--rp-radius); border: 1px solid var(--rp-line);
+  background: var(--rp-card); padding: 12px; font: inherit; font-size: 15px;
+  min-height: 96px; resize: vertical; color: var(--rp-ink);
+}
+.r-collapse {
+  background: none; border: 0; color: var(--rp-brand); font-weight: 600;
+  font-size: 14px; min-height: 44px; padding: 0; cursor: pointer;
+}
+.r-contact { display: grid; gap: 10px; margin-top: 8px; }
+.r-contact label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.r-contact input {
+  min-height: 44px; border-radius: 12px; border: 1px solid var(--rp-line);
+  padding: 0 12px; font: inherit; background: var(--rp-card);
+}
+.r-error { color: var(--rp-danger); font-size: 14px; font-weight: 600; }
+.r-cta-wrap {
+  position: sticky; bottom: 0; margin: 24px -16px 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, transparent, var(--rp-paper) 28%);
+}
+.r-hint { margin: 0 0 8px; font-size: 13px; color: var(--rp-muted); text-align: center; }
+.r-cta {
+  width: 100%; min-height: 48px; border: 0; border-radius: var(--rp-radius);
+  background: var(--rp-brand); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer;
+}
+.r-cta:disabled { opacity: 0.45; cursor: not-allowed; }
+.r-anon { margin: 8px 0 0; text-align: center; font-size: 12px; color: var(--rp-muted); }
+.r-code { font-family: var(--rp-mono); letter-spacing: 0.06em; }
+.r-status-now { font-size: 14px; }
+.r-timeline { list-style: none; margin: 24px 0 0; padding: 0; }
+.r-timeline li { display: grid; grid-template-columns: 16px 1fr; gap: 12px; padding-bottom: 20px; }
+.r-tl-dot {
+  width: 12px; height: 12px; border-radius: 99px; margin-top: 4px;
+  background: var(--rp-line); border: 2px solid var(--rp-line);
+}
+.r-timeline li.is-done .r-tl-dot { background: var(--rp-ok); border-color: var(--rp-ok); }
+.r-tl-title { margin: 0; font-weight: 700; font-size: 15px; }
+.r-tl-meta { margin: 4px 0 0; font-size: 13px; color: var(--rp-muted); }
+.r-timeline blockquote {
+  margin: 8px 0 0; padding: 10px 12px; background: var(--rp-tint);
+  border-radius: 10px; font-size: 14px;
+}
+.r-tl-photo { width: 100%; border-radius: 12px; margin-top: 8px; display: block; }

@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePortalClienteAuth } from "@/lib/portal-cliente";
+import { isIncidenteTicketType } from "@/lib/incidentes-instalacion/type-guard";
+import { getIncidenteTimelineById } from "@/lib/incidentes-instalacion/timeline";
 
 export async function GET(
   request: NextRequest,
@@ -29,7 +31,7 @@ export async function GET(
       where: {
         id,
         tenantId: session.tenantId,
-        source: "portal_cliente",
+        source: { in: ["portal_cliente", "public_qr"] },
       },
       select: {
         id: true,
@@ -92,8 +94,29 @@ export async function GET(
       }
     }
 
-    const { tenantId: _tenantId, ...safeTicket } = ticket;
-    return NextResponse.json({ success: true, data: safeTicket });
+    const { tenantId: _tenantId, comments, ...rest } = ticket;
+    const isIncidente = isIncidenteTicketType(ticket.ticketType?.slug);
+    let timeline: { steps: Awaited<ReturnType<typeof getIncidenteTimelineById>>["steps"] } | undefined;
+    if (isIncidente) {
+      try {
+        const tl = await getIncidenteTimelineById({
+          tenantId: session.tenantId,
+          ticketId: ticket.id,
+        });
+        timeline = { steps: tl.steps };
+      } catch (timelineErr) {
+        console.error("[Portal Cliente] incidente timeline:", timelineErr);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...rest,
+        comments: isIncidente ? [] : comments,
+        ...(timeline ? { timeline } : {}),
+      },
+    });
   } catch (error) {
     console.error("[Portal Cliente] ticket GET [id] error:", error);
     return NextResponse.json(
