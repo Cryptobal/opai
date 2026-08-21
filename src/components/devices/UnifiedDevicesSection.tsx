@@ -39,6 +39,7 @@ interface DevicePairingRecord {
   portalRondasEnabled: boolean;
   portalAccesoEnabled: boolean;
   portalMarcacionEnabled: boolean;
+  portalIncidentesEnabled: boolean;
   deviceModel: string | null;
   androidVersion: string | null;
   browserVersion: string | null;
@@ -180,7 +181,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
 
   const togglePortal = async (
     device: DevicePairingRecord,
-    field: "portalRondasEnabled" | "portalAccesoEnabled" | "portalMarcacionEnabled"
+    field: "portalRondasEnabled" | "portalAccesoEnabled" | "portalMarcacionEnabled" | "portalIncidentesEnabled"
   ) => {
     const key = `${device.id}-${field}`;
     setTogglingId(key);
@@ -390,6 +391,16 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
                             className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-800 accent-blue-500"
                           />
                           Marcación
+                        </label>
+                        <label className="flex items-center gap-1 text-xs text-zinc-400 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={device.portalIncidentesEnabled ?? true}
+                            onChange={() => togglePortal(device, "portalIncidentesEnabled")}
+                            disabled={togglingId === `${device.id}-portalIncidentesEnabled`}
+                            className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-800 accent-blue-500"
+                          />
+                          Incidentes
                         </label>
 
                         <Button

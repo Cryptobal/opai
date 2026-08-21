@@ -70,6 +70,8 @@ export async function PATCH(
       updateData.portalAccesoEnabled = body.portalAccesoEnabled;
     if (typeof body.portalMarcacionEnabled === "boolean")
       updateData.portalMarcacionEnabled = body.portalMarcacionEnabled;
+    if (typeof body.portalIncidentesEnabled === "boolean")
+      updateData.portalIncidentesEnabled = body.portalIncidentesEnabled;
     if (typeof body.name === "string")
       updateData.name = body.name;
 

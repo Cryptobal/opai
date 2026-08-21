@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
         portalRondasEnabled: device.portalRondasEnabled,
         portalAccesoEnabled: device.portalAccesoEnabled,
         portalMarcacionEnabled: device.portalMarcacionEnabled,
+        portalIncidentesEnabled: device.portalIncidentesEnabled !== false,
         marcacionCode: full?.installation?.marcacionCode || null,
         currentGuardId: device.currentGuardId,
         currentGuardName,
