@@ -1,17 +1,31 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const findFirst = vi.fn();
-const update = vi.fn();
-const updateMany = vi.fn();
-const count = vi.fn();
-const createMany = vi.fn();
-const commentCreate = vi.fn();
-const findMany = vi.fn();
-const recordTicketEvent = vi.fn();
-const notifyCerrado = vi.fn();
-const notifyValidado = vi.fn();
-const notifyRechazado = vi.fn();
+const {
+  findFirst,
+  update,
+  updateMany,
+  count,
+  createMany,
+  commentCreate,
+  findMany,
+  recordTicketEvent,
+  notifyCerrado,
+  notifyValidado,
+  notifyRechazado,
+} = vi.hoisted(() => ({
+  findFirst: vi.fn(),
+  update: vi.fn(),
+  updateMany: vi.fn(),
+  count: vi.fn(),
+  createMany: vi.fn(),
+  commentCreate: vi.fn(),
+  findMany: vi.fn(),
+  recordTicketEvent: vi.fn(),
+  notifyCerrado: vi.fn(),
+  notifyValidado: vi.fn(),
+  notifyRechazado: vi.fn(),
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {

@@ -24,6 +24,19 @@ async function signed(storageKey: string, fileName: string): Promise<string | nu
   }
 }
 
+async function installationNameById(
+  tenantId: string,
+  ids: Array<string | null | undefined>,
+): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  if (unique.length === 0) return new Map();
+  const rows = await prisma.crmInstallation.findMany({
+    where: { tenantId, id: { in: unique } },
+    select: { id: true, name: true },
+  });
+  return new Map(rows.map((r) => [r.id, r.name]));
+}
+
 export async function listIncidentes(opts: {
   tenantId: string;
   installationIds?: string[] | null;
@@ -63,7 +76,6 @@ export async function listIncidentes(opts: {
         slaBreached: true,
         metadata: true,
         installationId: true,
-        installation: { select: { name: true } },
         guardia: {
           select: { persona: { select: { firstName: true, lastName: true } } },
         },
@@ -80,6 +92,10 @@ export async function listIncidentes(opts: {
     }),
     prisma.opsTicket.count({ where }),
   ]);
+  const names = await installationNameById(
+    opts.tenantId,
+    rows.map((r) => r.installationId),
+  );
 
   const items = await Promise.all(
     rows.map(async (row) => {
@@ -106,7 +122,7 @@ export async function listIncidentes(opts: {
         uiStatus: incidenteUiStatus(row.status),
         category: report?.category ? categoryLabel(report.category) : null,
         installationId: row.installationId,
-        installationName: row.installation?.name ?? null,
+        installationName: row.installationId ? names.get(row.installationId) ?? null : null,
         createdAt: row.createdAt.toISOString(),
         attendedAt: attendedAt?.toISOString() ?? null,
         respondedIn: attendedAt ? formatElapsedMinutes(row.createdAt, attendedAt) : null,

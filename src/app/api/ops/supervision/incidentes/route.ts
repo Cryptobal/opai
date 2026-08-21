@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import type { AuthContext } from "@/lib/api-auth";
 import { canView, hasCapability } from "@/lib/permissions";
 import { IncidenteError, publicErrorResponse } from "@/lib/incidentes-instalacion/errors";
 import { listSupervisorInstallationIds } from "@/lib/incidentes-instalacion/service";
@@ -9,7 +10,7 @@ import { rechazarIncidente, validarIncidente } from "@/lib/incidentes-instalacio
 
 export const dynamic = "force-dynamic";
 
-async function scope(ctx: { tenantId: string; userId: string; userRole: string; roleTemplateId?: string | null }) {
+async function scope(ctx: AuthContext) {
   const perms = await resolveApiPerms(ctx);
   if (!canView(perms, "ops", "supervision") && !canView(perms, "ops", "tickets")) {
     return { error: NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 }) };

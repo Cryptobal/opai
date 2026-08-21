@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     // El cliente ve tickets que él creó y los incidentes QR públicos de sus
     // instalaciones. Nunca tickets internos (supervisión, guard events, manual).
-    const sourceFilter = { in: ["portal_cliente", "public_qr"] as const };
+    const sourceFilter = { in: ["portal_cliente", "public_qr"] };
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);

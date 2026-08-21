@@ -25,7 +25,7 @@ export function IncidentesTerrenoKpis() {
   return (
     <div className="space-y-2">
       <p className="text-[13px] font-medium">Incidentes en terreno</p>
-      <StatGrid cols={2} lgCols={5}>
+      <StatGrid cols={2} lgCols={4}>
         <Stat label="Abiertos" value={kpis.abiertos} />
         <Stat label="Por validar" value={kpis.porValidar} />
         <Stat label="SLA vencido" value={kpis.slaVencido} />

@@ -15,39 +15,12 @@ export type FollowTimelineStep = {
   photoUrl?: string | null;
 };
 
-const TIMELINE_SELECT = {
-  id: true,
-  code: true,
-  title: true,
-  status: true,
-  description: true,
-  createdAt: true,
-  resolvedAt: true,
-  closedAt: true,
-  resolutionNotes: true,
-  metadata: true,
-  installationId: true,
-  installation: { select: { name: true } },
-  tenantId: true,
-  assignedTo: true,
-  guardiaId: true,
-  ticketType: { select: { slug: true, name: true } },
-  attachments: {
-    select: {
-      kind: true,
-      fileName: true,
-      contentType: true,
-      storageKey: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "asc" as const },
-  },
-  events: {
-    where: { type: { in: ["status_changed", "ticket_created", "incidente_validado", "incidente_auto_closed"] } },
-    select: { type: true, createdAt: true, data: true },
-    orderBy: { createdAt: "asc" as const },
-  },
-} as const;
+const TIMELINE_EVENT_TYPES = [
+  "status_changed",
+  "ticket_created",
+  "incidente_validado",
+  "incidente_auto_closed",
+];
 
 async function signedMedia(storageKey: string, fileName: string): Promise<string | null> {
   try {
@@ -68,7 +41,38 @@ async function loadTimelineTicket(where: {
 }) {
   const ticket = await prisma.opsTicket.findFirst({
     where,
-    select: TIMELINE_SELECT,
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      status: true,
+      description: true,
+      createdAt: true,
+      resolvedAt: true,
+      closedAt: true,
+      resolutionNotes: true,
+      metadata: true,
+      installationId: true,
+      tenantId: true,
+      assignedTo: true,
+      guardiaId: true,
+      ticketType: { select: { slug: true, name: true } },
+      attachments: {
+        select: {
+          kind: true,
+          fileName: true,
+          contentType: true,
+          storageKey: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      events: {
+        where: { type: { in: TIMELINE_EVENT_TYPES } },
+        select: { type: true, createdAt: true, data: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
   if (!ticket) {
     throw new IncidenteError("NOT_FOUND", "No encontramos este reporte.", 404);
@@ -186,7 +190,14 @@ async function serializeTimeline(
     category: report?.category ? categoryLabel(report.category) : null,
     title: ticket.title,
     description: ticket.description,
-    installationName: ticket.installation?.name ?? null,
+    installationName: ticket.installationId
+      ? (
+          await prisma.crmInstallation.findFirst({
+            where: { id: ticket.installationId, tenantId: ticket.tenantId },
+            select: { name: true },
+          })
+        )?.name ?? null
+      : null,
     createdAt: ticket.createdAt.toISOString(),
     attendedAt: attendedAt?.toISOString() ?? null,
     respondedIn,

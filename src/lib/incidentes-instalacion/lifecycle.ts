@@ -78,7 +78,7 @@ export async function atenderIncidente(opts: {
     where: { id: ticket.id },
     data: {
       status: "in_progress",
-      ...(opts.guardiaId ? { guardiaId: opts.guardiaId } : {}),
+      ...(opts.guardiaId ? { guardia: { connect: { id: opts.guardiaId } } } : {}),
       metadata: mergeTicketMetadata(ticket.metadata, {
         atencion: {
           attendedAt: now.toISOString(),
@@ -158,7 +158,7 @@ export async function cerrarIncidente(opts: {
       status: "resolved",
       resolvedAt: now,
       resolutionNotes: comment,
-      ...(opts.guardiaId ? { guardiaId: opts.guardiaId } : {}),
+      ...(opts.guardiaId ? { guardia: { connect: { id: opts.guardiaId } } } : {}),
       ...(await csatPatch(ticket)),
     },
     select: { id: true, status: true },

@@ -70,7 +70,6 @@ function originWhere(type: "internal" | "guard" | "client" | null): Prisma.OpsTi
 
 const ticketListIncludes = {
   ticketType: { select: { id: true, name: true, slug: true, origin: true } },
-  installation: { select: { name: true } },
   guardia: {
     select: {
       id: true,
@@ -88,6 +87,7 @@ function mapTicket(
   t: any,
   assigneeMap?: Map<string, string>,
   reporterMap?: Map<string, string>,
+  installationMap?: Map<string, string>,
 ): Ticket {
   const guardiaName =
     t.guardia?.persona
@@ -117,7 +117,9 @@ function mapTicket(
     assignedTo: t.assignedTo,
     assignedToName,
     installationId: t.installationId,
-    installationName: t.installation?.name ?? null,
+    installationName: t.installationId
+      ? (installationMap?.get(t.installationId) ?? t.installation?.name ?? null)
+      : null,
     source: t.source,
     sourceLogId: null,
     sourceGuardEventId: t.sourceGuardEventId,
@@ -384,7 +386,19 @@ export async function GET(request: NextRequest) {
       reporterMap = new Map(Array.from(actors.entries()).map(([id, a]) => [id, a.name]));
     }
 
-    const items: Ticket[] = rows.map((r) => mapTicket(r, assigneeMap, reporterMap));
+    const installationIdsForNames = [
+      ...new Set(rows.map((r) => r.installationId).filter(Boolean)),
+    ] as string[];
+    let installationMap = new Map<string, string>();
+    if (installationIdsForNames.length > 0) {
+      const installations = await prisma.crmInstallation.findMany({
+        where: { tenantId: ctx.tenantId, id: { in: installationIdsForNames } },
+        select: { id: true, name: true },
+      });
+      installationMap = new Map(installations.map((i) => [i.id, i.name]));
+    }
+
+    const items: Ticket[] = rows.map((r) => mapTicket(r, assigneeMap, reporterMap, installationMap));
 
     return NextResponse.json({
       success: true,
