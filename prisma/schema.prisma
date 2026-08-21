@@ -2514,6 +2514,10 @@ model CrmInstallation {
   metadata                Json?                 @db.JsonB // dotacion sugerida, datos extra
   nocturnoEnabled         Boolean               @default(false) @map("nocturno_enabled") // incluir en control nocturno (solo activas)
   chatEnabled             Boolean               @default(false) @map("chat_enabled") // habilitar chat grupal de instalación
+  /// Canal público de reporte QR (incidentes en terreno). Off por defecto.
+  publicReportEnabled         Boolean   @default(false) @map("public_report_enabled")
+  publicReportToken           String?   @unique @map("public_report_token")
+  publicReportTokenRotatedAt  DateTime? @map("public_report_token_rotated_at") @db.Timestamptz(6)
   startDate               DateTime?             @map("start_date") @db.Date
   endDate                 DateTime?             @map("end_date") @db.Date
   activatedByDealId       String?               @map("activated_by_deal_id") @db.Uuid
@@ -5899,6 +5903,7 @@ model DevicePairing {
   portalRondasEnabled    Boolean @default(true) @map("portal_rondas_enabled")
   portalAccesoEnabled    Boolean @default(true) @map("portal_acceso_enabled")
   portalMarcacionEnabled Boolean @default(true) @map("portal_marcacion_enabled")
+  portalIncidentesEnabled Boolean @default(true) @map("portal_incidentes_enabled")
 
   deviceModel       String? @map("device_model")
   androidVersion    String? @map("android_version")
@@ -6100,6 +6105,9 @@ model OpsTicket {
   csatToken    String?   @unique @map("csat_token")
   csatTokenExp DateTime? @map("csat_token_exp") @db.Timestamptz(6)
 
+  /// Token de seguimiento read-only para el reportante anónimo (`/r/seguimiento/[token]`).
+  publicFollowToken String? @unique @map("public_follow_token")
+
   // ── Portal público (L2) ──
   /// Hash bcrypt del PIN (4-6 dígitos) que el operador comparte con el
   /// cliente para acceder al portal público /t/[code]. Nunca se devuelve
@@ -6128,6 +6136,7 @@ model OpsTicket {
   @@index([tenantId, assignedTeam], map: "idx_ops_tickets_tenant_team")
   @@index([guardiaId], map: "idx_ops_tickets_guardia")
   @@index([ticketTypeId], map: "idx_ops_tickets_type")
+  @@index([installationId, status], map: "idx_ops_tickets_installation_status")
   @@map("ops_tickets")
   @@schema("ops")
 }
@@ -6276,6 +6285,8 @@ model OpsTicketAttachment {
   contentType String   @map("content_type")
   storageKey  String   @map("storage_key")
   uploadedBy  String?  @map("uploaded_by")
+  /// Origen del adjunto: "report" | "closure" | "general"
+  kind        String   @default("general")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   ticket OpsTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
