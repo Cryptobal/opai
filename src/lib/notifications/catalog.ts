@@ -572,6 +572,45 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'ops', submodule: 'tickets', category: 'Operaciones - Tickets',
     audiences: ['guardia'], defaults: { guardia: { push: true, email: false } },
   },
+  {
+    key: 'incidente_terreno_nuevo', label: 'Incidente en terreno',
+    description: 'Cuando alguien reporta un incidente desde el QR de la instalación',
+    module: 'ops', submodule: 'tickets', category: 'Operaciones - Incidentes en terreno',
+    audiences: ['admin', 'guardia'],
+    defaults: {
+      admin: adminBell(true),
+      guardia: { push: true, email: false },
+    },
+    critical: true,
+  },
+  {
+    key: 'incidente_terreno_cerrado', label: 'Incidente cerrado por validar',
+    description: 'Cuando el guardia cierra un incidente y queda pendiente de validación',
+    module: 'ops', submodule: 'tickets', category: 'Operaciones - Incidentes en terreno',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
+  {
+    key: 'incidente_terreno_validado', label: 'Incidente validado',
+    description: 'Cuando supervisión valida el cierre de un incidente en terreno',
+    module: 'ops', submodule: 'tickets', category: 'Operaciones - Incidentes en terreno',
+    audiences: ['admin', 'guardia'],
+    defaults: {
+      admin: adminBell(),
+      guardia: { push: true, email: false },
+    },
+  },
+  {
+    key: 'incidente_terreno_rechazado', label: 'Incidente devuelto al guardia',
+    description: 'Cuando supervisión rechaza el cierre y el incidente vuelve a atención',
+    module: 'ops', submodule: 'tickets', category: 'Operaciones - Incidentes en terreno',
+    audiences: ['guardia'], defaults: { guardia: { push: true, email: false } },
+  },
+  {
+    key: 'incidente_terreno_sla', label: 'SLA de incidente en terreno',
+    description: 'Cuando un incidente reportado por QR supera su plazo de atención',
+    module: 'ops', submodule: 'tickets', category: 'Operaciones - Incidentes en terreno',
+    audiences: ['admin'], defaults: { admin: { bell: true, email: false, push: true } },
+  },
 
   // ── Inventario ──
   {
