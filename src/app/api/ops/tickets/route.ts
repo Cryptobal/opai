@@ -70,6 +70,7 @@ function originWhere(type: "internal" | "guard" | "client" | null): Prisma.OpsTi
 
 const ticketListIncludes = {
   ticketType: { select: { id: true, name: true, slug: true, origin: true } },
+  installation: { select: { name: true } },
   guardia: {
     select: {
       id: true,
@@ -116,6 +117,7 @@ function mapTicket(
     assignedTo: t.assignedTo,
     assignedToName,
     installationId: t.installationId,
+    installationName: t.installation?.name ?? null,
     source: t.source,
     sourceLogId: null,
     sourceGuardEventId: t.sourceGuardEventId,
@@ -168,6 +170,7 @@ export async function GET(request: NextRequest) {
     const priorities = parseCsv(searchParams.get("priorities"), VALID_PRIORITIES);
     const assignedTeam = searchParams.get("assignedTeam");
     const ticketTypeId = searchParams.get("ticketTypeId");
+    const typeSlug = searchParams.get("type");
     const guardiaId = searchParams.get("guardiaId");
     const installationId = searchParams.get("installationId");
     const originParam = searchParams.get("origin");
@@ -211,6 +214,7 @@ export async function GET(request: NextRequest) {
 
     if (assignedTeam) where.assignedTeam = assignedTeam;
     if (ticketTypeId) where.ticketTypeId = ticketTypeId;
+    if (typeSlug) where.ticketType = { slug: typeSlug };
     if (guardiaId) where.guardiaId = guardiaId;
     if (installationId) where.installationId = installationId;
     if (slaBreachedOnly) where.slaBreached = true;

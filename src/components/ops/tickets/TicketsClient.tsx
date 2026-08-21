@@ -77,6 +77,7 @@ import type { Threshold } from "@/components/opai-ds";
 import { TicketsDashboard } from "./TicketsDashboard";
 import { TicketsKanban } from "./TicketsKanban";
 import { TicketsByInstallationView } from "./TicketsByInstallationView";
+import { IncidentesTerrenoKpis } from "./IncidentesTerrenoKpis";
 import { ArrowLeft, MapPin } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════
@@ -132,6 +133,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
   const prefillTitle = searchParams.get("title");
   const prefillGuardiaId = searchParams.get("guardiaId");
   const urlAssignedTo = searchParams.get("assignedTo");
+  const urlType = searchParams.get("type");
 
   // Vista por defecto: el query param manda; si no, usamos la última vista
   // elegida por el usuario (localStorage); si tampoco hay, "cards".
@@ -253,12 +255,13 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
       params.set("priorities", Array.from(filterPriorities).join(","));
     }
     if (filterTypeId !== "all") params.set("ticketTypeId", filterTypeId);
+    if (urlType) params.set("type", urlType);
     if (assignedFilter !== "any") params.set("assignedTo", assignedFilter);
     if (slaOnly) params.set("slaBreached", "true");
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (sortBy !== "criticality") params.set("sortBy", sortBy);
     return params;
-  }, [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, assignedFilter, slaOnly, debouncedSearch, sortBy]);
+  }, [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, assignedFilter, slaOnly, debouncedSearch, sortBy, urlType]);
 
   // Filter signature: when it changes, results must be replaced from page 1.
   // NOTE: listMode is part of the key because kanban uses a larger page size.
@@ -432,6 +435,12 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
       .then((d) => { if (d.success) setTicketTypes(d.data); })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!urlType || ticketTypes.length === 0) return;
+    const match = ticketTypes.find((t) => t.slug === urlType);
+    if (match) setFilterTypeId(match.id);
+  }, [urlType, ticketTypes]);
 
   function togglePriority(p: TicketPriority) {
     setFilterPriorities((prev) => {
@@ -1210,6 +1219,8 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
         </div>
       )}
 
+      {urlType === "incidente-instalacion" && <IncidentesTerrenoKpis />}
+
       {/* Drill-in: contexto de la instalación filtrada. Antes era un
           breadcrumb chiquito ("Volver al mapa › Ametel (6 activos)"); ahora
           es un header secundario con los counters reales scoped a la
@@ -1570,6 +1581,12 @@ function TicketCard({
           <>
             <span className="text-border">·</span>
             <span className="truncate max-w-[160px]">{typeName}</span>
+          </>
+        )}
+        {ticket.installationName && (
+          <>
+            <span className="text-border">·</span>
+            <span className="truncate max-w-[140px]">{ticket.installationName}</span>
           </>
         )}
         {teamName && teamName !== typeName && (

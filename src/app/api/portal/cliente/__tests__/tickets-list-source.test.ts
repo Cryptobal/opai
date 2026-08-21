@@ -3,7 +3,7 @@
  *
  * El cliente NUNCA debe ver tickets internos (supervisión, guard events,
  * operaciones manuales, etc). El listado debe forzar
- * `source: "portal_cliente"` en la query Prisma.
+ * `source: { in: ["portal_cliente", "public_qr"] }` en la query Prisma.
  *
  * Bug reportado (regresión): la pantalla de Tickets mostraba hallazgos
  * críticos de supervisión porque el filtro de source no estaba aplicado.
@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const ticketFindMany = vi.fn();
+const ticketCount = vi.fn();
 const installationFindFirst = vi.fn();
 const installationFindMany = vi.fn();
 const contactFindUnique = vi.fn();
@@ -39,7 +40,7 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: installationFindFirst,
       findMany: installationFindMany,
     },
-    opsTicket: { findMany: ticketFindMany },
+    opsTicket: { findMany: ticketFindMany, count: ticketCount },
   },
 }));
 vi.mock("@/lib/resend", () => ({
@@ -65,6 +66,8 @@ function makeRequest(url: string): unknown {
 
 beforeEach(() => {
   ticketFindMany.mockReset();
+  ticketCount.mockReset();
+  ticketCount.mockResolvedValue(0);
   installationFindFirst.mockReset();
   installationFindMany.mockReset();
   contactFindUnique.mockReset();
@@ -85,7 +88,7 @@ beforeEach(() => {
 });
 
 describe("GET /api/portal/cliente/tickets — filtro source", () => {
-  it("fuerza `source: portal_cliente` en el where de Prisma (sin installationId)", async () => {
+  it("fuerza `source` portal_cliente + public_qr en el where de Prisma (sin installationId)", async () => {
     installationFindMany.mockResolvedValue([{ id: "inst-1" }]);
     ticketFindMany.mockResolvedValue([]);
 
@@ -99,11 +102,11 @@ describe("GET /api/portal/cliente/tickets — filtro source", () => {
     expect(whereArg).toMatchObject({
       tenantId: "tenant-A",
       installationId: { in: ["inst-1"] },
-      source: "portal_cliente",
+      source: { in: ["portal_cliente", "public_qr"] },
     });
   });
 
-  it("fuerza `source: portal_cliente` incluso con installationId filtro", async () => {
+  it("fuerza `source` portal_cliente + public_qr incluso con installationId filtro", async () => {
     installationFindFirst.mockResolvedValue({ id: "inst-1" });
     ticketFindMany.mockResolvedValue([]);
 
@@ -115,14 +118,11 @@ describe("GET /api/portal/cliente/tickets — filtro source", () => {
     );
 
     const whereArg = ticketFindMany.mock.calls[0][0].where;
-    expect(whereArg.source).toBe("portal_cliente");
+    expect(whereArg.source).toEqual({ in: ["portal_cliente", "public_qr"] });
     expect(whereArg.status).toBe("open");
   });
 
-  it("aunque la DB tuviera tickets internos de la misma instalación, no los devolvería (Prisma los filtra)", async () => {
-    // Este test simula que Prisma ya respetó el filtro. El objetivo es que
-    // el payload jamás contenga objetos cuyo `source` sea distinto de
-    // 'portal_cliente'.
+  it("el payload solo incluye fuentes visibles (portal_cliente o public_qr), nunca internas", async () => {
     installationFindMany.mockResolvedValue([{ id: "inst-1" }]);
     ticketFindMany.mockResolvedValue([
       {
@@ -142,6 +142,23 @@ describe("GET /api/portal/cliente/tickets — filtro source", () => {
         createdAt: new Date(),
         ticketType: null,
       },
+      {
+        id: "t2",
+        code: "TK-QR",
+        status: "in_progress",
+        priority: "p2",
+        title: "Incidente QR",
+        description: null,
+        assignedTeam: "ops",
+        installationId: "inst-1",
+        source: "public_qr",
+        slaDueAt: null,
+        resolvedAt: null,
+        closedAt: null,
+        tags: [],
+        createdAt: new Date(),
+        ticketType: { name: "Incidente en instalación", slug: "incidente-instalacion" },
+      },
     ]);
 
     const { GET } = await import("../tickets/route");
@@ -149,8 +166,10 @@ describe("GET /api/portal/cliente/tickets — filtro source", () => {
       makeRequest("http://x/api/portal/cliente/tickets") as Parameters<typeof GET>[0],
     );
     const body = await res.json();
+    expect(body.data).toHaveLength(2);
     for (const t of body.data) {
-      expect(t.source).toBe("portal_cliente");
+      expect(["portal_cliente", "public_qr"]).toContain(t.source);
+      expect(t.source).not.toBe("supervision");
     }
   });
 });

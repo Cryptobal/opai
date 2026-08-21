@@ -132,7 +132,7 @@ const PROSPECT_CAPABILITY_CARDS = [
 const CLIENT_QUICK_ACTIONS = [
   { icon: MapPin, label: "Rondas", section: "rondas", color: "text-status-ok-fg", bg: "bg-status-ok-soft" },
   { icon: UserCheck, label: "Marcaciones", section: "marcaciones", color: "text-status-info-fg", bg: "bg-status-info-soft" },
-  { icon: Ticket, label: "Tickets", section: "tickets", color: "text-status-warn-fg", bg: "bg-status-warn-soft" },
+  { icon: Ticket, label: "Incidentes", section: "tickets", color: "text-status-warn-fg", bg: "bg-status-warn-soft" },
   { icon: FileText, label: "Documentos", section: "documentacion", color: "text-violet-400", bg: "bg-violet-500/10" },
   { icon: ClipboardList, label: "Instalación", section: "instalacion-detalle", color: "text-status-info-fg", bg: "bg-status-info-soft" },
   { icon: DoorOpen, label: "Accesos", section: "control-acceso", color: "text-status-info-fg", bg: "bg-status-info-soft" },
