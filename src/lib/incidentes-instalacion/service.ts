@@ -61,18 +61,20 @@ export async function resolveReportToken(
   if (!row) {
     throw new IncidenteError("TOKEN_INVALID", "Este QR ya no está vigente.", 404);
   }
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: row.tenantId },
+    select: { name: true },
+  });
+  const tenantName = tenant?.name ?? "Seguridad";
   if (!row.publicReportEnabled || !row.isActive || row.status !== "active") {
     throw new IncidenteError(
       "CHANNEL_DISABLED",
       "Este QR ya no está vigente.",
       403,
+      { tenantName },
     );
   }
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: row.tenantId },
-    select: { name: true },
-  });
-  return mapInstallation(row, tenant?.name ?? "Seguridad");
+  return mapInstallation(row, tenantName);
 }
 
 export async function enableReportChannel(opts: {
