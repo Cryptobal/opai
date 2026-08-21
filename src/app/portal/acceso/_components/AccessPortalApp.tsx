@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { PairingScreen } from "./PairingScreen";
 import { PairingSuccess } from "./PairingSuccess";
-import { GuardSelector } from "./GuardSelector";
+import { GuardPickerScreen } from "@/components/portal/GuardPickerScreen";
 import { StandbyScreen } from "./StandbyScreen";
 import { BottomTabBar } from "./BottomTabBar";
 import { InstallationHeader } from "./InstallationHeader";
@@ -410,12 +410,16 @@ export function AccessPortalApp() {
 
   if (appState === "guard-select" && device) {
     return (
-      <GuardSelector
-        installationName={device.installationName}
-        deviceToken={device.deviceToken}
-        onGuardSelected={handleGuardSelected}
-        onSkip={handleGuardSkip}
-      />
+      <div className="flex min-h-dvh flex-col bg-background">
+        <GuardPickerScreen
+          installationName={device.installationName}
+          deviceToken={device.deviceToken}
+          onGuardSelected={handleGuardSelected}
+          onSkip={handleGuardSkip}
+          guardsUrl="/api/access-control/device/guards"
+          setGuardUrl="/api/access-control/device/set-guard"
+        />
+      </div>
     );
   }
 

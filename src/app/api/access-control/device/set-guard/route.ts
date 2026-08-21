@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
 
     // Fallback: unified DevicePairing table
     const unifiedDevice = await prisma.devicePairing.findFirst({
-      where: { deviceToken: token },
-      select: { id: true },
+      where: { deviceToken: token, status: "ACTIVE" },
+      select: { id: true, tenantId: true, installationId: true, currentGuardId: true },
     });
 
     if (!unifiedDevice) {
@@ -67,9 +67,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await prisma.devicePairing.update({
-      where: { id: unifiedDevice.id },
-      data: { lastSeenAt: new Date() },
+    const { bindDeviceCurrentGuard } = await import("@/lib/devices/device-guards");
+    await bindDeviceCurrentGuard({
+      deviceId: unifiedDevice.id,
+      tenantId: unifiedDevice.tenantId,
+      installationId: unifiedDevice.installationId,
+      previousGuardId: unifiedDevice.currentGuardId,
+      guardId,
     });
 
     after(async () => {

@@ -135,6 +135,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === '/api/devices/validate') return true; // Device validation (auth by device_token)
   if (pathname === '/api/devices/guards') return true; // Guards for device (auth by device_token)
   if (pathname === '/api/devices/set-guard') return true; // Set guard (auth by device_token)
+  if (pathname === '/api/devices/identify-guard') return true; // Identify guard by RUT+PIN (auth by device_token)
   if (pathname === '/api/devices/heartbeat') return true; // Heartbeat (auth by device_token)
   if (pathname === '/api/devices/legacy-auth-enabled') return true; // Public config check
   // Push subscription & preferences — portal users authenticate via PIN, not NextAuth

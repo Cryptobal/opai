@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronDown, Loader2, MapPin, UserCircle } from "lucide-react";
+import { ChevronDown, Loader2, MapPin, Search, UserCircle } from "lucide-react";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 interface Guard {
   id: string;
@@ -28,12 +29,18 @@ export function GuardSelectorHeader({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [setting, setSetting] = useState(false);
+  const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 300);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchGuards = useCallback(async () => {
+  const fetchGuards = useCallback(async (search = "") => {
     setLoading(true);
     try {
-      const res = await fetch("/api/devices/guards", {
+      const q = search.trim();
+      const url = q.length >= 2
+        ? `/api/devices/guards?q=${encodeURIComponent(q)}`
+        : "/api/devices/guards";
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${deviceToken}` },
       });
       const json = await res.json();
@@ -48,8 +55,12 @@ export function GuardSelectorHeader({
   }, [deviceToken]);
 
   useEffect(() => {
-    fetchGuards();
-  }, [fetchGuards]);
+    fetchGuards(debouncedQuery);
+  }, [fetchGuards, debouncedQuery]);
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -66,7 +77,7 @@ export function GuardSelectorHeader({
   }, [open]);
 
   const handleToggle = () => {
-    if (!open) fetchGuards();
+    if (!open) fetchGuards(query);
     setOpen((v) => !v);
   };
 
@@ -132,13 +143,27 @@ export function GuardSelectorHeader({
 
         {open && (
           <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-2xl border border-ds-border-default bg-ds-surface-2 shadow-lg">
+            <div className="sticky top-0 border-b border-ds-border-subtle bg-ds-surface-2 p-2">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Busca tu nombre"
+                  className="h-11 w-full rounded-full border border-ds-border-default bg-ds-surface-1 pl-9 pr-3 text-sm text-ds-text-1 placeholder:text-ds-text-4"
+                />
+              </label>
+            </div>
             {loading && guards.length === 0 ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-ds-text-3" />
               </div>
             ) : guards.length === 0 ? (
-              <p className="py-3 text-center text-[12px] text-ds-text-3">
-                No hay guardias asignados
+              <p className="py-3 text-center text-ds-caption text-ds-text-3">
+                {query.trim().length >= 2
+                  ? "Sin resultados"
+                  : "No hay guardias asignados. Busca tu nombre."}
               </p>
             ) : (
               guards.map((g) => (

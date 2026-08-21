@@ -12,6 +12,7 @@ import { SplashScreen } from "@/components/pwa/SplashScreen";
 import { LoginScreen } from "./LoginScreen";
 import { DevicePairingScreen } from "./DevicePairingScreen";
 import { GuardSelectorHeader } from "./GuardSelectorHeader";
+import { GuardPickerScreen } from "@/components/portal/GuardPickerScreen";
 import { MisRondas } from "./MisRondas";
 import { RondaActiva } from "./RondaActiva";
 import type { RondaData, CompletionData } from "./RondaActiva";
@@ -590,8 +591,10 @@ export function RondasPortalClient() {
   }
 
   // authMode === "ready"
-  const showGuardSelector = deviceToken && deviceInfo && screen !== "login" && screen !== "ronda-activa";
-  const needsGuardWarning = authMode === "ready" && !currentGuard;
+  const showGuardSelector = Boolean(
+    deviceToken && deviceInfo && currentGuard && screen !== "login" && screen !== "ronda-activa",
+  );
+  const needsGuardPicker = authMode === "ready" && !currentGuard && Boolean(deviceToken);
 
   return (
     <div className="flex flex-col overflow-hidden h-full min-h-0">
@@ -641,10 +644,12 @@ export function RondasPortalClient() {
         />
       )}
 
-      {needsGuardWarning && screen !== "login" && (
-        <div className="bg-status-warn-soft border-b border-status-warn-border px-4 py-2 text-center text-xs text-status-warn-fg">
-          Selecciona un guardia para continuar
-        </div>
+      {needsGuardPicker && deviceToken && (
+        <GuardPickerScreen
+          installationName={deviceInfo?.installationName || "Instalación"}
+          deviceToken={deviceToken}
+          onGuardSelected={handleGuardChange}
+        />
       )}
 
       {screen === "mis-rondas" && session && (
