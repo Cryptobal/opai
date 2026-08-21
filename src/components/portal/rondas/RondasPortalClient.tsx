@@ -591,9 +591,6 @@ export function RondasPortalClient() {
   }
 
   // authMode === "ready"
-  const showGuardSelector = Boolean(
-    deviceToken && deviceInfo && currentGuard && screen !== "login" && screen !== "ronda-activa",
-  );
   const needsGuardPicker = authMode === "ready" && !currentGuard && Boolean(deviceToken);
 
   return (
@@ -634,12 +631,12 @@ export function RondasPortalClient() {
       )}
       {panicBanner !== "off" && <div className="h-10 shrink-0" aria-hidden="true" />}
 
-      {showGuardSelector && (
+      {deviceToken && deviceInfo && currentGuard && screen !== "login" && screen !== "ronda-activa" && (
         <GuardSelectorHeader
           installationName={deviceInfo.installationName}
           deviceToken={deviceToken}
-          currentGuardId={currentGuard?.id ?? null}
-          currentGuardName={currentGuard?.name ?? null}
+          currentGuardId={currentGuard.id}
+          currentGuardName={currentGuard.name}
           onGuardChange={handleGuardChange}
         />
       )}
