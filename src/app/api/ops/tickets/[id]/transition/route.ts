@@ -35,7 +35,6 @@ export async function POST(
 
     const targetStatus = body.status as TicketStatus;
 
-    // Fetch current ticket
     const ticket = await prisma.opsTicket.findFirst({
       where: { id, tenantId: ctx.tenantId },
     });
@@ -48,6 +47,71 @@ export async function POST(
     }
 
     const currentStatus = ticket.status as TicketStatus;
+
+    if (ticket.ticketTypeId) {
+      const ticketType = await prisma.opsTicketType.findFirst({
+        where: { id: ticket.ticketTypeId, tenantId: ctx.tenantId },
+        select: { slug: true },
+      });
+      const { isIncidenteTicketType } = await import("@/lib/incidentes-instalacion/type-guard");
+      if (isIncidenteTicketType(ticketType?.slug)) {
+        const { atenderIncidente, cerrarIncidente, validarIncidente, rechazarIncidente } =
+          await import("@/lib/incidentes-instalacion/lifecycle");
+        const { IncidenteError, publicErrorResponse } = await import(
+          "@/lib/incidentes-instalacion/errors"
+        );
+        try {
+          if (targetStatus === "in_progress" && ticket.status === "open") {
+            const data = await atenderIncidente({
+              tenantId: ctx.tenantId,
+              ticketId: id,
+              actorId: ctx.userId,
+            });
+            return NextResponse.json({ success: true, data });
+          }
+          if (targetStatus === "resolved") {
+            const data = await cerrarIncidente({
+              tenantId: ctx.tenantId,
+              ticketId: id,
+              actorId: ctx.userId,
+              comment: String(body.resolutionNotes ?? body.comment ?? ""),
+            });
+            return NextResponse.json({ success: true, data });
+          }
+          if (targetStatus === "closed") {
+            const data = await validarIncidente({
+              tenantId: ctx.tenantId,
+              ticketId: id,
+              actorId: ctx.userId,
+              actorName: ctx.userEmail || "Ops",
+            });
+            return NextResponse.json({ success: true, data });
+          }
+          if (targetStatus === "in_progress" && ticket.status === "resolved") {
+            const data = await rechazarIncidente({
+              tenantId: ctx.tenantId,
+              ticketId: id,
+              actorId: ctx.userId,
+              actorName: ctx.userEmail || "Ops",
+              reason: String(body.reason ?? body.resolutionNotes ?? ""),
+            });
+            return NextResponse.json({ success: true, data });
+          }
+        } catch (err) {
+          if (err instanceof IncidenteError) {
+            return NextResponse.json(publicErrorResponse(err), { status: err.httpStatus });
+          }
+          throw err;
+        }
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Transicion no permitida: ${currentStatus} -> ${targetStatus}`,
+          },
+          { status: 422 },
+        );
+      }
+    }
 
     // Validate transition
     if (!canTransitionTo(currentStatus, targetStatus)) {

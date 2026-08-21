@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { SupervisionGrilla } from "@/components/supervision/SupervisionGrilla";
+import { IncidentesSupervisionCard } from "@/components/supervision/IncidentesSupervisionCard";
 export default async function OpsSupervisionPage({
   searchParams,
 }: {
@@ -23,7 +24,8 @@ export default async function OpsSupervisionPage({
   const month = params.month ? parseInt(params.month) : now.getMonth() + 1;
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 space-y-4">
+      <IncidentesSupervisionCard />
       <SupervisionGrilla year={year} month={month} />
     </div>
   );
