@@ -31,9 +31,14 @@ export async function GET(
     );
   }
 
-  const config = await prisma.opsClientReportConfig.findUnique({
-    where: { installationId },
-  });
+  let config: Awaited<ReturnType<typeof prisma.opsClientReportConfig.findUnique>> = null;
+  try {
+    config = await prisma.opsClientReportConfig.findUnique({
+      where: { installationId },
+    });
+  } catch {
+    config = null;
+  }
   const frequency = (config?.frequency ??
     request.nextUrl.searchParams.get("frequency") ??
     "weekly") as ReportFrequency;

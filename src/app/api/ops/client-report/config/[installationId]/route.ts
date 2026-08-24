@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   assertInstallationInTenant,
   canManageClientReportConfig,
+  isMissingClientReportTable,
   requireClientReportAuth,
 } from "@/lib/ops/client-report/auth";
 
@@ -37,9 +38,20 @@ export async function GET(
     );
   }
 
-  const config = await prisma.opsClientReportConfig.findUnique({
-    where: { installationId },
-  });
+  let config: Awaited<ReturnType<typeof prisma.opsClientReportConfig.findUnique>> = null;
+  try {
+    config = await prisma.opsClientReportConfig.findUnique({
+      where: { installationId },
+    });
+  } catch (err) {
+    if (!isMissingClientReportTable(err)) {
+      console.error("[ClientReport] GET config:", err);
+      return NextResponse.json(
+        { success: false, error: "No se pudo leer la configuración" },
+        { status: 500 }
+      );
+    }
+  }
 
   return NextResponse.json({
     success: true,

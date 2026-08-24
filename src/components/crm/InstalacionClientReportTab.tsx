@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Surface, Spinner, Tag } from "@/components/opai-ds";
+import { Surface, Spinner, Tag, EmptyState } from "@/components/opai-ds";
+import { FileBarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -66,17 +67,24 @@ export function InstalacionClientReportTab({
   const [previewing, setPreviewing] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
+    setError(null);
     try {
-      const [cRes, rRes] = await Promise.all([
-        fetch(`/api/ops/client-report/config/${installationId}`),
-        fetch(`/api/ops/client-report/config/${installationId}/recipients`),
-      ]);
-      const cJson = await cRes.json();
-      const rJson = await rRes.json();
-      if (cJson.success) setConfig(cJson.data);
-      if (rJson.success) setRecipients(rJson.data);
+      const cRes = await fetch(`/api/ops/client-report/config/${installationId}`);
+      const cJson = await cRes.json().catch(() => null);
+      if (!cRes.ok || !cJson?.success) {
+        throw new Error(cJson?.error || "No se pudo cargar la configuración");
+      }
+      setConfig(cJson.data as Config);
+
+      const rRes = await fetch(
+        `/api/ops/client-report/config/${installationId}/recipients`
+      );
+      const rJson = await rRes.json().catch(() => null);
+      if (rJson?.success) setRecipients(rJson.data as Recipients);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al cargar");
     } finally {
       setLoading(false);
     }
@@ -113,11 +121,13 @@ export function InstalacionClientReportTab({
     };
   }, []);
 
+  const previewReady = Boolean(config);
   useEffect(() => {
-    if (!config) return;
-    const t = window.setTimeout(() => void loadPreview(), 250);
+    if (!previewReady) return;
+    const t = window.setTimeout(() => void loadPreview(), 400);
     return () => window.clearTimeout(t);
   }, [
+    previewReady,
     loadPreview,
     config?.frequency,
     config?.includeAsistencia,
@@ -138,9 +148,9 @@ export function InstalacionClientReportTab({
     const json = await res.json();
     if (!json.success) {
       setError(json.error || "No se pudo guardar");
-      void load();
+      void load({ silent: true });
     } else if (partial.enabled) {
-      void load();
+      void load({ silent: true });
     }
   }
 
@@ -152,7 +162,7 @@ export function InstalacionClientReportTab({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: "contact", contactId, isRecipient }),
       });
-      await load();
+      await load({ silent: true });
     } finally {
       setBusy(false);
     }
@@ -169,7 +179,7 @@ export function InstalacionClientReportTab({
         body: JSON.stringify({ kind: "extra", email, isRecipient: true }),
       });
       setExtraEmail("");
-      await load();
+      await load({ silent: true });
     } finally {
       setBusy(false);
     }
@@ -183,7 +193,7 @@ export function InstalacionClientReportTab({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: "extra", email, isRecipient: false }),
       });
-      await load();
+      await load({ silent: true });
     } finally {
       setBusy(false);
     }
@@ -210,11 +220,26 @@ export function InstalacionClientReportTab({
     }
   }
 
-  if (loading || !config) {
+  if (loading && !config) {
     return (
       <div className="flex justify-center py-10">
         <Spinner />
       </div>
+    );
+  }
+
+  if (!config) {
+    return (
+      <EmptyState
+        icon={FileBarChart}
+        title="No se pudo abrir el reporte"
+        description={error || "Inténtalo de nuevo. Si persiste, recarga la ficha."}
+        action={
+          <Button type="button" className="h-10 sm:h-9" onClick={() => void load()}>
+            Reintentar
+          </Button>
+        }
+      />
     );
   }
 

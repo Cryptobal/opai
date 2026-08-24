@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   assertInstallationInTenant,
   canManageClientReportConfig,
+  isMissingClientReportTable,
   requireClientReportAuth,
 } from "@/lib/ops/client-report/auth";
 
@@ -23,31 +24,42 @@ export async function GET(
     );
   }
 
-  const [contacts, recipients] = await Promise.all([
-    inst.accountId
-      ? prisma.crmContact.findMany({
-          where: {
-            tenantId: ctx.tenantId,
-            accountId: inst.accountId,
-            email: { not: null },
-          },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            roleTitle: true,
-            isPrimary: true,
-            recibeOperacional: true,
-          },
-          orderBy: [{ isPrimary: "desc" }, { lastName: "asc" }],
-        })
-      : Promise.resolve([]),
-    prisma.opsClientReportRecipient.findMany({
+  const contacts = inst.accountId
+    ? await prisma.crmContact.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          accountId: inst.accountId,
+          email: { not: null },
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          roleTitle: true,
+          isPrimary: true,
+          recibeOperacional: true,
+        },
+        orderBy: [{ isPrimary: "desc" }, { lastName: "asc" }],
+      })
+    : [];
+
+  let recipients: Array<{
+    id: string;
+    contactId: string | null;
+    email: string;
+    name: string | null;
+  }> = [];
+  try {
+    recipients = await prisma.opsClientReportRecipient.findMany({
       where: { installationId, isActive: true },
       select: { id: true, contactId: true, email: true, name: true },
-    }),
-  ]);
+    });
+  } catch (err) {
+    if (!isMissingClientReportTable(err)) {
+      console.error("[ClientReport] GET recipients:", err);
+    }
+  }
 
   const activeContactIds = new Set(
     recipients.map((r) => r.contactId).filter(Boolean) as string[]
