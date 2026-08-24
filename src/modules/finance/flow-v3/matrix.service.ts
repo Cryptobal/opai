@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveOpeningBalance } from "@/modules/finance/cashflow/opening-balance.service";
 import {
   addWeeksUTC, defaultHorizon, enumerateWeeks, MAX_RANGE_WEEKS,
-  startOfIsoWeekUTC, toYmd, weekStartYmd, ymdToDate,
+  startOfIsoWeekUTC, todayYmdChile, currentWeekYmd, ymdToDate,
 } from "./weeks";
 import { ensureFlowBootstrap } from "./bootstrap.service";
 import { reconcileIncomeRows } from "./reconcile-income-rows.service";
@@ -58,10 +58,9 @@ export async function buildFlowMatrix(
     includeArchived?: boolean;
   },
 ): Promise<FlowMatrixResponse> {
-  const today = new Date();
-  const todayYmd = toYmd(today);
-  const currentWeek = weekStartYmd(today);
-  const def = defaultHorizon(today);
+  const todayYmd = todayYmdChile();
+  const currentWeek = currentWeekYmd();
+  const def = defaultHorizon();
   const fromMonday = q.from ? startOfIsoWeekUTC(q.from) : def.from;
   let toMonday = q.to ? startOfIsoWeekUTC(q.to) : def.to;
   if (toMonday < fromMonday) toMonday = fromMonday;

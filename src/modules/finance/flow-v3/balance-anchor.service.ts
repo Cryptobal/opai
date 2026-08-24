@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { assertV3WeeksWritable } from "./weekly-close.adapter";
-import { weekStartYmd } from "./weeks";
+import { currentWeekYmd } from "./weeks";
 
 /** Setting key: mapa lunes ISO → saldo acumulado forzado (CLP entero). */
 export const BALANCE_ANCHOR_SETTING_KEY = "finance.flow_v3.balance_anchors";
@@ -53,7 +53,7 @@ export async function upsertBalanceAnchor(
   }
   await assertV3WeeksWritable(tenantId, [weekStart]);
 
-  const currentWeek = weekStartYmd(new Date());
+  const currentWeek = currentWeekYmd();
   if (balanceClp != null && weekStart >= currentWeek) {
     throw new Error(
       "El saldo de la semana actual y futuras sigue al banco en vivo; no se puede anclar.",

@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { isMondayYmd, weekStartYmd, ymdToDate } from "./weeks";
+import { currentWeekYmd, isMondayYmd, ymdToDate } from "./weeks";
 import { noteCellPreview } from "./cell-note-preview";
 
 const NOTE_MAX = 2000;
@@ -123,7 +123,7 @@ export async function applyNoteToFuturePlanCells(
 ): Promise<{ weeks: string[] }> {
   await assertRow(tenantId, rowId);
   assertWeek(anchorWeekStart);
-  const currentWeek = weekStartYmd(new Date());
+  const currentWeek = currentWeekYmd();
   const from = currentWeek < anchorWeekStart ? currentWeek : anchorWeekStart;
   const cells = await prisma.financeFlowPlanCell.findMany({
     where: {

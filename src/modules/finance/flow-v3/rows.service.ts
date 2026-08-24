@@ -7,7 +7,7 @@ import type {
   FlowSection,
 } from "@prisma/client";
 import { Prisma } from "@prisma/client";
-import { addWeeksUTC, enumerateWeeks, startOfIsoWeekUTC, toYmd, weekStartYmd } from "./weeks";
+import { addWeeksUTC, currentWeekYmd, enumerateWeeks, todayYmdChile, weekStartYmd, ymdToDate } from "./weeks";
 import { loadCommittedIncome } from "./load-committed-income";
 import { loadCommittedExpense } from "./load-committed-expense";
 import { loadReal } from "./load-real";
@@ -441,9 +441,9 @@ async function rowHasDerivedActivity(
     recurringTemplateId: row.recurringTemplateId,
     categoryId: row.categoryId, supplierId: row.supplierId,
   };
-  const currentMonday = startOfIsoWeekUTC(new Date());
+  const currentMonday = ymdToDate(currentWeekYmd())!;
   const weeks = enumerateWeeks(addWeeksUTC(currentMonday, -104), addWeeksUTC(currentMonday, 16));
-  const todayYmd = toYmd(new Date());
+  const todayYmd = todayYmdChile();
   const [incLoad, exp, real] = await Promise.all([
     loadCommittedIncome(tenantId, [ref], weeks, todayYmd),
     loadCommittedExpense(tenantId, [ref], weeks, todayYmd),

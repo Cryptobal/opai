@@ -7,6 +7,8 @@ import {
   monthKeyOf,
   monthKeyOfDate,
   weekLabel,
+  currentWeekYmd,
+  todayYmdChile,
   ymdToDate,
 } from "../weeks";
 
@@ -58,5 +60,23 @@ describe("flow-v3 weeks", () => {
     const d = ymdToDate("2026-01-05");
     expect(d).not.toBeNull();
     expect(weekLabel("2026-01-05")).toBe("S02");
+  });
+
+  it("currentWeekYmd usa calendario Chile, no UTC del servidor", () => {
+    // Lunes 24-ago-2026 mediodía Chile ≈ 16:00 UTC
+    const mondayChile = new Date("2026-08-24T16:00:00.000Z");
+    expect(todayYmdChile(mondayChile)).toBe("2026-08-24");
+    expect(currentWeekYmd(mondayChile)).toBe("2026-08-24");
+    expect(weekLabel(currentWeekYmd(mondayChile))).toBe("S35");
+  });
+
+  it("currentWeekYmd no adelanta semana cuando UTC ya es lunes pero Chile aún domingo", () => {
+    // Dom 23-ago 23:00 Chile = Lun 24-ago 03:00 UTC
+    const utcMondayChileSunday = new Date("2026-08-24T03:00:00.000Z");
+    expect(todayYmdChile(utcMondayChileSunday)).toBe("2026-08-23");
+    expect(currentWeekYmd(utcMondayChileSunday)).toBe("2026-08-17");
+    expect(weekLabel(currentWeekYmd(utcMondayChileSunday))).toBe("S34");
+    // UTC puro marcaría S35 (semana del 24-ago) — incorrecto para el usuario chileno.
+    expect(weekStartYmd(utcMondayChileSunday)).toBe("2026-08-24");
   });
 });
