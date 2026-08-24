@@ -20,7 +20,7 @@ export type {
   CostCenterOption,
   InstallationOption,
 } from "./shared/types";
-export { EMPTY_DTE_FILTERS } from "./shared/types";
+export { EMPTY_DTE_FILTERS, DEFAULT_ISSUED_DTE_TYPES, isDefaultIssuedDteTypes, createEmptyDteFilters } from "./shared/types";
 export {
   DTE_TYPE_LABELS,
   DTE_TYPE_SHORT_LABELS,

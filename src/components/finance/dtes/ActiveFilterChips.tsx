@@ -2,7 +2,6 @@
 
 import { X } from "lucide-react";
 import {
-  DTE_TYPE_SHORT_LABELS,
   SII_STATUS_CONFIG,
   fmtCLP,
 } from "./shared/constants";
@@ -39,12 +38,6 @@ export function ActiveFilterChips({
   onClearAll,
 }: Props) {
   const chips: { key: string; label: string }[] = [];
-  filters.types.forEach((t) =>
-    chips.push({
-      key: `types:${t}`,
-      label: DTE_TYPE_SHORT_LABELS[t] ?? `Tipo ${t}`,
-    }),
-  );
   filters.siiStatuses.forEach((s) =>
     chips.push({
       key: `siiStatuses:${s}`,

@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { DteFilters } from "../shared/types";
-import { EMPTY_DTE_FILTERS } from "../shared/types";
+import { createEmptyDteFilters, type DteFilters } from "../shared/types";
 
 interface Args {
   /** Filtros forzados desde la URL inicial (deeplinks). */
@@ -21,7 +20,7 @@ interface Args {
  */
 export function useDteFilters(args: Args = {}) {
   const [filters, setFilters] = useState<DteFilters>(() => {
-    const init = { ...EMPTY_DTE_FILTERS };
+    const init = createEmptyDteFilters();
     if (args.forcedSiiStatus) init.siiStatuses = [args.forcedSiiStatus];
     if (args.forcedPaymentStatus) {
       init.paymentStatuses = [args.forcedPaymentStatus];
@@ -41,7 +40,8 @@ export function useDteFilters(args: Args = {}) {
 
   const activeCount = useMemo(() => {
     let n = 0;
-    if (filters.types.length) n++;
+    // El tipo de documento vive en chips visibles junto a Vista (default =
+    // Factura electrónica). No cuenta para el badge del drawer de filtros.
     if (filters.siiStatuses.length) n++;
     if (filters.paymentStatuses.length) n++;
     // Default es "ALL" (todos los períodos); solo cuenta como filtro activo
@@ -57,7 +57,7 @@ export function useDteFilters(args: Args = {}) {
     return n;
   }, [filters]);
 
-  const reset = useCallback(() => setFilters(EMPTY_DTE_FILTERS), []);
+  const reset = useCallback(() => setFilters(createEmptyDteFilters()), []);
 
   const update = useCallback(
     <K extends keyof DteFilters>(key: K, value: DteFilters[K]) => {
@@ -65,6 +65,15 @@ export function useDteFilters(args: Args = {}) {
     },
     [],
   );
+
+  const toggleType = useCallback((t: number) => {
+    setFilters((prev) => ({
+      ...prev,
+      types: prev.types.includes(t)
+        ? prev.types.filter((x) => x !== t)
+        : [...prev.types, t],
+    }));
+  }, []);
 
   const setQuickFilter = useCallback(
     (value: DteFilters["quickFilter"]) => {
@@ -128,6 +137,7 @@ export function useDteFilters(args: Args = {}) {
     reset,
     removeOne,
     setQuickFilter,
+    toggleType,
     activeCount,
     debouncedSearch,
   };

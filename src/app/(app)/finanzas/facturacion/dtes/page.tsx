@@ -12,6 +12,7 @@ import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
 import { DtesEmitidosClient } from "@/components/finance/dtes/DtesEmitidosClient";
+import { DEFAULT_ISSUED_DTE_TYPES } from "@/components/finance/dtes/shared/types";
 import { normalizeAdditionalRefs } from "@/components/finance/dtes/shared/references";
 
 interface SearchParams {
@@ -47,14 +48,14 @@ export default async function DtesEmitidosPage({
 
   const INITIAL_PAGE_SIZE = 50;
 
-  // Server-side default: TODOS los períodos. El cliente puede filtrar
-  // por mes desde el drawer (incluido "Mes en curso"). Antes filtrábamos
-  // por mes en curso acá, lo que junto al chip "Período CURRENT_MONTH"
-  // del cliente ocultaba DTEs de otros meses incluso al buscar por folio.
+  // Server-side default: TODOS los períodos + Factura electrónica (33).
+  // El cliente replica este default en los chips de Tipo; si el usuario
+  // marca otros tipos, el listado se recarga por API.
   const accountFilter = sp.accountId ?? null;
   const initialWhere = {
     tenantId,
     direction: "ISSUED" as const,
+    dteType: { in: DEFAULT_ISSUED_DTE_TYPES },
     ...(accountFilter ? { crmAccountId: accountFilter } : {}),
   };
 
