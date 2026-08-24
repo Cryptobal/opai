@@ -169,6 +169,20 @@ describe("nav registry", () => {
       expect(isNodeVisible(portales, ownerCtx)).toBe(true);
       expect(isNodeVisible(portales, guardCtx)).toBe(false);
     });
+
+    it("hides Supervisión Reportes without supervision_dashboard", () => {
+      const reportes = NAV_MODULES.find((m) => m.key === "ops")
+        ?.children?.find((c) => c.key === "ops-supervision")
+        ?.children?.find((c) => c.key === "sup-reportes");
+      expect(reportes).toBeDefined();
+      expect(isNodeVisible(reportes!, ownerCtx)).toBe(true);
+      const viewerCtx: VisibilityContext = {
+        perms: getDefaultPermissions("viewer"),
+        isAdmin: false,
+        isModuleEnabled: () => true,
+      };
+      expect(isNodeVisible(reportes!, viewerCtx)).toBe(false);
+    });
   });
 
   describe("findActiveModule", () => {
@@ -382,6 +396,7 @@ describe("nav registry", () => {
       const keys = nodes.map((n) => n.key);
       expect(keys).toContain("sup-grilla");
       expect(keys).toContain("sup-historial");
+      expect(keys).toContain("sup-reportes");
     });
 
     it("returns Productividad children for /ops/tickets (Tickets vive bajo Productividad)", () => {

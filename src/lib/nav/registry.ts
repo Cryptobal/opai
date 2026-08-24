@@ -721,6 +721,7 @@ export const NAV_MODULES: NavNode[] = [
           { key: "sup-incidentes", href: "/ops/supervision/incidentes", label: "Incidentes", icon: Siren, module: "ops", submodule: "supervision" },
           { key: "sup-hallazgos", href: "/ops/supervision/hallazgos", label: "Hallazgos", icon: ShieldAlert, module: "ops", submodule: "supervision" },
           { key: "sup-dashboard", href: "/ops/supervision/dashboard", label: "Dashboard", icon: BarChart3, module: "ops", submodule: "supervision" },
+          { key: "sup-reportes", href: "/ops/supervision/reportes", label: "Reportes", icon: FileBarChart, module: "ops", submodule: "supervision", capability: "supervision_dashboard" },
           { key: "sup-historial", href: "/ops/supervision/historial", label: "Historial", icon: ClipboardList, module: "ops", submodule: "supervision" },
           { key: "sup-asignaciones", href: "/ops/supervision/asignaciones", label: "Asignaciones", icon: Users, module: "ops", submodule: "supervision" },
         ],

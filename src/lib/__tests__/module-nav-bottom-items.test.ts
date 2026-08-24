@@ -265,6 +265,15 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     }
   });
 
+  it("Ops inner Supervision → incluye Reportes junto a Dashboard", () => {
+    const items = getBottomNavItems("/ops/supervision/dashboard", "owner", ALL_ENABLED);
+    const hrefs = items.map((i) => i.href);
+    expect(hrefs).toContain("/ops/supervision");
+    expect(hrefs).toContain("/ops/supervision/dashboard");
+    expect(hrefs).toContain("/ops/supervision/reportes");
+    expect(hrefs).toContain("/ops/supervision/historial");
+  });
+
   it("Entrar a /crm mantiene el comportamiento contextual CRM (no regresiona)", () => {
     const items = getBottomNavItems("/crm/leads", "owner", ALL_ENABLED);
     const hrefs = items.map((i) => i.href);

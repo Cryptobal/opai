@@ -64,6 +64,8 @@ model Tenant {
   opsSupervisionPhotos           OpsSupervisionPhoto[]
   opsEncuestasCliente            OpsEncuestaCliente[]
   opsInstHealthScores            OpsInstallationHealthScore[]
+  opsClientReportConfigs         OpsClientReportConfig[]
+  opsClientReportRecipients      OpsClientReportRecipient[]
   inventoryProducts              InventoryProduct[]
   inventoryWarehouses            InventoryWarehouse[]
   inventoryPurchases             InventoryPurchase[]
@@ -2575,6 +2577,8 @@ model CrmInstallation {
   accessControlPairingCodes           AccessControlPairingCode[]
   accessControlDevices                AccessControlDevice[]
   accessControlReportRecipients       AccessControlReportRecipient[]
+  opsClientReportConfig               OpsClientReportConfig?
+  opsClientReportRecipients           OpsClientReportRecipient[]
   accessControlListGroupInstallations AccessControlListGroupInstallation[]
   gamificacionScores                  GamificacionScoreGuardia[]           @relation("gamificacion_score_installation")
   gamificacionEventos                 GamificacionEvento[]                 @relation("gamificacion_evento_installation")
@@ -2640,6 +2644,7 @@ model CrmContact {
   dealContacts                  CrmDealContact[]
   companyPresentations          CrmCompanyPresentation[]
   accessControlReportRecipients AccessControlReportRecipient[]
+  opsClientReportRecipients     OpsClientReportRecipient[]
   emailRecipients               CrmEmailRecipient[]
   emailThreadContacts           CrmEmailThreadContact[]
 
@@ -4946,6 +4951,57 @@ model OpsInstallationHealthScore {
   @@index([tenantId], map: "idx_installation_health_scores_tenant")
   @@index([score], map: "idx_installation_health_scores_score")
   @@map("installation_health_scores")
+  @@schema("ops")
+}
+
+/// Configuración del informe operativo automático enviado al cliente.
+model OpsClientReportConfig {
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String    @map("tenant_id")
+  installationId       String    @unique @map("installation_id") @db.Uuid
+  enabled              Boolean   @default(false)
+  frequency            String    @default("weekly") // weekly | monthly
+  weekday              Int       @default(0) // 0=lunes … 6=domingo (solo weekly)
+  dayOfMonth           Int       @default(1) // 1–28 (solo monthly)
+  sendHourChile        Int       @default(8) @map("send_hour_chile")
+  includeAsistencia    Boolean   @default(true) @map("include_asistencia")
+  includeCobertura     Boolean   @default(true) @map("include_cobertura")
+  includeRondas        Boolean   @default(true) @map("include_rondas")
+  includeIncidentes    Boolean   @default(true) @map("include_incidentes")
+  includeVisitas       Boolean   @default(true) @map("include_visitas")
+  lastSentAt           DateTime? @map("last_sent_at") @db.Timestamptz(6)
+  lastPeriodKey        String?   @map("last_period_key")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_client_report_configs_tenant")
+  @@index([tenantId, enabled], map: "idx_ops_client_report_configs_enabled")
+  @@map("client_report_configs")
+  @@schema("ops")
+}
+
+/// Destinatarios del informe operativo (contacto CRM o email suelto).
+model OpsClientReportRecipient {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  installationId String   @map("installation_id") @db.Uuid
+  contactId      String?  @map("contact_id") @db.Uuid
+  email          String
+  name           String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  contact      CrmContact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([installationId], map: "idx_ops_client_report_recipients_installation")
+  @@index([tenantId], map: "idx_ops_client_report_recipients_tenant")
+  @@index([contactId], map: "idx_ops_client_report_recipients_contact")
+  @@map("client_report_recipients")
   @@schema("ops")
 }
 
