@@ -1,16 +1,19 @@
 /**
  * Drag de ítems en la planilla: plan, factura (F°), borrador (B) o programación (P).
  * B usa el mismo override de fecha que F° (dteId). Cada uno se mueve solo.
+ * Proyecciones paramétricas (Retiro socios, etc.) sin template/hito usan `parametric`.
  */
 import type { CommittedItem } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 import { committedItemMeta } from "./cell-meta";
+import { isParametricMoveRow } from "./parametric-move";
 
 export type CellDragPayload =
   | { kind: "plan" }
   | { kind: "scheduled"; templateId: string; billingPeriod: string }
   | { kind: "milestone"; milestoneKey: string; billingPeriod: string }
-  | { kind: "dte"; dteId: string };
+  | { kind: "dte"; dteId: string }
+  | { kind: "parametric"; amount: number };
 
 export type StackedLine = {
   key: string;
@@ -21,7 +24,7 @@ export type StackedLine = {
   drag: CellDragPayload | null;
 };
 
-export function itemDragPayload(it: CommittedItem): CellDragPayload | null {
+export function itemDragPayload(it: CommittedItem, rowName?: string): CellDragPayload | null {
   if (it.kind === "scheduled" && it.templateId && it.billingPeriod) {
     return { kind: "scheduled", templateId: it.templateId, billingPeriod: it.billingPeriod };
   }
@@ -31,11 +34,22 @@ export function itemDragPayload(it: CommittedItem): CellDragPayload | null {
   if ((it.kind === "dte" || it.kind === "draft") && it.dteId) {
     return { kind: "dte", dteId: it.dteId };
   }
+  if (
+    it.kind === "scheduled" &&
+    !it.templateId &&
+    !it.milestoneKey &&
+    rowName &&
+    isParametricMoveRow(rowName) &&
+    Number.isFinite(it.monto) &&
+    it.monto !== 0
+  ) {
+    return { kind: "parametric", amount: it.monto };
+  }
   return null;
 }
 
 /** Dos o más cobros en la misma casilla → una línea por ítem (CIMS F°+P). */
-export function stackedCommittedLines(cell: FlowMatrixCellDto): StackedLine[] {
+export function stackedCommittedLines(cell: FlowMatrixCellDto, rowName?: string): StackedLine[] {
   const items = cell.committed?.items ?? [];
   if (items.length < 2) return [];
   return items.map((it, i) => {
@@ -46,7 +60,7 @@ export function stackedCommittedLines(cell: FlowMatrixCellDto): StackedLine[] {
       tone: meta.tone,
       monto: it.monto,
       title: `${meta.title} · ${it.label}`,
-      drag: itemDragPayload(it),
+      drag: itemDragPayload(it, rowName),
     };
   });
 }
@@ -55,10 +69,21 @@ export function stackedCommittedLines(cell: FlowMatrixCellDto): StackedLine[] {
  * Arrastre de la celda entera solo si hay un único destino inequívoco:
  * plan manual, o un solo F°/B/P. Si conviven, cada línea se arrastra sola.
  */
-export function cellLevelDragPayload(cell: FlowMatrixCellDto): CellDragPayload | null {
+export function cellLevelDragPayload(
+  cell: FlowMatrixCellDto,
+  rowName?: string,
+): CellDragPayload | null {
   if (cell.layer === "plan" && cell.plan !== 0) return { kind: "plan" };
   if (cell.layer !== "committed") return null;
   const items = cell.committed?.items ?? [];
-  if (items.length !== 1) return null;
-  return itemDragPayload(items[0]!);
+  if (items.length === 1) return itemDragPayload(items[0]!, rowName);
+  if (
+    items.length === 0 &&
+    rowName &&
+    isParametricMoveRow(rowName) &&
+    (cell.committed?.total ?? 0) !== 0
+  ) {
+    return { kind: "parametric", amount: cell.committed!.total };
+  }
+  return null;
 }

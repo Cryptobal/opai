@@ -316,11 +316,20 @@ export function PlanillaCell(p: Props) {
         dragBlocked ? "[cursor:not-allowed]" : "",
         p.inDiscreteSel ? "ring-2 ring-inset ring-primary/60 bg-primary/10" : "",
         p.sumMode ? "cursor-pointer" : "",
+        p.draggable && !p.sumMode ? "select-none" : "",
       ].join(" ")}
       style={Object.keys(styleInline).length ? styleInline : undefined}
       title={p.hoverCards ? undefined : (titleParts.join(" · ") || undefined)}
       draggable={p.draggable && !p.sumMode}
-      onDragStart={p.draggable && !p.sumMode ? p.onDragStartCell : undefined}
+      onDragStart={
+        p.draggable && !p.sumMode
+          ? (e) => {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", p.dataRc);
+              p.onDragStartCell();
+            }
+          : undefined
+      }
       onDragOver={p.onDragOverCell}
       onDrop={p.onDropCell}
       onDragEnd={p.onDragEndCell}
