@@ -108,6 +108,23 @@ export function periodForFrequency(
     : previousClosedWeek(now);
 }
 
+export type PeriodPreset = "last_week" | "this_week" | "last_month" | "custom";
+
+export function periodFromPreset(opts: {
+  preset?: PeriodPreset;
+  from?: string;
+  to?: string;
+  now?: Date;
+}): ReportPeriod {
+  const preset = opts.preset ?? "last_week";
+  if (preset === "last_month") return previousClosedMonth(opts.now);
+  if (preset === "this_week") return currentOpenWeek(opts.now);
+  if (preset === "custom" && opts.from && opts.to) {
+    return parseYmdRange(opts.from, opts.to);
+  }
+  return previousClosedWeek(opts.now);
+}
+
 /** Semana en curso (lunes 00:00 Chile → lunes siguiente). */
 export function currentOpenWeek(now: Date = new Date()): ReportPeriod {
   const from = startOfWeekChile(now);

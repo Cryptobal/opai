@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { aggregateAttendance, aggregateRondas, buildDigestKpis } from "../aggregate";
+import { aggregateAttendance, aggregateRondas, buildDigestKpis, isTicketResolved } from "../aggregate";
 import {
   chileWallClock,
   periodForFrequency,
+  periodFromPreset,
   previousClosedMonth,
   previousClosedWeek,
   shouldSendNow,
@@ -26,9 +27,12 @@ describe("client-report aggregate", () => {
     expect(att.coberturaPct).toBe(60);
   });
 
-  it("treats presente as covered (legacy portal status)", () => {
-    const att = aggregateAttendance([{ attendanceStatus: "presente" }]);
-    expect(att.covered).toBe(1);
+  it("treats presente and confirmado_llegada as covered", () => {
+    const att = aggregateAttendance([
+      { attendanceStatus: "presente" },
+      { attendanceStatus: "confirmado_llegada" },
+    ]);
+    expect(att.covered).toBe(2);
     expect(att.coberturaPct).toBe(100);
   });
 
@@ -37,6 +41,29 @@ describe("client-report aggregate", () => {
     expect(r.completed).toBe(2);
     expect(r.total).toBe(4);
     expect(r.pct).toBe(50);
+  });
+
+  it("classifies QR ticket statuses as resolved vs open", () => {
+    expect(isTicketResolved("resolved")).toBe(true);
+    expect(isTicketResolved("closed")).toBe(true);
+    expect(isTicketResolved("rejected")).toBe(true);
+    expect(isTicketResolved("open")).toBe(false);
+    expect(isTicketResolved("in_progress")).toBe(false);
+  });
+
+  it("periodFromPreset maps weekly/monthly/custom windows", () => {
+    const now = new Date("2026-08-18T15:00:00.000Z");
+    expect(periodFromPreset({ preset: "last_week", now }).key).toBe(
+      previousClosedWeek(now).key
+    );
+    expect(periodFromPreset({ preset: "last_month", now }).key).toBe("2026-07");
+    const custom = periodFromPreset({
+      preset: "custom",
+      from: "2026-08-01",
+      to: "2026-08-07",
+      now,
+    });
+    expect(custom.key).toBe("2026-08-01_2026-08-07");
   });
 
   it("builds digest KPIs", () => {
@@ -142,5 +169,40 @@ describe("client-report period Chile", () => {
     );
     expect(yes.send).toBe(true);
     expect(yes.period.key).toBe("2026-07");
+  });
+
+  it("shouldSendNow respects Chile DST (summer UTC-3)", () => {
+    // Thursday 15 Jan 2026 11:00 UTC = 08:00 Chile (UTC-3)
+    const now = new Date("2026-01-15T11:00:00.000Z");
+    const clock = chileWallClock(now);
+    expect(clock.hour).toBe(8);
+    expect(clock.day).toBe(15);
+
+    const yes = shouldSendNow(
+      {
+        enabled: true,
+        frequency: "monthly",
+        weekday: 0,
+        dayOfMonth: 15,
+        sendHourChile: 8,
+        lastPeriodKey: null,
+      },
+      now
+    );
+    expect(yes.send).toBe(true);
+    expect(yes.period.key).toBe("2025-12");
+
+    const wrongUtcHour = shouldSendNow(
+      {
+        enabled: true,
+        frequency: "monthly",
+        weekday: 0,
+        dayOfMonth: 15,
+        sendHourChile: 8,
+        lastPeriodKey: null,
+      },
+      new Date("2026-01-15T12:00:00.000Z")
+    );
+    expect(wrongUtcHour.send).toBe(false);
   });
 });

@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireClientReportAuth } from "@/lib/ops/client-report/auth";
+import { requireVisitReportAuth } from "@/lib/ops/client-report/auth";
 import {
+  buildAndSendVisitReport,
   collectVisitReport,
-  currentOpenWeek,
-  parseYmdRange,
-  previousClosedMonth,
-  previousClosedWeek,
-  renderVisitReportPdf,
+  periodFromPreset,
 } from "@/lib/ops/client-report";
 
 const Body = z.object({
@@ -19,18 +16,10 @@ const Body = z.object({
   preset: z.enum(["last_week", "this_week", "last_month", "custom"]).optional(),
 });
 
-function resolvePeriod(body: z.infer<typeof Body>) {
-  const preset = body.preset ?? "last_week";
-  if (preset === "last_month") return previousClosedMonth();
-  if (preset === "custom" && body.from && body.to) {
-    return parseYmdRange(body.from, body.to);
-  }
-  if (preset === "this_week") return currentOpenWeek();
-  return previousClosedWeek();
-}
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  const gate = await requireClientReportAuth();
+  const gate = await requireVisitReportAuth();
   if (!gate.ok) return gate.response;
   const { ctx } = gate.auth;
 
@@ -65,21 +54,34 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const period = resolvePeriod(parsed.data);
+  const period = periodFromPreset({
+    preset: parsed.data.preset,
+    from: parsed.data.from,
+    to: parsed.data.to,
+  });
   const data = await collectVisitReport({
     tenantId: ctx.tenantId,
     accountId: account.id,
     installationIds: ids,
     period,
   });
-  const pdf = await renderVisitReportPdf(data);
-  const filename = `informe-visitas-${period.key.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
 
-  return new NextResponse(new Uint8Array(pdf), {
+  const stored = await buildAndSendVisitReport({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    accountId: account.id,
+    installationIds: ids,
+    periodKey: period.key,
+    data,
+    to: [],
+  });
+
+  const filename = `informe-visitas-${period.key.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+  return new NextResponse(new Uint8Array(stored.pdf), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${filename}"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
     },
   });

@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireClientReportAuth } from "@/lib/ops/client-report/auth";
+import { requireVisitReportAuth } from "@/lib/ops/client-report/auth";
 
 /**
  * GET /api/ops/supervision/reportes/options
  * Cuentas e instalaciones activas para el generador de informes de visitas.
  */
 export async function GET() {
-  const gate = await requireClientReportAuth();
+  const gate = await requireVisitReportAuth();
   if (!gate.ok) return gate.response;
   const { ctx } = gate.auth;
 

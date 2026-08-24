@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireClientReportAuth } from "@/lib/ops/client-report/auth";
+import { requireVisitReportAuth } from "@/lib/ops/client-report/auth";
 
 /** Lista compacta de instalaciones con informe automático activo. */
 export async function GET() {
-  const gate = await requireClientReportAuth();
+  const gate = await requireVisitReportAuth();
   if (!gate.ok) return gate.response;
   const { ctx } = gate.auth;
 

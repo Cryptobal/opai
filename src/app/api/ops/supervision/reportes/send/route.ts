@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireClientReportAuth } from "@/lib/ops/client-report/auth";
+import { requireVisitReportAuth } from "@/lib/ops/client-report/auth";
 import {
   buildAndSendVisitReport,
   collectVisitReport,
-  currentOpenWeek,
-  parseYmdRange,
-  previousClosedMonth,
-  previousClosedWeek,
+  periodFromPreset,
 } from "@/lib/ops/client-report";
 
 const Body = z.object({
@@ -20,18 +17,8 @@ const Body = z.object({
   preset: z.enum(["last_week", "this_week", "last_month", "custom"]).optional(),
 });
 
-function periodOf(body: z.infer<typeof Body>) {
-  const preset = body.preset ?? "last_week";
-  if (preset === "last_month") return previousClosedMonth();
-  if (preset === "custom" && body.from && body.to) {
-    return parseYmdRange(body.from, body.to);
-  }
-  if (preset === "this_week") return currentOpenWeek();
-  return previousClosedWeek();
-}
-
 export async function POST(request: NextRequest) {
-  const gate = await requireClientReportAuth();
+  const gate = await requireVisitReportAuth();
   if (!gate.ok) return gate.response;
   const { ctx } = gate.auth;
 
@@ -49,10 +36,6 @@ export async function POST(request: NextRequest) {
     select: {
       id: true,
       name: true,
-      contacts: {
-        where: { email: { not: null } },
-        select: { email: true, firstName: true, lastName: true, recibeOperacional: true },
-      },
       installations: { where: { status: "active" }, select: { id: true } },
     },
   });
@@ -71,7 +54,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const period = periodOf(parsed.data);
+  const period = periodFromPreset({
+    preset: parsed.data.preset,
+    from: parsed.data.from,
+    to: parsed.data.to,
+  });
   const data = await collectVisitReport({
     tenantId: ctx.tenantId,
     accountId: account.id,
@@ -100,7 +87,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const gate = await requireClientReportAuth();
+  const gate = await requireVisitReportAuth();
   if (!gate.ok) return gate.response;
   const { ctx } = gate.auth;
   const accountId = request.nextUrl.searchParams.get("accountId");

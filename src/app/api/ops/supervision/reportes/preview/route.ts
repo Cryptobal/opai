@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireClientReportAuth } from "@/lib/ops/client-report/auth";
-import {
-  collectVisitReport,
-  currentOpenWeek,
-  parseYmdRange,
-  previousClosedMonth,
-  previousClosedWeek,
-} from "@/lib/ops/client-report";
+import { requireVisitReportAuth } from "@/lib/ops/client-report/auth";
+import { collectVisitReport, periodFromPreset } from "@/lib/ops/client-report";
 
 const Query = z.object({
   accountId: z.string().min(1),
@@ -19,7 +13,7 @@ const Query = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  const gate = await requireClientReportAuth();
+  const gate = await requireVisitReportAuth();
   if (!gate.ok) return gate.response;
   const { ctx } = gate.auth;
 
@@ -62,16 +56,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const preset = parsed.data.preset ?? "last_week";
-  let period =
-    preset === "last_month"
-      ? previousClosedMonth()
-      : preset === "this_week"
-        ? currentOpenWeek()
-        : previousClosedWeek();
-  if (preset === "custom" && parsed.data.from && parsed.data.to) {
-    period = parseYmdRange(parsed.data.from, parsed.data.to);
-  }
+  const period = periodFromPreset({
+    preset: parsed.data.preset,
+    from: parsed.data.from,
+    to: parsed.data.to,
+  });
 
   const data = await collectVisitReport({
     tenantId: ctx.tenantId,

@@ -34,6 +34,25 @@ export async function requireClientReportAuth(): Promise<
   return { ok: true, auth: { ctx, perms } };
 }
 
+/** Informe de visitas on-demand (APIs de /ops/supervision/reportes). */
+export async function requireVisitReportAuth(): Promise<
+  | { ok: true; auth: ClientReportAuth }
+  | { ok: false; response: NextResponse }
+> {
+  const gate = await requireClientReportAuth();
+  if (!gate.ok) return gate;
+  if (!hasCapability(gate.auth.perms, "supervision_dashboard")) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { success: false, error: "Sin permisos de reportes de supervisión" },
+        { status: 403 }
+      ),
+    };
+  }
+  return gate;
+}
+
 export function canManageClientReportConfig(perms: RolePermissions): boolean {
   return canEditInstallations(perms) || hasCapability(perms, "supervision_dashboard");
 }
