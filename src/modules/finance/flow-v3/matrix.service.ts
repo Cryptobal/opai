@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveOpeningBalance } from "@/modules/finance/cashflow/opening-balance.service";
 import {
   addWeeksUTC, defaultHorizon, enumerateWeeks, MAX_RANGE_WEEKS,
-  startOfIsoWeekUTC, todayYmdChile, currentWeekYmd, ymdToDate,
+  startOfIsoWeekUTC, todayYmdChile, currentWeekYmd, toYmd, weekStartYmd, ymdToDate,
 } from "./weeks";
 import { ensureFlowBootstrap } from "./bootstrap.service";
 import { reconcileIncomeRows } from "./reconcile-income-rows.service";
