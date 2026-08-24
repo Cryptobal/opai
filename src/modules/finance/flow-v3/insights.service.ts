@@ -14,9 +14,10 @@ import {
 import { listClosedV3Weeks } from "./weekly-close.adapter";
 import {
   addWeeksUTC,
+  currentWeekYmd,
+  todayYmdChile,
   toYmd,
   weekLabel,
-  weekStartYmd,
   ymdToDate,
 } from "./weeks";
 import { countAssignPendingInWindow } from "./unmatched-count";
@@ -57,8 +58,8 @@ export interface MonthlyDriftRow {
 
 /** Panel read-only: serie 26 sem + aging dual + cartera + sellos + drifts. */
 export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsDto> {
-  const today = new Date();
-  const currentMonday = weekStartYmd(today);
+  const todayYmd = todayYmdChile();
+  const currentMonday = currentWeekYmd();
   const fromMonday = toYmd(addWeeksUTC(ymdToDate(currentMonday)!, -14));
   const fromDate = ymdToDate(fromMonday)!;
   const toDate = addWeeksUTC(ymdToDate(currentMonday)!, 11);
@@ -71,7 +72,6 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
 
   const warn = matrix.warnThreshold ?? 0;
   const bufferClp = Math.max(0, warn);
-  const todayYmd = toYmd(today);
   const saldoHoy = matrix.kpis?.saldoHoy ?? null;
 
   const weeks = buildPanelWeeks({

@@ -7,7 +7,7 @@ import type {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getLatestPublishedUf, getUfValueForDate } from "@/lib/uf";
-import { toYmd, weekStartYmd, ymdToDate } from "./weeks";
+import { currentWeekYmd, toYmd, todayYmdChile, weekStartYmd, ymdToDate } from "./weeks";
 import { bulkFill, upsertCell, type PlanCellDto } from "./plan.service";
 import { listClosedV3Weeks } from "./weekly-close.adapter";
 import { projectUfWithGrowth, ufTargetDate, ufToClp } from "./uf-occurrence";
@@ -527,7 +527,7 @@ export async function updateRecurrence(
     throw new Error("endAfterOccurrences debe ser ≥ 1");
   }
 
-  const currentWeek = weekStartYmd(new Date());
+  const currentWeek = currentWeekYmd();
   const isFuture = (w: string) => w >= currentWeek;
 
   // Limpiar celdas futuras materializadas de la regla anterior (FIXED→PCT o edit FIXED).
@@ -629,7 +629,7 @@ export async function deleteRecurrence(
   if (!rule) throw new Error("Regla recurrente no encontrada");
 
   if (!keepCells && rule.amountMode !== "PCT_SALES") {
-    const currentWeek = weekStartYmd(new Date());
+    const currentWeek = currentWeekYmd();
     const future = occurrenceWeeks(rule).filter((w) => w >= currentWeek);
     if (future.length > 0) await materializeClp(tenantId, rule.rowId, future, 0, updatedBy);
   }
@@ -647,10 +647,10 @@ export async function rematerializeUfRecurrences(
   const rules = await prisma.financeFlowPlanRecurrence.findMany({
     where: { tenantId, currency: "UF" },
   });
-  const currentWeek = weekStartYmd(new Date());
+  const currentWeek = currentWeekYmd();
   let cells = 0;
   for (const rule of rules) {
-    if (rule.endDate && toYmd(rule.endDate) < toYmd(new Date())) continue;
+    if (rule.endDate && toYmd(rule.endDate) < todayYmdChile()) continue;
     const future = occurrenceWeeks(rule).filter((w) => w >= currentWeek);
     const written = await materializeRule(tenantId, rule, future, null);
     cells += written.length;

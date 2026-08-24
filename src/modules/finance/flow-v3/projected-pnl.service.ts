@@ -8,7 +8,7 @@ import {
   computeNextRunAt,
 } from "@/modules/finance/billing/dte-recurring-schedule";
 import { expandOccurrenceDates } from "./recurring-plan.service";
-import { defaultHorizon, toYmd } from "./weeks";
+import { defaultHorizon, todayYmdChile, toYmd } from "./weeks";
 import {
   assembleProjectedPnl,
   buildMonthColumns,
@@ -66,7 +66,7 @@ export async function buildProjectedPnl(
   const to = opts.to ?? horizon.to;
   const fromYmd = toYmd(from);
   const toYmdStr = toYmd(to);
-  const todayYmd = toYmd(today);
+  const todayYmd = todayYmdChile(today);
   const monthKeys = enumerateMonthKeys(fromYmd, toYmdStr);
   const months = buildMonthColumns(monthKeys, todayYmd);
   if (months.length === 0) {

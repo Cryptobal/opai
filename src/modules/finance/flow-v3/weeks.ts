@@ -12,6 +12,7 @@ import {
   addWeeksUTC,
   isoWeekNumber,
 } from "@/components/finance/cashflow/v2/grid/week-keys";
+import { todayInChile } from "@/lib/dates-cl";
 
 export { startOfIsoWeekUTC, addWeeksUTC, isoWeekNumber };
 
@@ -63,11 +64,19 @@ export function enumerateWeeks(from: Date, to: Date): string[] {
   return out;
 }
 
+/** YMD del "hoy" operativo en Chile (America/Santiago). */
+export function todayYmdChile(now: Date = new Date()): string {
+  return todayInChile(now);
+}
+
 /**
  * Ventana móvil default del matrix: lunes(hoy − 4 semanas) → lunes(hoy + 12
  * meses). Cualquier from/to explícito de la request la sobreescribe.
+ * "Hoy" = calendario Chile, no UTC del servidor.
  */
-export function defaultHorizon(today: Date = new Date()): { from: Date; to: Date } {
+export function defaultHorizon(now: Date = new Date()): { from: Date; to: Date } {
+  const todayYmd = todayInChile(now);
+  const today = ymdToDate(todayYmd) ?? now;
   const currentMonday = startOfIsoWeekUTC(today);
   const from = addWeeksUTC(currentMonday, -4);
   const plus12m = new Date(
@@ -89,9 +98,11 @@ export function monthKeyOfDate(ymd: string): string {
   return ymd.slice(0, 7);
 }
 
-/** Lunes ISO (YMD) de la semana actual. */
-export function currentWeekYmd(today: Date = new Date()): string {
-  return weekStartYmd(today);
+/** Lunes ISO (YMD) de la semana que contiene el "hoy" en Chile. */
+export function currentWeekYmd(now: Date = new Date()): string {
+  const todayYmd = todayInChile(now);
+  const d = ymdToDate(todayYmd);
+  return d ? weekStartYmd(d) : weekStartYmd(now);
 }
 
 /** Etiqueta corta de la semana: "S28". */
