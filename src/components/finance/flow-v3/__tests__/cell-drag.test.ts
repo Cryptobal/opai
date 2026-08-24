@@ -165,4 +165,37 @@ describe("cell-drag", () => {
       drag: { kind: "scheduled", templateId: "tpl-cims", billingPeriod: "2026-08" },
     });
   });
+
+  it("plan manual se arrastra como plan", () => {
+    const c = cell({
+      layer: "plan",
+      plan: -10_000_000,
+      effective: -10_000_000,
+    });
+    expect(cellLevelDragPayload(c)).toEqual({ kind: "plan" });
+  });
+
+  it("Retiro socios P sin ids se arrastra como paramétrico", () => {
+    const item = {
+      kind: "scheduled" as const,
+      label: "Retiro socios",
+      fecha: "2026-08-24",
+      monto: 10_000_000,
+    };
+    expect(itemDragPayload(item)).toBeNull();
+    expect(itemDragPayload(item, "Retiro socios")).toEqual({
+      kind: "parametric",
+      amount: 10_000_000,
+    });
+    const c = cell({
+      layer: "committed",
+      committed: { total: 10_000_000, items: [item] },
+      effective: -10_000_000,
+    });
+    expect(cellLevelDragPayload(c)).toBeNull();
+    expect(cellLevelDragPayload(c, "Retiro socios")).toEqual({
+      kind: "parametric",
+      amount: 10_000_000,
+    });
+  });
 });

@@ -306,12 +306,14 @@ export function PlanillaRow(p: Props) {
           p.editing.sel.colIdx === colIdx;
         const writable = p.canEditCell(row.id, colIdx);
         const weekOpen = p.canMoveCommitted(colIdx);
-        const stackedLines = stackedCommittedLines(cell);
-        const cellPayload = cellLevelDragPayload(cell);
+        const stackedLines = stackedCommittedLines(cell, row.name);
+        const cellPayload = cellLevelDragPayload(cell, row.name);
         const draggable =
           p.enableDrag &&
           !!cellPayload &&
-          (cellPayload.kind === "plan" ? writable : weekOpen);
+          (cellPayload.kind === "plan" || cellPayload.kind === "parametric"
+            ? writable
+            : weekOpen);
         const dragBlocked =
           p.enableDrag && cell.layer === "real" ? dragBlockedTitle(cell) : undefined;
         const rangeClass = isEditing

@@ -55,6 +55,7 @@ import { UnmatchedIncomeList } from "./UnmatchedIncomeList";
 import type { HistoryEntry } from "./usePlanillaHistory";
 import type { usePlanillaActions } from "./usePlanillaActions";
 import type { CellDragPayload } from "./cell-drag";
+import { signedParametricPlanAmount } from "./parametric-move";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import {
   bandejaBadgeText,
@@ -1140,7 +1141,7 @@ export function PlanillaGrid({
       const src = dragRef.current;
       if (!src || src.rowId !== rowId || src.week === week) return;
       const ok =
-        src.payload.kind === "plan"
+        src.payload.kind === "plan" || src.payload.kind === "parametric"
           ? canEditCell(rowId, colIdx)
           : canMoveCommitted(rowId, colIdx);
       if (!ok) return;
@@ -1159,6 +1160,17 @@ export function PlanillaGrid({
         void matrix.movePlan(rowId, src.week, week);
         return;
       }
+      if (src.payload.kind === "parametric") {
+        const row = rowById.get(rowId);
+        if (!row) return;
+        const amount = signedParametricPlanAmount(row.section, src.payload.amount);
+        if (amount === 0) return;
+        void (async () => {
+          await matrix.patchPlan(rowId, src.week, 0);
+          await matrix.patchPlan(rowId, week, amount);
+        })();
+        return;
+      }
       if (src.payload.kind === "scheduled") {
         void actions.moveScheduled(src.payload.templateId, src.payload.billingPeriod, week);
         return;
@@ -1169,7 +1181,7 @@ export function PlanillaGrid({
       }
       void actions.moveDte(src.payload.dteId, week);
     },
-    [matrix, actions],
+    [matrix, actions, rowById],
   );
   const onCellDragEnd = useCallback(() => {
     dragRef.current = null;
@@ -1225,8 +1237,7 @@ export function PlanillaGrid({
         if (!row || !cell) return;
         const mag = Math.round(Math.abs(cell.committed?.total ?? cell.effective ?? 0));
         if (mag === 0) return;
-        // FINANCIAMIENTO: plan signado (egreso −). Resto: magnitud positiva (planCashSign niega).
-        const amount = row.section === "FINANCIAMIENTO" ? -mag : mag;
+        const amount = signedParametricPlanAmount(row.section, mag);
         void (async () => {
           await matrix.patchPlan(sel.rowId, week, 0);
           await matrix.patchPlan(sel.rowId, target, amount);
@@ -1990,6 +2001,32 @@ export function PlanillaGrid({
           canManage
             ? (milestoneKey, billingPeriod, targetWeek) => {
                 void actions.moveMilestone(milestoneKey, billingPeriod, targetWeek);
+              }
+            : undefined
+        }
+        onMovePlan={
+          canManage && popover
+            ? (targetWeek) => {
+                void matrix.movePlan(popover.row.id, popover.cell.weekStart, targetWeek);
+                setPopover(null);
+              }
+            : undefined
+        }
+        onMoveParametric={
+          canManage && popover
+            ? (targetWeek) => {
+                const mag = Math.round(
+                  Math.abs(popover.cell.committed?.total ?? popover.cell.effective ?? 0),
+                );
+                const amount = signedParametricPlanAmount(popover.row.section, mag);
+                if (amount === 0) return;
+                const rowId = popover.row.id;
+                const fromWeek = popover.cell.weekStart;
+                void (async () => {
+                  await matrix.patchPlan(rowId, fromWeek, 0);
+                  await matrix.patchPlan(rowId, targetWeek, amount);
+                })();
+                setPopover(null);
               }
             : undefined
         }

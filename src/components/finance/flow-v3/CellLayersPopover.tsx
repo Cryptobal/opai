@@ -45,6 +45,8 @@ interface Props {
   onMoveDte?: (dteId: string, targetWeek: string) => void;
   onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
   onMoveMilestone?: (milestoneKey: string, billingPeriod: string, targetWeek: string) => void;
+  onMovePlan?: (targetWeek: string) => void;
+  onMoveParametric?: (targetWeek: string) => void;
   /** Acciones del menú de celda (sin duplicar Composición/Historial). */
   actions?: MenuItemDesc[];
 }
@@ -57,7 +59,8 @@ export function CellLayersPopover({
   state, onClose, canManage, editable, editReason, focusNote, excludedForRow,
   onViewDte, onExcludeDte, onRestoreDte, onSaveNote,
   onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual,
-  moveWeeks, onMoveDte, onMoveScheduled, onMoveMilestone, actions = [],
+  moveWeeks, onMoveDte, onMoveScheduled, onMoveMilestone,
+  onMovePlan, onMoveParametric, actions = [],
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<CellDetailTab>("composicion");
@@ -125,6 +128,9 @@ export function CellLayersPopover({
               onMoveDte={onMoveDte}
               onMoveScheduled={onMoveScheduled}
               onMoveMilestone={onMoveMilestone}
+              onMovePlan={onMovePlan}
+              onMoveParametric={onMoveParametric}
+              rowName={row.name}
               onClose={onClose}
             />
             <div className="rounded border border-ds-border-subtle bg-ds-surface-2 px-2 py-1.5">

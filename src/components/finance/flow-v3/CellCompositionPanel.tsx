@@ -7,6 +7,7 @@ import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editabilit
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import { filterMoveTargetWeeks, resolveNextWeekKey } from "./menu-builders";
 import { committedItemMeta, terminoStatusLine, toneClass } from "./cell-meta";
+import { isParametricMoveRow } from "./parametric-move";
 
 interface Props {
   cell: FlowMatrixCellDto;
@@ -27,6 +28,11 @@ interface Props {
   onMoveDte?: (dteId: string, targetWeek: string) => void;
   onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
   onMoveMilestone?: (milestoneKey: string, billingPeriod: string, targetWeek: string) => void;
+  /** Mueve el plan manual de esta celda a otra semana. */
+  onMovePlan?: (targetWeek: string) => void;
+  /** Mueve una P paramétrica (Retiro socios, etc.) sin template/hito. */
+  onMoveParametric?: (targetWeek: string) => void;
+  rowName?: string;
   onClose: () => void;
 }
 
@@ -47,7 +53,8 @@ export function CellCompositionPanel({
   cell, canManage, editable, editReason, excluded = [],
   onViewDte, onExcludeDte, onRestoreDte,
   onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual,
-  moveWeeks = [], onMoveDte, onMoveScheduled, onMoveMilestone, onClose,
+  moveWeeks = [], onMoveDte, onMoveScheduled, onMoveMilestone,
+  onMovePlan, onMoveParametric, rowName, onClose,
 }: Props) {
   const [movingKey, setMovingKey] = useState<string | null>(null);
   const [excludingId, setExcludingId] = useState<string | null>(null);
@@ -102,6 +109,30 @@ export function CellCompositionPanel({
           {manualPlan && cell.committed && cell.committed.total !== 0 && (
             <p className="text-right text-[12px] text-ds-text-4">Proyección: {fmtClp(cell.committed.total)}</p>
           )}
+          {canManage && moveTargets.length > 0 && onMovePlan && cell.plan !== 0 && movingKey !== "plan" && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="min-h-11 text-[12px] text-status-info-fg underline-offset-2 hover:underline sm:min-h-0"
+                onClick={() => setMovingKey("plan")}
+              >
+                Mover a otra semana…
+              </button>
+            </div>
+          )}
+          {movingKey === "plan" && onMovePlan && (
+            <MoveWeekPicker
+              weeks={moveTargets}
+              cellWeekStart={cell.weekStart}
+              nextWeekKey={nextMoveWeekKey}
+              onPick={(week) => {
+                onMovePlan(week);
+                setMovingKey(null);
+                onClose();
+              }}
+              onCancel={() => setMovingKey(null)}
+            />
+          )}
         </div>
       ))}
 
@@ -118,13 +149,21 @@ export function CellCompositionPanel({
                   ? `ms:${it.milestoneKey}::${it.billingPeriod}`
                   : null;
             const dteKey = it.kind === "dte" && it.dteId ? `dte:${it.dteId}` : null;
-            const itemKey = schedKey ?? dteKey;
+            const parametricKey =
+              it.kind === "scheduled" &&
+              !schedKey &&
+              !!onMoveParametric &&
+              isParametricMoveRow(rowName ?? "")
+                ? `param:${i}`
+                : null;
+            const itemKey = schedKey ?? dteKey ?? parametricKey;
             const canMoveItem =
               canManage &&
               moveTargets.length > 0 &&
               ((schedKey?.startsWith("sched:") && !!onMoveScheduled) ||
                 (schedKey?.startsWith("ms:") && !!onMoveMilestone) ||
-                (dteKey && !!onMoveDte));
+                (dteKey && !!onMoveDte) ||
+                !!parametricKey);
             return (
               <li key={i} className="text-ds-text-2">
                 <button type="button" disabled={!clickable} onClick={() => it.dteId && openDteOrBank(it.dteId)}
@@ -187,6 +226,9 @@ export function CellCompositionPanel({
                               onMoveMilestone
                             ) {
                               onMoveMilestone(it.milestoneKey, it.billingPeriod, w.key);
+                            }
+                            if (parametricKey && onMoveParametric) {
+                              onMoveParametric(w.key);
                             }
                             setMovingKey(null);
                             onClose();
@@ -371,5 +413,55 @@ export function CellCompositionPanel({
         </div>
       )}
     </>
+  );
+}
+
+function MoveWeekPicker({
+  weeks,
+  cellWeekStart,
+  nextWeekKey,
+  onPick,
+  onCancel,
+}: {
+  weeks: MatrixColumn[];
+  cellWeekStart: string;
+  nextWeekKey: string | null;
+  onPick: (weekKey: string) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <ul className="mt-1 max-h-36 space-y-0.5 overflow-y-auto rounded border border-ds-border-subtle bg-ds-surface-1 p-1">
+      {weeks.map((w) => {
+        const isNext = w.key === nextWeekKey;
+        const isForward = w.key > cellWeekStart;
+        return (
+          <li key={w.key}>
+            <button
+              type="button"
+              className={`flex min-h-11 w-full items-center justify-between rounded px-1.5 text-left text-[13px] sm:min-h-9 ${
+                isNext
+                  ? "bg-status-info-soft font-medium text-status-info-fg"
+                  : isForward
+                    ? "text-status-info-fg hover:bg-ds-surface-2"
+                    : "text-ds-text-1 hover:bg-ds-surface-2"
+              }`}
+              onClick={() => onPick(w.key)}
+            >
+              <span>{w.label} · {fmtDayMonth(w.weekStart)}</span>
+              {isNext && <span className="shrink-0 text-[12px]">próxima semana</span>}
+            </button>
+          </li>
+        );
+      })}
+      <li>
+        <button
+          type="button"
+          className="min-h-11 w-full px-1.5 text-left text-[12px] text-ds-text-3 sm:min-h-9"
+          onClick={onCancel}
+        >
+          Cancelar
+        </button>
+      </li>
+    </ul>
   );
 }
