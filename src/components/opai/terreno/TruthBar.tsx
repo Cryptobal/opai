@@ -14,6 +14,15 @@ export interface TruthBarProps {
   /** Acciones a la derecha (ej. SOS). No se envuelve en chip. */
   trailing?: ReactNode;
   className?: string;
+  /**
+   * Sticky `top`. Default ancla la barra bajo TerrenoModeSwitcher cuando
+   * ambos viven en el mismo scrollport (Marcación).
+   *
+   * En shells anidados con `overflow-hidden` que YA están bajo el switcher
+   * (Rondas, Acceso) hay que pasar `"0px"`: si no, `sticky` cae a `relative`
+   * y este offset pinta la barra encima del selector de guardias.
+   */
+  stickyTop?: string;
 }
 
 function gpsLabel(status: GpsChipStatus, meters?: number | null): string {
@@ -31,6 +40,7 @@ export function TruthBar({
   extra,
   trailing,
   className,
+  stickyTop = "var(--terreno-switcher-h, 0px)",
 }: TruthBarProps) {
   const gpsChip =
     gpsStatus === "ok"
@@ -39,15 +49,18 @@ export function TruthBar({
         ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
         : "bg-ds-surface-2 text-ds-text-3 border-ds-border-default";
 
+  const nestedBelowSwitcher = stickyTop === "0px" || stickyTop === "0";
+
   return (
     <div
       role="status"
       aria-live="polite"
       className={cn(
-        "sticky z-40 flex flex-wrap items-center gap-1.5 border-b border-ds-border-subtle bg-ds-surface-1/95 px-3 py-1.5 backdrop-blur-sm",
+        nestedBelowSwitcher ? "relative z-40" : "sticky z-40",
+        "flex shrink-0 flex-wrap items-center gap-1.5 border-b border-ds-border-subtle bg-ds-surface-1/95 px-3 py-1.5 backdrop-blur-sm",
         className,
       )}
-      style={{ top: "var(--terreno-switcher-h, 0px)" }}
+      style={{ top: stickyTop }}
     >
       <span
         className={cn(

@@ -451,6 +451,7 @@ export function AccessPortalApp() {
         online={isOnline}
         queueCount={pendingCount}
         extra="Dispositivo pareado"
+        stickyTop="0px"
       />
       <InstallationHeader
         installationName={device.installationName}
