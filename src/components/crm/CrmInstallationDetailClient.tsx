@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon, Siren } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon, Siren, FileBarChart } from "lucide-react";
 import { EntityConversations } from "./EntityConversations";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
@@ -66,6 +66,7 @@ import { InstalacionDocsOperacionalesTab } from "@/components/ops/InstalacionDoc
 import { InstalacionVraReportsTab } from "@/components/vra/InstalacionVraReportsTab";
 import { InstalacionIncidentesTab } from "./InstalacionIncidentesTab";
 import { InstalacionQrReporteTab } from "./InstalacionQrReporteTab";
+import { InstalacionClientReportTab } from "./InstalacionClientReportTab";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -2430,6 +2431,7 @@ export function CrmInstallationDetailClient({
     { id: "rondas", label: "Rondas", icon: Route },
     { id: "incidentes", label: "Incidentes", icon: Siren },
     { id: "qr-reporte", label: "QR de reporte", icon: QrCode },
+    { id: "reporte-cliente", label: "Reporte cliente", icon: FileBarChart },
     { id: "marcaciones", label: "Marcaciones", icon: Clock },
     { id: "documentos-guardias", label: "Documentos de Guardias", icon: FileCheck },
     { id: "access-control", label: "Control Acceso", icon: Shield },
@@ -3107,6 +3109,9 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "qr-reporte" && (
           <InstalacionQrReporteTab installationId={installation.id} />
+        )}
+        {activeTab === "reporte-cliente" && (
+          <InstalacionClientReportTab installationId={installation.id} />
         )}
         {activeTab === "marcaciones" && (
           <InstalacionMarcacionesTab installationId={installation.id} />

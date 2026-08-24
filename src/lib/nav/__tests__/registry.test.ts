@@ -382,6 +382,7 @@ describe("nav registry", () => {
       const keys = nodes.map((n) => n.key);
       expect(keys).toContain("sup-grilla");
       expect(keys).toContain("sup-historial");
+      expect(keys).toContain("sup-reportes");
     });
 
     it("returns Productividad children for /ops/tickets (Tickets vive bajo Productividad)", () => {
