@@ -40,6 +40,26 @@ export function payWeekForMonthDay(year: number, monthZeroIdx: number, day: numb
   return weekStartYmd(payDate);
 }
 
+/**
+ * Muestras para TE HISTORICAL: semanas PASADAS que están en la ventana de la
+ * matriz. Si la ventana no trae pasado (p. ej. MCP que arranca en la semana
+ * actual), el fallback son todos los paidByWeek — promedio distinto al de la
+ * planilla (hoy−4sem). El overview MCP debe usar el mismo horizonte que la
+ * planilla para no divergir el Saldo acumulado.
+ */
+export function teHistoricalAmountSamples(
+  weeks: string[],
+  currentWeek: string,
+  paidByWeek: Map<string, number>,
+): number[] {
+  const inWindowPast = weeks
+    .filter((w) => w < currentWeek)
+    .map((w) => paidByWeek.get(w) ?? 0)
+    .filter((v) => v > 0);
+  if (inWindowPast.length > 0) return inWindowPast;
+  return [...paidByWeek.values()];
+}
+
 /** TE forward HISTORICAL: promedio de montos semanales reales de las últimas N semanas (default 8). */
 export function computeTeHistoricalWeekly(
   realWeeklyAmounts: number[],

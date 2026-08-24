@@ -18,6 +18,7 @@ import {
   computeTeHistoricalWeekly,
   computeTePctPayrollWeekly,
   payWeekForMonthDay,
+  teHistoricalAmountSamples,
 } from "./derive-committed-expense-params";
 import type {
   ExpenseMilestoneInput,
@@ -661,11 +662,8 @@ export async function loadExpenseParametrics(
       const w = weekStartYmd(t.paidAt);
       byWeek.set(w, (byWeek.get(w) ?? 0) + Number(t.amountClp ?? 0));
     }
-    const amounts = weeks
-      .filter((w) => w < currentWeek)
-      .map((w) => byWeek.get(w) ?? 0)
-      .filter((v) => v > 0);
-    teWeeklyAmount = computeTeHistoricalWeekly(amounts.length ? amounts : [...byWeek.values()], 8);
+    const amounts = teHistoricalAmountSamples(weeks, currentWeek, byWeek);
+    teWeeklyAmount = computeTeHistoricalWeekly(amounts, 8);
   }
 
   if (teWeeklyAmount > 0) {

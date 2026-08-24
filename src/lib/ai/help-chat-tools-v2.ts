@@ -597,11 +597,13 @@ function v2ToolDefinitions() {
       function: {
         name: "flow_cashflow_overview",
         description:
-          "Planilla de flujo de caja (v3/v4): saldos proyectados, KPIs (saldo hoy, mínimo), " +
-          "semanas selladas y montos por fila/semana (plan/comprometido/real) del tenant. " +
-          "Opcional: includeBalanceBreaks (quiebres de saldo vs semana sellada) e includeRowAccounts " +
-          "(filas con cuenta contable primaria / FinanceFlowRowAccount). " +
-          "Usar para '¿cuándo quedo en rojo?', saldo proyectado, desviaciones. Solo lectura.",
+          "Planilla de flujo de caja v3 (/finanzas/flujo-caja/planilla). " +
+          "Mismas cifras que ve Tesorero: Banco hoy (footer) = snapshot banco + movimientos con fecha ≤ hoy; " +
+          "Saldo acumulado de la semana actual ABIERTA = Banco hoy + pendientes (effective − real); " +
+          "futuras acumulan effective; pasadas usan sello/real. " +
+          "No confundir Banco hoy con currentBalance de Banca (puede estar desactualizado). " +
+          "Usar para '¿cuándo quedo en rojo?', saldo proyectado, desviaciones. Solo lectura. " +
+          "Opcional: includeBalanceBreaks (quiebres vs semana sellada) e includeRowAccounts.",
         parameters: {
           type: "object",
           properties: {
@@ -9417,44 +9419,32 @@ export async function executeToolCallV2(
       }
       case "flow_cashflow_overview": {
         try {
-          const { buildFlowChatContext } = await import(
+          const { buildFlowOverview } = await import(
             "@/modules/finance/flow-v3/chat-context"
           );
-          const overview = await buildFlowChatContext(tenantId);
-          const data: Record<string, unknown> = { overview };
+          const overview = await buildFlowOverview(tenantId);
+          const data: Record<string, unknown> = {
+            overview: overview.overview,
+            todayYmd: overview.todayYmd,
+            currentWeek: overview.currentWeek,
+            horizon: overview.horizon,
+            kpis: overview.kpis,
+            weeks: overview.weeks,
+            closedWeeks: overview.closedWeeks,
+            formulas: {
+              bancoHoy:
+                "Footer «Banco hoy»: resolveOpeningBalance (snapshot más reciente ≤ hoy + Σ bank_tx posteriores con fecha ≤ hoy). No es currentBalance de Banca.",
+              saldoAcumuladoActual:
+                "Semana actual ABIERTA: Banco hoy + Σ (effective − real). Espejo banco en vivo.",
+              saldoAcumuladoFuturo: "Saldo de la semana previa + flujo effective de esa semana.",
+              flujoSemana: "Σ effective de la columna (plan/comprometido/real según capa).",
+              horizonte:
+                "Igual que la planilla: lunes(hoy Chile − 4 sem) → lunes(hoy + 12 meses). Recortar a la semana actual cambia el promedio TE y el Saldo acumulado.",
+            },
+          };
 
           if (args.includeBalanceBreaks === true) {
-            const { buildFlowMatrix } = await import(
-              "@/modules/finance/flow-v3/matrix.service"
-            );
-            const { addWeeksUTC, weekStartYmd, ymdToDate } = await import(
-              "@/modules/finance/flow-v3/weeks"
-            );
-            const today = new Date();
-            const fromMonday = weekStartYmd(today);
-            const fromDate = ymdToDate(fromMonday)!;
-            const toDate = addWeeksUTC(fromDate, 11);
-            const m = await buildFlowMatrix(tenantId, {
-              from: fromDate,
-              to: toDate,
-              granularity: "week",
-            });
-            data.kpis = {
-              saldoHoy: Math.round(m.kpis.saldoHoy),
-              minBalance: Math.round(m.kpis.minBalance),
-              minWeek: m.kpis.minWeek,
-              openingBalance: Math.round(m.openingBalance),
-              warnThreshold: Math.round(m.warnThreshold),
-            };
-            data.balanceBreaks = m.columns.map((col, i) => {
-              const br = m.balanceBreaks[i];
-              if (!br) return { weekStart: col.weekStart, label: col.label, break: null };
-              return {
-                weekStart: col.weekStart,
-                label: col.label,
-                break: { vsWeek: br.vsWeek, delta: Math.round(br.delta) },
-              };
-            });
+            data.balanceBreaks = overview.balanceBreaks;
           }
 
           if (args.includeRowAccounts === true) {
