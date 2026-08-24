@@ -10,6 +10,7 @@ import {
   computeTePctPayrollWeekly,
   payWeekForMonthDay,
   resolveRetiroPctFraction,
+  teHistoricalAmountSamples,
 } from "../derive-committed-expense-params";
 
 describe("computeRetiroSocioClp", () => {
@@ -60,6 +61,41 @@ describe("payWeekForMonthDay", () => {
     expect(payWeekForMonthDay(2026, 7, 5)).toBe("2026-08-03");
     // 2026-02-28 (sábado) → lunes 2026-02-23
     expect(payWeekForMonthDay(2026, 1, 28)).toBe("2026-02-23");
+  });
+});
+
+describe("teHistoricalAmountSamples", () => {
+  const paid = new Map([
+    ["2026-08-03", 400_000],
+    ["2026-08-10", 500_000],
+    ["2026-08-17", 600_000],
+  ]);
+
+  it("con semanas pasadas en la ventana (planilla hoy−4sem) usa solo esas", () => {
+    const weeks = ["2026-07-27", "2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24"];
+    expect(teHistoricalAmountSamples(weeks, "2026-08-24", paid)).toEqual([
+      400_000, 500_000, 600_000,
+    ]);
+  });
+
+  it("sin pasado en la ventana (MCP que arranca en la semana actual) cae al fallback de paidByWeek", () => {
+    const weeks = ["2026-08-24", "2026-08-31"];
+    expect(teHistoricalAmountSamples(weeks, "2026-08-24", paid)).toEqual([
+      400_000, 500_000, 600_000,
+    ]);
+    // Muestra distinta si el fallback incluye semanas que la planilla no ve
+    const extra = new Map(paid);
+    extra.set("2026-07-20", 8_000_000);
+    expect(teHistoricalAmountSamples(["2026-08-24"], "2026-08-24", extra)).toEqual([
+      400_000, 500_000, 600_000, 8_000_000,
+    ]);
+    expect(
+      teHistoricalAmountSamples(
+        ["2026-07-27", "2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24"],
+        "2026-08-24",
+        extra,
+      ),
+    ).toEqual([400_000, 500_000, 600_000]);
   });
 });
 

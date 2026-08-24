@@ -212,7 +212,7 @@ Leyenda: **R** = lectura (scope READ), **W** = escritura (requiere READ_WRITE + 
 | Tool | R/W | Guard |
 | --- | --- | --- |
 | `get_finance_summary` | R | Módulo finance. DTEs separados: `dtes.issued` (ventas) y `dtes.received` (compras). |
-| `flow_cashflow_overview` | R | Flujo de caja; opc. `includeBalanceBreaks` / `includeRowAccounts` |
+| `flow_cashflow_overview` | R | Planilla v3: `bancoHoy` / `saldoAcumulado` = mismas cifras que `/finanzas/flujo-caja/planilla` (horizonte hoy−4sem→+12m). Opc. breaks / cuentas |
 | `get_sales_report`, `get_income_statement`, `get_balance_sheet`, `get_finance_dashboard_kpis`, `get_profitability` | R | Reportes finance + capabilities |
 | `search_dtes` | R | `facturacion_view`. `direction`: `issued` (default, retrocompatible), `received`, `all`. Filtros folio/RUT/nombre/monto/período/`installationId`. |
 | `get_dte_detail` | R | `facturacion_view`. Resuelve emitidos y recibidos; folio duplicado entre direcciones pide `direction`. Incluye `paymentStatus`, `factoring[]`. |
