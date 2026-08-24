@@ -132,10 +132,24 @@ export type DteSortKey =
   | "tipo_desc"
   | "tipo_asc";
 
+/** Tipo SII 33 (Factura Electrónica). Default visible del listado emitido. */
+export const DEFAULT_ISSUED_DTE_TYPES: number[] = [33];
+
+export function isDefaultIssuedDteTypes(types: number[]): boolean {
+  return (
+    types.length === DEFAULT_ISSUED_DTE_TYPES.length &&
+    DEFAULT_ISSUED_DTE_TYPES.every((t) => types.includes(t))
+  );
+}
+
+function cloneDefaultTypes(): number[] {
+  return [...DEFAULT_ISSUED_DTE_TYPES];
+}
+
 /** Filtros aplicados a la lista de DTEs Emitidos. Persistidos en URL. */
 export interface DteFilters {
   search: string;
-  types: number[];                // multi-select por dteType
+  types: number[];                // multi-select por dteType; vacío = ningún tipo
   siiStatuses: string[];          // multi-select por siiStatus
   paymentStatuses: string[];      // UNPAID | PARTIAL | OVERDUE | PAID
   /**
@@ -158,7 +172,7 @@ export interface DteFilters {
 
 export const EMPTY_DTE_FILTERS: DteFilters = {
   search: "",
-  types: [],
+  types: cloneDefaultTypes(),
   siiStatuses: [],
   paymentStatuses: [],
   quickFilter: "ALL",
@@ -173,3 +187,13 @@ export const EMPTY_DTE_FILTERS: DteFilters = {
   excludeDrafts: false,
   sort: "date_desc",
 };
+
+/** Copia mutable de los filtros default (Factura electrónica seleccionada). */
+export function createEmptyDteFilters(): DteFilters {
+  return {
+    ...EMPTY_DTE_FILTERS,
+    types: cloneDefaultTypes(),
+    siiStatuses: [],
+    paymentStatuses: [],
+  };
+}

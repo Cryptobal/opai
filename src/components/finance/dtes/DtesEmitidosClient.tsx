@@ -38,6 +38,7 @@ import { SendEmailDialog } from "../SendEmailDialog";
 import { PaginationControls } from "../PaginationControls";
 import { KpiStrip } from "./KpiStrip";
 import { DtesToolbar } from "./DtesToolbar";
+import { DteQuickFilters } from "./DteQuickFilters";
 import { FiltersDrawer } from "./FiltersDrawer";
 import { ActiveFilterChips } from "./ActiveFilterChips";
 import { IssuedDtesTable } from "./IssuedDtesTable";
@@ -53,8 +54,8 @@ import type {
   DteRow,
   CostCenterOption,
   InstallationOption,
-  DteFilters,
 } from "./shared/types";
+import { isDefaultIssuedDteTypes } from "./shared/types";
 
 interface Props {
   dtes: DteRow[];
@@ -89,6 +90,7 @@ export function DtesEmitidosClient({
     reset,
     removeOne,
     setQuickFilter,
+    toggleType,
     activeCount,
     debouncedSearch,
   } = useDteFilters({
@@ -271,7 +273,7 @@ export function DtesEmitidosClient({
       filters.installationId === "ALL" &&
       filters.sort === "date_desc" &&
       debouncedSearch === "" &&
-      filters.types.length === 0 &&
+      isDefaultIssuedDteTypes(filters.types) &&
       filters.siiStatuses.length === 0 &&
       filters.paymentStatuses.length === 0 &&
       filters.amountMin == null &&
@@ -284,6 +286,12 @@ export function DtesEmitidosClient({
     if (noServerFilters) {
       setDtes(initialDtes);
       setTotal(issuedTotal);
+      return;
+    }
+    if (filters.types.length === 0) {
+      setDtes([]);
+      setTotal(0);
+      setLoading(false);
       return;
     }
     const ctrl = new AbortController();
@@ -928,47 +936,12 @@ export function DtesEmitidosClient({
         exportDisabled={filtered.length === 0}
       />
 
-      {/* Quick filter: estado de pago + borradores. Radio (solo uno
-          activo a la vez). 'Todos' es el reset. */}
-      <div className="flex flex-wrap items-center gap-1.5 -mt-1">
-        <span className="text-xs font-mono uppercase tracking-wide text-ds-text-4 mr-1">
-          Vista:
-        </span>
-        {[
-          { value: "ALL", label: "Todos", tone: "neutral" },
-          { value: "UNPAID", label: "Por cobrar", tone: "neutral" },
-          { value: "PARTIAL", label: "Parcial", tone: "warn" },
-          { value: "PAID", label: "Pagado", tone: "ok" },
-          { value: "OVERDUE", label: "Vencido", tone: "danger" },
-          { value: "DRAFT", label: "Borradores", tone: "info" },
-        ].map((opt) => {
-          const active = filters.quickFilter === opt.value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setQuickFilter(opt.value as DteFilters["quickFilter"])}
-              className={[
-                "h-7 px-2.5 rounded-full border text-xs font-medium transition-colors",
-                active
-                  ? opt.tone === "ok"
-                    ? "bg-status-ok-soft border-status-ok-border text-status-ok-fg"
-                    : opt.tone === "danger"
-                      ? "bg-status-danger-soft border-status-danger-border text-status-danger-fg"
-                      : opt.tone === "warn"
-                        ? "bg-status-warn-soft border-status-warn-border text-status-warn-fg"
-                        : opt.tone === "info"
-                          ? "bg-status-info-soft border-status-info-border text-status-info-fg"
-                          : "bg-ds-surface-3 border-ds-border-default text-ds-text-1"
-                  : "bg-ds-surface-2 border-ds-border-default text-ds-text-3 hover:bg-ds-surface-3",
-              ].join(" ")}
-              aria-pressed={active}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
+      <DteQuickFilters
+        quickFilter={filters.quickFilter}
+        onQuickFilter={setQuickFilter}
+        types={filters.types}
+        onToggleType={toggleType}
+      />
 
       <ActiveFilterChips
         filters={filters}
@@ -996,10 +969,14 @@ export function DtesEmitidosClient({
       {filtered.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="Sin documentos"
-          description="No hay DTEs emitidos en este período. Podés emitir uno desde cero o programar facturas recurrentes."
+          title={filters.types.length === 0 ? "Ningún tipo seleccionado" : "Sin documentos"}
+          description={
+            filters.types.length === 0
+              ? "Marcá uno o más tipos de documento (Factura, NC, ND…) para ver el listado."
+              : "No hay DTEs emitidos en este período. Podés emitir uno desde cero o programar facturas recurrentes."
+          }
           action={
-            canManage ? (
+            canManage && filters.types.length > 0 ? (
               <Link href="/finanzas/facturacion/emitir">
                 <Button size="sm">
                   <Plus className="h-4 w-4 mr-1.5" />

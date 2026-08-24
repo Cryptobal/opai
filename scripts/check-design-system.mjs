@@ -1137,6 +1137,7 @@ const MIGRATED_PATHS = [
   "src/components/finance/dtes/LinkedNoteBadge.tsx",
   "src/components/finance/dtes/RelationRow.tsx",
   "src/components/finance/dtes/DtesToolbar.tsx",
+  "src/components/finance/dtes/DteQuickFilters.tsx",
   "src/components/finance/dtes/ActiveFilterChips.tsx",
   "src/components/finance/dtes/FiltersDrawer.tsx",
   "src/components/finance/dtes/DtesEmitidosClient.tsx",

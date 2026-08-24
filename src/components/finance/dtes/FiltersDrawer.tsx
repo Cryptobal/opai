@@ -20,8 +20,6 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
-  DTE_TYPE_LABELS,
-  DTE_TYPE_TAG_VARIANT,
   SII_STATUS_CONFIG,
   buildPeriodOptions,
 } from "./shared/constants";
@@ -92,14 +90,6 @@ export function FiltersDrawer({
 }: Props) {
   const periodOptions = useMemo(() => buildPeriodOptions(36), []);
 
-  const toggleType = (t: number) => {
-    update(
-      "types",
-      filters.types.includes(t)
-        ? filters.types.filter((x) => x !== t)
-        : [...filters.types, t],
-    );
-  };
   const toggleSii = (s: string) => {
     update(
       "siiStatuses",
@@ -124,29 +114,6 @@ export function FiltersDrawer({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-          {/* Tipo de documento */}
-          <section className="space-y-2">
-            <Label className="text-xs font-mono uppercase tracking-wider text-ds-text-4">
-              Tipo de documento
-            </Label>
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(DTE_TYPE_LABELS).map(([k, v]) => {
-                const t = Number(k);
-                const variant = DTE_TYPE_TAG_VARIANT[t] ?? "neutral";
-                return (
-                  <TogglePill
-                    key={k}
-                    active={filters.types.includes(t)}
-                    onClick={() => toggleType(t)}
-                    variant={variant}
-                  >
-                    {v}
-                  </TogglePill>
-                );
-              })}
-            </div>
-          </section>
-
           {/* Estado SII */}
           <section className="space-y-2">
             <Label className="text-xs font-mono uppercase tracking-wider text-ds-text-4">
