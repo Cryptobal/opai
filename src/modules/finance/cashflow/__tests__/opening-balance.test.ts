@@ -155,4 +155,36 @@ describe("resolveOpeningBalance", () => {
       }),
     );
   });
+
+  it("ancla MANUAL: suma el crédito MATCHED con fecha = asOfDate (no lo tira el >)", async () => {
+    findMany.mockResolvedValueOnce([
+      { id: "santander", bankName: "Santander", accountNumber: "1", currentBalance: 0 },
+    ]);
+    findAccountFirst.mockResolvedValueOnce({ currentBalance: 0 });
+    const snapDate = new Date("2026-08-24T00:00:00.000Z");
+    findSnapshots.mockResolvedValueOnce([
+      {
+        asOfDate: snapDate,
+        balance: 24_773_797,
+        source: "MANUAL",
+        createdAt: new Date("2026-08-24T17:47:54.904Z"),
+      },
+    ]);
+    aggregate.mockResolvedValueOnce({
+      _sum: { amount: 24_024_231 },
+      _count: { _all: 1 },
+    });
+
+    const r = await resolveOpeningBalance("t1", new Date("2026-08-25T16:00:00.000Z"));
+    expect(r.currentTotalClp).toBe(24_773_797 + 24_024_231);
+    expect(r.perAccount[0].txDeltaClp).toBe(24_024_231);
+    const where = aggregate.mock.calls[0][0].where;
+    expect(where.transactionDate).toEqual({
+      gte: snapDate,
+      lte: expect.any(Date),
+    });
+    expect(where.hiddenAt).toBeNull();
+    expect(where.reconciliationStatus).toBeUndefined();
+    expect(where.links).toBeUndefined();
+  });
 });

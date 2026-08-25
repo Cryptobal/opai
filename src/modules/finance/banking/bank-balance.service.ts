@@ -18,6 +18,7 @@
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import type { FinanceBalanceSource } from "@prisma/client";
+import { bankTxDateFilterAfterAnchor } from "@/modules/finance/banking/bank-tx-after-anchor";
 
 export interface ResolvedAccountBalance {
   anchorSnapshotDate: Date | null;
@@ -68,8 +69,15 @@ function toLocalDateOnly(date: Date): Date {
 
 /**
  * Resuelve el saldo de una cuenta a una fecha: snapshot más reciente ≤ fecha
- * + Σ movimientos visibles posteriores al snapshot. Sin snapshot, devuelve
- * `currentBalance` (no se puede derivar solo desde movimientos).
+ * + Σ movimientos visibles de cartola (hiddenAt IS NULL).
+ *
+ * IMPORT: transactionDate > asOfDate (el closing ya trae el día del extracto).
+ * MANUAL/CALCULATED: transactionDate ≥ asOfDate — un ancla del mismo día no
+ * puede ocultar un abono ya visible en cartola. MATCHED / DTE borrador no
+ * filtran: la plata del banco no depende de a qué documento se concilió.
+ *
+ * Sin snapshot, devuelve `currentBalance` (no se puede derivar solo desde
+ * movimientos).
  */
 export async function resolveAccountBalanceFromMovements(
   tenantId: string,
@@ -116,7 +124,11 @@ export async function resolveAccountBalanceFromMovements(
       tenantId,
       bankAccountId,
       hiddenAt: null,
-      transactionDate: { gt: anchor.asOfDate, lte: todayDate },
+      transactionDate: bankTxDateFilterAfterAnchor(
+        anchor.asOfDate,
+        todayDate,
+        anchor.source,
+      ),
     },
     _sum: { amount: true },
     _count: { _all: true },

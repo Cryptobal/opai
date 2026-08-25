@@ -1,9 +1,14 @@
+import {
+  includeBankTxAfterAnchor,
+  type BalanceAnchorSource,
+} from "@/modules/finance/banking/bank-tx-after-anchor";
+
 /**
  * Calcula el saldo banco real consolidado a una fecha dada, de forma
  * independiente por bucket (no acumulativa). Para cada cuenta:
  *
  *   snapshot = el más reciente con asOfDate <= atDate
- *   delta    = sum(tx con transactionDate > snapshot.asOfDate AND <= atDate)
+ *   delta    = sum(tx visibles según `includeBankTxAfterAnchor`)
  *   saldo    = snapshot.balance + delta
  *
  * El consolidado suma los saldos de todas las cuentas que tienen snapshot.
@@ -14,9 +19,13 @@
  * porque `opening` ya es el saldo "as of today" (snapshot más reciente + tx
  * posteriores hasta hoy).
  */
+
+export type { BalanceAnchorSource };
+
 export interface BalanceSnapshot {
   asOfDate: Date;
   balance: number;
+  source?: BalanceAnchorSource | null;
 }
 
 export interface BalanceTx {
@@ -49,8 +58,12 @@ export function getRealBankBalanceAt(
     let delta = 0;
     for (const t of txs) {
       if (
-        t.transactionDate.getTime() > anchor.asOfDate.getTime() &&
-        t.transactionDate.getTime() <= atDate.getTime()
+        includeBankTxAfterAnchor({
+          transactionDate: t.transactionDate,
+          anchorAsOfDate: anchor.asOfDate,
+          asOfDate: atDate,
+          anchorSource: anchor.source,
+        })
       ) {
         delta += t.amount;
       }

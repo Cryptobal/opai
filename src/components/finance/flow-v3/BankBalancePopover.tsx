@@ -283,9 +283,10 @@ export function BankBalancePopover({
                     />
                   </div>
                   <p className="text-[12px] leading-snug text-ds-text-3">
-                    Guarda un snapshot a hoy. El saldo de fin de semana queda como{" "}
-                    <span className="text-ds-text-2">banco hoy + pendientes</span>{" "}
-                    (quincena, Previred, IVA, etc. siguen hasta conciliarlos).
+                    Guarda un ancla a hoy. Banco hoy suma encima los movimientos
+                    visibles de cartola con fecha ≥ ancla (un abono ya bancarizado
+                    no se pierde aunque esté MATCHED). El fin de semana queda como{" "}
+                    <span className="text-ds-text-2">banco hoy + pendientes</span>.
                   </p>
                 </>
               )}

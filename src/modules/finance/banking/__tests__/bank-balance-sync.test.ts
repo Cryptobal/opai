@@ -89,6 +89,79 @@ describe("resolveAccountBalanceFromMovements", () => {
     expect(r.resolvedBalanceClp).toBe(17_000_000);
     expect(r.anchorSource).toBe("MANUAL");
   });
+
+  it("ancla MANUAL del mismo día incluye el abono MATCHED de cartola (gte)", async () => {
+    findAccount.mockResolvedValueOnce({ currentBalance: 24_773_797 });
+    const snapDate = new Date("2026-08-24T00:00:00.000Z");
+    findSnapshots.mockResolvedValueOnce([
+      {
+        asOfDate: snapDate,
+        balance: 24_773_797,
+        source: "MANUAL",
+        createdAt: new Date("2026-08-24T17:47:54.904Z"),
+      },
+    ]);
+    aggregate.mockResolvedValueOnce({
+      _sum: { amount: 24_024_231 },
+      _count: { _all: 1 },
+    });
+
+    const r = await resolveAccountBalanceFromMovements(
+      "t1",
+      "a1",
+      new Date("2026-08-25T12:00:00.000Z"),
+    );
+    expect(r.resolvedBalanceClp).toBe(24_773_797 + 24_024_231);
+    expect(r.txDeltaClp).toBe(24_024_231);
+    expect(aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          hiddenAt: null,
+          transactionDate: {
+            gte: snapDate,
+            lte: expect.any(Date),
+          },
+        }),
+      }),
+    );
+    const where = aggregate.mock.calls[0][0].where;
+    expect(where).not.toHaveProperty("reconciliationStatus");
+    expect(where).not.toHaveProperty("links");
+  });
+
+  it("ancla IMPORT del mismo día no duplica el closing (gt)", async () => {
+    findAccount.mockResolvedValueOnce({ currentBalance: 0 });
+    const snapDate = new Date("2026-08-24T00:00:00.000Z");
+    findSnapshots.mockResolvedValueOnce([
+      {
+        asOfDate: snapDate,
+        balance: 24_773_797,
+        source: "IMPORT",
+        createdAt: new Date("2026-08-24T12:00:00.000Z"),
+      },
+    ]);
+    aggregate.mockResolvedValueOnce({
+      _sum: { amount: 0 },
+      _count: { _all: 0 },
+    });
+
+    await resolveAccountBalanceFromMovements(
+      "t1",
+      "a1",
+      new Date("2026-08-25T12:00:00.000Z"),
+    );
+    expect(aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          hiddenAt: null,
+          transactionDate: {
+            gt: snapDate,
+            lte: expect.any(Date),
+          },
+        }),
+      }),
+    );
+  });
 });
 
 describe("syncCurrentBalanceFromMovements", () => {

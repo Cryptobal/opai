@@ -2162,14 +2162,18 @@ export async function buildProjection(
           asOfDate: { lte: range.to },
         },
         orderBy: { asOfDate: "asc" },
-        select: { bankAccountId: true, asOfDate: true, balance: true },
+        select: { bankAccountId: true, asOfDate: true, balance: true, source: true },
       })
     : [];
 
   const snapshotsByAccount = new Map<string, BalanceSnapshot[]>();
   for (const s of allSnapshots) {
     const arr = snapshotsByAccount.get(s.bankAccountId) ?? [];
-    arr.push({ asOfDate: s.asOfDate, balance: Number(s.balance) });
+    arr.push({
+      asOfDate: s.asOfDate,
+      balance: Number(s.balance),
+      source: s.source,
+    });
     snapshotsByAccount.set(s.bankAccountId, arr);
   }
 
@@ -2186,7 +2190,7 @@ export async function buildProjection(
           tenantId,
           bankAccountId: { in: accountIds },
           hiddenAt: null,
-          transactionDate: { gt: minTxDate, lte: range.to },
+          transactionDate: { gte: minTxDate, lte: range.to },
         },
         select: { bankAccountId: true, transactionDate: true, amount: true },
         orderBy: { transactionDate: "asc" },

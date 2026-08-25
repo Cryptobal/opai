@@ -110,12 +110,31 @@ describe("getRealBankBalanceAt", () => {
     ).toBe(1_000_000 + 200_000 + 500_000 - 50_000);
   });
 
-  it("tx exactamente en la fecha del snapshot no se cuenta (uso de >, no >=)", () => {
-    const snaps = snapsOf({ asOfDate: new Date("2026-05-01"), balance: 100_000 });
+  it("tx exactamente en la fecha del snapshot IMPORT no se cuenta (cierre de cartola)", () => {
+    const snaps = snapsOf({
+      asOfDate: new Date("2026-05-01"),
+      balance: 100_000,
+      source: "IMPORT",
+    });
     const txs = txsOf({ transactionDate: new Date("2026-05-01"), amount: 999_999 });
     expect(
       getRealBankBalanceAt(new Date("2026-05-13"), accountIds, snaps, txs),
     ).toBe(100_000);
+  });
+
+  it("tx MATCHED del mismo día que un ancla MANUAL sí cuenta (no se pierde la cartola)", () => {
+    const snaps = snapsOf({
+      asOfDate: new Date("2026-08-24"),
+      balance: 24_773_797,
+      source: "MANUAL",
+    });
+    const txs = txsOf({
+      transactionDate: new Date("2026-08-24"),
+      amount: 24_024_231,
+    });
+    expect(
+      getRealBankBalanceAt(new Date("2026-08-25"), accountIds, snaps, txs),
+    ).toBe(24_773_797 + 24_024_231);
   });
 
   it("tx exactamente en atDate sí se cuenta (uso de <=)", () => {
