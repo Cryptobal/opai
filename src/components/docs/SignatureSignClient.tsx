@@ -11,6 +11,7 @@ import { SignatureCanvas } from "./SignatureCanvas";
 import { SignatureUpload } from "./SignatureUpload";
 import { promptDialog } from "@/components/ui/confirm-service";
 import { DocumentShareButton } from "@/components/shared/DocumentShareButton";
+import { signatureMethodLabel } from "@/lib/docs/signature-method-label";
 
 interface SignatureSignClientProps {
   token: string;
@@ -40,6 +41,7 @@ type SignApiResponse = {
         role: string;
         status: string;
         signingOrder: number;
+        signatureMethod?: string | null;
       }>;
     };
     document: {
@@ -229,6 +231,14 @@ export function SignatureSignClient({ token }: SignatureSignClientProps) {
           <p className="text-xs text-muted-foreground">
             Firmante: {data.recipient.name} ({data.recipient.email})
           </p>
+          <ul className="text-xs text-muted-foreground space-y-1">
+            {data.request.recipients.filter((r) => r.role === "signer").map((r, i) => (
+              <li key={i}>
+                {r.name}: {r.status}
+                {r.signatureMethod === "stamped" ? ` · ${signatureMethodLabel("stamped")}` : ""}
+              </li>
+            ))}
+          </ul>
           {!data.request.canSign ? (
             <p className="text-sm text-status-warn-fg">
               Aún no puedes firmar: hay firmantes previos pendientes.

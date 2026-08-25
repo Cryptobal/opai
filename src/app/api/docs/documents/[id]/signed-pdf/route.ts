@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { resolveDocumentContentForDisplay } from "@/lib/docs/resolve-document-content";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { signatureMethodLabel } from "@/lib/docs/signature-method-label";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -228,7 +229,7 @@ function buildPdfHtml(input: {
         </div>
         <div style="font-size:11px;color:#64748b;text-align:right">
           ${fmtDate(s.signedAt)}<br/>
-          ${s.signatureMethod === "typed" ? "Nombre escrito" : s.signatureMethod === "drawn" ? "Firma dibujada" : "Imagen subida"}
+          ${signatureMethodLabel(s.signatureMethod)}
         </div>
       </div>
       ${sigBlock}
@@ -243,7 +244,7 @@ function buildPdfHtml(input: {
       </td>
       <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#334155">
         ${fmtDate(s.signedAt)}<br/>
-        <span style="color:#64748b;font-size:11px">${s.signatureMethod === "typed" ? "Nombre escrito" : s.signatureMethod === "drawn" ? "Firma dibujada" : "Imagen subida"}</span>
+        <span style="color:#64748b;font-size:11px">${signatureMethodLabel(s.signatureMethod)}</span>
       </td>
       <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#64748b;font-size:11px;word-break:break-all">
         ${s.ipAddress ? esc(s.ipAddress) : "—"}

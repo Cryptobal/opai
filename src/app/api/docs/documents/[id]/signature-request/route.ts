@@ -9,17 +9,18 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { createSignatureRequestSchema } from "@/lib/validations/docs";
-import { canDelete } from "@/lib/permissions";
+import { canDelete, canEdit } from "@/lib/permissions";
 import type { RolePermissions } from "@/lib/permissions";
-import { sendSignatureRequestEmail } from "@/lib/docs-signature-email";
-import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { notifyDueSigners } from "@/lib/docs/laborales/notify-due-signers";
 
 function forbidden() {
   return NextResponse.json({ success: false, error: "No autorizado para esta acción" }, { status: 403 });
 }
 
-function canManageSignatureRequest(perms: RolePermissions) {
-  return canDelete(perms, "docs", "gestion");
+function canManageSignatureRequest(perms: RolePermissions, documentModule?: string | null) {
+  if (canDelete(perms, "docs", "gestion")) return true;
+  if (documentModule === "laboral" && canEdit(perms, "docs", "laborales")) return true;
+  return false;
 }
 
 function buildSignatureSummary(recipients: Array<{ name: string; email: string; rut: string | null }>, requestId: string) {
@@ -44,18 +45,18 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-    if (!canManageSignatureRequest(perms)) return forbidden();
-
     const { id } = await params;
     const document = await prisma.document.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, module: true },
     });
 
     if (!document) {
       return NextResponse.json({ success: false, error: "Documento no encontrado" }, { status: 404 });
     }
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canManageSignatureRequest(perms, document.module)) return forbidden();
 
     const requests = await prisma.docSignatureRequest.findMany({
       where: { documentId: id, tenantId: ctx.tenantId },
@@ -93,21 +94,21 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-    if (!canManageSignatureRequest(perms)) return forbidden();
-
     const { id } = await params;
     const parsed = await parseBody(request, createSignatureRequestSchema);
     if (parsed.error) return parsed.error;
 
     const document = await prisma.document.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true, title: true, signatureStatus: true },
+      select: { id: true, title: true, signatureStatus: true, module: true },
     });
 
     if (!document) {
       return NextResponse.json({ success: false, error: "Documento no encontrado" }, { status: 404 });
     }
+
+    const perms = await resolveApiPerms(ctx);
+    if (!canManageSignatureRequest(perms, document.module)) return forbidden();
 
     const activeRequest = await prisma.docSignatureRequest.findFirst({
       where: {
@@ -168,6 +169,7 @@ export async function POST(
         rut: r.rut ?? null,
         role: r.role,
         signingOrder: r.signingOrder,
+        autoStamp: Boolean(r.autoStamp),
         status: "pending",
       }));
 
@@ -210,43 +212,12 @@ export async function POST(
     });
 
     if (created) {
-      const siteUrl = getCanonicalSiteUrl();
-      // En "parallel" enviamos a TODOS los firmantes en simultáneo; en
-      // "sequential" solo al firmante con menor signingOrder (resto se
-      // dispara cuando el anterior firma, en /api/docs/sign/[token]).
-      let recipientsToSend: typeof created.recipients;
-      if (created.signingMode === "parallel") {
-        recipientsToSend = created.recipients.filter((r) => r.role === "signer");
-      } else {
-        const signerOrders = created.recipients
-          .filter((r) => r.role === "signer")
-          .map((r) => r.signingOrder);
-        const activeOrder = Math.min(...signerOrders);
-        recipientsToSend = created.recipients.filter(
-          (r) => r.role === "signer" && r.signingOrder === activeOrder
-        );
-      }
-
-      for (const recipient of recipientsToSend) {
-        const signingUrl = `${siteUrl}/sign/${recipient.token}`;
-        const result = await sendSignatureRequestEmail({
-          to: recipient.email,
-          recipientName: recipient.name,
-          documentTitle: document.title,
-          signingUrl,
-          senderName: "OPAI",
-          expiresAt: created.expiresAt ? created.expiresAt.toISOString() : null,
-          message: created.message,
-        });
-
-        await prisma.docSignatureRecipient.update({
-          where: { id: recipient.id },
-          data: {
-            sentAt: new Date(),
-            status: result.ok ? "sent" : recipient.status,
-          },
-        });
-      }
+      await notifyDueSigners({
+        requestId: created.id,
+        tenantId: ctx.tenantId,
+        documentTitle: document.title,
+        createdBy: ctx.userId,
+      });
     }
 
     return NextResponse.json(

@@ -128,6 +128,7 @@ const signatureRecipientInputSchema = z.object({
   rut: z.string().max(20).optional().nullable(),
   role: signatureRecipientRoleSchema.default("signer"),
   signingOrder: z.number().int().min(1).default(1),
+  autoStamp: z.boolean().optional().default(false),
 });
 
 export const signingModeSchema = z.enum(["sequential", "parallel"]);
@@ -474,6 +475,11 @@ export const updateLaboralScopeSchema = z.object({
 
 export const replaceLaboralSignersSchema = z.object({
   signers: z.array(laboralTemplateSignerSchema).min(1),
+});
+
+export const sendLaboralSchema = z.object({
+  templateId: uuid,
+  preview: z.boolean().optional(),
 });
 
 export const createLaboralCampaignSchema = z.object({
