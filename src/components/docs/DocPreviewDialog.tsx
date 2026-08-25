@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, type ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ interface DocPreviewDialogProps {
   onOpenChange: (open: boolean) => void;
   content: unknown;
   pageType?: PageType;
+  headerExtra?: ReactNode;
 }
 
 /** Normaliza el contenido: puede venir como doc directo o dentro de { content } */
@@ -45,6 +46,7 @@ export function DocPreviewDialog({
   onOpenChange,
   content,
   pageType = "a4",
+  headerExtra,
 }: DocPreviewDialogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const normalized = normalizeContent(content);
@@ -64,8 +66,9 @@ export function DocPreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[95vw] sm:max-w-[95vw] sm:w-[95vw] max-h-[90vh] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle className="flex items-center justify-between gap-3">
             <span>Vista previa del documento</span>
+            {headerExtra}
             <span className="text-sm font-normal text-muted-foreground">
               Formato: {size.label}
             </span>

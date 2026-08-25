@@ -5,9 +5,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireAuth, unauthorized, parseBody, resolveApiPerms } from "@/lib/api-auth";
 import { resolveTokensSchema } from "@/lib/validations/docs";
 import { resolveDocument, type EntityData } from "@/lib/docs/token-resolver";
+import { loadGuardiaPreviewEntities } from "@/lib/docs/laborales/preview-entities";
+import { canView } from "@/lib/permissions";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,11 +19,21 @@ export async function POST(request: NextRequest) {
     const parsed = await parseBody(request, resolveTokensSchema);
     if (parsed.error) return parsed.error;
 
-    const { content, accountId, contactId, installationId, dealId, quoteId } =
+    const { content, accountId, contactId, installationId, dealId, quoteId, guardiaId } =
       parsed.data;
 
+    if (guardiaId) {
+      const perms = await resolveApiPerms(ctx);
+      if (!canView(perms, "ops", "guardias") || !canView(perms, "docs")) {
+        return NextResponse.json(
+          { success: false, error: "Sin permisos para previsualizar con datos de un guardia" },
+          { status: 403 },
+        );
+      }
+    }
+
     // Fetch all entities in parallel
-    const [account, contact, installation, deal, quote] = await Promise.all([
+    const [account, contact, installation, deal, quote, guardiaEntities] = await Promise.all([
       accountId
         ? prisma.crmAccount.findFirst({
             where: { id: accountId, tenantId: ctx.tenantId },
@@ -48,14 +60,24 @@ export async function POST(request: NextRequest) {
             where: { id: quoteId, tenantId: ctx.tenantId },
           })
         : null,
+      guardiaId ? loadGuardiaPreviewEntities(ctx.tenantId, guardiaId) : null,
     ]);
+
+    if (guardiaId && !guardiaEntities) {
+      return NextResponse.json(
+        { success: false, error: "Guardia no encontrado" },
+        { status: 404 },
+      );
+    }
 
     const entities: EntityData = {
       account: account as any,
       contact: contact as any,
-      installation: installation as any,
+      installation: (installation ?? guardiaEntities?.installation) as any,
       deal: deal as any,
       quote: quote as any,
+      empresa: guardiaEntities?.empresa,
+      guardia: guardiaEntities?.guardia,
     };
 
     const { resolvedContent, tokenValues } = resolveDocument(content, entities);

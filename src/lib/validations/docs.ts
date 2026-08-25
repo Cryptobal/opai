@@ -96,6 +96,7 @@ export const resolveTokensSchema = z.object({
   installationId: z.string().uuid().optional(),
   dealId: z.string().uuid().optional(),
   quoteId: z.string().uuid().optional(),
+  guardiaId: z.string().uuid().optional(),
 });
 
 // ── Digital signature schemas ─────────────────────────────────
@@ -481,8 +482,4 @@ export const createLaboralCampaignSchema = z.object({
   audience: z.enum(["all_active", "installations", "manual"]),
   installationIds: z.array(uuid).optional(),
   guardiaIds: z.array(uuid).optional(),
-});
-
-export const resolveTokensSchemaExtended = resolveTokensSchema.extend({
-  guardiaId: uuid.optional(),
 });

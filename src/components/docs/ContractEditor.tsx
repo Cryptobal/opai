@@ -10,7 +10,6 @@ import Highlight from "@tiptap/extension-highlight";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 import { Table } from "@tiptap/extension-table";
-import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import Image from "@tiptap/extension-image";
@@ -19,10 +18,14 @@ import { PageBreak } from "./PageBreakExtension";
 import { Columns, Column, ColumnsCommands } from "./ColumnsExtension";
 import { TokenSuggestionExtension } from "./TokenSuggestionExtension";
 import { HeadingClause } from "./HeadingClauseExtension";
+import { ConditionalBlock, ConditionalBranch } from "./ConditionalBlockExtension";
+import { ConditionalTableRow } from "./ConditionalTableRow";
 import { EditorToolbar } from "./EditorToolbar";
+import { ConditionBuilderDialog, type ConditionDraft } from "./ConditionBuilderDialog";
 import { ClauseBubbleMenu } from "./editor/ClauseBubbleMenu";
 import { findDuplicateClauseIds } from "./editor/clause-utils-client";
 import { DocPreviewDialog, type PageType } from "./DocPreviewDialog";
+import { GuardiaSearchInput } from "@/components/ops/GuardiaSearchInput";
 import { SIGNER_TOKEN_COLORS } from "@/lib/docs/signature-token-colors";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import "./editor/editor-styles.css";
@@ -92,6 +95,12 @@ export function ContractEditor({
   // Users can switch to A4/Carta/Oficio if they want page-width editing.
   const [pageType, setPageType] = useState<PageType>("auto");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [conditionOpen, setConditionOpen] = useState(false);
+  const [conditionMode, setConditionMode] = useState<"block" | "row">("block");
+  const [conditionInitial, setConditionInitial] = useState<ConditionDraft | null>(null);
+  const [previewGuardia, setPreviewGuardia] = useState("");
+  const [previewGuardiaId, setPreviewGuardiaId] = useState<string | null>(null);
+  const [previewContent, setPreviewContent] = useState<unknown>(null);
   const isInternalUpdate = useRef(false);
   const editor = useEditor(
     {
@@ -127,9 +136,11 @@ export function ContractEditor({
       Table.configure({
         resizable: true,
       }),
-      TableRow,
+      ConditionalTableRow,
       TableCell,
       TableHeader,
+      ConditionalBlock,
+      ConditionalBranch,
       ContractToken,
       PageBreak,
       Column,
@@ -235,6 +246,68 @@ export function ContractEditor({
     [editor]
   );
 
+  useEffect(() => {
+    if (!editor) return;
+    editor.storage.conditionalBlock = {
+      onEdit: (attrs: Record<string, unknown>) => {
+        setConditionMode("block");
+        setConditionInitial({
+          field: String(attrs.field ?? ""),
+          op: (attrs.op as ConditionDraft["op"]) || "truthy",
+          value: attrs.value != null ? String(attrs.value) : "",
+          hasElse: Boolean(attrs.hasElse),
+        });
+        setConditionOpen(true);
+      },
+    };
+  }, [editor]);
+
+  const applyCondition = (draft: ConditionDraft) => {
+    if (!editor) return;
+    if (conditionMode === "row") {
+      editor.commands.updateAttributes("tableRow", {
+        condition: { field: draft.field, op: draft.op, value: draft.value ?? "" },
+      });
+      return;
+    }
+    if (editor.isActive("conditionalBlock")) {
+      editor.commands.updateAttributes("conditionalBlock", {
+        field: draft.field,
+        op: draft.op,
+        value: draft.value,
+        hasElse: draft.hasElse,
+      });
+      return;
+    }
+    editor.chain().focus().insertConditionalBlock({
+      field: draft.field,
+      op: draft.op,
+      value: draft.value,
+      hasElse: draft.hasElse,
+    }).run();
+  };
+
+  const openPreview = async () => {
+    if (!editor) return;
+    const json = editor.getJSON();
+    if (previewGuardiaId) {
+      try {
+        const res = await fetch("/api/docs/resolve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: json, guardiaId: previewGuardiaId }),
+        });
+        const data = await res.json();
+        setPreviewContent(data.success ? data.data.resolvedContent : json);
+      } catch {
+        setPreviewContent(json);
+      }
+    } else {
+      setPreviewContent(json);
+    }
+    setPreviewOpen(true);
+  };
+
   if (!editor) return null;
 
   // compact (correo): sin marco — el host (EmailComposer) ya aporta la
@@ -265,9 +338,19 @@ export function ContractEditor({
               pageType={pageType}
               onPageTypeChange={setPageType}
               onPreview={() => {
-                setPreviewOpen(true);
+                void openPreview();
               }}
               showPreview={showPagePreview}
+              onInsertCondition={() => {
+                setConditionMode("block");
+                setConditionInitial(null);
+                setConditionOpen(true);
+              }}
+              onRowCondition={() => {
+                setConditionMode("row");
+                setConditionInitial(null);
+                setConditionOpen(true);
+              }}
             />
           )}
         </div>
@@ -300,10 +383,30 @@ export function ContractEditor({
         <DocPreviewDialog
           open={previewOpen}
           onOpenChange={setPreviewOpen}
-          content={editor.getJSON()}
+          content={previewContent ?? editor.getJSON()}
           pageType={pageType}
+          headerExtra={
+            <div className="w-full max-w-sm">
+              <GuardiaSearchInput
+                value={previewGuardia}
+                placeholder="Previsualizar como guardia…"
+                onChange={(patch) => {
+                  setPreviewGuardia(patch.guardiaNombre);
+                  setPreviewGuardiaId(patch.guardiaId ?? null);
+                }}
+              />
+            </div>
+          }
         />
       )}
+
+      <ConditionBuilderDialog
+        open={conditionOpen}
+        onOpenChange={setConditionOpen}
+        initial={conditionInitial}
+        allowElse={conditionMode === "block"}
+        onApply={applyCondition}
+      />
 
       {/* Token Styles — alineados al tema oscuro */}
       <style jsx global>{`
@@ -419,6 +522,31 @@ export function ContractEditor({
         }
         .ProseMirror-focused .columns-column {
           border: 1px dashed hsl(var(--border));
+        }
+        .ProseMirror .conditional-block {
+          border: 1px solid hsl(var(--tint-violet-fg) / 0.3);
+          border-radius: 12px;
+        }
+        .ProseMirror .conditional-branch::before {
+          display: block;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: hsl(var(--tint-violet-fg));
+          margin-bottom: 0.35rem;
+        }
+        .ProseMirror .conditional-branch[data-branch="if"]::before {
+          content: "Entonces";
+        }
+        .ProseMirror .conditional-branch[data-branch="else"]::before {
+          content: "Si no";
+        }
+        .ProseMirror tr[data-row-condition] {
+          background: hsl(var(--tint-violet) / 0.55);
+        }
+        .ProseMirror tr[data-row-condition]::after {
+          content: "solo si";
         }
       `}</style>
     </div>
