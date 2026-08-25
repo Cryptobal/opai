@@ -241,6 +241,28 @@ describe("asignación vs sin visita", () => {
     expect(
       emptyKind({ hasVisit: false, assigned: false, unexecutedRow: false, cell: past, today }),
     ).toBe("none");
+    expect(
+      emptyKind({
+        hasVisit: false,
+        assigned: true,
+        unexecutedRow: true,
+        expected: false,
+        cell: past,
+        today,
+      }),
+    ).toBe("none");
+  });
+
+  it("en filtro Noche, un sitio sin exigencia nocturna no se marca como sin ejecución", () => {
+    const view = buildGrillaView(payload(), "night");
+    const bodega = view.rows.find((r) => r.installation.id === "inst-b")!;
+    const mall = view.rows.find((r) => r.installation.id === "inst-a")!;
+    expect(bodega.installation.nocturnoEnabled).toBe(false);
+    expect(bodega.unexecuted).toBe(false);
+    expect(bodega.cells[10].empty).toBe("none");
+    expect(mall.installation.nocturnoEnabled).toBe(true);
+    expect(mall.unexecuted).toBe(true);
+    expect(mall.cells[10].empty).toBe("missed");
   });
 });
 

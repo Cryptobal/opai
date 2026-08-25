@@ -257,17 +257,26 @@ export function assignmentCoversDay(
   return windows.some((w) => ymd >= w.start && (w.end == null || ymd <= w.end));
 }
 
+/** En filtro Noche, solo los sitios con exigencia nocturna “debían” ir. */
+export function shiftIsExpected(
+  nocturnoEnabled: boolean,
+  shift: ShiftFilter,
+): boolean {
+  return shift !== "night" || nocturnoEnabled;
+}
+
 export function emptyKind(opts: {
   hasVisit: boolean;
   assigned: boolean;
   unexecutedRow: boolean;
+  expected?: boolean;
   cell: ChileYmd;
   today: ChileYmd;
 }): EmptyKind {
   if (opts.hasVisit) return "none";
   const vsToday = compareYmd(opts.cell, opts.today);
   if (vsToday > 0) return "future";
-  if (!opts.assigned) return "none";
+  if (!opts.assigned || opts.expected === false) return "none";
   if (opts.unexecutedRow) return "missed";
   return "idle";
 }
@@ -381,7 +390,8 @@ export function buildGrillaView(
       (v) => v.installationId === installation.id && v.shift === "night",
     );
     const missingNight = installation.nocturnoEnabled && nightVisitsAll.length === 0;
-    const unexecuted = visits.length === 0;
+    const expected = shiftIsExpected(installation.nocturnoEnabled, shift);
+    const unexecuted = visits.length === 0 && expected;
 
     const cells: Record<number, GrillaCellView> = {};
     for (let day = 1; day <= data.daysInMonth; day++) {
@@ -404,6 +414,7 @@ export function buildGrillaView(
           hasVisit: dayVisits.length > 0,
           assigned,
           unexecutedRow: unexecuted,
+          expected,
           cell: { year: data.year, month: data.month, day },
           today: data.today,
         }),
