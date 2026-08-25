@@ -4,7 +4,9 @@ import {
   canCancelHireFromCounts,
   computeFiniquitoSettlement,
   isAllowedLifecycleTransition,
+  isCancelledHireRecord,
   isClosingInstallationStatus,
+  isSignedLaborContractDocument,
   validateHireContractFields,
 } from "@/lib/personas-lifecycle";
 
@@ -31,7 +33,7 @@ describe("canCancelHireFromCounts", () => {
   it("es elegible si está contratado y no hay trabajo registrado", () => {
     expect(
       canCancelHireFromCounts({ lifecycleStatus: "contratado", marcaciones: 0, liquidaciones: 0 }),
-    ).toEqual({ eligible: true, reason: null });
+    ).toEqual({ eligible: true, reason: null, code: null });
   });
 
   it("rechaza si hay marcaciones o liquidaciones", () => {
@@ -39,14 +41,74 @@ describe("canCancelHireFromCounts", () => {
       canCancelHireFromCounts({ lifecycleStatus: "contratado", marcaciones: 1, liquidaciones: 0 }).eligible,
     ).toBe(false);
     expect(
-      canCancelHireFromCounts({ lifecycleStatus: "contratado", marcaciones: 0, liquidaciones: 2 }).eligible,
-    ).toBe(false);
+      canCancelHireFromCounts({ lifecycleStatus: "contratado", marcaciones: 0, liquidaciones: 2 }).code,
+    ).toBe("has_work");
+  });
+
+  it("rechaza si hay contrato laboral firmado aunque no haya trabajado", () => {
+    const result = canCancelHireFromCounts({
+      lifecycleStatus: "contratado",
+      marcaciones: 0,
+      liquidaciones: 0,
+      signedLaborContracts: 1,
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.code).toBe("signed_contract");
+    expect(result.reason).toMatch(/contrato laboral firmado/i);
   });
 
   it("rechaza otros estados", () => {
     expect(
-      canCancelHireFromCounts({ lifecycleStatus: "seleccionado", marcaciones: 0, liquidaciones: 0 }).eligible,
+      canCancelHireFromCounts({ lifecycleStatus: "seleccionado", marcaciones: 0, liquidaciones: 0 }).code,
+    ).toBe("not_contratado");
+  });
+});
+
+describe("isSignedLaborContractDocument", () => {
+  it("solo cuenta contrato_laboral firmado", () => {
+    expect(
+      isSignedLaborContractDocument({
+        category: "contrato_laboral",
+        signatureStatus: "completed",
+        signedAt: null,
+      }),
+    ).toBe(true);
+    expect(
+      isSignedLaborContractDocument({
+        category: "contrato_laboral",
+        signatureStatus: "external",
+        signedAt: null,
+      }),
+    ).toBe(true);
+    expect(
+      isSignedLaborContractDocument({
+        category: "contrato_laboral",
+        signatureStatus: "pending",
+        signedAt: "2026-08-01",
+      }),
+    ).toBe(true);
+    expect(
+      isSignedLaborContractDocument({
+        category: "contrato_laboral",
+        signatureStatus: "pending",
+        signedAt: null,
+      }),
     ).toBe(false);
+    expect(
+      isSignedLaborContractDocument({
+        category: "anexo_contrato",
+        signatureStatus: "completed",
+        signedAt: null,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("isCancelledHireRecord", () => {
+  it("reconoce anulación vs finiquito", () => {
+    expect(isCancelledHireRecord({ terminationReason: CANCEL_HIRE_REASON })).toBe(true);
+    expect(isCancelledHireRecord({ terminationReason: "Finiquito" })).toBe(false);
+    expect(isCancelledHireRecord({ terminationReason: null })).toBe(false);
   });
 });
 

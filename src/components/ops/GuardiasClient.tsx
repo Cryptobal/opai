@@ -564,7 +564,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             : row
         )
       );
-      toast.success("Estado laboral actualizado");
+      toast.success(
+        extra?.reason === CANCEL_HIRE_REASON
+          ? "Guardia inactivado sin finiquito"
+          : "Estado laboral actualizado",
+      );
       setContractDateModal(null);
       setCancelHireModal(null);
     } catch (error) {
@@ -596,6 +600,28 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       reason: CANCEL_HIRE_REASON,
       cancelHireNote: noteLabel,
     });
+  };
+
+  const handleOpenCancelHire = async (item: GuardiaItem) => {
+    setUpdatingId(item.id);
+    try {
+      const response = await fetch(`/api/personas/guardias/${item.id}/cancel-hire`);
+      const payload = await response.json();
+      if (!payload?.data?.eligible) {
+        toast.error(
+          payload?.data?.reason ??
+            "No se puede inactivar sin finiquito. Si hay contrato firmado o trabajo registrado, usa Eventos → Finiquito.",
+        );
+        return;
+      }
+      setCancelHireNote("sspp");
+      setCancelHireModal(item);
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo verificar si se puede inactivar sin contrato");
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const handleOpenPublicPostulacion = async () => {
@@ -1008,9 +1034,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
         <Dialog open={!!cancelHireModal} onOpenChange={(open) => !open && setCancelHireModal(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Anular contratación</DialogTitle>
+              <DialogTitle>Inactivar sin contrato</DialogTitle>
               <DialogDescription>
-                Pasa a inactivo sin finiquito. Solo si la persona nunca inició. Si ya hay marcaciones o liquidaciones, el sistema lo bloqueará.
+                Pasa a inactivo sin finiquito. Solo si no hay contrato laboral firmado ni trabajo registrado. La ficha se conserva.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-1.5">
@@ -1028,7 +1054,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setCancelHireModal(null)}>Cancelar</Button>
               <Button onClick={handleConfirmCancelHire} disabled={updatingId === cancelHireModal?.id}>
-                {updatingId === cancelHireModal?.id ? "Guardando..." : "Anular contratación"}
+                {updatingId === cancelHireModal?.id ? "Guardando..." : "Inactivar"}
               </Button>
             </div>
           </DialogContent>
@@ -1138,12 +1164,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setCancelHireNote("sspp");
-                                    setCancelHireModal(item);
+                                    void handleOpenCancelHire(item);
                                   }}
                                   disabled={updatingId === item.id}
                                 >
-                                  Anular contratación
+                                  Inactivar sin contrato
                                 </DropdownMenuItem>
                               )}
                               {getLifecycleTransitions(item.lifecycleStatus).length === 0 &&
@@ -1317,12 +1342,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setCancelHireNote("sspp");
-                                    setCancelHireModal(item);
+                                    void handleOpenCancelHire(item);
                                   }}
                                   disabled={updatingId === item.id}
                                 >
-                                  Anular contratación
+                                  Inactivar sin contrato
                                 </DropdownMenuItem>
                               )}
                               {getLifecycleTransitions(item.lifecycleStatus).length === 0 &&

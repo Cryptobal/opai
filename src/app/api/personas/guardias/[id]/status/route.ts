@@ -34,7 +34,13 @@ export async function PATCH(
 
     const existing = await prisma.opsGuardia.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true, lifecycleStatus: true, hiredAt: true, terminatedAt: true },
+      select: {
+        id: true,
+        lifecycleStatus: true,
+        hiredAt: true,
+        terminatedAt: true,
+        terminationReason: true,
+      },
     });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
@@ -51,7 +57,7 @@ export async function PATCH(
         {
           success: false,
           error: needsFiniquito
-            ? "Un guardia contratado solo puede pasar a inactivo por finiquito o anulando la contratación si nunca inició."
+            ? "Un guardia contratado solo puede inactivarse sin finiquito si no hay contrato firmado ni trabajo registrado. Si ya firmó o trabajó, registra un finiquito."
             : "Transición de estado no permitida",
         },
         { status: 400 },
@@ -77,10 +83,17 @@ export async function PATCH(
       }
     }
 
-    // Contratado requiere effectiveAt: nuevo contrato (!hiredAt) o recontratación (inactivo con finiquito)
+    const fromInactivoToContratado =
+      existing.lifecycleStatus === "inactivo" && body.lifecycleStatus === "contratado";
+    const isHireAfterCancel =
+      fromInactivoToContratado && existing.terminationReason === CANCEL_HIRE_REASON;
+    const isRecontratar =
+      fromInactivoToContratado && Boolean(existing.terminatedAt) && !isHireAfterCancel;
+
+    // Contratado requiere effectiveAt: nuevo contrato, recontratación o alta tras anulación
     const needsContractDate =
       body.lifecycleStatus === "contratado" &&
-      (!existing.hiredAt || (existing.lifecycleStatus === "inactivo" && existing.terminatedAt));
+      (!existing.hiredAt || isRecontratar || isHireAfterCancel);
     if (needsContractDate && !body.effectiveAt) {
       return NextResponse.json(
         { success: false, error: "Fecha de inicio de contrato (effectiveAt) es requerida" },
@@ -114,10 +127,9 @@ export async function PATCH(
     }
 
     const updated = await prisma.$transaction(async (tx) => {
-      const isRecontratar = body.lifecycleStatus === "contratado" && existing.lifecycleStatus === "inactivo" && existing.terminatedAt;
       const writingContract =
         body.lifecycleStatus === "contratado" &&
-        (!existing.hiredAt || isRecontratar || body.contractType || body.contractStartDate);
+        (!existing.hiredAt || isRecontratar || isHireAfterCancel || body.contractType || body.contractStartDate);
 
       const contractStart = body.contractStartDate
         ? parseDateOnly(body.contractStartDate)
@@ -131,19 +143,21 @@ export async function PATCH(
           lifecycleStatus: body.lifecycleStatus,
           status: lifecycleToLegacyStatus(body.lifecycleStatus),
           hiredAt:
-            body.lifecycleStatus === "contratado" && (!existing.hiredAt || isRecontratar)
+            body.lifecycleStatus === "contratado" &&
+            (!existing.hiredAt || isRecontratar || isHireAfterCancel)
               ? effectiveAt
               : body.lifecycleStatus === "contratado"
                 ? existing.hiredAt
                 : undefined,
+          // Anulación no es finiquito: no llenar terminatedAt (si no, la pauta lo marca como finiquitado).
           terminatedAt: isCancelHire
-            ? cancelHireAsOf
-            : body.lifecycleStatus === "contratado" && isRecontratar
+            ? null
+            : body.lifecycleStatus === "contratado" && (isRecontratar || isHireAfterCancel)
               ? null
               : undefined,
           terminationReason: isCancelHire
             ? CANCEL_HIRE_REASON
-            : body.lifecycleStatus === "contratado" && isRecontratar
+            : body.lifecycleStatus === "contratado" && (isRecontratar || isHireAfterCancel)
               ? null
               : undefined,
           ...(writingContract

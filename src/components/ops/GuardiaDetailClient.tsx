@@ -14,6 +14,7 @@ import {
   Clock,
   DollarSign,
   FileText,
+  FileWarning,
   Fingerprint,
   History,
   Loader2,
@@ -59,8 +60,10 @@ import {
   CANCEL_HIRE_NOTE_OPTIONS,
   CANCEL_HIRE_REASON,
   EMPTY_HIRE_CONTRACT,
+  isCancelledHireRecord,
   toHireContractApiPayload,
   validateHireContractFields,
+  type CancelHireEligibility,
   type HireContractFields as HireContractValue,
 } from "@/lib/personas-lifecycle";
 import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
@@ -165,6 +168,7 @@ type GuardiaDetail = {
   };
   hiredAt?: string | null;
   terminatedAt?: string | null;
+  terminationReason?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   availableExtraShifts?: boolean;
@@ -364,7 +368,7 @@ export function GuardiaDetailClient({
   const [hireContract, setHireContract] = useState<HireContractValue>(EMPTY_HIRE_CONTRACT);
   const [cancelHireOpen, setCancelHireOpen] = useState(false);
   const [cancelHireNote, setCancelHireNote] = useState("sspp");
-  const [canCancelHire, setCanCancelHire] = useState(false);
+  const [cancelHireEligibility, setCancelHireEligibility] = useState<CancelHireEligibility | null>(null);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [pinReloading, setPinReloading] = useState(false);
 
@@ -694,17 +698,27 @@ export function GuardiaDetailClient({
 
   useEffect(() => {
     if (guardia.lifecycleStatus !== "contratado") {
-      setCanCancelHire(false);
+      setCancelHireEligibility(null);
       return;
     }
     let cancelled = false;
     void fetch(`/api/personas/guardias/${guardia.id}/cancel-hire`)
       .then((res) => res.json())
       .then((payload) => {
-        if (!cancelled) setCanCancelHire(Boolean(payload?.data?.eligible));
+        if (cancelled) return;
+        const data = payload?.data as CancelHireEligibility | undefined;
+        setCancelHireEligibility(
+          data
+            ? {
+                eligible: Boolean(data.eligible),
+                reason: data.reason ?? null,
+                code: data.code ?? null,
+              }
+            : { eligible: false, reason: null, code: null },
+        );
       })
       .catch(() => {
-        if (!cancelled) setCanCancelHire(false);
+        if (!cancelled) setCancelHireEligibility({ eligible: false, reason: null, code: null });
       });
     return () => {
       cancelled = true;
@@ -763,13 +777,23 @@ export function GuardiaDetailClient({
       if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo cambiar el estado");
       setGuardia((prev) => ({
         ...prev, lifecycleStatus: payload.data.lifecycleStatus, status: payload.data.status,
-        hiredAt: payload.data.hiredAt ?? prev.hiredAt, terminatedAt: payload.data.terminatedAt ?? prev.terminatedAt,
+        hiredAt: payload.data.hiredAt ?? prev.hiredAt,
+        terminatedAt:
+          "terminatedAt" in (payload.data ?? {}) ? payload.data.terminatedAt : prev.terminatedAt,
+        terminationReason:
+          "terminationReason" in (payload.data ?? {})
+            ? payload.data.terminationReason
+            : prev.terminationReason,
         contractType: payload.data.contractType ?? prev.contractType,
         contractStartDate: payload.data.contractStartDate ?? prev.contractStartDate,
         contractPeriod1End: payload.data.contractPeriod1End ?? prev.contractPeriod1End,
         contractPeriod2End: payload.data.contractPeriod2End ?? prev.contractPeriod2End,
       }));
-      toast.success("Estado actualizado");
+      toast.success(
+        extra?.reason === CANCEL_HIRE_REASON
+          ? "Guardia inactivado sin finiquito"
+          : "Estado actualizado",
+      );
       setContractDateModalOpen(false);
       setPendingLifecycleStatus(null);
       setRecontratarModalOpen(false);
@@ -804,7 +828,7 @@ export function GuardiaDetailClient({
 
   const handleEliminar = async () => {
     if (!(await confirmDialog({
-      description: "Esto borra el registro de la base de datos y no se puede deshacer. No es lo mismo que inactivar. Si el guardia ya tiene historial operacional, el sistema lo bloqueará. Para contratados que no iniciaron usa Anular contratación.",
+      description: "Esto borra el registro de la base de datos y no se puede deshacer. No es lo mismo que inactivar. Si el guardia ya tiene historial operacional, el sistema lo bloqueará. Para contratados sin contrato firmado usa Inactivar sin contrato.",
       variant: "destructive",
       confirmLabel: "Eliminar permanentemente",
     }))) return;
@@ -819,7 +843,18 @@ export function GuardiaDetailClient({
 
   // ── Computed ──
   const fullName = formatPersonName(guardia.persona.firstName, guardia.persona.lastName) || "Guardia";
-  const puedeRecontratar = canManageGuardias && guardia.lifecycleStatus === "inactivo" && guardia.terminatedAt;
+  const wasCancelledHire = isCancelledHireRecord(guardia);
+  const canCancelHire = Boolean(cancelHireEligibility?.eligible);
+  const needsFiniquitoInstead =
+    guardia.lifecycleStatus === "contratado" &&
+    cancelHireEligibility != null &&
+    !cancelHireEligibility.eligible &&
+    (cancelHireEligibility.code === "signed_contract" || cancelHireEligibility.code === "has_work");
+  const puedeRecontratar =
+    canManageGuardias &&
+    guardia.lifecycleStatus === "inactivo" &&
+    Boolean(guardia.terminatedAt) &&
+    !wasCancelledHire;
 
   // ── Tab content ──
   const showPlanSeleccion =
@@ -1186,14 +1221,41 @@ export function GuardiaDetailClient({
           } as EntityHeaderAction,
         ]
       : []),
+    ...(canChangeLifecycle && guardia.lifecycleStatus === "inactivo" && !puedeRecontratar
+      ? [
+          {
+            label: wasCancelledHire ? "Contratar de nuevo" : "Cambiar a Contratado",
+            icon: UserPlus,
+            onClick: () => {
+              setHireContract({
+                ...EMPTY_HIRE_CONTRACT,
+                startDate: new Date().toISOString().slice(0, 10),
+              });
+              setRecontratarModalOpen(true);
+            },
+          } as EntityHeaderAction,
+        ]
+      : []),
     ...(canChangeLifecycle && canCancelHire
       ? [
           {
-            label: "Anular contratación",
+            label: "Inactivar sin contrato",
             icon: UserMinus,
             onClick: () => {
               setCancelHireNote("sspp");
               setCancelHireOpen(true);
+            },
+          } as EntityHeaderAction,
+        ]
+      : []),
+    ...(canChangeLifecycle && needsFiniquitoInstead
+      ? [
+          {
+            label: "Registrar finiquito",
+            icon: FileWarning,
+            onClick: () => {
+              toast.message(cancelHireEligibility?.reason ?? "Esta ficha requiere finiquito.");
+              setActiveTab("contractual");
             },
           } as EntityHeaderAction,
         ]
@@ -1283,7 +1345,7 @@ export function GuardiaDetailClient({
       <Dialog open={contractDateModalOpen} onOpenChange={setContractDateModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>Contratar guardia</DialogTitle>
-            <DialogDescription>Indica el tipo de contrato y las fechas. El default ya no es indefinido silencioso.</DialogDescription>
+            <DialogDescription>Indica el tipo de contrato y las fechas de plazo si corresponde.</DialogDescription>
           </DialogHeader>
           <HireContractFields value={hireContract} onChange={setHireContract} />
           <DialogFooter>
@@ -1295,13 +1357,23 @@ export function GuardiaDetailClient({
 
       <Dialog open={recontratarModalOpen} onOpenChange={setRecontratarModalOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Recontratar guardia</DialogTitle>
-            <DialogDescription>Indica el tipo y las fechas del nuevo contrato.</DialogDescription>
+          <DialogHeader><DialogTitle>{wasCancelledHire ? "Contratar de nuevo" : "Recontratar guardia"}</DialogTitle>
+            <DialogDescription>
+              {wasCancelledHire
+                ? "La contratación anterior no se concretó. Indica el tipo y las fechas del contrato."
+                : "Indica el tipo y las fechas del nuevo contrato."}
+            </DialogDescription>
           </DialogHeader>
-          <HireContractFields value={hireContract} onChange={setHireContract} startLabel="Fecha de recontratación" />
+          <HireContractFields
+            value={hireContract}
+            onChange={setHireContract}
+            startLabel={wasCancelledHire ? "Fecha de inicio" : "Fecha de recontratación"}
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setRecontratarModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleConfirmRecontratar} disabled={lifecycleChanging}>{lifecycleChanging ? "Guardando..." : "Recontratar"}</Button>
+            <Button onClick={handleConfirmRecontratar} disabled={lifecycleChanging}>
+              {lifecycleChanging ? "Guardando..." : wasCancelledHire ? "Contratar" : "Recontratar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1309,9 +1381,10 @@ export function GuardiaDetailClient({
       <Dialog open={cancelHireOpen} onOpenChange={setCancelHireOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Anular contratación</DialogTitle>
+            <DialogTitle>Inactivar sin contrato</DialogTitle>
             <DialogDescription>
-              Pasa a inactivo sin finiquito ni carta de aviso. Solo si la persona nunca inició (sin marcaciones ni liquidaciones). La ficha se conserva.
+              La ficha pasa a inactivo sin finiquito ni carta de aviso. Solo si no hay contrato laboral firmado ni
+              marcaciones/liquidaciones. Esto no borra a la persona.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
@@ -1326,7 +1399,7 @@ export function GuardiaDetailClient({
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelHireOpen(false)}>Cancelar</Button>
             <Button onClick={handleConfirmCancelHire} disabled={lifecycleChanging}>
-              {lifecycleChanging ? "Guardando..." : "Anular contratación"}
+              {lifecycleChanging ? "Guardando..." : "Inactivar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1336,8 +1409,12 @@ export function GuardiaDetailClient({
       <ConfirmDialog
         open={inactivoWarningOpen}
         onOpenChange={setInactivoWarningOpen}
-        title="Guardia finiquitado"
-        description={`Este guardia fue finiquitado${guardia.terminatedAt ? ` el ${new Date(guardia.terminatedAt).toLocaleDateString("es-CL")}` : ""}. Al cambiar su estado, quedará habilitado para ser asignado a puestos nuevamente.\n\n¿Deseas continuar?`}
+        title={wasCancelledHire ? "Guardia inactivo" : "Guardia finiquitado"}
+        description={
+          wasCancelledHire
+            ? "Esta ficha se inactivó porque la contratación no se concretó (sin contrato firmado). Al reactivarla se registra un nuevo contrato.\n\n¿Deseas continuar?"
+            : `Este guardia fue finiquitado${guardia.terminatedAt ? ` el ${new Date(guardia.terminatedAt).toLocaleDateString("es-CL")}` : ""}. Al cambiar su estado, quedará habilitado para ser asignado a puestos nuevamente.\n\n¿Deseas continuar?`
+        }
         confirmLabel="Continuar"
         variant="default"
         onConfirm={handleConfirmInactivoChange}
