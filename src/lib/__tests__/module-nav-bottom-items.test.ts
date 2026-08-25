@@ -198,6 +198,7 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     const hrefs = items.map((i) => i.href);
     expect(hrefs).toContain("/opai/documentos");
     expect(hrefs).toContain("/opai/documentos-operativos");
+    expect(hrefs).toContain("/opai/documentos/laborales");
     expect(hrefs).toContain("/opai/documentos/templates");
   });
 

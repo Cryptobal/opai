@@ -1,9 +1,10 @@
 /**
  * API Auth Docs — Helpers de permisos granulares para endpoints Docs
  *
- * El módulo `docs` tiene 3 submódulos independientes:
+ * El módulo `docs` tiene 4 submódulos independientes:
  *   - "gestion"     → /opai/documentos          (gestión documental)
  *   - "operativos"  → /opai/documentos-operativos
+ *   - "laborales"   → /opai/documentos/laborales
  *   - "plantillas"  → /opai/documentos/templates
  *
  * Pasar el submódulo permite gatear cada API a su área. Si se omite, el
@@ -15,7 +16,7 @@ import { resolveApiPerms, type AuthContext } from "./api-auth";
 import { canView, canEdit, canDelete } from "./permissions";
 import { NextResponse } from "next/server";
 
-export type DocsSubmodule = "gestion" | "operativos" | "plantillas";
+export type DocsSubmodule = "gestion" | "operativos" | "plantillas" | "laborales";
 
 export async function requireDocsView(
   ctx: AuthContext,
@@ -58,6 +59,21 @@ export async function requireDocsEdit(
 ): Promise<NextResponse | null> {
   const perms = await resolveApiPerms(ctx);
   if (!canEdit(perms, "docs", submodule)) {
+    return NextResponse.json(
+      { error: "Sin permisos para editar documentos" },
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
+export async function requireDocsEditAny(
+  ctx: AuthContext,
+  submodules: readonly DocsSubmodule[],
+): Promise<NextResponse | null> {
+  const perms = await resolveApiPerms(ctx);
+  const allowed = submodules.some((sub) => canEdit(perms, "docs", sub));
+  if (!allowed) {
     return NextResponse.json(
       { error: "Sin permisos para editar documentos" },
       { status: 403 }

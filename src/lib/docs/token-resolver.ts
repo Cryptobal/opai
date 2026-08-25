@@ -31,6 +31,7 @@ function formatDateOnly(value: string | Date | null | undefined): string | null 
 import { formatPersonName, getRegimenPrevisionalLabel } from "@/lib/personas";
 
 export interface EntityData {
+  [key: string]: Record<string, any> | null | undefined;
   empresa?: Record<string, any> | null;
   account?: Record<string, any> | null;
   contact?: Record<string, any> | null;

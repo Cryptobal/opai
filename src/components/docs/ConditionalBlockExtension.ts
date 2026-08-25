@@ -13,6 +13,11 @@ declare module "@tiptap/core" {
       }) => ReturnType;
     };
   }
+  interface Storage {
+    conditionalBlock: {
+      onEdit: ((attrs: Record<string, unknown>, pos: number) => void) | null;
+    };
+  }
 }
 
 export const ConditionalBranch = Node.create({

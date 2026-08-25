@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
-import { requireDocsViewAny, requireDocsEdit, requireDocsDelete } from "@/lib/api-auth-docs";
+import { requireDocsViewAny, requireDocsEdit, requireDocsEditAny, requireDocsDelete } from "@/lib/api-auth-docs";
 import { updateDocTemplateSchema } from "@/lib/validations/docs";
 import { extractTokenKeys } from "@/lib/docs/token-resolver";
 
@@ -21,7 +21,7 @@ export async function GET(
     if (!ctx) return unauthorized();
     // GET de una plantilla: lo necesitan tanto el editor de plantillas como
     // la pantalla de generación de documentos (gestión).
-    const forbidden = await requireDocsViewAny(ctx, ["plantillas", "gestion"]);
+    const forbidden = await requireDocsViewAny(ctx, ["plantillas", "gestion", "laborales"]);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -63,8 +63,6 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireDocsEdit(ctx, "plantillas");
-    if (forbidden) return forbidden;
 
     const { id } = await params;
     const parsed = await parseBody(request, updateDocTemplateSchema);
@@ -81,8 +79,16 @@ export async function PATCH(
       );
     }
 
+    const forbidden = existing.module === "laboral"
+      ? await requireDocsEditAny(ctx, ["laborales", "plantillas"])
+      : await requireDocsEdit(ctx, "plantillas");
+    if (forbidden) return forbidden;
+
     const { changeNote, ...updateData } = parsed.data;
     if (updateData.usageSlug === undefined) delete updateData.usageSlug;
+    if (existing.module === "laboral") {
+      updateData.module = "laboral";
+    }
 
     // If content changed, auto-extract tokens and create new version
     if (updateData.content) {
