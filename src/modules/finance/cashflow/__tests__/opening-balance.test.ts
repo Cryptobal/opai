@@ -156,7 +156,7 @@ describe("resolveOpeningBalance", () => {
     );
   });
 
-  it("ancla MANUAL: suma el crédito MATCHED con fecha = asOfDate (no lo tira el >)", async () => {
+  it("ancla MANUAL: no suma la cartola del mismo día; sí el neto del día siguiente", async () => {
     findMany.mockResolvedValueOnce([
       { id: "santander", bankName: "Santander", accountNumber: "1", currentBalance: 0 },
     ]);
@@ -170,17 +170,18 @@ describe("resolveOpeningBalance", () => {
         createdAt: new Date("2026-08-24T17:47:54.904Z"),
       },
     ]);
+    // Neto 25-ago (NTB +2.675.188 y egresos −520.000) — no Embajada del 24.
     aggregate.mockResolvedValueOnce({
-      _sum: { amount: 24_024_231 },
-      _count: { _all: 1 },
+      _sum: { amount: 2_155_188 },
+      _count: { _all: 7 },
     });
 
     const r = await resolveOpeningBalance("t1", new Date("2026-08-25T16:00:00.000Z"));
-    expect(r.currentTotalClp).toBe(24_773_797 + 24_024_231);
-    expect(r.perAccount[0].txDeltaClp).toBe(24_024_231);
+    expect(r.currentTotalClp).toBe(26_928_985);
+    expect(r.perAccount[0].txDeltaClp).toBe(2_155_188);
     const where = aggregate.mock.calls[0][0].where;
     expect(where.transactionDate).toEqual({
-      gte: snapDate,
+      gt: snapDate,
       lte: expect.any(Date),
     });
     expect(where.hiddenAt).toBeNull();

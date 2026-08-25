@@ -90,7 +90,7 @@ describe("resolveAccountBalanceFromMovements", () => {
     expect(r.anchorSource).toBe("MANUAL");
   });
 
-  it("ancla MANUAL del mismo día incluye el abono MATCHED de cartola (gte)", async () => {
+  it("ancla MANUAL no duplica la cartola del mismo día (gt)", async () => {
     findAccount.mockResolvedValueOnce({ currentBalance: 24_773_797 });
     const snapDate = new Date("2026-08-24T00:00:00.000Z");
     findSnapshots.mockResolvedValueOnce([
@@ -102,8 +102,8 @@ describe("resolveAccountBalanceFromMovements", () => {
       },
     ]);
     aggregate.mockResolvedValueOnce({
-      _sum: { amount: 24_024_231 },
-      _count: { _all: 1 },
+      _sum: { amount: 2_155_188 },
+      _count: { _all: 7 },
     });
 
     const r = await resolveAccountBalanceFromMovements(
@@ -111,14 +111,14 @@ describe("resolveAccountBalanceFromMovements", () => {
       "a1",
       new Date("2026-08-25T12:00:00.000Z"),
     );
-    expect(r.resolvedBalanceClp).toBe(24_773_797 + 24_024_231);
-    expect(r.txDeltaClp).toBe(24_024_231);
+    expect(r.resolvedBalanceClp).toBe(26_928_985);
+    expect(r.txDeltaClp).toBe(2_155_188);
     expect(aggregate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           hiddenAt: null,
           transactionDate: {
-            gte: snapDate,
+            gt: snapDate,
             lte: expect.any(Date),
           },
         }),
