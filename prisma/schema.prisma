@@ -6490,12 +6490,19 @@ model DocTemplate {
   isDefault   Boolean  @default(false) @map("is_default")
   /// Si module=whatsapp: slug de uso del sistema (proposal_sent, followup_first, ...). Null = plantilla personalizada para elegir desde CRM.
   usageSlug   String?  @map("usage_slug")
+  /// Alcance de plantillas laborales: "none" | "global_active" | "installations"
+  scopeType   String   @default("none") @map("scope_type")
+  /// Modo de firma por defecto al enviar: "sequential" | "parallel"
+  signingMode String   @default("sequential") @map("signing_mode")
   createdBy   String   @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  versions  DocTemplateVersion[]
-  documents Document[]
+  versions      DocTemplateVersion[]
+  documents     Document[]
+  installations DocTemplateInstallation[]
+  signers       DocTemplateSigner[]
+  campaigns     DocBulkCampaign[]
 
   @@unique([tenantId, module, name], map: "uq_doc_template_tenant_module_name")
   @@unique([tenantId, usageSlug], map: "uq_doc_template_tenant_usage_slug")
@@ -6612,8 +6619,9 @@ model DocSignatureRecipient {
   signingOrder        Int       @default(1) @map("signing_order")
   status              String    @default("pending") // pending, sent, viewed, signed, declined, expired
   signedAt            DateTime? @map("signed_at") @db.Timestamptz(6)
-  signatureMethod     String?   @map("signature_method") // typed, drawn, uploaded
+  signatureMethod     String?   @map("signature_method") // typed, drawn, uploaded, stamped
   signatureImageUrl   String?   @map("signature_image_url")
+  autoStamp           Boolean   @default(false) @map("auto_stamp")
   signatureTypedName  String?   @map("signature_typed_name")
   signatureFontFamily String?   @map("signature_font_family")
   ipAddress           String?   @map("ip_address")
@@ -6631,6 +6639,103 @@ model DocSignatureRecipient {
   @@index([signingOrder], map: "idx_doc_signature_recipients_order")
   @@index([token], map: "idx_doc_signature_recipients_token")
   @@map("doc_signature_recipients")
+  @@schema("docs")
+}
+
+model DocTemplateInstallation {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  templateId     String   @map("template_id") @db.Uuid
+  installationId String   @map("installation_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  template DocTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, installationId], map: "uq_doc_template_installation")
+  @@index([tenantId], map: "idx_doc_template_installations_tenant")
+  @@index([installationId], map: "idx_doc_template_installations_installation")
+  @@map("doc_template_installations")
+  @@schema("docs")
+}
+
+model DocTemplateSigner {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String   @map("tenant_id")
+  templateId   String   @map("template_id") @db.Uuid
+  role         String // trabajador | rep_legal | prevencionista | supervisor_instalacion | usuario | email_externo
+  signerRefId  String?  @map("signer_ref_id")
+  name         String?
+  email        String?
+  signingOrder Int      @map("signing_order")
+  autoStamp    Boolean  @default(false) @map("auto_stamp")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  template DocTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, signingOrder], map: "uq_doc_template_signer_order")
+  @@index([tenantId], map: "idx_doc_template_signers_tenant")
+  @@map("doc_template_signers")
+  @@schema("docs")
+}
+
+model DocTenantSigner {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId            String   @map("tenant_id")
+  role                String // rep_legal | prevencionista
+  name                String
+  email               String
+  rut                 String?
+  signatureStorageKey String?  @map("signature_storage_key")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_doc_tenant_signers_tenant")
+  @@index([tenantId, role, isActive], map: "idx_doc_tenant_signers_role")
+  @@map("doc_tenant_signers")
+  @@schema("docs")
+}
+
+model DocBulkCampaign {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  templateId String   @map("template_id") @db.Uuid
+  name       String
+  status     String   @default("draft") // draft | processing | done | cancelled
+  totals     Json     @default("{}") @db.JsonB
+  createdBy  String   @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  template DocTemplate           @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  items    DocBulkCampaignItem[]
+
+  @@index([tenantId], map: "idx_doc_bulk_campaigns_tenant")
+  @@index([tenantId, status], map: "idx_doc_bulk_campaigns_tenant_status")
+  @@index([templateId], map: "idx_doc_bulk_campaigns_template")
+  @@map("doc_bulk_campaigns")
+  @@schema("docs")
+}
+
+model DocBulkCampaignItem {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String   @map("tenant_id")
+  campaignId   String   @map("campaign_id") @db.Uuid
+  guardiaId    String   @map("guardia_id") @db.Uuid
+  status       String   @default("pending") // pending | processing | sent | skipped | error
+  documentId   String?  @map("document_id") @db.Uuid
+  error        String?
+  snapshot     Json?    @db.JsonB
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  campaign DocBulkCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, guardiaId], map: "uq_doc_bulk_campaign_item")
+  @@index([tenantId], map: "idx_doc_bulk_campaign_items_tenant")
+  @@index([campaignId, status], map: "idx_doc_bulk_campaign_items_status")
+  @@map("doc_bulk_campaign_items")
   @@schema("docs")
 }
 

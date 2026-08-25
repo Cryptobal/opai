@@ -40,6 +40,7 @@ import {
 import { DocPreviewDialog } from "@/components/docs/DocPreviewDialog";
 import { SignatureRequestModal } from "@/components/docs/SignatureRequestModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { GuardLaboralesSection } from "@/components/docs/laborales/GuardLaboralesSection";
 
 type DocTemplate = { id: string; name: string; category: string };
 
@@ -338,6 +339,9 @@ export function GuardContractsTab({
           </div>
         </div>
       )}
+
+      {/* Documentos laborales */}
+      <GuardLaboralesSection guardiaId={guardiaId} />
 
       {/* Contrato y anexos — PRIMERO */}
       <div className="rounded-lg border border-border p-4 space-y-3">

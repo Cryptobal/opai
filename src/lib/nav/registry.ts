@@ -83,6 +83,7 @@ import {
   // Documentos
   FolderOpen,
   LayoutTemplate,
+  Stamp,
   // TE
   Banknote,
   // Configuración
@@ -855,6 +856,7 @@ export const NAV_MODULES: NavNode[] = [
     children: [
       { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen, module: "docs", submodule: "gestion", badge: { notesKey: "document" }, exactMatch: true },
       { key: "docs-operativos", href: "/opai/documentos-operativos", label: "Operativos", icon: ClipboardCheck, module: "docs", submodule: "operativos" },
+      { key: "docs-laborales", href: "/opai/documentos/laborales", label: "Laborales", icon: Stamp, module: "docs", submodule: "laborales" },
       { key: "docs-templates", href: "/opai/documentos/templates", label: "Templates", icon: LayoutTemplate, module: "docs", submodule: "plantillas" },
     ],
   },

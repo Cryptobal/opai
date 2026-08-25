@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon, Siren, FileBarChart } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon, Siren, FileBarChart, Send } from "lucide-react";
 import { EntityConversations } from "./EntityConversations";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
@@ -2463,6 +2463,11 @@ export function CrmInstallationDetailClient({
 
   // Sin botón "Editar" en el header: la ficha se edita inline campo a campo.
   const headerActions: EntityHeaderAction[] = [
+    {
+      label: "Enviar documento a firma",
+      icon: Send,
+      onClick: () => router.push(`/opai/documentos/laborales/envio-masivo?installationId=${installation.id}`),
+    },
     {
       label: isActive ? "Desactivar instalación" : "Activar instalación",
       icon: Power,

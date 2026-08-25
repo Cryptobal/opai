@@ -47,6 +47,8 @@ export function DocTemplateEditorClient({
         ? ["empresa", "account", "contact", "installation", "deal", "quote", "system", "signature"]
         : module === "payroll"
         ? ["empresa", "guardia", "labor_event", "system", "signature"]
+        : module === "laboral"
+        ? ["empresa", "guardia", "installation", "system", "signature"]
         : module === "mail" || module === "whatsapp"
         ? ["empresa", "account", "contact", "deal", "system", "signature"]
         : ["empresa", "account", "contact", "system", "signature"],

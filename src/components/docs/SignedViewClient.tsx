@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FileText, Download, ShieldCheck, AlertCircle, QrCode, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocumentShareButton } from "@/components/shared/DocumentShareButton";
+import { signatureMethodLabel } from "@/lib/docs/signature-method-label";
 
 type Signer = {
   name: string;
@@ -222,7 +223,7 @@ export function SignedViewClient({
                   ? new Date(s.signedAt).toLocaleString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
                   : "—"}
                 {" · "}
-                {s.signatureMethod === "typed" ? "Nombre escrito" : s.signatureMethod === "drawn" ? "Dibujado" : "Imagen subida"}
+                {signatureMethodLabel(s.signatureMethod)}
               </div>
             </div>
           ))}
@@ -246,7 +247,7 @@ export function SignedViewClient({
                     <div className="font-medium">{s.name} ({s.email}){s.rut ? ` · RUT ${s.rut}` : ""}</div>
                     <div className="text-muted-foreground">
                       Firmado: {s.signedAt ? new Date(s.signedAt).toLocaleString("es-CL") : "—"}
-                      {" · "}Método: {s.signatureMethod === "typed" ? "Nombre escrito" : s.signatureMethod === "drawn" ? "Dibujado" : "Imagen"}
+                      {" · "}Método: {signatureMethodLabel(s.signatureMethod)}
                     </div>
                     {s.ipAddress ? <div className="text-muted-foreground">IP: {s.ipAddress}</div> : null}
                   </div>

@@ -37,6 +37,8 @@ import {
   Eye,
   Link2,
   Unlink2,
+  GitFork,
+  Rows3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +55,7 @@ import {
 } from "@/components/ui/select";
 import { TokenPicker } from "./TokenPicker";
 import { InsertSignatureBlockButton } from "./InsertSignatureBlockButton";
+import { TablePresetsMenu } from "./TablePresetsMenu";
 import type { PageType } from "./DocPreviewDialog";
 import { promptDialog } from "@/components/ui/confirm-service";
 
@@ -68,6 +71,8 @@ interface EditorToolbarProps {
   onPageTypeChange?: (pageType: PageType) => void;
   onPreview?: () => void;
   showPreview?: boolean;
+  onInsertCondition?: () => void;
+  onRowCondition?: () => void;
 }
 
 export function EditorToolbar({
@@ -78,6 +83,8 @@ export function EditorToolbar({
   onPageTypeChange,
   onPreview,
   showPreview = true,
+  onInsertCondition,
+  onRowCondition,
 }: EditorToolbarProps) {
   const [tokenPickerOpen, setTokenPickerOpen] = useState(false);
 
@@ -331,16 +338,34 @@ export function EditorToolbar({
       >
         <Minus className="h-4 w-4" />
       </ToolbarButton>
-      <ToolbarButton
-        onClick={() =>
-          focusNoScroll()
-            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-            .run()
-        }
-        title="Insertar tabla"
-      >
-        <TableIcon className="h-4 w-4" />
-      </ToolbarButton>
+      {onInsertCondition && (
+        <ToolbarButton onClick={onInsertCondition} title="Condición SI/SINO">
+          <GitFork className="h-4 w-4" />
+        </ToolbarButton>
+      )}
+      {onInsertCondition ? (
+        <TablePresetsMenu editor={editor} />
+      ) : (
+        <ToolbarButton
+          onClick={() =>
+            focusNoScroll()
+              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+              .run()
+          }
+          title="Insertar tabla"
+        >
+          <TableIcon className="h-4 w-4" />
+        </ToolbarButton>
+      )}
+      {onRowCondition && (
+        <ToolbarButton
+          onClick={onRowCondition}
+          disabled={!editor.isActive("table")}
+          title="Mostrar fila solo si…"
+        >
+          <Rows3 className="h-4 w-4" />
+        </ToolbarButton>
+      )}
       <ToolbarButton
         onClick={() => {
           editor.commands.focus(null, { scrollIntoView: false });

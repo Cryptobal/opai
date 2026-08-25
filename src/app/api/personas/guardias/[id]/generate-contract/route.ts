@@ -84,6 +84,24 @@ export async function POST(
       );
     }
 
+    if (template.module === "laboral") {
+      const { generateLaboralDocument } = await import("@/lib/docs/laborales/generate-document");
+      const laboralDoc = await generateLaboralDocument({
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+        templateId: template.id,
+        guardiaId: id,
+      });
+      return NextResponse.json({
+        success: true,
+        data: {
+          documentId: laboralDoc.id,
+          title: laboralDoc.title,
+          uniqueId: laboralDoc.uniqueId,
+        },
+      });
+    }
+
     const empresaData = await loadEmpresaEntityData(ctx.tenantId);
 
     const activeAssignment = await prisma.opsAsignacionGuardia.findFirst({

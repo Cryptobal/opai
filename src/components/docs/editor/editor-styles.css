@@ -38,3 +38,29 @@
 .ProseMirror h3[data-clause-id]:hover {
   background: rgb(204 251 241 / 0.15);
 }
+
+.ProseMirror [data-type="conditional-block"] {
+  border-radius: 12px;
+}
+
+.ProseMirror [data-type="conditional-branch"]::before {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: hsl(var(--tint-violet-fg));
+}
+
+.ProseMirror [data-type="conditional-branch"][data-branch="if"]::before {
+  content: "Entonces";
+}
+
+.ProseMirror [data-type="conditional-branch"][data-branch="else"]::before {
+  content: "Si no";
+}
+
+.ProseMirror tr[data-row-condition] {
+  background: hsl(var(--tint-violet));
+}

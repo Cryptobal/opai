@@ -12,9 +12,9 @@ import { signDocumentSchema } from "@/lib/validations/docs";
 import {
   sendSignatureAllCompletedEmail,
   sendSignatureCompletedNotifyEmail,
-  sendSignatureRequestEmail,
 } from "@/lib/docs-signature-email";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { notifyDueSigners } from "@/lib/docs/laborales/notify-due-signers";
 
 function canSignNow(
   currentOrder: number,
@@ -190,6 +190,7 @@ export async function GET(
             status: r.status,
             signingOrder: r.signingOrder,
             signedAt: r.signedAt,
+            signatureMethod: r.signatureMethod,
           })),
         },
         document: documentForSign,
@@ -506,53 +507,30 @@ export async function POST(
       }
     }
 
-    // En "parallel" todos los firmantes ya recibieron su link al crear la
-    // solicitud, así que NO disparamos el email "siguiente firmante" tras
-    // cada firma — solo esperamos a que todos completen.
-    if (!result.allSigned && result.signingMode !== "parallel") {
-      const signedOrders = result.recipients
-        .filter((r) => r.role === "signer" && r.status === "signed")
-        .map((r) => r.signingOrder);
-      const maxSignedOrder = signedOrders.length > 0 ? Math.max(...signedOrders) : 0;
-      const nextOrderCandidates = result.recipients
-        .filter((r) => r.role === "signer" && ["pending", "sent", "viewed"].includes(r.status))
-        .map((r) => r.signingOrder);
-      const nextOrder = nextOrderCandidates.length > 0 ? Math.min(...nextOrderCandidates) : null;
+    let completed = result.allSigned;
+    if (!completed) {
+      const turn = await notifyDueSigners({
+        requestId: result.requestId,
+        tenantId: result.tenantId,
+        documentTitle: result.documentTitle,
+        createdBy: "system:auto-stamp",
+      });
+      completed = turn.allSigned;
+    }
 
-      if (nextOrder !== null && nextOrder > maxSignedOrder) {
-        const nextSigners = result.recipients.filter(
-          (r) => r.role === "signer" && r.signingOrder === nextOrder && ["pending", "sent", "viewed"].includes(r.status)
-        );
-
-        for (const nextSigner of nextSigners) {
-          try {
-            await sendSignatureRequestEmail({
-              to: nextSigner.email,
-              recipientName: nextSigner.name,
-              documentTitle: result.documentTitle,
-              signingUrl: `${siteUrl}/sign/${nextSigner.token}`,
-            });
-            await prisma.docSignatureRecipient.update({
-              where: { id: nextSigner.id },
-              data: {
-                sentAt: new Date(),
-                status: nextSigner.status === "pending" ? "sent" : nextSigner.status,
-              },
-            });
-          } catch (e) {
-            console.warn("Sign: failed to send next signer email to", nextSigner.email, e);
-          }
-        }
-      }
-    } else if (result.allSigned) {
+    if (completed) {
       const doneAt = new Date().toLocaleString("es-CL");
       const everyone = [...new Set(result.recipients.map((r) => r.email))];
+      const docTokens = await prisma.document.findFirst({
+        where: { id: result.documentId },
+        select: { signedViewToken: true },
+      });
+      const viewToken = result.signedViewToken ?? docTokens?.signedViewToken;
       const publicViewUrl =
-        result.signedViewToken &&
-        `${siteUrl}/signed/${result.documentId}/${result.signedViewToken}`;
+        viewToken && `${siteUrl}/signed/${result.documentId}/${viewToken}`;
       const pdfDownloadUrl =
-        result.signedViewToken &&
-        `${siteUrl}/api/docs/documents/${result.documentId}/signed-pdf?viewToken=${result.signedViewToken}`;
+        viewToken &&
+        `${siteUrl}/api/docs/documents/${result.documentId}/signed-pdf?viewToken=${viewToken}`;
       for (const email of everyone) {
         try {
           await sendSignatureAllCompletedEmail({
@@ -573,8 +551,8 @@ export async function POST(
       success: true,
       data: {
         recipientId: result.recipient.id,
-        requestStatus: result.requestStatus,
-        completed: result.allSigned,
+        requestStatus: completed ? "completed" : result.requestStatus,
+        completed,
       },
     });
   } catch (error) {

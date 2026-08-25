@@ -84,7 +84,7 @@ export const SUBMODULE_KEYS = {
     "deals",
     "quotes",
   ] as const,
-  docs: ["gestion", "operativos", "plantillas"] as const,
+  docs: ["gestion", "operativos", "plantillas", "laborales"] as const,
   payroll: ["simulador", "parametros"] as const,
   cpq: [] as readonly string[],
   config: [
@@ -312,6 +312,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "docs.gestion", module: "docs", submodule: "gestion", label: "Gestión documental", href: "/opai/documentos" },
   { key: "docs.operativos", module: "docs", submodule: "operativos", label: "Documentos operativos", href: "/opai/documentos-operativos" },
   { key: "docs.plantillas", module: "docs", submodule: "plantillas", label: "Plantillas (Templates)", href: "/opai/documentos/templates" },
+  { key: "docs.laborales", module: "docs", submodule: "laborales", label: "Documentos laborales", href: "/opai/documentos/laborales" },
   // ── Payroll ──
   { key: "payroll.simulador", module: "payroll", submodule: "simulador", label: "Simulador", href: "/payroll/simulator" },
   { key: "payroll.parametros", module: "payroll", submodule: "parametros", label: "Parámetros", href: "/payroll/parameters" },
@@ -1202,6 +1203,8 @@ export function pathToPermission(
   if (pathname.startsWith("/opai/tareas")) return { module: "productividad", submodule: "tareas" };
 
   // Docs submodules — orden importa: rutas más específicas primero
+  if (pathname.startsWith("/opai/documentos/laborales"))
+    return { module: "docs", submodule: "laborales" };
   if (pathname.startsWith("/opai/documentos/templates"))
     return { module: "docs", submodule: "plantillas" };
   if (pathname.startsWith("/opai/documentos-operativos"))
@@ -1321,6 +1324,8 @@ export function apiPathToSubmodule(
     return { module: "docs", submodule: "plantillas" };
   if (pathname.startsWith("/api/docs/templates"))
     return { module: "docs", submodule: "plantillas" };
+  if (pathname.startsWith("/api/docs/laborales") || pathname.startsWith("/api/docs/tenant-signers"))
+    return { module: "docs", submodule: "laborales" };
   if (pathname.startsWith("/api/docs/")) return { module: "docs", submodule: "gestion" };
   // Payroll
   if (pathname.startsWith("/api/payroll/simulator")) return { module: "payroll", submodule: "simulador" };

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     // Catálogo común: cualquier submódulo con view puede leerlo.
-    const forbidden = await requireDocsViewAny(ctx, ["gestion", "operativos", "plantillas"]);
+    const forbidden = await requireDocsViewAny(ctx, ["gestion", "operativos", "plantillas", "laborales"]);
     if (forbidden) return forbidden;
 
     const { searchParams } = new URL(request.url);

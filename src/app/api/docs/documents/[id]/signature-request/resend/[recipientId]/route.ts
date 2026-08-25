@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
-import { canDelete } from "@/lib/permissions";
+import { canDelete, canEdit } from "@/lib/permissions";
 import { sendSignatureReminderEmail } from "@/lib/docs-signature-email";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
@@ -21,19 +21,21 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-    if (!canDelete(perms, "docs", "gestion")) return forbidden();
-
     const { id, recipientId } = await params;
-
     const document = await prisma.document.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, module: true },
     });
 
     if (!document) {
       return NextResponse.json({ success: false, error: "Documento no encontrado" }, { status: 404 });
     }
+
+    const perms = await resolveApiPerms(ctx);
+    const allowed =
+      canDelete(perms, "docs", "gestion") ||
+      (document.module === "laboral" && canEdit(perms, "docs", "laborales"));
+    if (!allowed) return forbidden();
 
     const recipient = await prisma.docSignatureRecipient.findFirst({
       where: {
