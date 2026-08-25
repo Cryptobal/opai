@@ -208,6 +208,7 @@ export async function POST(
         contentType: row.contentType,
         storageKey: row.storageKey,
         url: safeUrl(row.storageKey),
+        kind: row.kind,
         uploadedBy: row.uploadedBy,
         uploadedByName: null,
         createdAt: row.createdAt.toISOString(),
