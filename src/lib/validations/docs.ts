@@ -6,7 +6,7 @@ import { z } from "zod";
 
 // ── Template schemas ─────────────────────────────────────────
 
-const docModuleEnum = z.enum(["crm", "payroll", "legal", "mail", "whatsapp"]);
+const docModuleEnum = z.enum(["crm", "payroll", "legal", "mail", "whatsapp", "laboral"]);
 
 export const createDocTemplateSchema = z.object({
   name: z.string().min(1, "Nombre requerido").max(200),
@@ -419,3 +419,70 @@ export function computeExpirationFromDuration(
   end.setUTCDate(end.getUTCDate() - 1);
   return end.toISOString().slice(0, 10);
 }
+
+const uuid = z.string().uuid();
+
+export const tenantSignerRoleSchema = z.enum(["rep_legal", "prevencionista"]);
+export const templateSignerRoleSchema = z.enum([
+  "trabajador",
+  "rep_legal",
+  "prevencionista",
+  "supervisor_instalacion",
+  "usuario",
+  "email_externo",
+]);
+export const scopeTypeSchema = z.enum(["none", "global_active", "installations"]);
+
+export const createTenantSignerSchema = z.object({
+  role: tenantSignerRoleSchema,
+  name: z.string().min(2).max(160),
+  email: z.string().email().max(255),
+  rut: z.string().max(20).optional().nullable(),
+});
+
+export const updateTenantSignerSchema = z.object({
+  role: tenantSignerRoleSchema.optional(),
+  name: z.string().min(2).max(160).optional(),
+  email: z.string().email().max(255).optional(),
+  rut: z.string().max(20).optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+
+export const laboralTemplateSignerSchema = z.object({
+  role: templateSignerRoleSchema,
+  signerRefId: z.string().max(80).optional().nullable(),
+  name: z.string().max(160).optional().nullable(),
+  email: z.string().max(255).optional().nullable(),
+  signingOrder: z.number().int().min(1),
+  autoStamp: z.boolean().optional(),
+});
+
+export const createLaboralTemplateSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(500).optional(),
+  category: z.string().min(1),
+  content: z.any().optional(),
+});
+
+export const updateLaboralScopeSchema = z.object({
+  scopeType: scopeTypeSchema,
+  installationIds: z.array(uuid).optional(),
+  signingMode: signingModeSchema.optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const replaceLaboralSignersSchema = z.object({
+  signers: z.array(laboralTemplateSignerSchema).min(1),
+});
+
+export const createLaboralCampaignSchema = z.object({
+  templateId: uuid,
+  name: z.string().min(1).max(200).optional(),
+  audience: z.enum(["all_active", "installations", "manual"]),
+  installationIds: z.array(uuid).optional(),
+  guardiaIds: z.array(uuid).optional(),
+});
+
+export const resolveTokensSchemaExtended = resolveTokensSchema.extend({
+  guardiaId: uuid.optional(),
+});
