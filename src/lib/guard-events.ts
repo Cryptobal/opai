@@ -65,6 +65,7 @@ export interface GuardEvent {
   pendingRemunerationAmount: number | null;
   yearsOfServiceAmount: number | null;
   substituteNoticeAmount: number | null;
+  afcDeductionAmount: number | null;
   totalSettlementAmount: number | null;
   // Content
   reason: string | null;
