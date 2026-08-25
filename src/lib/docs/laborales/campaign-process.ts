@@ -5,7 +5,11 @@ const BATCH = 15;
 const STALE_MS = 2 * 60 * 1000;
 
 export function campaignItemStatusFromError(message: string): "skipped" | "error" {
-  return message.includes("sin contacto") || message.includes("en curso") ? "skipped" : "error";
+  const skip =
+    message.includes("sin contacto") ||
+    message.includes("en curso") ||
+    message.includes("email de contacto");
+  return skip ? "skipped" : "error";
 }
 
 export async function processLaboralCampaign(input: {

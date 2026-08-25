@@ -74,7 +74,7 @@ export function TrackingItemsTable({
                   </div>
                 </td>
                 <td className="px-3 py-2">
-                  {item.status === "skipped" ? (
+                  {item.status === "skipped" && (item.error ?? "").includes("sin contacto") ? (
                     <Button asChild variant="outline" className="min-h-11 sm:min-h-9" size="sm">
                       <Link href={`/personas/guardias/${item.guardiaId}`}>Registrar contacto</Link>
                     </Button>
