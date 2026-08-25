@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 const AFC_TOKEN = "labor_event.afcDeductionAmount";
 const TOTAL_TOKEN = "labor_event.totalSettlementAmount";
 
@@ -62,10 +64,11 @@ export function patchFiniquitoTemplateContent(content: unknown): {
   return { changed: true, content: doc };
 }
 
-export function ensureAfcTokenListed(tokensUsed: unknown): string[] {
+export function ensureAfcTokenListed(tokensUsed: unknown): Prisma.InputJsonValue {
   const list = Array.isArray(tokensUsed)
     ? tokensUsed.filter((t): t is string => typeof t === "string")
     : [];
   if (!list.includes(AFC_TOKEN)) list.push(AFC_TOKEN);
-  return list;
+  // string[] no es asignable a JsonValue (arrays invariantes de Prisma).
+  return list as Prisma.InputJsonValue;
 }
