@@ -89,6 +89,30 @@ function VisitChip({ cell }: { cell: GrillaCellView }) {
   );
 }
 
+function nightRequirementLabel(missingNight: boolean): string {
+  return missingNight
+    ? "Exige visita nocturna y este mes no la tiene"
+    : "Exige visita nocturna; este mes ya tiene al menos una";
+}
+
+function NightRequirementMark({ missingNight }: { missingNight: boolean }) {
+  const label = nightRequirementLabel(missingNight);
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-0.5 text-[12px] font-medium ${
+        missingNight
+          ? "bg-status-warn-soft text-status-warn-fg"
+          : "bg-tint-violet text-tint-violet-fg"
+      }`}
+      title={label}
+      aria-label={label}
+    >
+      <Moon className="h-3.5 w-3.5" aria-hidden />
+      <span>{missingNight ? "Sin noche" : "Noche"}</span>
+    </span>
+  );
+}
+
 function EmptyMark({ kind }: { kind: GrillaCellView["empty"] }) {
   if (kind === "missed") {
     return (
@@ -289,7 +313,7 @@ export function SupervisionGrilla({
         iconTone="emerald"
         title="Incidentes en terreno"
         subtitle="grilla de supervisión"
-        description="La visita es el check-in del supervisor. Hall. son hallazgos abiertos de esa instalación. El punto rojo es un incidente reportado en el sitio. No son lo mismo."
+        description="La visita es el check-in del supervisor. Hall. son hallazgos abiertos de esa instalación. El punto rojo es un incidente reportado en el sitio. No son lo mismo. La marca Noche al lado del nombre es el flag de control nocturno de la ficha: ese sitio exige al menos una visita de noche en el mes."
       />
 
       {view && (
@@ -423,7 +447,7 @@ export function SupervisionGrilla({
           <table className="w-full border-collapse text-[12px]">
             <thead>
               <tr className="border-b border-ds-border-subtle bg-ds-surface-2">
-                <th className="sticky left-0 z-20 min-w-[150px] bg-ds-surface-2 px-3 py-2 text-left font-medium">
+                <th className="sticky left-0 z-20 min-w-[200px] bg-ds-surface-2 px-3 py-2 text-left font-medium">
                   Instalación
                 </th>
                 {days.map((d) => {
@@ -470,22 +494,14 @@ export function SupervisionGrilla({
                     idx % 2 === 0 ? "" : "bg-ds-surface-2/40"
                   }`}
                 >
-                  <td className="sticky left-0 z-10 bg-ds-surface-1 px-3 py-1.5 font-medium">
-                    <span className="flex items-center gap-1.5">
-                      <span className="line-clamp-1" title={row.installation.name}>
+                  <td className="sticky left-0 z-10 min-w-0 bg-ds-surface-1 px-3 py-1.5 font-medium">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="min-w-0 truncate" title={row.installation.name}>
                         {row.installation.name}
                       </span>
-                      {row.installation.nocturnoEnabled && (
-                        <span
-                          title={row.missingNight ? "Sin visita nocturna este mes" : "Exige visita nocturna"}
-                        >
-                          <Moon
-                            className={`h-3.5 w-3.5 shrink-0 ${
-                              row.missingNight ? "text-status-warn-fg" : "text-tint-violet-fg"
-                            }`}
-                          />
-                        </span>
-                      )}
+                      {row.installation.nocturnoEnabled ? (
+                        <NightRequirementMark missingNight={row.missingNight} />
+                      ) : null}
                     </span>
                   </td>
                   {days.map((d) => {
@@ -593,6 +609,20 @@ export function SupervisionGrilla({
       />
 
       <div className="flex flex-wrap items-center gap-4 text-[12px] text-ds-text-3">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-0.5 rounded-md bg-tint-violet px-1 py-0.5 font-medium text-tint-violet-fg">
+            <Moon className="h-3.5 w-3.5" aria-hidden />
+            Noche
+          </span>
+          Sitio que exige visita nocturna (ficha de la instalación)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-0.5 rounded-md bg-status-warn-soft px-1 py-0.5 font-medium text-status-warn-fg">
+            <Moon className="h-3.5 w-3.5" aria-hidden />
+            Sin noche
+          </span>
+          Exige noche y este mes todavía no la tiene
+        </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-flex h-5 min-w-[24px] items-center justify-center rounded bg-status-ok-soft text-[12px] font-semibold text-status-ok-fg">
             AB

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import type { GrillaPayload } from "@/lib/supervision-grilla";
 import { getInitials } from "@/lib/supervision-grilla";
 
@@ -285,12 +285,20 @@ describe("SupervisionGrilla", () => {
     const faena = screen.getByText("Faena nocturna").closest("tr")!;
     const empty = screen.getByText("Sitio sin visita").closest("tr")!;
     const bodega = screen.getByText("Bodega Norte").closest("tr")!;
+    const mall = screen.getByText("Mall Centro").closest("tr")!;
 
-    expect(faena.querySelector("[title='Sin visita nocturna este mes'], span[title='Sin visita nocturna este mes']")).toBeTruthy();
+    expect(within(faena).getByLabelText(/exige visita nocturna y este mes no la tiene/i)).toBeTruthy();
+    expect(within(faena).getByText("Sin noche")).toBeTruthy();
+    expect(within(mall).getByLabelText(/exige visita nocturna; este mes ya tiene/i)).toBeTruthy();
+    expect(within(mall).getByText("Noche")).toBeTruthy();
+    expect(within(bodega).queryByText("Noche")).toBeNull();
+    expect(within(bodega).queryByText("Sin noche")).toBeNull();
     expect(empty.querySelector("[title='Asignación sin ejecución']")).toBeTruthy();
     expect(bodega.querySelector("[title='Asignación sin ejecución']")).toBeFalsy();
+    expect(screen.getByText(/Sitio que exige visita nocturna/)).toBeTruthy();
+    expect(screen.getByText(/este mes todavía no la tiene/)).toBeTruthy();
 
-    fireEvent.click(screen.getByText("Sin noche"));
+    fireEvent.click(screen.getByText("Sitios que exigen visita nocturna y no la tienen"));
     await waitFor(() => {
       expect(screen.getByText("Faena nocturna")).toBeTruthy();
       expect(screen.queryByText("Bodega Norte")).toBeNull();
