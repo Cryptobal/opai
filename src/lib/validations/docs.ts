@@ -489,3 +489,10 @@ export const createLaboralCampaignSchema = z.object({
   installationIds: z.array(uuid).optional(),
   guardiaIds: z.array(uuid).optional(),
 });
+
+export const trackingRemindSchema = z.object({
+  campaignId: uuid.optional(),
+  recipientId: uuid.optional(),
+}).refine((v) => Boolean(v.campaignId || v.recipientId), {
+  message: "Indica campaignId o recipientId",
+});

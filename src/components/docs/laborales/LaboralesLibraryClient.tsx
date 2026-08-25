@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Send, Settings, Stamp } from "lucide-react";
+import { ListChecks, Plus, Send, Settings, Stamp } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { EmptyState, PageHero, Spinner, Stat, StatGrid, Surface, Tag } from "@/components/opai-ds";
@@ -71,6 +71,9 @@ export function LaboralesLibraryClient() {
           <div className="flex flex-wrap gap-2">
             <Button asChild className="min-h-11 sm:min-h-9" variant="outline">
               <Link href="/opai/documentos/laborales/configurar"><Settings className="h-4 w-4" /> Configurar</Link>
+            </Button>
+            <Button asChild className="min-h-11 sm:min-h-9" variant="outline">
+              <Link href="/opai/documentos/laborales/seguimiento"><ListChecks className="h-4 w-4" /> Seguimiento</Link>
             </Button>
             <Button asChild className="min-h-11 sm:min-h-9" variant="outline">
               <Link href="/opai/documentos/laborales/envio-masivo"><Send className="h-4 w-4" /> Envío masivo</Link>

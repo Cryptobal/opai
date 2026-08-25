@@ -95,6 +95,7 @@ export function BulkSendWizard() {
         if (body.data.status === "done") break;
       }
       toast.success("Campaña procesada");
+      window.location.href = `/opai/documentos/laborales/seguimiento?campaignId=${data.data.campaignId}`;
     } finally {
       setWorking(false);
     }

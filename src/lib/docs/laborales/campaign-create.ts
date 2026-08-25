@@ -34,7 +34,12 @@ export async function createLaboralCampaign(input: {
           guardiaId: g.id,
           status: g.skipReason ? "skipped" : "pending",
           error: g.skipReason,
-          snapshot: { name: g.name, installationName: g.installationName, email: g.email },
+          snapshot: {
+            name: g.name,
+            installationId: g.installationId,
+            installationName: g.installationName,
+            email: g.email,
+          },
         })),
       },
     },
