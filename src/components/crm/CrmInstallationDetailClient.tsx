@@ -54,6 +54,11 @@ import { CreateDealModal } from "./CreateDealModal";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { toast } from "sonner";
+import {
+  fetchInstallationRosterBlockers,
+  InstallationRosterBlockers,
+} from "@/components/crm/InstallationRosterBlockers";
+import type { InstallationRosterBlocker } from "@/lib/crm/installation-roster-guard";
 import { formatPersonName } from "@/lib/personas";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { AccessControlConfigTab } from "@/components/access-control/AccessControlConfigTab";
@@ -2017,6 +2022,8 @@ export function CrmInstallationDetailClient({
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
   const [statusNextValue, setStatusNextValue] = useState<"prospect" | "active" | "inactive">("prospect");
+  const [rosterBlockers, setRosterBlockers] = useState<InstallationRosterBlocker[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
   const [statusActivateAccount, setStatusActivateAccount] = useState(false);
   const isActive = useMemo(() => installation.status === "active", [installation.status]);
 
@@ -2050,11 +2057,12 @@ export function CrmInstallationDetailClient({
   const deleteInstallation = async () => {
     try {
       const res = await fetch(`/api/crm/installations/${installation.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || "No se pudo eliminar");
       toast.success("Instalación eliminada");
       router.push("/crm/installations");
-    } catch {
-      toast.error("No se pudo eliminar");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo eliminar");
     }
   };
 
@@ -2065,7 +2073,14 @@ export function CrmInstallationDetailClient({
       installation.account &&
       installation.account.isActive === false;
     setStatusActivateAccount(next === "active" && !!accountNeedsActivation);
+    setRosterBlockers([]);
     setStatusConfirmOpen(true);
+    if (next !== "active") {
+      setRosterLoading(true);
+      void fetchInstallationRosterBlockers(installation.id)
+        .then(setRosterBlockers)
+        .finally(() => setRosterLoading(false));
+    }
   };
 
   const toggleInstallationStatus = async () => {
@@ -2080,14 +2095,19 @@ export function CrmInstallationDetailClient({
         }),
       });
       const payload = await res.json();
-      if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo actualizar estado");
+      if (!res.ok || !payload.success) {
+        if (payload.code === "INSTALLATION_HAS_ACTIVE_ROSTER" && Array.isArray(payload.blockers)) {
+          setRosterBlockers(payload.blockers);
+        }
+        throw new Error(payload.error || "No se pudo actualizar estado");
+      }
 
       setStatusConfirmOpen(false);
       toast.success(statusNextValue === "active" ? "Instalación activada" : "Instalación desactivada");
       router.refresh();
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo cambiar el estado de la instalación");
+      toast.error(error instanceof Error ? error.message : "No se pudo cambiar el estado de la instalación");
     } finally {
       setStatusUpdating(false);
     }
@@ -3358,13 +3378,17 @@ export function CrmInstallationDetailClient({
               "La instalación quedará activa."
             )
           ) : (
-            "La instalación quedará inactiva."
+            <span className="space-y-3 block">
+              <span className="block">La instalación quedará inactiva.</span>
+              <InstallationRosterBlockers blockers={rosterBlockers} loading={rosterLoading} />
+            </span>
           )
         }
         confirmLabel={statusNextValue === "active" ? "Activar" : "Desactivar"}
         variant="default"
         loading={statusUpdating}
         loadingLabel="Guardando..."
+        confirmDisabled={statusNextValue !== "active" && (rosterLoading || rosterBlockers.length > 0)}
         onConfirm={toggleInstallationStatus}
       />
       <ConfirmDialog

@@ -229,6 +229,7 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "labor_event.pendingRemunerationAmount", label: "Remuneración Pendiente", path: "pendingRemunerationAmount", type: "currency" },
       { key: "labor_event.yearsOfServiceAmount", label: "Indemnización Años Servicio", path: "yearsOfServiceAmount", type: "currency" },
       { key: "labor_event.substituteNoticeAmount", label: "Indemn. Sustitutiva Aviso Previo", path: "substituteNoticeAmount", type: "currency" },
+      { key: "labor_event.afcDeductionAmount", label: "Descuento AFC", path: "afcDeductionAmount", type: "currency" },
       { key: "labor_event.totalSettlementAmount", label: "Total Liquidación", path: "totalSettlementAmount", type: "currency" },
       { key: "labor_event.reason", label: "Motivo", path: "reason" },
     ],

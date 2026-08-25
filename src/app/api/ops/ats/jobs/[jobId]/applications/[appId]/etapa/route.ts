@@ -18,6 +18,26 @@ const updateEtapaSchema = z.object({
   etapa: z.enum(["POSTULADO", "EN_REVISION", "ENTREVISTA", "OFERTA", "CONTRATADO", "DESCARTADO"]),
   notasInternas: z.string().optional(),
   psychOverrideJustification: z.string().optional(),
+  contractType: z.enum(["indefinido", "plazo_fijo"]).optional(),
+  contractStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  contractPeriod1End: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  contractPeriod2End: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+}).superRefine((val, ctx) => {
+  if (val.etapa !== "CONTRATADO") return;
+  if (!val.contractStartDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["contractStartDate"],
+      message: "Fecha de inicio de contrato es requerida",
+    });
+  }
+  if (val.contractType === "plazo_fijo" && !val.contractPeriod1End) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["contractPeriod1End"],
+      message: "Fecha del 1er plazo es requerida para plazo fijo",
+    });
+  }
 });
 
 export async function PATCH(
@@ -37,7 +57,15 @@ export async function PATCH(
 
     const parsed = await parseBody(request, updateEtapaSchema);
     if (parsed.error) return parsed.error;
-    const { etapa, notasInternas, psychOverrideJustification } = parsed.data;
+    const {
+      etapa,
+      notasInternas,
+      psychOverrideJustification,
+      contractType,
+      contractStartDate,
+      contractPeriod1End,
+      contractPeriod2End,
+    } = parsed.data;
 
     const app = await prisma.atsApplication.findFirst({
       where: { id: appId, jobPostingId: jobId, tenantId: ctx.tenantId },
@@ -115,11 +143,24 @@ export async function PATCH(
 
     // Si se contrata, actualizar lifecycle del guardia
     if (etapa === "CONTRATADO") {
+      const start = contractStartDate ? new Date(`${contractStartDate}T00:00:00.000Z`) : new Date();
+      const type = contractType ?? "indefinido";
       await prisma.opsGuardia.update({
         where: { id: app.guardiaId },
         data: {
           lifecycleStatus: "contratado",
-          hiredAt: new Date(),
+          hiredAt: start,
+          contractType: type,
+          contractStartDate: start,
+          contractPeriod1End:
+            type === "plazo_fijo" && contractPeriod1End
+              ? new Date(`${contractPeriod1End}T00:00:00.000Z`)
+              : null,
+          contractPeriod2End:
+            type === "plazo_fijo" && contractPeriod2End
+              ? new Date(`${contractPeriod2End}T00:00:00.000Z`)
+              : null,
+          contractCurrentPeriod: 1,
         },
       });
     }

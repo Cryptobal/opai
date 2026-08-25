@@ -932,7 +932,11 @@ export function CrmAccountDetailClient({
       router.refresh();
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo cambiar el tipo de cuenta.");
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : "No se pudo cambiar el tipo de cuenta.",
+      );
     } finally {
       setUpdatingAccountType(false);
     }
@@ -963,7 +967,11 @@ export function CrmAccountDetailClient({
       router.refresh();
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo actualizar el estado de la cuenta.");
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : "No se pudo actualizar el estado de la cuenta.",
+      );
     } finally {
       setUpdatingAccountStatus(false);
     }

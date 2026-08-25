@@ -38,6 +38,12 @@ import {
 } from "@/lib/validations/crm";
 import { createCrmHistoryLog, computeChangedFields } from "@/lib/crm-history";
 import { shutdownInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
+import {
+  findActiveInstallationRoster,
+  findActiveRosterForInstallation,
+  formatRosterConflictError,
+} from "@/lib/crm/installation-roster-guard";
+import { isClosingInstallationStatus } from "@/lib/personas-lifecycle";
 import { ensureInstallationChannel } from "@/lib/chat-installation-channel";
 import {
   resolveStageByName,
@@ -5859,6 +5865,13 @@ async function toolUpdateInstallation(
     patch.nocturnoEnabled = false;
     patch.chatEnabled = false;
   }
+  if (isClosingInstallationStatus(existing.status, patch.status)) {
+    const blockers = await findActiveRosterForInstallation(tenantId, id);
+    if (blockers.length > 0) {
+      await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "INSTALLATION_HAS_ACTIVE_ROSTER", startedAt: t0 });
+      return { ok: false, error: formatRosterConflictError(blockers), blockers };
+    }
+  }
   try {
     const result = await prisma.crmInstallation.updateMany({
       where: { id, tenantId },
@@ -6381,6 +6394,27 @@ async function toolPreviewBulkUpdateInstallations(tenantId: string, userId: stri
     await logAiAction({ tenantId, userId, toolName: "preview_bulk_update_installations", args, status: "validation_error", errorMessage: resolved.error, startedAt: t0 });
     return { ok: false, error: resolved.error };
   }
+  if (status !== "active") {
+    const blockers = await findActiveInstallationRoster(
+      tenantId,
+      resolved.installations.map((i) => i.id),
+    );
+    if (blockers.length > 0) {
+      const blockedIds = new Set(blockers.map((b) => b.installationId));
+      const allowed = resolved.installations.filter((i) => !blockedIds.has(i.id));
+      await logAiAction({ tenantId, userId, toolName: "preview_bulk_update_installations", args, status: "success", startedAt: t0 });
+      return {
+        ok: true,
+        data: {
+          count: allowed.length,
+          targetStatus: status,
+          installations: allowed,
+          blocked: blockers,
+          warning: formatRosterConflictError(blockers),
+        },
+      };
+    }
+  }
   await logAiAction({ tenantId, userId, toolName: "preview_bulk_update_installations", args, status: "success", startedAt: t0 });
   return { ok: true, data: { count: resolved.installations.length, targetStatus: status, installations: resolved.installations } };
 }
@@ -6405,7 +6439,22 @@ async function toolBulkUpdateInstallations(tenantId: string, userId: string, per
     await logAiAction({ tenantId, userId, toolName: "bulk_update_installations", args, status: "validation_error", errorMessage: "Sin instalaciones", startedAt: t0 });
     return { ok: false, error: "No hay instalaciones que actualizar con esos filtros." };
   }
-  const ids = resolved.installations.map((i) => i.id);
+  let targets = resolved.installations;
+  if (status !== "active") {
+    const blockers = await findActiveInstallationRoster(
+      tenantId,
+      targets.map((i) => i.id),
+    );
+    if (blockers.length > 0) {
+      const blockedIds = new Set(blockers.map((b) => b.installationId));
+      targets = targets.filter((i) => !blockedIds.has(i.id));
+      if (targets.length === 0) {
+        await logAiAction({ tenantId, userId, toolName: "bulk_update_installations", args, status: "validation_error", errorMessage: "INSTALLATION_HAS_ACTIVE_ROSTER", startedAt: t0 });
+        return { ok: false, error: formatRosterConflictError(blockers), blockers };
+      }
+    }
+  }
+  const ids = targets.map((i) => i.id);
   try {
     await prisma.crmInstallation.updateMany({
       where: { id: { in: ids }, tenantId },
@@ -6419,7 +6468,7 @@ async function toolBulkUpdateInstallations(tenantId: string, userId: string, per
         await shutdownInstallationOperations(tenantId, instId);
       }
     }
-    for (const inst of resolved.installations) {
+    for (const inst of targets) {
       await createCrmHistoryLog({
         tenantId,
         entityType: "installation",

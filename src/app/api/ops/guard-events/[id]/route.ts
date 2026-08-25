@@ -3,6 +3,7 @@ import { requireAuth, unauthorized, ensureCanDelete } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
 import { EVENT_SUBTYPES, getSubtypeLabel, getCategoryLabel } from "@/lib/guard-events";
+import { computeFiniquitoSettlement, toNonNegativeAmount } from "@/lib/personas-lifecycle";
 
 type Params = { id: string };
 
@@ -69,6 +70,7 @@ export async function GET(
         pendingRemunerationAmount: event.pendingRemunerationAmount ? Number(event.pendingRemunerationAmount) : null,
         yearsOfServiceAmount: event.yearsOfServiceAmount ? Number(event.yearsOfServiceAmount) : null,
         substituteNoticeAmount: event.substituteNoticeAmount ? Number(event.substituteNoticeAmount) : null,
+        afcDeductionAmount: event.afcDeductionAmount ? Number(event.afcDeductionAmount) : null,
         totalSettlementAmount: event.totalSettlementAmount ? Number(event.totalSettlementAmount) : null,
         documents,
       },
@@ -138,7 +140,26 @@ export async function PATCH(
       if (body.pendingRemunerationAmount !== undefined) updateData.pendingRemunerationAmount = body.pendingRemunerationAmount;
       if (body.yearsOfServiceAmount !== undefined) updateData.yearsOfServiceAmount = body.yearsOfServiceAmount;
       if (body.substituteNoticeAmount !== undefined) updateData.substituteNoticeAmount = body.substituteNoticeAmount;
-      if (body.totalSettlementAmount !== undefined) updateData.totalSettlementAmount = body.totalSettlementAmount;
+      if (body.afcDeductionAmount !== undefined) {
+        updateData.afcDeductionAmount = toNonNegativeAmount(body.afcDeductionAmount) || null;
+      }
+      if (
+        existing.category === "finiquito" &&
+        (body.vacationPaymentAmount !== undefined ||
+          body.pendingRemunerationAmount !== undefined ||
+          body.yearsOfServiceAmount !== undefined ||
+          body.substituteNoticeAmount !== undefined ||
+          body.afcDeductionAmount !== undefined ||
+          body.totalSettlementAmount !== undefined)
+      ) {
+        updateData.totalSettlementAmount = computeFiniquitoSettlement({
+          vacationPaymentAmount: updateData.vacationPaymentAmount ?? existing.vacationPaymentAmount,
+          pendingRemunerationAmount: updateData.pendingRemunerationAmount ?? existing.pendingRemunerationAmount,
+          yearsOfServiceAmount: updateData.yearsOfServiceAmount ?? existing.yearsOfServiceAmount,
+          substituteNoticeAmount: updateData.substituteNoticeAmount ?? existing.substituteNoticeAmount,
+          afcDeductionAmount: updateData.afcDeductionAmount ?? existing.afcDeductionAmount,
+        });
+      }
     }
     if (body.status !== undefined) updateData.status = body.status;
     if (isCancellation) {
@@ -195,6 +216,7 @@ export async function PATCH(
         pendingRemunerationAmount: updated.pendingRemunerationAmount ? Number(updated.pendingRemunerationAmount) : null,
         yearsOfServiceAmount: updated.yearsOfServiceAmount ? Number(updated.yearsOfServiceAmount) : null,
         substituteNoticeAmount: updated.substituteNoticeAmount ? Number(updated.substituteNoticeAmount) : null,
+        afcDeductionAmount: updated.afcDeductionAmount ? Number(updated.afcDeductionAmount) : null,
         totalSettlementAmount: updated.totalSettlementAmount ? Number(updated.totalSettlementAmount) : null,
       },
     });
