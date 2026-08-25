@@ -1,9 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Surface, Spinner, Tag } from "@/components/opai-ds";
+import { FileWarning } from "lucide-react";
+import { EmptyState, Surface, Spinner, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  parseApiJsonText,
+  type ParsedApiJson,
+} from "@/lib/ops/client-report/parse-json";
 
 type Config = {
   enabled: boolean;
@@ -49,6 +54,11 @@ const WEEKDAYS = [
 const selectClass =
   "h-10 sm:h-9 rounded-md border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]";
 
+function apiErrorMessage(json: ParsedApiJson, fallback: string): string {
+  const base = json.error || fallback;
+  return json.detail ? `${base} — ${json.detail}` : base;
+}
+
 export function InstalacionClientReportTab({
   installationId,
 }: {
@@ -68,15 +78,26 @@ export function InstalacionClientReportTab({
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const [cRes, rRes] = await Promise.all([
         fetch(`/api/ops/client-report/config/${installationId}`),
         fetch(`/api/ops/client-report/config/${installationId}/recipients`),
       ]);
-      const cJson = await cRes.json();
-      const rJson = await rRes.json();
-      if (cJson.success) setConfig(cJson.data);
-      if (rJson.success) setRecipients(rJson.data);
+      const cJson = parseApiJsonText(await cRes.text());
+      const rJson = parseApiJsonText(await rRes.text());
+      if (cJson.success && cJson.data && typeof cJson.data === "object") {
+        setConfig(cJson.data as Config);
+      } else {
+        setConfig(null);
+        setError(apiErrorMessage(cJson, "No se pudo cargar la configuración"));
+      }
+      if (rJson.success && rJson.data && typeof rJson.data === "object") {
+        setRecipients(rJson.data as Recipients);
+      }
+    } catch (e) {
+      setConfig(null);
+      setError(e instanceof Error ? e.message : "No se pudo cargar el reporte cliente");
     } finally {
       setLoading(false);
     }
@@ -89,7 +110,11 @@ export function InstalacionClientReportTab({
       const res = await fetch(
         `/api/ops/client-report/config/${installationId}/preview`
       );
-      if (!res.ok) throw new Error("No se pudo generar la vista previa");
+      if (!res.ok) {
+        const json = parseApiJsonText(await res.text());
+        setError(apiErrorMessage(json, "No se pudo generar la vista previa"));
+        return;
+      }
       setPreviewPeriod(res.headers.get("X-Report-Period"));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -135,9 +160,9 @@ export function InstalacionClientReportTab({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(partial),
     });
-    const json = await res.json();
+    const json = parseApiJsonText(await res.text());
     if (!json.success) {
-      setError(json.error || "No se pudo guardar");
+      setError(apiErrorMessage(json, "No se pudo guardar"));
       void load();
     } else if (partial.enabled) {
       void load();
@@ -201,8 +226,10 @@ export function InstalacionClientReportTab({
           body: JSON.stringify(testEmail.trim() ? { email: testEmail.trim() } : {}),
         }
       );
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || "No se pudo enviar");
+      const json = parseApiJsonText(await res.text());
+      if (!json.success) {
+        throw new Error(apiErrorMessage(json, "No se pudo enviar"));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -210,11 +237,34 @@ export function InstalacionClientReportTab({
     }
   }
 
-  if (loading || !config) {
+  if (loading) {
     return (
       <div className="flex justify-center py-10">
         <Spinner />
       </div>
+    );
+  }
+
+  if (!config) {
+    return (
+      <EmptyState
+        icon={FileWarning}
+        tone="warn"
+        title="No se pudo cargar el reporte cliente"
+        description={
+          error ??
+          "No recibimos la configuración de esta instalación. Revisa la conexión e inténtalo de nuevo."
+        }
+        action={
+          <Button
+            type="button"
+            className="h-10 sm:h-9"
+            onClick={() => void load()}
+          >
+            Reintentar
+          </Button>
+        }
+      />
     );
   }
 
