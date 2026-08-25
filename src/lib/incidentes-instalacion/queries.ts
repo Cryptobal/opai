@@ -1,24 +1,20 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getPresignedDownloadUrl } from "@/lib/storage";
-import { INCIDENTE_TICKET_SLUG } from "./constants";
+import { getPresignedInlineUrl } from "@/lib/storage";
+import { INCIDENTE_TICKET_SLUG, categoryLabel } from "./constants";
 import { readPublicReport, readValidation } from "./metadata";
-import { formatElapsedMinutes, incidenteUiStatus } from "./status";
-import { categoryLabel } from "./constants";
+import {
+  formatElapsedMinutes,
+  incidenteUiStatus,
+  statusesForFilter,
+  type IncidenteListFilter,
+} from "./status";
 
-export type IncidenteListFilter = "por_validar" | "activos" | "validados" | "abiertos" | "all";
-
-function statusesForFilter(filter: IncidenteListFilter): string[] | undefined {
-  if (filter === "por_validar") return ["resolved"];
-  if (filter === "activos") return ["open", "in_progress"];
-  if (filter === "validados") return ["closed"];
-  if (filter === "abiertos") return ["open"];
-  return undefined;
-}
+export type { IncidenteListFilter };
 
 async function signed(storageKey: string, fileName: string): Promise<string | null> {
   try {
-    return await getPresignedDownloadUrl({ storageKey, fileName, expiresInSeconds: 900 });
+    return await getPresignedInlineUrl({ storageKey, fileName, expiresInSeconds: 900 });
   } catch {
     return null;
   }

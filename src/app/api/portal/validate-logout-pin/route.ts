@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const DEFAULT_PIN = "0000";
-
-/**
- * Normalize a PIN for comparison: keep digits only, max 4 chars.
- * Defense against accidental whitespace/CRLF/zero-width chars introduced via
- * paste or legacy migration. Matches the regex used by the config UI:
- *   `e.target.value.replace(/[^0-9]/g, "").slice(0, 4)`
- */
-function normalizePin(raw: string | null | undefined): string {
-  if (!raw) return "";
-  return String(raw).replace(/[^0-9]/g, "").slice(0, 4);
-}
+import {
+  evaluateLogoutPin,
+  pickLogoutPinValue,
+  PIN_NOT_CONFIGURED_MESSAGE,
+} from "@/lib/portales-logout-pin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +21,10 @@ export async function POST(request: NextRequest) {
 
     const device = await prisma.devicePairing.findFirst({
       where: { deviceToken },
-      select: { tenantId: true },
+      select: {
+        tenantId: true,
+        installation: { select: { tenantId: true } },
+      },
     });
 
     if (!device) {
@@ -39,77 +34,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Look up the configured PIN. Try in order:
-    //   1. New prefixed key scoped to device's tenant
-    //      (`empresa:{tenantId}:portales.logoutPin`)
-    //   2. Legacy unprefixed key scoped to device's tenant
-    //      (`portales.logoutPin`)
-    //   3. Legacy unprefixed key with tenantId=NULL — pre-multi-tenant
-    //      global setting that the 20260406 migration left in place.
-    //
-    // Using findFirst (not findUnique) avoids issues with Prisma's
-    // composite unique selectors when the same upsert path was used
-    // under different tenant scopes over time.
-    const newKey = `empresa:${device.tenantId}:portales.logoutPin`;
-    const legacyKey = `portales.logoutPin`;
+    const tenantIds = [...new Set(
+      [device.installation?.tenantId, device.tenantId].filter(
+        (id): id is string => Boolean(id),
+      ),
+    )];
 
-    let setting = await prisma.setting.findFirst({
-      where: { tenantId: device.tenantId, key: newKey },
-      select: { value: true },
+    const settings = await prisma.setting.findMany({
+      where: {
+        key: { contains: "portales.logoutPin" },
+        OR: [
+          ...(tenantIds.length > 0 ? [{ tenantId: { in: tenantIds } }] : []),
+          { tenantId: null },
+        ],
+      },
+      select: { key: true, value: true, tenantId: true },
     });
-    let source: "new-scoped" | "legacy-scoped" | "legacy-global" | "none" =
-      setting ? "new-scoped" : "none";
 
-    if (!setting) {
-      setting = await prisma.setting.findFirst({
-        where: { tenantId: device.tenantId, key: legacyKey },
-        select: { value: true },
-      });
-      if (setting) source = "legacy-scoped";
-    }
+    const configured = pickLogoutPinValue(settings, tenantIds);
+    const result = evaluateLogoutPin(configured, rawPin);
 
-    if (!setting) {
-      setting = await prisma.setting.findFirst({
-        where: { tenantId: null, key: legacyKey },
-        select: { value: true },
-      });
-      if (setting) source = "legacy-global";
-    }
-
-    const configured = normalizePin(setting?.value);
-    const submitted = normalizePin(rawPin);
-    const correctPin = configured || DEFAULT_PIN;
-    const valid = submitted.length === 4 && submitted === correctPin;
-
-    // Diagnostic logging — never log actual PIN values. On mismatch we
-    // also probe whether the PIN exists under a *different* tenant, which
-    // is the most common real-world cause (admin saves PIN as tenant A,
-    // device paired to installation under tenant B).
-    if (!valid) {
-      const crossTenant = await prisma.setting.findFirst({
-        where: {
-          key: { contains: "portales.logoutPin" },
-          NOT: { tenantId: device.tenantId },
-        },
-        select: { tenantId: true, key: true },
-      });
+    if (!result.ok) {
       console.warn("[validate-logout-pin] mismatch", {
-        tenantId: device.tenantId,
+        deviceTenantId: device.tenantId,
+        installationTenantId: device.installation?.tenantId ?? null,
         deviceTokenSuffix: String(deviceToken).slice(-8),
-        source,
+        settingsFound: settings.length,
         configuredLength: configured.length,
-        submittedLength: submitted.length,
-        usingDefault: !configured,
-        crossTenantHit: crossTenant
-          ? { tenantId: crossTenant.tenantId, key: crossTenant.key }
-          : null,
+        code: result.code,
+      });
+      return NextResponse.json({
+        success: false,
+        code: result.code,
+        error: result.error ?? (result.code === "PIN_NOT_CONFIGURED"
+          ? PIN_NOT_CONFIGURED_MESSAGE
+          : undefined),
       });
     }
 
-    return NextResponse.json({
-      success: valid,
-      ...(valid ? {} : { code: "PIN_MISMATCH" }),
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[validate-logout-pin] Error:", error);
     return NextResponse.json(

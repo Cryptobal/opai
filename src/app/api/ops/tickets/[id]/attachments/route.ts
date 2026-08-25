@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
-import { uploadFile, getFileUrl } from "@/lib/storage";
+import { uploadFile, getFileUrl, getPresignedInlineUrl } from "@/lib/storage";
 import { recordTicketEvent } from "@/lib/tickets-events";
 import { resolveActorNames } from "@/lib/notifications/resolve-actor-name";
 
@@ -29,6 +29,7 @@ type AttachmentDTO = {
   contentType: string;
   storageKey: string;
   url: string;
+  kind: string;
   uploadedBy: string | null;
   uploadedByName: string | null;
   createdAt: string;
@@ -79,19 +80,37 @@ export async function GET(
       ? await resolveActorNames(ctx.tenantId, uploaderIds)
       : new Map<string, { name: string }>();
 
-    const data: AttachmentDTO[] = rows.map((r) => ({
-      id: r.id,
-      fileName: r.fileName,
-      fileSize: r.fileSize,
-      contentType: r.contentType,
-      storageKey: r.storageKey,
-      url: safeUrl(r.storageKey),
-      uploadedBy: r.uploadedBy,
-      uploadedByName: r.uploadedBy
-        ? actorMap.get(r.uploadedBy)?.name ?? null
-        : null,
-      createdAt: r.createdAt.toISOString(),
-    }));
+    const data: AttachmentDTO[] = await Promise.all(
+      rows.map(async (r) => {
+        const isImage = r.contentType.startsWith("image/");
+        let url = safeUrl(r.storageKey);
+        if (isImage) {
+          try {
+            url = await getPresignedInlineUrl({
+              storageKey: r.storageKey,
+              fileName: r.fileName,
+              expiresInSeconds: 900,
+            });
+          } catch {
+            // keep public URL fallback
+          }
+        }
+        return {
+          id: r.id,
+          fileName: r.fileName,
+          fileSize: r.fileSize,
+          contentType: r.contentType,
+          storageKey: r.storageKey,
+          url,
+          kind: r.kind,
+          uploadedBy: r.uploadedBy,
+          uploadedByName: r.uploadedBy
+            ? actorMap.get(r.uploadedBy)?.name ?? null
+            : null,
+          createdAt: r.createdAt.toISOString(),
+        };
+      }),
+    );
 
     return NextResponse.json({ success: true, data });
   } catch (error) {

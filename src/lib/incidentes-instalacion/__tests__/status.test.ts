@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { mergeTicketMetadata, readValidation } from "../metadata";
-import { canIncidenteTransitionTo, incidenteUiStatus } from "../status";
+import { canIncidenteTransitionTo, incidenteUiStatus, statusesForFilter } from "../status";
 
 describe("mergeTicketMetadata", () => {
   it("fusiona nested objects sin pisar el resto", () => {
@@ -37,5 +37,15 @@ describe("canIncidenteTransitionTo", () => {
     expect(canIncidenteTransitionTo("resolved", "in_progress")).toBe(true);
     expect(canIncidenteTransitionTo("closed", "in_progress")).toBe(false);
     expect(canIncidenteTransitionTo("open", "resolved")).toBe(false);
+  });
+});
+
+describe("statusesForFilter", () => {
+  it("pendientes incluye nuevos, en atención y por validar de cierre", () => {
+    expect(statusesForFilter("pendientes")).toEqual(["open", "in_progress", "resolved"]);
+  });
+
+  it("por_validar en ficha de instalación sigue siendo solo resolved", () => {
+    expect(statusesForFilter("por_validar")).toEqual(["resolved"]);
   });
 });

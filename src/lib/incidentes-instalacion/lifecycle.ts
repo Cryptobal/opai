@@ -107,6 +107,8 @@ export async function cerrarIncidente(opts: {
   files?: UploadedReportFile[];
   guardiaId?: string | null;
   installationId?: string | null;
+  /** Guardia: true. Supervisión puede cerrar sin foto extra. */
+  requireClosurePhoto?: boolean;
 }): Promise<{ id: string; status: string }> {
   const ticket = await loadIncidente(opts.tenantId, opts.ticketId, opts.installationId);
   if (!canIncidenteTransitionTo(ticket.status as never, "resolved")) {
@@ -125,10 +127,11 @@ export async function cerrarIncidente(opts: {
     );
   }
   const files = opts.files ?? [];
+  const requireClosurePhoto = opts.requireClosurePhoto ?? true;
   const existingClosure = await prisma.opsTicketAttachment.count({
     where: { ticketId: ticket.id, tenantId: opts.tenantId, kind: "closure" },
   });
-  if (existingClosure + files.length < 1) {
+  if (requireClosurePhoto && existingClosure + files.length < 1) {
     throw new IncidenteError(
       "VALIDATION_ERROR",
       "El cierre requiere al menos una foto de evidencia.",
@@ -325,6 +328,56 @@ export async function rechazarIncidente(opts: {
     reason,
   ).catch((err) => console.error("[incidentes] notify rechazado:", err));
   return { id: ticket.id, status: "in_progress" };
+}
+
+/**
+ * Supervisión resuelve desde el ERP: atender si hace falta, cerrar
+ * (foto opcional) y validar. Si ya está resolved, solo valida.
+ */
+export async function resolverIncidentePorSupervision(opts: {
+  tenantId: string;
+  ticketId: string;
+  actorId: string;
+  actorName: string;
+  comment: string;
+  files?: UploadedReportFile[];
+}): Promise<{ id: string; status: string }> {
+  const ticket = await loadIncidente(opts.tenantId, opts.ticketId);
+  if (ticket.status === "closed") {
+    throw new IncidenteError("DUPLICATE", "Este incidente ya fue validado.", 409, {
+      status: ticket.status,
+    });
+  }
+  if (ticket.status === "resolved") {
+    return validarIncidente({
+      tenantId: opts.tenantId,
+      ticketId: opts.ticketId,
+      actorId: opts.actorId,
+      actorName: opts.actorName,
+    });
+  }
+  if (ticket.status === "open" || ticket.status === "waiting") {
+    await atenderIncidente({
+      tenantId: opts.tenantId,
+      ticketId: opts.ticketId,
+      actorId: opts.actorId,
+      actorName: opts.actorName,
+    });
+  }
+  await cerrarIncidente({
+    tenantId: opts.tenantId,
+    ticketId: opts.ticketId,
+    actorId: opts.actorId,
+    comment: opts.comment,
+    files: opts.files,
+    requireClosurePhoto: false,
+  });
+  return validarIncidente({
+    tenantId: opts.tenantId,
+    ticketId: opts.ticketId,
+    actorId: opts.actorId,
+    actorName: opts.actorName,
+  });
 }
 
 export async function autoCerrarIncidentes(limit = 200): Promise<{ closed: number }> {

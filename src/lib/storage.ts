@@ -195,7 +195,7 @@ export async function getPresignedDownloadUrl(opts: {
 }): Promise<string> {
   const client = getClient();
   const bucket = getBucket();
-  const disposition = buildAttachmentDisposition(opts.fileName);
+  const disposition = buildContentDisposition(opts.fileName, "attachment");
   const command = new GetObjectCommand({
     Bucket: bucket,
     Key: opts.storageKey,
@@ -205,7 +205,28 @@ export async function getPresignedDownloadUrl(opts: {
   return getSignedUrl(client, command, { expiresIn });
 }
 
-function buildAttachmentDisposition(fileName: string): string {
+/**
+ * URL firmada GET para previsualizar (img/lightbox) con
+ * `Content-Disposition: inline`.
+ */
+export async function getPresignedInlineUrl(opts: {
+  storageKey: string;
+  fileName: string;
+  expiresInSeconds?: number;
+}): Promise<string> {
+  const client = getClient();
+  const bucket = getBucket();
+  const disposition = buildContentDisposition(opts.fileName, "inline");
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: opts.storageKey,
+    ResponseContentDisposition: disposition,
+  });
+  const expiresIn = opts.expiresInSeconds ?? 300;
+  return getSignedUrl(client, command, { expiresIn });
+}
+
+function buildContentDisposition(fileName: string, type: "inline" | "attachment"): string {
   const clean = fileName
     .replace(/[\\/\x00-\x1f"]/g, "_")
     .replace(/\s+/g, " ")
@@ -214,7 +235,7 @@ function buildAttachmentDisposition(fileName: string): string {
   // ASCII fallback + RFC 5987 para soportar caracteres no-ASCII (tildes, ñ).
   const ascii = clean.replace(/[^\x20-\x7E]/g, "_");
   const encoded = encodeURIComponent(clean);
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+  return `${type}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
 /**

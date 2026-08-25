@@ -94,21 +94,34 @@ export async function GET() {
     if (!ctx) return unauthorized();
 
     const newKeys = EMPRESA_KEYS.map((k) => settingKey(ctx.tenantId, k));
-    let settings = await prisma.setting.findMany({
-      where: { tenantId: ctx.tenantId, key: { in: newKeys } },
-    });
-
-    if (settings.length === 0) {
-      settings = await prisma.setting.findMany({
+    const [prefixedSettings, legacyTenantSettings, legacyGlobalSettings] = await Promise.all([
+      prisma.setting.findMany({
+        where: { tenantId: ctx.tenantId, key: { in: newKeys } },
+      }),
+      prisma.setting.findMany({
         where: { tenantId: ctx.tenantId, key: { in: EMPRESA_KEYS } },
-      });
-    }
+      }),
+      prisma.setting.findMany({
+        where: { tenantId: null, key: { in: EMPRESA_KEYS } },
+      }),
+    ]);
 
+    // Merge: global legacy → tenant legacy → prefixed keys (last write wins).
+    // Previously, if ANY empresa:{tid}:* row existed, GET skipped the
+    // unprefixed keys and the UI hid portales.logoutPin even when it was
+    // saved under the legacy key.
     const data: Record<string, string> = {};
-    for (const s of settings) {
-      const shortKey = s.key.includes(":") ? s.key.replace(`empresa:${ctx.tenantId}:`, "") : s.key;
-      data[shortKey] = s.value;
-    }
+    const apply = (rows: typeof prefixedSettings) => {
+      for (const s of rows) {
+        const shortKey = s.key.includes(":")
+          ? s.key.replace(`empresa:${ctx.tenantId}:`, "")
+          : s.key;
+        data[shortKey] = s.value;
+      }
+    };
+    apply(legacyGlobalSettings);
+    apply(legacyTenantSettings);
+    apply(prefixedSettings);
 
     return NextResponse.json({ success: true, data });
   } catch (error) {

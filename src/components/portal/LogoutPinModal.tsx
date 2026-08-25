@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Lock, X } from "lucide-react";
 
 interface LogoutPinModalProps {
@@ -11,48 +11,36 @@ interface LogoutPinModalProps {
 }
 
 export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: LogoutPinModalProps) {
-  const [pin, setPin] = useState<string[]>(["", "", "", ""]);
+  const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const submittingRef = useRef(false);
 
   const reset = useCallback(() => {
-    setPin(["", "", "", ""]);
+    setPin("");
     setError("");
     setLoading(false);
+    submittingRef.current = false;
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    reset();
+    const id = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(id);
+  }, [open, reset]);
 
   const handleCancel = useCallback(() => {
     reset();
     onCancel();
   }, [reset, onCancel]);
 
-  const handleChange = useCallback((index: number, value: string) => {
-    const digit = value.replace(/[^0-9]/g, "").slice(-1);
-    setPin((prev) => {
-      const next = [...prev];
-      next[index] = digit;
-      return next;
-    });
-    setError("");
-    if (digit && index < 3) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  }, []);
+  const handleSubmit = useCallback(async (value: string) => {
+    const fullPin = value.replace(/[^0-9]/g, "").slice(0, 4);
+    if (fullPin.length !== 4 || submittingRef.current) return;
 
-  const handleKeyDown = useCallback(
-    (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Backspace" && !pin[index] && index > 0) {
-        inputRefs.current[index - 1]?.focus();
-      }
-    },
-    [pin],
-  );
-
-  const handleSubmit = useCallback(async () => {
-    const fullPin = pin.join("");
-    if (fullPin.length !== 4) return;
-
+    submittingRef.current = true;
     setLoading(true);
     setError("");
 
@@ -67,40 +55,54 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
       if (data?.success) {
         reset();
         onConfirm();
-      } else {
-        // Map server codes to user-friendly messages instead of blanket
-        // "PIN incorrecto" — helps the user (and support) distinguish a
-        // real PIN mismatch from a misconfigured / unpaired device.
-        const code = data?.code as string | undefined;
-        let msg: string;
-        switch (code) {
-          case "DEVICE_NOT_FOUND":
-            msg = "Dispositivo no reconocido. Contacta a tu supervisor.";
-            break;
-          case "MISSING_FIELDS":
-            msg = "Faltan datos. Intenta de nuevo.";
-            break;
-          case "SERVER_ERROR":
-            msg = "Error del servidor. Intenta de nuevo en unos segundos.";
-            break;
-          case "PIN_MISMATCH":
-          default:
-            msg = "PIN incorrecto";
-        }
-        setError(msg);
-        setPin(["", "", "", ""]);
-        inputRefs.current[0]?.focus();
+        return;
       }
+
+      const code = data?.code as string | undefined;
+      let msg: string;
+      switch (code) {
+        case "DEVICE_NOT_FOUND":
+          msg = "Dispositivo no reconocido. Contacta a tu supervisor.";
+          break;
+        case "MISSING_FIELDS":
+          msg = "Faltan datos. Intenta de nuevo.";
+          break;
+        case "SERVER_ERROR":
+          msg = "Error del servidor. Intenta de nuevo en unos segundos.";
+          break;
+        case "PIN_NOT_CONFIGURED":
+          msg = data?.error
+            || "Este equipo no tiene el PIN de empresa. Prueba 0000 o vuelve a vincular el dispositivo.";
+          break;
+        case "PIN_MISMATCH":
+          msg = "PIN incorrecto";
+          break;
+        default:
+          msg = data?.error || "PIN incorrecto";
+      }
+      setError(msg);
+      setPin("");
+      inputRef.current?.focus();
     } catch {
       setError("Error de conexión");
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
-  }, [pin, deviceToken, onConfirm, reset]);
+  }, [deviceToken, onConfirm, reset]);
+
+  const handleChange = useCallback((value: string) => {
+    const next = value.replace(/[^0-9]/g, "").slice(0, 4);
+    setPin(next);
+    setError("");
+    if (next.length === 4) {
+      void handleSubmit(next);
+    }
+  }, [handleSubmit]);
 
   if (!open) return null;
 
-  const isComplete = pin.every((d) => d !== "");
+  const isComplete = pin.length === 4;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-6">
@@ -113,7 +115,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
           <button
             type="button"
             onClick={handleCancel}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors min-h-11 min-w-11 inline-flex items-center justify-center"
           >
             <X className="h-4 w-4" />
           </button>
@@ -129,38 +131,43 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-3 mb-6">
-          {[0, 1, 2, 3].map((i) => (
-            <input
-              key={i}
-              ref={(el) => { inputRefs.current[i] = el; }}
-              type="password"
-              inputMode="numeric"
-              maxLength={1}
-              value={pin[i]}
-              onChange={(e) => handleChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
-              disabled={loading}
-              autoFocus={i === 0}
-              className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-border bg-muted text-foreground outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info-border"
-            />
-          ))}
-        </div>
+        <form
+          className="mb-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit(pin);
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]*"
+            maxLength={4}
+            value={pin}
+            onChange={(e) => handleChange(e.target.value)}
+            disabled={loading}
+            autoFocus
+            aria-label="PIN de 4 dígitos"
+            className="w-full h-14 text-center text-xl font-bold tracking-[0.4em] rounded-xl border border-border bg-muted text-foreground outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info-border"
+          />
+        </form>
 
         <div className="flex gap-2">
           <button
             type="button"
             onClick={handleCancel}
             disabled={loading}
-            className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50 min-h-11"
           >
             Cancelar
           </button>
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit(pin)}
             disabled={!isComplete || loading}
-            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-status-info px-4 py-3 text-sm font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-status-info px-4 py-3 text-sm font-semibold text-white transition-colors hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed min-h-11"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
