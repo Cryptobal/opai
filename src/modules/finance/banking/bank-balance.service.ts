@@ -71,10 +71,9 @@ function toLocalDateOnly(date: Date): Date {
  * Resuelve el saldo de una cuenta a una fecha: snapshot más reciente ≤ fecha
  * + Σ movimientos visibles de cartola (hiddenAt IS NULL).
  *
- * IMPORT: transactionDate > asOfDate (el closing ya trae el día del extracto).
- * MANUAL/CALCULATED: transactionDate ≥ asOfDate — un ancla del mismo día no
- * puede ocultar un abono ya visible en cartola. MATCHED / DTE borrador no
- * filtran: la plata del banco no depende de a qué documento se concilió.
+ * Cualquier ancla (IMPORT / MANUAL / CALCULATED): transactionDate > asOfDate
+ * (el saldo anclado ya trae el día). MATCHED / DTE borrador no filtran: la
+ * plata del banco no depende de a qué documento se concilió.
  *
  * Sin snapshot, devuelve `currentBalance` (no se puede derivar solo desde
  * movimientos).

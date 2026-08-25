@@ -51,6 +51,38 @@ describe("applyPayrollPatchesToMilestones", () => {
     expect(next[1].amountClp).toBe(3_000_000);
   });
 
+  it("parche ADMINISTRATIVO descuenta quincena y no toca operativo", () => {
+    const next = applyPayrollPatchesToMilestones(
+      [
+        {
+          key: "liquido",
+          dateYmd: "2026-08-31",
+          amountClp: 90_000_000,
+          laborClass: "OPERATIVO",
+        },
+        {
+          key: "liquido",
+          dateYmd: "2026-08-31",
+          amountClp: 3_393_253,
+          laborClass: "ADMINISTRATIVO",
+          label: "Sueldos equipo interno",
+        },
+      ],
+      [
+        {
+          key: "liquido",
+          dateYmd: "2026-08-31",
+          amountClp: 3_223_590,
+          laborClass: "ADMINISTRATIVO",
+          metaNote: "desc. quincena $169.663",
+        },
+      ],
+    );
+    expect(next[0].amountClp).toBe(90_000_000);
+    expect(next[1].amountClp).toBe(3_223_590);
+    expect(next[1].metaNote).toContain("quincena");
+  });
+
   it("no aplica si solo existe el hito admin", () => {
     const next = applyPayrollPatchesToMilestones(
       [

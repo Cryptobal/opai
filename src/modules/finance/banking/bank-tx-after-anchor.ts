@@ -1,25 +1,19 @@
 /**
  * Corte de movimientos de cartola respecto de un snapshot de saldo.
  *
- * IMPORT = cierre de extracto a asOfDate (el closing ya incluye ese día)
- *   → transactionDate > asOfDate.
- * MANUAL/CALCULATED = ancla / punto en el tiempo. currentBalance y un
- *   snapshot del mismo día NO se asumen dueños de la cartola de ese día
- *   (abonos con fecha valor = hoy, p.ej. API bancaria). MATCHED a un DTE
- *   (incluso borrador folio 0) no cambia esto: la plata ya está en el banco.
- *   → transactionDate >= asOfDate.
+ * El ancla (IMPORT = cierre de extracto; MANUAL/CALCULATED = saldo pegado
+ * de la app del banco) ya incluye las txs de asOfDate. Sumar el mismo día
+ * duplica abonos (p. ej. Embajada +24M sobre un ancla de 24,8M).
+ *   → transactionDate > asOfDate AND ≤ today.
  */
 export type BalanceAnchorSource = "MANUAL" | "IMPORT" | "CALCULATED";
 
 export function bankTxDateFilterAfterAnchor(
   anchorAsOfDate: Date,
   todayDate: Date,
-  anchorSource?: BalanceAnchorSource | null,
-): { gt?: Date; gte?: Date; lte: Date } {
-  if (anchorSource === "IMPORT") {
-    return { gt: anchorAsOfDate, lte: todayDate };
-  }
-  return { gte: anchorAsOfDate, lte: todayDate };
+  _anchorSource?: BalanceAnchorSource | null,
+): { gt: Date; lte: Date } {
+  return { gt: anchorAsOfDate, lte: todayDate };
 }
 
 export function includeBankTxAfterAnchor(args: {
@@ -31,7 +25,5 @@ export function includeBankTxAfterAnchor(args: {
   const tx = args.transactionDate.getTime();
   const cutoff = args.asOfDate.getTime();
   const asOf = args.anchorAsOfDate.getTime();
-  if (tx > cutoff || tx < asOf) return false;
-  if (tx > asOf) return true;
-  return args.anchorSource !== "IMPORT";
+  return tx > asOf && tx <= cutoff;
 }

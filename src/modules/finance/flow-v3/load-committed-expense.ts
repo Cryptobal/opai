@@ -255,6 +255,9 @@ export async function loadCommittedExpense(
       previredDay: previredDay,
       ivaDay,
       pendingTeTotal: teTotal,
+      quincenaOperativo: quincenaTotal,
+      quincenaAdmin: staffQuincenaTotal,
+      staffLiquido: staffCash.liquido,
       postponements,
     },
   );
