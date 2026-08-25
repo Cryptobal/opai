@@ -9,6 +9,14 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CAUSALES_DT } from "@/lib/guard-events";
 import { clpToUf } from "@/lib/uf-utils";
+import {
+  evaluateCondition,
+  evaluateFieldCondition,
+  type ConditionOp,
+} from "./condition";
+
+export { evaluateCondition, evaluateFieldCondition };
+export type { ConditionOp };
 
 /** Formatea fechas tipo YYYY-MM-DD como dd/MM/yyyy sin desfase por zona horaria.
  *  new Date("2026-02-01") = medianoche UTC → en Chile muestra 31/01. Esta función evita eso. */
@@ -373,47 +381,69 @@ function collectTokenKeysFromText(text: string): string[] {
     .filter(Boolean);
 }
 
-/** Módulos permitidos en expresiones {{#if ...}}. */
-const CONDITIONAL_MODULES = new Set([
-  "guardia", "quote", "empresa", "account", "contract",
-  "installation", "deal", "contact",
+const CONDITIONAL_PARENTS = new Set([
+  "doc",
+  "table",
+  "bulletList",
+  "orderedList",
+  "blockquote",
+  "conditionalBranch",
 ]);
 
-/**
- * Evalúa expresiones tipo:
- *   quote.currency=="UF"
- *   quote.adjustmentType=="POLYNOMIAL"
- *   quote.ipcWeight>0
- *   guardia.isJubilado=="SI"
- *   account.notaryName (truthy)
- */
-function evaluateCondition(expr: string, entities: EntityData): boolean {
-  const text = expr.trim();
-  const m1 = /^([a-z]+)\.(\w+)\s*>\s*(-?\d+(?:\.\d+)?)$/i.exec(text);
-  if (m1 && CONDITIONAL_MODULES.has(m1[1])) {
-    const entity = entities[m1[1] as keyof EntityData] as Record<string, any> | undefined;
-    if (!entity) return false;
-    const num = Number(entity[m1[2]]);
-    return !isNaN(num) && num > Number(m1[3]);
+function flattenConditionalBlocks(nodes: any[]): any[] {
+  const out: any[] = [];
+  for (const n of nodes) {
+    if (!n) continue;
+    if (n.type === "conditionalBlock" || n.type === "conditionalBranch") {
+      if (Array.isArray(n.content)) out.push(...n.content);
+    } else {
+      out.push(n);
+    }
   }
-  const m2 = /^([a-z]+)\.(\w+)\s*==\s*"([^"]*)"$/i.exec(text);
-  if (m2 && CONDITIONAL_MODULES.has(m2[1])) {
-    const entity = entities[m2[1] as keyof EntityData] as Record<string, any> | undefined;
-    if (!entity) return false;
-    const actual = String(entity[m2[2]] ?? "").toLowerCase();
-    const expected = m2[3].toLowerCase();
-    return actual === expected;
+  return out;
+}
+
+function rowConditionFails(node: any, entities: EntityData): boolean {
+  const raw = node?.attrs?.condition;
+  if (!raw) return false;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed?.field) return false;
+    return !evaluateFieldCondition(
+      String(parsed.field),
+      (parsed.op as ConditionOp) || "truthy",
+      parsed.value === undefined || parsed.value === null ? undefined : String(parsed.value),
+      entities as Record<string, Record<string, unknown> | null | undefined>,
+    );
+  } catch {
+    return false;
   }
-  const m3 = /^([a-z]+)\.(\w+)$/i.exec(text);
-  if (m3 && CONDITIONAL_MODULES.has(m3[1])) {
-    const entity = entities[m3[1] as keyof EntityData] as Record<string, any> | undefined;
-    if (!entity) return false;
-    const val = entity[m3[2]];
-    if (val === null || val === undefined) return false;
-    if (val === false || val === 0 || val === "") return false;
-    return true;
-  }
-  return false;
+}
+
+function resolveConditionalBlock(node: any, entities: EntityData, walkNode: (n: any) => any): any {
+  const field = String(node.attrs?.field ?? "");
+  const op = (node.attrs?.op ?? "truthy") as ConditionOp;
+  const value =
+    node.attrs?.value === undefined || node.attrs?.value === null
+      ? undefined
+      : String(node.attrs.value);
+  const hasElse = Boolean(node.attrs?.hasElse);
+  const met = evaluateFieldCondition(
+    field,
+    op,
+    value,
+    entities as Record<string, Record<string, unknown> | null | undefined>,
+  );
+  const branches: any[] = Array.isArray(node.content) ? node.content : [];
+  const ifBranch = branches.find((b) => b?.attrs?.branch === "if") ?? branches[0];
+  const elseBranch = branches.find((b) => b?.attrs?.branch === "else") ?? branches[1];
+  const chosen = met ? ifBranch : hasElse ? elseBranch : null;
+  if (!chosen) return { type: "conditionalBlock", content: [] };
+  const walked = walkNode({
+    ...chosen,
+    type: chosen.type || "conditionalBranch",
+  });
+  return { type: "conditionalBlock", content: walked?.content ?? [] };
 }
 
 /** Extrae texto plano de un nodo (para detectar {{#if}} y {{/if}}) */
@@ -563,6 +593,14 @@ export function resolveDocument(
   function walkNode(node: any): any {
     if (!node) return node;
 
+    if (node.type === "conditionalBlock") {
+      return resolveConditionalBlock(node, entities, walkNode);
+    }
+
+    if (node.type === "tableRow" && rowConditionFails(node, entities)) {
+      return null;
+    }
+
     if (node.type === "contractToken" && node.attrs?.tokenKey) {
       const tokenKey = node.attrs.tokenKey;
       // No resolver tokens de firma aquí: se resuelven en signed-pdf con datos reales del firmante
@@ -613,9 +651,10 @@ export function resolveDocument(
     const resolvedNodeAttrs = resolveAttrs(node.attrs as Record<string, any> | undefined);
 
     if (node.content && Array.isArray(node.content)) {
-      const isDoc = node.type === "doc";
-      if (isDoc) {
-        const newContent = processConditionalBlocks(node.content, entities, walkNode).filter(Boolean);
+      if (CONDITIONAL_PARENTS.has(node.type)) {
+        const newContent = flattenConditionalBlocks(
+          processConditionalBlocks(node.content, entities, walkNode).filter(Boolean),
+        );
         return { ...node, ...(resolvedNodeAttrs ? { attrs: resolvedNodeAttrs } : {}), content: newContent };
       }
       // Párrafos y headings: si el contenido inline tiene {{#if}} repartido en varios nodos,
@@ -637,7 +676,9 @@ export function resolveDocument(
           return { ...node, content: [{ type: "text", text: resolved, marks }] };
         }
       }
-      const newContent = node.content.map((n: any) => walkNode(n)).filter(Boolean);
+      const newContent = flattenConditionalBlocks(
+        node.content.map((n: any) => walkNode(n)).filter(Boolean),
+      );
       return { ...node, ...(resolvedNodeAttrs ? { attrs: resolvedNodeAttrs } : {}), content: newContent };
     }
 

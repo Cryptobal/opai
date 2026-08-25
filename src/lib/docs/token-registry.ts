@@ -9,8 +9,9 @@ export interface TokenDefinition {
   key: string;
   label: string;
   path: string;
-  type?: "text" | "number" | "date" | "currency" | "table" | "signature";
+  type?: "text" | "number" | "date" | "currency" | "table" | "signature" | "boolean" | "enum";
   format?: string;
+  catalog?: string[];
 }
 
 export interface TokenModule {
@@ -177,15 +178,15 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "guardia.region", label: "Región", path: "region" },
       { key: "guardia.birthDate", label: "Fecha de Nacimiento", path: "birthDate", type: "date" },
       { key: "guardia.nacionalidad", label: "Nacionalidad", path: "nacionalidad" },
-      { key: "guardia.afp", label: "AFP", path: "afp" },
-      { key: "guardia.isJubilado", label: "¿Jubilado? (SI/NO)", path: "isJubilado" },
-      { key: "guardia.cotizaAFP", label: "Cotiza AFP (SI/NO)", path: "cotizaAFP" },
-      { key: "guardia.cotizaAFC", label: "Cotiza AFC (SI/NO)", path: "cotizaAFC" },
+      { key: "guardia.afp", label: "AFP", path: "afp", type: "enum", catalog: ["Capital", "Cuprum", "Habitat", "PlanVital", "ProVida", "UNO", "Modelo"] },
+      { key: "guardia.isJubilado", label: "¿Jubilado? (SI/NO)", path: "isJubilado", type: "boolean", catalog: ["SI", "NO"] },
+      { key: "guardia.cotizaAFP", label: "Cotiza AFP (SI/NO)", path: "cotizaAFP", type: "boolean", catalog: ["SI", "NO"] },
+      { key: "guardia.cotizaAFC", label: "Cotiza AFC (SI/NO)", path: "cotizaAFC", type: "boolean", catalog: ["SI", "NO"] },
       { key: "guardia.cotizaAFPTexto", label: "Cotiza AFP (texto)", path: "cotizaAFPTexto" },
       { key: "guardia.cotizaAFCTexto", label: "Cotiza AFC (texto)", path: "cotizaAFCTexto" },
       { key: "guardia.regimenPrevisional", label: "Régimen Previsional (código)", path: "regimenPrevisional" },
       { key: "guardia.regimenPrevisionalLabel", label: "Régimen Previsional", path: "regimenPrevisionalLabel" },
-      { key: "guardia.healthSystem", label: "Sistema de Salud", path: "healthSystem" },
+      { key: "guardia.healthSystem", label: "Sistema de Salud", path: "healthSystem", type: "enum", catalog: ["fonasa", "isapre"] },
       { key: "guardia.isapreName", label: "Isapre", path: "isapreName" },
       { key: "guardia.hiredAt", label: "Fecha de Contratación", path: "hiredAt", type: "date" },
       { key: "guardia.code", label: "Código Guardia", path: "code" },
@@ -195,7 +196,7 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "guardia.installationAddress", label: "Dirección Instalación", path: "installationAddress" },
       { key: "guardia.installationCommune", label: "Comuna Instalación", path: "installationCommune" },
       { key: "guardia.installationCity", label: "Ciudad Instalación", path: "installationCity" },
-      { key: "guardia.contractType", label: "Tipo de Contrato", path: "contractType" },
+      { key: "guardia.contractType", label: "Tipo de Contrato", path: "contractType", type: "enum", catalog: ["indefinido", "plazo_fijo"] },
       { key: "guardia.contractStartDate", label: "Inicio Contrato", path: "contractStartDate", type: "date" },
       { key: "guardia.contractEndDate", label: "Fin Contrato (período actual)", path: "contractEndDate", type: "date" },
       { key: "guardia.contractPeriod1End", label: "Fin Período 1 (original)", path: "contractPeriod1End", type: "date" },
@@ -390,6 +391,15 @@ export const DOC_CATEGORIES: Record<string, { key: string; label: string }[]> = 
     { key: "carta_compromiso", label: "Carta de Compromiso" },
     { key: "otro_legal", label: "Otro" },
   ],
+  laboral: [
+    { key: "odi", label: "ODI — Obligación de Informar" },
+    { key: "das", label: "Derecho a Saber (D.S. 40)" },
+    { key: "epp", label: "Entrega de EPP" },
+    { key: "contrato", label: "Contrato de trabajo" },
+    { key: "anexo", label: "Anexo de contrato" },
+    { key: "riohs", label: "RIOHS" },
+    { key: "otro_laboral", label: "Otro" },
+  ],
   mail: [
     { key: "email_seguimiento", label: "Email de Seguimiento" },
     { key: "email_propuesta", label: "Email de Propuesta" },
@@ -442,9 +452,18 @@ export const DOC_MODULES = [
   { key: "crm", label: "CRM" },
   { key: "payroll", label: "Payroll" },
   { key: "legal", label: "Legal" },
+  { key: "laboral", label: "Laboral" },
   { key: "mail", label: "Mail (correos)" },
   { key: "whatsapp", label: "WhatsApp" },
 ] as const;
+
+export function getConditionableTokens() {
+  return TOKEN_MODULES.flatMap((mod) =>
+    mod.tokens
+      .filter((t) => t.type !== "table" && t.type !== "signature")
+      .map((t) => ({ ...t, module: mod.key, moduleLabel: mod.label })),
+  );
+}
 
 /** Uso de plantillas WhatsApp (usageSlug) → etiqueta y descripción "dónde se usa" */
 export const WA_USAGE_SLUGS: Record<
