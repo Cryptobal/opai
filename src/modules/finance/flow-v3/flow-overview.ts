@@ -51,7 +51,7 @@ export interface FlowOverviewWeek {
 }
 
 export interface FlowOverviewKpis {
-  /** Footer «Banco hoy»: snapshot + movimientos con fecha ≤ hoy. */
+  /** Footer «Banco hoy»: snapshot + cartola visible con fecha ≤ hoy (mismo día si ancla MANUAL). */
   bancoHoy: number;
   saldoHoy: number;
   openingBalance: number;
@@ -144,7 +144,7 @@ export function formatFlowOverview(m: FlowMatrixResponse): string {
 
   lines.push(`Hoy: ${m.todayYmd}. Semana actual: ${m.currentWeek} (${currentLabel}).`);
   lines.push(
-    `Banco hoy (footer de la planilla; ancla viva = snapshot banco + movimientos con fecha ≤ hoy): ${dto.kpis.bancoHoy} CLP.`,
+    `Banco hoy (footer de la planilla; ancla viva = snapshot banco + movimientos de cartola visibles con fecha ≤ hoy; el mismo día del ancla MANUAL cuenta, MATCHED a DTE no excluye): ${dto.kpis.bancoHoy} CLP.`,
   );
   lines.push(
     "Saldo acumulado (semana actual ABIERTA) = Banco hoy + pendientes (effective − real). " +

@@ -9433,7 +9433,7 @@ export async function executeToolCallV2(
             closedWeeks: overview.closedWeeks,
             formulas: {
               bancoHoy:
-                "Footer «Banco hoy»: resolveOpeningBalance (snapshot más reciente ≤ hoy + Σ bank_tx posteriores con fecha ≤ hoy). No es currentBalance de Banca.",
+                "Footer «Banco hoy»: resolveOpeningBalance (snapshot más reciente ≤ hoy + Σ bank_tx visibles de cartola con fecha ≤ hoy). Ancla MANUAL/CALCULATED incluye el mismo día; IMPORT (cierre de cartola) no, para no duplicar. MATCHED o DTE borrador no sacan la plata del banco. No es currentBalance de Banca.",
               saldoAcumuladoActual:
                 "Semana actual ABIERTA: Banco hoy + Σ (effective − real). Espejo banco en vivo.",
               saldoAcumuladoFuturo: "Saldo de la semana previa + flujo effective de esa semana.",
