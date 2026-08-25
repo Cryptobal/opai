@@ -1,5 +1,13 @@
 import type { TicketStatus } from "@/lib/tickets";
 
+export type IncidenteListFilter =
+  | "por_validar"
+  | "pendientes"
+  | "activos"
+  | "validados"
+  | "abiertos"
+  | "all";
+
 export type IncidenteUiStatus = "nuevo" | "en_atencion" | "por_validar" | "validado";
 
 export type IncidenteStatusTone = "info" | "warn" | "ok" | "neutral";
@@ -27,6 +35,19 @@ export function incidenteUiStatus(ticketStatus: string): IncidenteUiStatus {
 
 export function incidenteStatusView(ticketStatus: string): IncidenteStatusView {
   return INCIDENTE_STATUS_VIEWS[incidenteUiStatus(ticketStatus)];
+}
+
+/**
+ * `por_validar` stays resolved-only (ficha de instalación).
+ * Supervisión uses `pendientes` so a QR nuevo is actionable immediately.
+ */
+export function statusesForFilter(filter: IncidenteListFilter): string[] | undefined {
+  if (filter === "pendientes") return ["open", "in_progress", "resolved"];
+  if (filter === "por_validar") return ["resolved"];
+  if (filter === "activos") return ["open", "in_progress"];
+  if (filter === "validados") return ["closed"];
+  if (filter === "abiertos") return ["open"];
+  return undefined;
 }
 
 /** Transiciones propias del flujo incidente (no alteran la máquina global). */

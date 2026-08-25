@@ -405,7 +405,7 @@ async function generateDocFromTemplate(
           tokensUsed: ensureAfcTokenListed(template.tokensUsed),
         },
       });
-      templateContent = patched.content;
+      templateContent = patched.content as typeof templateContent;
     }
   }
 

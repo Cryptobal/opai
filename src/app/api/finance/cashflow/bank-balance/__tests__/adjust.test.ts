@@ -18,6 +18,8 @@ const hasCapabilityMock = vi.fn();
 const bankAccountFindFirst = vi.fn();
 const bankAccountUpdate = vi.fn();
 const balanceCreate = vi.fn();
+const balanceFindMany = vi.fn();
+const bankTxAggregate = vi.fn();
 
 vi.mock("server-only", () => ({}));
 
@@ -78,6 +80,10 @@ vi.mock("@/lib/prisma", () => ({
     },
     financeBankAccountBalance: {
       create: balanceCreate,
+      findMany: balanceFindMany,
+    },
+    financeBankTransaction: {
+      aggregate: bankTxAggregate,
     },
   },
 }));
@@ -97,6 +103,25 @@ beforeEach(() => {
   bankAccountFindFirst.mockReset();
   bankAccountUpdate.mockReset();
   balanceCreate.mockReset();
+  balanceFindMany.mockReset();
+  bankTxAggregate.mockReset();
+
+  // POST ahora llama syncCurrentBalanceFromMovements tras crear el snapshot.
+  balanceFindMany.mockImplementation(async () => {
+    const last = balanceCreate.mock.calls.at(-1)?.[0]?.data as
+      | { balance?: number; asOfDate?: Date; source?: string }
+      | undefined;
+    if (!last) return [];
+    return [
+      {
+        balance: last.balance,
+        asOfDate: last.asOfDate,
+        source: last.source,
+        createdAt: new Date(),
+      },
+    ];
+  });
+  bankTxAggregate.mockResolvedValue({ _sum: { amount: 0 }, _count: { _all: 0 } });
 
   requireAuthMock.mockResolvedValue({
     userId: "user-1",
@@ -193,12 +218,13 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
   });
 
   it("crea snapshot MANUAL y actualiza currentBalance (happy path)", async () => {
-    bankAccountFindFirst.mockResolvedValueOnce({
+    bankAccountFindFirst.mockResolvedValue({
       id: "11111111-1111-4111-8111-111111111111",
       currency: "CLP",
+      currentBalance: 0,
     });
     balanceCreate.mockResolvedValueOnce({ id: "snap-1" });
-    bankAccountUpdate.mockResolvedValueOnce({});
+    bankAccountUpdate.mockResolvedValue({});
     const { POST } = await import("../adjust/route");
     const res = await POST(
       makeRequest({
@@ -225,16 +251,18 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
         asOfDate: expect.any(Date),
       }),
     });
-    expect(bankAccountUpdate).toHaveBeenCalledWith({
-      where: { id: "11111111-1111-4111-8111-111111111111" },
-      data: expect.objectContaining({ currentBalance: 12_500_000 }),
-    });
+    expect(bankAccountUpdate).toHaveBeenCalled();
+    const updateData = bankAccountUpdate.mock.calls[0][0].data as {
+      currentBalance: unknown;
+    };
+    expect(Number(updateData.currentBalance)).toBe(12_500_000);
   });
 
   it("dos llamadas seguidas crean dos snapshots (preserva historial)", async () => {
     bankAccountFindFirst.mockResolvedValue({
       id: "11111111-1111-4111-8111-111111111111",
       currency: "CLP",
+      currentBalance: 0,
     });
     balanceCreate
       .mockResolvedValueOnce({ id: "snap-1" })
@@ -258,11 +286,10 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
     expect(balanceCreate).toHaveBeenCalledTimes(2);
     expect(balanceCreate.mock.calls[0][0].data.balance).toBe(1_000_000);
     expect(balanceCreate.mock.calls[1][0].data.balance).toBe(2_000_000);
-    // El segundo update lleva el currentBalance final.
-    expect(bankAccountUpdate).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ currentBalance: 2_000_000 }),
-      }),
-    );
+    // El segundo update lleva el currentBalance final (Decimal de Prisma).
+    const lastUpdate = bankAccountUpdate.mock.calls.at(-1)?.[0].data as {
+      currentBalance: unknown;
+    };
+    expect(Number(lastUpdate.currentBalance)).toBe(2_000_000);
   });
 });

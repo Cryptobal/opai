@@ -15,6 +15,7 @@ type Item = {
   category: string | null;
   guardiaName: string | null;
   respondedIn: string | null;
+  reportPhotoUrl: string | null;
   validation: { auto: boolean; validatedByName: string | null } | null;
 };
 
@@ -76,6 +77,7 @@ export function InstalacionIncidentesTab({ installationId }: { installationId: s
           <table className="w-full text-[13px]">
             <thead>
               <tr className="text-left text-ds-text-3">
+                <th className="py-2 pr-3">Foto</th>
                 <th className="py-2 pr-3">Incidente</th>
                 <th className="py-2 pr-3">Categoría</th>
                 <th className="py-2 pr-3">Estado</th>
@@ -87,6 +89,18 @@ export function InstalacionIncidentesTab({ installationId }: { installationId: s
             <tbody>
               {items.map((item) => (
                 <tr key={item.id} className="border-t border-ds-border-subtle">
+                  <td className="py-2 pr-3">
+                    {item.reportPhotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.reportPhotoUrl}
+                        alt=""
+                        className="h-12 w-12 rounded-md bg-ds-surface-2 object-contain"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-md bg-ds-surface-2" />
+                    )}
+                  </td>
                   <td className="py-2 pr-3">
                     <Link href={`/ops/tickets/${item.id}`} className="font-medium hover:underline">
                       {item.code}

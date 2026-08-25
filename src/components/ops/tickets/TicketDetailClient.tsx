@@ -70,6 +70,10 @@ import { TicketApprovalTimeline } from "./TicketApprovalTimeline";
 import { TicketFindingCard } from "./TicketFindingCard";
 import { SlaBar } from "./TicketsClient";
 import { Avatar, useSetBreadcrumbTrailing } from "@/components/opai-ds";
+import { isIncidenteTicketType } from "@/lib/incidentes-instalacion/type-guard";
+import { IncidenteStatusBadge } from "@/components/incidentes/IncidenteStatusBadge";
+import { IncidenteTerrenoPanel } from "@/components/incidentes/IncidenteTerrenoPanel";
+import { IncidentePhotoLightbox } from "@/components/incidentes/IncidentePhotoLightbox";
 import {
   useReplyTemplates,
   renderTemplate,
@@ -138,8 +142,8 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   // Status transition menu
   const [showStatusMenu, setShowStatusMenu] = useState(false);
 
-  const fetchTicket = useCallback(async () => {
-    setLoading(true);
+  const fetchTicket = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     try {
       const [ticketRes, commentsRes, eventsRes] = await Promise.all([
         fetch(`/api/ops/tickets/${ticketId}`),
@@ -158,7 +162,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
     } catch {
       toast.error("Error al cargar ticket");
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [ticketId]);
 
@@ -590,6 +594,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
   const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
   const isTerminal = isTerminalStatus(ticket.status);
+  const isIncidente = isIncidenteTicketType(ticket.ticketType?.slug);
   const assigneeLockedReason = "El responsable no se puede cambiar en un ticket resuelto o cancelado.";
 
   const availableTransitions = (Object.keys(TICKET_STATUS_CONFIG) as TicketStatus[]).filter(
@@ -601,10 +606,13 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       {/* Sin breadcrumbs dentro de módulos (v3.1): la ubicación se comunica con
           el título del header y el botón de volver (MobileIsland / topbar). */}
       {/* ── CARD: Header ── */}
-      <div className={`rounded-xl border bg-ds-surface-1 p-4 space-y-3 ${breached && !isTerminal ? "border-status-danger-border" : "border-border"}`}>
+      <div className={`rounded-xl border bg-ds-surface-1 p-4 space-y-3 ${breached && !isTerminal && !isIncidente ? "border-status-danger-border" : "border-border"}`}>
         {/* Row 1: Code + Status + Priority + Delete */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-xs text-muted-foreground">{ticket.code}</span>
+          {isIncidente ? (
+            <IncidenteStatusBadge status={ticket.status} />
+          ) : (
           <div className="relative">
             <button
               type="button"
@@ -639,16 +647,17 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
               </div>
             )}
           </div>
+          )}
           <span className={`text-xs font-semibold ${priorityCfg.color}`}>
             {ticket.priority.toUpperCase()}
           </span>
-          {breached && !isTerminal && (
+          {breached && !isTerminal && !isIncidente && (
             <Badge variant="destructive" className="gap-0.5 text-[12px]">
               <AlertTriangle className="h-2.5 w-2.5" />
               SLA vencido
             </Badge>
           )}
-          {ticket.slaPausedAt && (
+          {ticket.slaPausedAt && !isIncidente && (
             <Badge variant="secondary" className="gap-0.5 text-[12px] bg-status-warn-soft text-status-warn-fg border-status-warn-border">
               <Pause className="h-2.5 w-2.5" />
               SLA pausado
@@ -816,7 +825,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         </div>
 
         {/* SLA Bar */}
-        {ticket.slaDueAt && (
+        {ticket.slaDueAt && !isIncidente && (
           <div className="pt-1">
             <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
               SLA restante
@@ -833,7 +842,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       </div>
 
       {/* ── CARD: SLA Controls ── */}
-      {ticket.slaDueAt && !isTerminal && (
+      {ticket.slaDueAt && !isTerminal && !isIncidente && (
         <div className="rounded-xl border border-border bg-ds-surface-1 p-4 space-y-3">
           <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
             Controles SLA
@@ -996,6 +1005,17 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         </div>
       )}
 
+      {isIncidente && (
+        <IncidenteTerrenoPanel
+          ticketId={ticketId}
+          ticketCode={ticket.code}
+          status={ticket.status}
+          onDone={() => {
+            void fetchTicket({ silent: true });
+          }}
+        />
+      )}
+
       {/* ── CARD: Supervision finding (documento + guardia + visita) ── */}
       {ticket.finding && <TicketFindingCard finding={ticket.finding} />}
 
@@ -1045,10 +1065,10 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       />
 
       {/* ── CARD: Tickets relacionados ── */}
-      <TicketLinksCard ticketId={ticketId} ticketCode={ticket.code} />
+      {!isIncidente && <TicketLinksCard ticketId={ticketId} ticketCode={ticket.code} />}
 
       {/* ── CARD: Portal público (PIN) ── */}
-      <TicketPublicPortalCard ticketId={ticketId} ticketCode={ticket.code} />
+      {!isIncidente && <TicketPublicPortalCard ticketId={ticketId} ticketCode={ticket.code} />}
 
       {/* ── CARD: Encuesta CSAT (solo si el ticket está terminal) ── */}
       <TicketCsatCard ticketId={ticketId} status={ticket.status} />
@@ -1902,6 +1922,7 @@ interface TicketAttachmentDTO {
   contentType: string;
   storageKey: string;
   url: string;
+  kind?: string;
   uploadedBy: string | null;
   uploadedByName: string | null;
   createdAt: string;
@@ -1929,6 +1950,7 @@ function TicketAttachmentsCard({
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = isAdminRole(userRole);
@@ -2123,7 +2145,17 @@ function TicketAttachmentsCard({
                 key={a.id}
                 className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
               >
-                {isImage ? (
+                {isImage && a.url ? (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewUrl(a.url)}
+                    className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-ds-surface-2"
+                    title="Ver foto"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={a.url} alt={a.fileName} className="h-full w-full object-contain" />
+                  </button>
+                ) : isImage ? (
                   <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 ) : (
                   <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -2249,6 +2281,11 @@ function TicketAttachmentsCard({
           </ul>
         </div>
       )}
+      <IncidentePhotoLightbox
+        src={previewUrl}
+        open={Boolean(previewUrl)}
+        onClose={() => setPreviewUrl(null)}
+      />
     </div>
   );
 }

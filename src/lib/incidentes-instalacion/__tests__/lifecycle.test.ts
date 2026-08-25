@@ -48,7 +48,12 @@ vi.mock("@/lib/tickets-csat", () => ({
 }));
 
 import { IncidenteError } from "../errors";
-import { cerrarIncidente, validarIncidente, rechazarIncidente } from "../lifecycle";
+import {
+  cerrarIncidente,
+  validarIncidente,
+  rechazarIncidente,
+  resolverIncidentePorSupervision,
+} from "../lifecycle";
 
 const TICKET = {
   id: "t1",
@@ -115,6 +120,19 @@ describe("cerrarIncidente", () => {
     expect(result.status).toBe("resolved");
     expect(createMany).toHaveBeenCalled();
   });
+
+  it("supervisión puede cerrar sin foto extra", async () => {
+    const result = await cerrarIncidente({
+      tenantId: "ten",
+      ticketId: "t1",
+      actorId: "a",
+      comment: "Cerrado desde el ERP",
+      files: [],
+      requireClosurePhoto: false,
+    });
+    expect(result.status).toBe("resolved");
+    expect(createMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("validarIncidente", () => {
@@ -172,5 +190,39 @@ describe("rechazarIncidente", () => {
         reason: "motivo suficiente",
       }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+});
+
+describe("resolverIncidentePorSupervision", () => {
+  it("open → closed sin exigir foto", async () => {
+    const ticketState = { ...TICKET, status: "open" };
+    findFirst.mockImplementation(async () => ({ ...ticketState }));
+    update.mockImplementation(async ({ data }: { data: { status?: string } }) => {
+      if (data.status) ticketState.status = data.status;
+      return { id: ticketState.id, status: ticketState.status };
+    });
+    updateMany.mockImplementation(async ({ data }: { data: { status?: string } }) => {
+      if (data.status) ticketState.status = data.status;
+      return { count: 1 };
+    });
+
+    const result = await resolverIncidentePorSupervision({
+      tenantId: "ten",
+      ticketId: "t1",
+      actorId: "s1",
+      actorName: "Ana",
+      comment: "Resuelto desde supervisión ERP",
+      files: [],
+    });
+
+    expect(result.status).toBe("closed");
+    expect(ticketState.status).toBe("closed");
+    expect(createMany).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalled();
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "resolved" }),
+      }),
+    );
   });
 });
