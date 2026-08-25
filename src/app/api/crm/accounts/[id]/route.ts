@@ -12,6 +12,10 @@ import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth
 import { createAccountSchema, updateAccountSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { shutdownInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
+import {
+  findActiveInstallationRoster,
+  rosterConflictPayload,
+} from "@/lib/crm/installation-roster-guard";
 import { requireTenantModule } from '@/lib/require-module';
 import {
   buildAccountDeleteImpact,
@@ -161,6 +165,22 @@ export async function PATCH(
     }
 
     let deactivatedInstallationIds: string[] = [];
+
+    if (legacy.isActive === false) {
+      const toDeactivate = await prisma.crmInstallation.findMany({
+        where: { tenantId: ctx.tenantId, accountId: id, status: "active" },
+        select: { id: true },
+      });
+      if (toDeactivate.length > 0) {
+        const blockers = await findActiveInstallationRoster(
+          ctx.tenantId,
+          toDeactivate.map((i) => i.id),
+        );
+        if (blockers.length > 0) {
+          return NextResponse.json(rosterConflictPayload(blockers), { status: 409 });
+        }
+      }
+    }
 
     const account = await prisma.$transaction(async (tx) => {
       if (requestingDowngradeToProspect) {

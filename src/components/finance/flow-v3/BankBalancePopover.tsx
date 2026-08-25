@@ -284,8 +284,9 @@ export function BankBalancePopover({
                   </div>
                   <p className="text-[12px] leading-snug text-ds-text-3">
                     Guarda un ancla a hoy. Banco hoy suma encima los movimientos
-                    visibles de cartola con fecha ≥ ancla (un abono ya bancarizado
-                    no se pierde aunque esté MATCHED). El fin de semana queda como{" "}
+                    visibles de cartola con fecha posterior al ancla (el saldo
+                    pegado ya incluye ese día; no se vuelve a sumar). El fin de
+                    semana queda como{" "}
                     <span className="text-ds-text-2">banco hoy + pendientes</span>.
                   </p>
                 </>

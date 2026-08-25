@@ -5087,6 +5087,7 @@ model OpsGuardEvent {
   pendingRemunerationAmount Decimal? @map("pending_remuneration_amount") @db.Decimal(12, 0)
   yearsOfServiceAmount      Decimal? @map("years_of_service_amount") @db.Decimal(12, 0)
   substituteNoticeAmount    Decimal? @map("substitute_notice_amount") @db.Decimal(12, 0)
+  afcDeductionAmount        Decimal? @map("afc_deduction_amount") @db.Decimal(12, 0)
   totalSettlementAmount     Decimal? @map("total_settlement_amount") @db.Decimal(12, 0)
 
   // Content

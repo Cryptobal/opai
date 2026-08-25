@@ -5,6 +5,7 @@ import { requireAuth, unauthorized, parseBody, resolveApiPerms } from "@/lib/api
 import { hasCapability } from "@/lib/permissions";
 import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
 import { prisma } from "@/lib/prisma";
+import { syncCurrentBalanceFromMovements } from "@/modules/finance/banking/bank-balance.service";
 
 const adjustSchema = z.object({
   bankAccountId: z.string().uuid(),
@@ -60,10 +61,11 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  await prisma.financeBankAccount.update({
-    where: { id: bankAccountId },
-    data: { currentBalance: balance, balanceUpdatedAt: now },
-  });
+  const resolved = await syncCurrentBalanceFromMovements(
+    ctx.tenantId,
+    bankAccountId,
+    now,
+  );
 
   // Invalida caches de FC (legacy + planilla v3).
   revalidatePath("/finanzas/flujo-caja");
@@ -72,6 +74,10 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    data: { snapshotId: snapshot.id, balance, asOfDate: todayInChile(now) },
+    data: {
+      snapshotId: snapshot.id,
+      balance: resolved.resolvedBalanceClp,
+      asOfDate: todayInChile(now),
+    },
   });
 }

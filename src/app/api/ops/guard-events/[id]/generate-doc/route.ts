@@ -3,6 +3,10 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
 import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData, loadEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
+import {
+  ensureAfcTokenListed,
+  patchFiniquitoTemplateContent,
+} from "@/lib/docs/patch-finiquito-afc-template";
 
 /**
  * POST /api/ops/guard-events/[id]/generate-doc — Generate document from template
@@ -95,7 +99,22 @@ export async function POST(
 
     const laborEventData = buildLaborEventEntityData(event as any);
 
-    const { resolvedContent, tokenValues } = resolveDocument(template.content, {
+    let templateContent = template.content;
+    if (template.category === "finiquito") {
+      const patched = patchFiniquitoTemplateContent(template.content);
+      if (patched.changed) {
+        await prisma.docTemplate.update({
+          where: { id: template.id },
+          data: {
+            content: patched.content as object,
+            tokensUsed: ensureAfcTokenListed(template.tokensUsed),
+          },
+        });
+        templateContent = patched.content;
+      }
+    }
+
+    const { resolvedContent, tokenValues } = resolveDocument(templateContent, {
       empresa: empresaData,
       guardia: guardiaData,
       labor_event: laborEventData,

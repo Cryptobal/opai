@@ -3,6 +3,11 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
 import { EVENT_SUBTYPES } from "@/lib/guard-events";
+import { computeFiniquitoSettlement, toNonNegativeAmount } from "@/lib/personas-lifecycle";
+import {
+  ensureAfcTokenListed,
+  patchFiniquitoTemplateContent,
+} from "@/lib/docs/patch-finiquito-afc-template";
 import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData, loadEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
 import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
@@ -56,6 +61,7 @@ export async function GET(request: NextRequest) {
       pendingRemunerationAmount: e.pendingRemunerationAmount ? Number(e.pendingRemunerationAmount) : null,
       yearsOfServiceAmount: e.yearsOfServiceAmount ? Number(e.yearsOfServiceAmount) : null,
       substituteNoticeAmount: e.substituteNoticeAmount ? Number(e.substituteNoticeAmount) : null,
+      afcDeductionAmount: e.afcDeductionAmount ? Number(e.afcDeductionAmount) : null,
       totalSettlementAmount: e.totalSettlementAmount ? Number(e.totalSettlementAmount) : null,
       createdByName: userMap.get(e.createdBy) ?? null,
       approvedByName: e.approvedBy ? userMap.get(e.approvedBy) ?? null : null,
@@ -109,6 +115,23 @@ export async function POST(request: NextRequest) {
 
     const effectiveStatus = "approved" as const;
 
+    const vacationPaymentAmount = category === "finiquito" ? (body.vacationPaymentAmount ?? null) : null;
+    const pendingRemunerationAmount = category === "finiquito" ? (body.pendingRemunerationAmount ?? null) : null;
+    const yearsOfServiceAmount = category === "finiquito" ? (body.yearsOfServiceAmount ?? null) : null;
+    const substituteNoticeAmount = category === "finiquito" ? (body.substituteNoticeAmount ?? null) : null;
+    const afcDeductionAmount = category === "finiquito"
+      ? (toNonNegativeAmount(body.afcDeductionAmount) || null)
+      : null;
+    const totalSettlementAmount = category === "finiquito"
+      ? computeFiniquitoSettlement({
+          vacationPaymentAmount,
+          pendingRemunerationAmount,
+          yearsOfServiceAmount,
+          substituteNoticeAmount,
+          afcDeductionAmount,
+        })
+      : null;
+
     const created = await prisma.opsGuardEvent.create({
       data: {
         tenantId: ctx.tenantId,
@@ -122,11 +145,12 @@ export async function POST(request: NextRequest) {
         causalDtCode: body.causalDtCode ?? null,
         causalDtLabel: body.causalDtLabel ?? null,
         vacationDaysPending: body.vacationDaysPending ?? null,
-        vacationPaymentAmount: body.vacationPaymentAmount ?? null,
-        pendingRemunerationAmount: body.pendingRemunerationAmount ?? null,
-        yearsOfServiceAmount: body.yearsOfServiceAmount ?? null,
-        substituteNoticeAmount: body.substituteNoticeAmount ?? null,
-        totalSettlementAmount: body.totalSettlementAmount ?? null,
+        vacationPaymentAmount,
+        pendingRemunerationAmount,
+        yearsOfServiceAmount,
+        substituteNoticeAmount,
+        afcDeductionAmount,
+        totalSettlementAmount,
         reason: body.reason ?? null,
         internalNotes: body.internalNotes ?? null,
         attachments: body.attachments ?? [],
@@ -302,6 +326,7 @@ export async function POST(request: NextRequest) {
         pendingRemunerationAmount: created.pendingRemunerationAmount ? Number(created.pendingRemunerationAmount) : null,
         yearsOfServiceAmount: created.yearsOfServiceAmount ? Number(created.yearsOfServiceAmount) : null,
         substituteNoticeAmount: created.substituteNoticeAmount ? Number(created.substituteNoticeAmount) : null,
+        afcDeductionAmount: created.afcDeductionAmount ? Number(created.afcDeductionAmount) : null,
         totalSettlementAmount: created.totalSettlementAmount ? Number(created.totalSettlementAmount) : null,
         createdByName: null,
         approvedByName: null,
@@ -369,7 +394,22 @@ async function generateDocFromTemplate(
 
   const laborEventData = buildLaborEventEntityData(event as any);
 
-  const { resolvedContent, tokenValues } = resolveDocument(template.content, {
+  let templateContent = template.content;
+  if (templateCategory === "finiquito") {
+    const patched = patchFiniquitoTemplateContent(template.content);
+    if (patched.changed) {
+      await prisma.docTemplate.update({
+        where: { id: template.id },
+        data: {
+          content: patched.content as object,
+          tokensUsed: ensureAfcTokenListed(template.tokensUsed),
+        },
+      });
+      templateContent = patched.content;
+    }
+  }
+
+  const { resolvedContent, tokenValues } = resolveDocument(templateContent, {
     empresa: empresaData,
     guardia: guardiaData,
     labor_event: laborEventData,

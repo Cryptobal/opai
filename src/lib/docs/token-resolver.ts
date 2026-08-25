@@ -270,6 +270,7 @@ export function resolveTokenValue(
       "pendingRemunerationAmount",
       "yearsOfServiceAmount",
       "substituteNoticeAmount",
+      "afcDeductionAmount",
       "totalSettlementAmount",
     ].includes(field)
   ) {
@@ -1090,6 +1091,7 @@ export function buildLaborEventEntityData(event: Record<string, any>): Record<st
     pendingRemunerationAmount: event.pendingRemunerationAmount ? Number(event.pendingRemunerationAmount) : null,
     yearsOfServiceAmount: event.yearsOfServiceAmount ? Number(event.yearsOfServiceAmount) : null,
     substituteNoticeAmount: event.substituteNoticeAmount ? Number(event.substituteNoticeAmount) : null,
+    afcDeductionAmount: event.afcDeductionAmount ? Number(event.afcDeductionAmount) : null,
     totalSettlementAmount: event.totalSettlementAmount ? Number(event.totalSettlementAmount) : null,
     reason: event.reason,
   };

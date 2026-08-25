@@ -22,7 +22,7 @@ export interface OpeningBalanceBreakdown {
     /** El snapshot más reciente usado como anclaje (o null si solo se usa currentBalance). */
     anchorSnapshotDate: Date | null;
     anchorBalanceClp: number;
-    /** Movimientos de cartola visibles sumados sobre el ancla (mismo día si MANUAL). */
+    /** Movimientos de cartola visibles posteriores al día del ancla (no el mismo día). */
     txDeltaClp: number;
     /** Cuántas bank tx se sumaron. */
     txCount: number;
@@ -36,11 +36,10 @@ export interface OpeningBalanceBreakdown {
  *
  * Por cada cuenta CLP activa:
  *  1. Toma el snapshot más reciente con asOfDate <= hoy (de cualquier source).
- *  2. Suma bank_tx visibles (hidden_at IS NULL, sin filtrar MATCHED/DTE):
- *     IMPORT → transactionDate > asOfDate AND ≤ today (cierre de cartola).
- *     MANUAL/CALCULATED → transactionDate ≥ asOfDate AND ≤ today (la cartola
- *     del mismo día entra a Banco hoy; un ancla no puede tragar un abono
- *     ya bancarizado).
+ *  2. Suma bank_tx visibles (hidden_at IS NULL, sin filtrar MATCHED/DTE)
+ *     con transactionDate > asOfDate AND ≤ today. El ancla (IMPORT cierre
+ *     o MANUAL pegado de la app) ya incluye el día asOfDate; sumarlo
+ *     duplica abonos del mismo día.
  *  3. Si no hay snapshot, usa `currentBalance` como fallback y NO suma tx
  *     (porque sin anchor no sabemos desde qué fecha contar).
  *

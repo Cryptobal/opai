@@ -3,6 +3,15 @@
 import { DatePickerField } from "@/components/ui/date-picker";
 
 import { useMemo, useState } from "react";
+import { HireContractFields } from "@/components/ops/HireContractFields";
+import {
+  CANCEL_HIRE_NOTE_OPTIONS,
+  CANCEL_HIRE_REASON,
+  EMPTY_HIRE_CONTRACT,
+  toHireContractApiPayload,
+  validateHireContractFields,
+  type HireContractFields as HireContractValue,
+} from "@/lib/personas-lifecycle";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -187,7 +196,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   };
 
   const [contractDateModal, setContractDateModal] = useState<{ item: GuardiaItem; nextStatus: string } | null>(null);
-  const [contractDate, setContractDate] = useState("");
+  const [hireContract, setHireContract] = useState<HireContractValue>(EMPTY_HIRE_CONTRACT);
+  const [cancelHireModal, setCancelHireModal] = useState<GuardiaItem | null>(null);
+  const [cancelHireNote, setCancelHireNote] = useState("sspp");
   const [refreshing, setRefreshing] = useState(false);
   const [bulkPinLoading, setBulkPinLoading] = useState(false);
   const [gridData, setGridData] = useState<Record<string, Record<string, string>[]> | null>(null);
@@ -517,21 +528,26 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const handleLifecycleChange = async (item: GuardiaItem, lifecycleStatus: string) => {
     if (lifecycleStatus === "contratado") {
       setContractDateModal({ item, nextStatus: lifecycleStatus });
-      setContractDate(new Date().toISOString().slice(0, 10));
+      setHireContract({
+        ...EMPTY_HIRE_CONTRACT,
+        startDate: new Date().toISOString().slice(0, 10),
+      });
       return;
     }
-    await doLifecycleChange(item, lifecycleStatus, undefined);
+    await doLifecycleChange(item, lifecycleStatus);
   };
 
-  const doLifecycleChange = async (item: GuardiaItem, lifecycleStatus: string, effectiveAt?: string) => {
+  const doLifecycleChange = async (
+    item: GuardiaItem,
+    lifecycleStatus: string,
+    extra?: Record<string, unknown>,
+  ) => {
     setUpdatingId(item.id);
     try {
-      const body: { lifecycleStatus: string; effectiveAt?: string } = { lifecycleStatus };
-      if (effectiveAt) body.effectiveAt = effectiveAt;
       const response = await fetch(`/api/personas/guardias/${item.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ lifecycleStatus, ...extra }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -550,20 +566,36 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       );
       toast.success("Estado laboral actualizado");
       setContractDateModal(null);
+      setCancelHireModal(null);
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo actualizar estado laboral");
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar estado laboral");
     } finally {
       setUpdatingId(null);
     }
   };
 
   const handleConfirmContractDate = () => {
-    if (!contractDateModal || !contractDate) {
-      toast.error("Selecciona la fecha de inicio de contrato");
+    if (!contractDateModal) return;
+    const error = validateHireContractFields(hireContract);
+    if (error) {
+      toast.error(error);
       return;
     }
-    void doLifecycleChange(contractDateModal.item, contractDateModal.nextStatus, contractDate);
+    void doLifecycleChange(
+      contractDateModal.item,
+      contractDateModal.nextStatus,
+      toHireContractApiPayload(hireContract),
+    );
+  };
+
+  const handleConfirmCancelHire = () => {
+    if (!cancelHireModal) return;
+    const noteLabel = CANCEL_HIRE_NOTE_OPTIONS.find((o) => o.value === cancelHireNote)?.label ?? cancelHireNote;
+    void doLifecycleChange(cancelHireModal, "inactivo", {
+      reason: CANCEL_HIRE_REASON,
+      cancelHireNote: noteLabel,
+    });
   };
 
   const handleOpenPublicPostulacion = async () => {
@@ -954,25 +986,49 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
         </DropdownMenu>
 
         <Dialog open={!!contractDateModal} onOpenChange={(open) => !open && setContractDateModal(null)}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Fecha de inicio de contrato</DialogTitle>
+              <DialogTitle>Contratar guardia</DialogTitle>
               <DialogDescription>
-                Indica la fecha en que inicia el contrato de este guardia.
+                Indica el tipo de contrato y las fechas de plazo si corresponde.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Fecha de inicio</label>
-                <DatePickerField value={contractDate || null} onChange={(ymd) => setContractDate((ymd ?? ""))} triggerClassName={"w-full"} />
-              </div>
-            </div>
+            <HireContractFields value={hireContract} onChange={setHireContract} />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setContractDateModal(null)}>
                 Cancelar
               </Button>
               <Button onClick={handleConfirmContractDate} disabled={updatingId === contractDateModal?.item.id}>
                 {updatingId === contractDateModal?.item.id ? "Guardando..." : "Confirmar"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!cancelHireModal} onOpenChange={(open) => !open && setCancelHireModal(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Anular contratación</DialogTitle>
+              <DialogDescription>
+                Pasa a inactivo sin finiquito. Solo si la persona nunca inició. Si ya hay marcaciones o liquidaciones, el sistema lo bloqueará.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Motivo</label>
+              <select
+                value={cancelHireNote}
+                onChange={(e) => setCancelHireNote(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm sm:h-9"
+              >
+                {CANCEL_HIRE_NOTE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCancelHireModal(null)}>Cancelar</Button>
+              <Button onClick={handleConfirmCancelHire} disabled={updatingId === cancelHireModal?.id}>
+                {updatingId === cancelHireModal?.id ? "Guardando..." : "Anular contratación"}
               </Button>
             </div>
           </DialogContent>
@@ -1078,7 +1134,20 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                                   {LIFECYCLE_LABELS[status] || status}
                                 </DropdownMenuItem>
                               ))}
-                              {getLifecycleTransitions(item.lifecycleStatus).length === 0 && (
+                              {item.lifecycleStatus === "contratado" && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCancelHireNote("sspp");
+                                    setCancelHireModal(item);
+                                  }}
+                                  disabled={updatingId === item.id}
+                                >
+                                  Anular contratación
+                                </DropdownMenuItem>
+                              )}
+                              {getLifecycleTransitions(item.lifecycleStatus).length === 0 &&
+                                item.lifecycleStatus !== "contratado" && (
                                 <DropdownMenuItem disabled>Sin transiciones</DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
@@ -1244,7 +1313,20 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                                   {LIFECYCLE_LABELS[status] || status}
                                 </DropdownMenuItem>
                               ))}
-                              {getLifecycleTransitions(item.lifecycleStatus).length === 0 && (
+                              {item.lifecycleStatus === "contratado" && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCancelHireNote("sspp");
+                                    setCancelHireModal(item);
+                                  }}
+                                  disabled={updatingId === item.id}
+                                >
+                                  Anular contratación
+                                </DropdownMenuItem>
+                              )}
+                              {getLifecycleTransitions(item.lifecycleStatus).length === 0 &&
+                                item.lifecycleStatus !== "contratado" && (
                                 <DropdownMenuItem disabled>Sin transiciones</DropdownMenuItem>
                               )}
                             </DropdownMenuContent>

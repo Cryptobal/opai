@@ -6,6 +6,15 @@ import { createOpsAuditLog, ensureOpsCapability, parseDateOnly, toISODate } from
 import { prisma } from "@/lib/prisma";
 import { lifecycleToLegacyStatus, normalizeNullable } from "@/lib/personas";
 import { assertGuardLimit, planLimitErrorMessage } from "@/lib/plan-limits";
+import {
+  CANCEL_HIRE_REASON,
+  isAllowedLifecycleTransition,
+} from "@/lib/personas-lifecycle";
+import {
+  applyCancelHireOperationalCleanup,
+  cancelHireAsOfDate,
+  getCancelHireEligibility,
+} from "@/lib/personas-cancel-hire";
 
 type Params = { id: string };
 
@@ -31,6 +40,43 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
     }
 
+    if (
+      !isAllowedLifecycleTransition(existing.lifecycleStatus, body.lifecycleStatus, {
+        reason: body.reason,
+      })
+    ) {
+      const needsFiniquito =
+        existing.lifecycleStatus === "contratado" && body.lifecycleStatus === "inactivo";
+      return NextResponse.json(
+        {
+          success: false,
+          error: needsFiniquito
+            ? "Un guardia contratado solo puede pasar a inactivo por finiquito o anulando la contratación si nunca inició."
+            : "Transición de estado no permitida",
+        },
+        { status: 400 },
+      );
+    }
+
+    const isCancelHire =
+      existing.lifecycleStatus === "contratado" &&
+      body.lifecycleStatus === "inactivo" &&
+      body.reason === CANCEL_HIRE_REASON;
+
+    if (isCancelHire) {
+      const eligibility = await getCancelHireEligibility(
+        ctx.tenantId,
+        id,
+        existing.lifecycleStatus,
+      );
+      if (!eligibility.eligible) {
+        return NextResponse.json(
+          { success: false, error: eligibility.reason ?? "No se puede anular la contratación" },
+          { status: 409 },
+        );
+      }
+    }
+
     // Contratado requiere effectiveAt: nuevo contrato (!hiredAt) o recontratación (inactivo con finiquito)
     const needsContractDate =
       body.lifecycleStatus === "contratado" &&
@@ -43,7 +89,10 @@ export async function PATCH(
     }
 
     const effectiveAt = body.effectiveAt ? parseDateOnly(body.effectiveAt) : new Date();
-    const terminationReason = normalizeNullable(body.reason);
+    const terminationReason = isCancelHire
+      ? CANCEL_HIRE_REASON
+      : normalizeNullable(body.reason);
+    const cancelHireAsOf = isCancelHire ? cancelHireAsOfDate(body.effectiveAt) : null;
 
     const becomingActive =
       (body.lifecycleStatus === "contratado" || body.lifecycleStatus === "te") &&
@@ -66,6 +115,15 @@ export async function PATCH(
 
     const updated = await prisma.$transaction(async (tx) => {
       const isRecontratar = body.lifecycleStatus === "contratado" && existing.lifecycleStatus === "inactivo" && existing.terminatedAt;
+      const writingContract =
+        body.lifecycleStatus === "contratado" &&
+        (!existing.hiredAt || isRecontratar || body.contractType || body.contractStartDate);
+
+      const contractStart = body.contractStartDate
+        ? parseDateOnly(body.contractStartDate)
+        : writingContract
+          ? effectiveAt
+          : undefined;
 
       const guardia = await tx.opsGuardia.update({
         where: { id },
@@ -78,8 +136,33 @@ export async function PATCH(
               : body.lifecycleStatus === "contratado"
                 ? existing.hiredAt
                 : undefined,
-          terminatedAt: body.lifecycleStatus === "contratado" && isRecontratar ? null : undefined,
-          terminationReason: body.lifecycleStatus === "contratado" && isRecontratar ? null : undefined,
+          terminatedAt: isCancelHire
+            ? cancelHireAsOf
+            : body.lifecycleStatus === "contratado" && isRecontratar
+              ? null
+              : undefined,
+          terminationReason: isCancelHire
+            ? CANCEL_HIRE_REASON
+            : body.lifecycleStatus === "contratado" && isRecontratar
+              ? null
+              : undefined,
+          ...(writingContract
+            ? {
+                contractType: body.contractType ?? "indefinido",
+                contractStartDate: contractStart ?? null,
+                contractPeriod1End:
+                  body.contractType === "plazo_fijo" && body.contractPeriod1End
+                    ? parseDateOnly(body.contractPeriod1End)
+                    : null,
+                contractPeriod2End:
+                  body.contractType === "plazo_fijo" && body.contractPeriod2End
+                    ? parseDateOnly(body.contractPeriod2End)
+                    : null,
+                contractPeriod3End: null,
+                contractCurrentPeriod: 1,
+                contractBecameIndefinidoAt: body.contractType === "indefinido" ? contractStart ?? null : null,
+              }
+            : {}),
         },
         include: {
           persona: { select: { firstName: true, lastName: true, rut: true } },
@@ -97,13 +180,23 @@ export async function PATCH(
             from: existing.lifecycleStatus,
             to: body.lifecycleStatus,
             effectiveAt: body.effectiveAt ?? undefined,
+            ...(isCancelHire ? { cancelHire: true, cancelHireNote: body.cancelHireNote ?? undefined } : {}),
           },
-          reason: terminationReason,
+          reason: isCancelHire
+            ? [CANCEL_HIRE_REASON, body.cancelHireNote].filter(Boolean).join(": ")
+            : terminationReason,
           createdBy: ctx.userId,
         },
       });
 
-      // Log a separate "rehired" event for clear visibility in history
+      if (isCancelHire && cancelHireAsOf) {
+        await applyCancelHireOperationalCleanup(tx, {
+          tenantId: ctx.tenantId,
+          guardiaId: id,
+          asOf: cancelHireAsOf,
+        });
+      }
+
       if (isRecontratar) {
         await tx.opsGuardiaHistory.create({
           data: {
@@ -112,6 +205,7 @@ export async function PATCH(
             eventType: "rehired",
             newValue: {
               effectiveAt: body.effectiveAt ?? toISODate(effectiveAt),
+              contractType: body.contractType ?? "indefinido",
             },
             reason: `Recontratación desde ${body.effectiveAt ?? toISODate(effectiveAt)}`,
             createdBy: ctx.userId,
@@ -140,7 +234,6 @@ export async function PATCH(
       });
     }
 
-    // Trigger onboarding cuando guardia pasa a contratado (activo)
     if (
       body.lifecycleStatus === "contratado" &&
       existing.lifecycleStatus !== "contratado"

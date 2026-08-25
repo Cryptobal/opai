@@ -11,7 +11,7 @@ const creditNextDay = new Date("2026-08-25T00:00:00.000Z");
 const creditBefore = new Date("2026-08-23T00:00:00.000Z");
 
 describe("includeBankTxAfterAnchor", () => {
-  it("ancla MANUAL: el abono visible del mismo día entra (borde asOfDate)", () => {
+  it("ancla MANUAL: el abono del mismo día NO entra (ya va en el saldo anclado)", () => {
     expect(
       includeBankTxAfterAnchor({
         transactionDate: creditSameDay,
@@ -19,10 +19,10 @@ describe("includeBankTxAfterAnchor", () => {
         asOfDate: today,
         anchorSource: "MANUAL",
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it("ancla MANUAL: un MATCHED del día siguiente también entra", () => {
+  it("ancla MANUAL: un movimiento del día siguiente sí entra", () => {
     expect(
       includeBankTxAfterAnchor({
         transactionDate: creditNextDay,
@@ -55,7 +55,7 @@ describe("includeBankTxAfterAnchor", () => {
     ).toBe(false);
   });
 
-  it("sin source (ancla no-IMPORT) no tira la cartola del mismo día", () => {
+  it("sin source tampoco suma el mismo día del ancla", () => {
     expect(
       includeBankTxAfterAnchor({
         transactionDate: creditSameDay,
@@ -63,14 +63,14 @@ describe("includeBankTxAfterAnchor", () => {
         asOfDate: today,
         anchorSource: null,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 });
 
 describe("bankTxDateFilterAfterAnchor", () => {
-  it("MANUAL usa gte en el día del ancla", () => {
+  it("MANUAL usa gt (no duplica el día del ancla)", () => {
     expect(bankTxDateFilterAfterAnchor(asOf, today, "MANUAL")).toEqual({
-      gte: asOf,
+      gt: asOf,
       lte: today,
     });
   });

@@ -11,6 +11,7 @@ import { loadPlanCells } from "./plan.service";
 import { grossPerRunFromLines } from "./load-committed-income";
 import {
   applyTeDiscountToLiquido,
+  shouldPaintTeWeeklyProjection,
   computeF29FutureClp,
   computeFiniquitosMonthly,
   computePctSalesClp,
@@ -45,6 +46,7 @@ export interface PayrollMilestonePatch {
   amountClp: number;
   label: string;
   metaNote?: string;
+  laborClass?: "OPERATIVO" | "ADMINISTRATIVO";
 }
 
 export interface ExpenseParametricsResult {
@@ -470,6 +472,9 @@ export async function loadExpenseParametrics(
     previredDay: number;
     ivaDay: number;
     pendingTeTotal: number;
+    quincenaOperativo?: number;
+    quincenaAdmin?: number;
+    staffLiquido?: number;
     postponements?: Map<string, IvaPostponementRef>;
   },
 ): Promise<ExpenseParametricsResult> {
@@ -668,7 +673,16 @@ export async function loadExpenseParametrics(
 
   if (teWeeklyAmount > 0) {
     for (const w of weeks) {
-      if (w < currentWeek || tePlanBlockedWeeks.has(w)) continue;
+      if (
+        !shouldPaintTeWeeklyProjection({
+          weekYmd: w,
+          currentWeek,
+          pendingTeTotal: payroll.pendingTeTotal,
+          blocked: tePlanBlockedWeeks,
+        })
+      ) {
+        continue;
+      }
       teWeeklyProjections.push({
         weekYmd: w,
         amountClp: teWeeklyAmount,
@@ -695,15 +709,45 @@ export async function loadExpenseParametrics(
     if (monthKey === todayYmd.slice(0, 7)) projectedTe += payroll.pendingTeTotal;
     const tePeriodo = paidTe + projectedTe;
 
-    if (payroll.liquidoTotal > 0 && liquidoDiscountPct > 0) {
-      const adj = applyTeDiscountToLiquido(payroll.liquidoTotal, tePeriodo, liquidoDiscountPct);
+    const quincenaOp = Number(payroll.quincenaOperativo ?? 0);
+    if (payroll.liquidoTotal > 0 && (liquidoDiscountPct > 0 || quincenaOp > 0)) {
+      const teAdj = applyTeDiscountToLiquido(
+        payroll.liquidoTotal,
+        tePeriodo,
+        liquidoDiscountPct,
+      );
+      const quinAdj = applyTeDiscountToLiquido(teAdj.net, quincenaOp, 1);
+      if (teAdj.discount > 0 || quinAdj.discount > 0) {
+        const notes = [
+          `base $${teAdj.base.toLocaleString("es-CL")}`,
+          teAdj.discount > 0
+            ? `desc. TE $${teAdj.discount.toLocaleString("es-CL")}`
+            : null,
+          quinAdj.discount > 0
+            ? `desc. quincena $${quinAdj.discount.toLocaleString("es-CL")}`
+            : null,
+        ].filter(Boolean);
+        payrollPatches.push({
+          key: "liquido",
+          dateYmd: liquidoDate,
+          amountClp: quinAdj.net,
+          label: "Sueldos líquidos",
+          metaNote: notes.join(", "),
+        });
+      }
+    }
+    const staffLiquido = Number(payroll.staffLiquido ?? 0);
+    const quincenaAd = Number(payroll.quincenaAdmin ?? 0);
+    if (staffLiquido > 0 && quincenaAd > 0) {
+      const adj = applyTeDiscountToLiquido(staffLiquido, quincenaAd, 1);
       if (adj.discount > 0) {
         payrollPatches.push({
           key: "liquido",
           dateYmd: liquidoDate,
           amountClp: adj.net,
-          label: "Sueldos líquidos",
-          metaNote: `base $${adj.base.toLocaleString("es-CL")}, desc. TE $${adj.discount.toLocaleString("es-CL")}`,
+          label: "Sueldos equipo interno",
+          laborClass: "ADMINISTRATIVO",
+          metaNote: `base $${adj.base.toLocaleString("es-CL")}, desc. quincena $${adj.discount.toLocaleString("es-CL")}`,
         });
       }
     }

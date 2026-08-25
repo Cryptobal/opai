@@ -14,6 +14,11 @@ import { updateInstallationSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { shutdownInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
+import {
+  findActiveRosterForInstallation,
+  rosterConflictPayload,
+} from "@/lib/crm/installation-roster-guard";
+import { isClosingInstallationStatus } from "@/lib/personas-lifecycle";
 import { requireTenantModule } from '@/lib/require-module';
 import { ensureInstallationChannel } from "@/lib/chat-installation-channel";
 
@@ -162,6 +167,13 @@ export async function PATCH(
       existing.accountId &&
       existing.account &&
       existing.account.isActive === false;
+
+    if (isClosingInstallationStatus(existing.status, payload.status)) {
+      const blockers = await findActiveRosterForInstallation(ctx.tenantId, id);
+      if (blockers.length > 0) {
+        return NextResponse.json(rosterConflictPayload(blockers), { status: 409 });
+      }
+    }
 
     if (
       payload.status === "active" &&
@@ -359,6 +371,11 @@ export async function DELETE(
         { success: false, error: "Instalación no encontrada" },
         { status: 404 }
       );
+    }
+
+    const blockers = await findActiveRosterForInstallation(ctx.tenantId, id);
+    if (blockers.length > 0) {
+      return NextResponse.json(rosterConflictPayload(blockers), { status: 409 });
     }
 
     await prisma.crmInstallation.delete({ where: { id } });

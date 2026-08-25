@@ -421,11 +421,47 @@ export const createGuardiaTeSchema = z
 
 export type CreateGuardiaTeInput = z.infer<typeof createGuardiaTeSchema>;
 
-export const updateGuardiaLifecycleSchema = z.object({
-  lifecycleStatus: z.enum(GUARDIA_LIFECYCLE_STATUSES),
-  reason: z.string().trim().max(500).optional().nullable(),
-  effectiveAt: z.string().regex(dateRegex, "effectiveAt debe tener formato YYYY-MM-DD").optional().nullable(),
+export const hireContractPayloadSchema = z.object({
+  contractType: z.enum(["indefinido", "plazo_fijo"]).optional().nullable(),
+  contractStartDate: z.string().regex(dateRegex, "contractStartDate debe tener formato YYYY-MM-DD").optional().nullable(),
+  contractPeriod1End: z.string().regex(dateRegex, "contractPeriod1End debe tener formato YYYY-MM-DD").optional().nullable(),
+  contractPeriod2End: z.string().regex(dateRegex, "contractPeriod2End debe tener formato YYYY-MM-DD").optional().nullable(),
+  cancelHireNote: z.string().trim().max(500).optional().nullable(),
 });
+
+export const updateGuardiaLifecycleSchema = z
+  .object({
+    lifecycleStatus: z.enum(GUARDIA_LIFECYCLE_STATUSES),
+    reason: z.string().trim().max(500).optional().nullable(),
+    effectiveAt: z.string().regex(dateRegex, "effectiveAt debe tener formato YYYY-MM-DD").optional().nullable(),
+  })
+  .merge(hireContractPayloadSchema)
+  .superRefine((val, ctx) => {
+    if (val.lifecycleStatus !== "contratado") return;
+    const start = val.contractStartDate || val.effectiveAt;
+    if (val.contractType === "plazo_fijo") {
+      if (!val.contractPeriod1End) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contractPeriod1End"],
+          message: "Fecha del 1er plazo es requerida para plazo fijo",
+        });
+      } else if (start && val.contractPeriod1End < start) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contractPeriod1End"],
+          message: "El 1er plazo no puede ser anterior al inicio",
+        });
+      }
+      if (val.contractPeriod1End && val.contractPeriod2End && val.contractPeriod2End < val.contractPeriod1End) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contractPeriod2End"],
+          message: "El 2do plazo no puede ser anterior al 1er plazo",
+        });
+      }
+    }
+  });
 
 export const sendGuardiaCommunicationSchema = z.object({
   channel: z.enum(GUARDIA_COMM_CHANNELS),

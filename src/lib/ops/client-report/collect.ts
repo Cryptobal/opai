@@ -80,7 +80,7 @@ async function loadVisits(opts: {
     id: v.id,
     installationId: v.installationId,
     installationName: v.installation.name,
-    supervisorName: v.supervisor.name,
+    supervisorName: v.supervisor?.name ?? "Sin supervisor",
     checkInAt: v.checkInAt.toISOString(),
     checkOutAt: v.checkOutAt ? v.checkOutAt.toISOString() : null,
     durationMinutes: v.durationMinutes,

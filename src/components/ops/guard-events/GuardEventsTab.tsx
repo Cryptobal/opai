@@ -50,6 +50,7 @@ import {
   validateCausal159N4,
   CAUSALES_DT,
 } from "@/lib/guard-events";
+import { computeFiniquitoSettlement } from "@/lib/personas-lifecycle";
 import { EventDocuments } from "./EventDocuments";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -389,6 +390,7 @@ function EventCreateForm({
   const [pendingRemunerationAmount, setPendingRemunerationAmount] = useState<string>("");
   const [yearsOfServiceAmount, setYearsOfServiceAmount] = useState<string>("");
   const [substituteNoticeAmount, setSubstituteNoticeAmount] = useState<string>("");
+  const [afcDeductionAmount, setAfcDeductionAmount] = useState<string>("");
 
   // Derive causales for finiquito
   const causales = useMemo(
@@ -427,13 +429,17 @@ function EventCreateForm({
   }, [causalDtCode, finiquitoDate]);
 
   // Calculate settlement total
-  const totalSettlement = useMemo(() => {
-    const vac = Number(vacationPaymentAmount) || 0;
-    const rem = Number(pendingRemunerationAmount) || 0;
-    const yos = Number(yearsOfServiceAmount) || 0;
-    const sub = Number(substituteNoticeAmount) || 0;
-    return vac + rem + yos + sub;
-  }, [vacationPaymentAmount, pendingRemunerationAmount, yearsOfServiceAmount, substituteNoticeAmount]);
+  const totalSettlement = useMemo(
+    () =>
+      computeFiniquitoSettlement({
+        vacationPaymentAmount: Number(vacationPaymentAmount) || 0,
+        pendingRemunerationAmount: Number(pendingRemunerationAmount) || 0,
+        yearsOfServiceAmount: Number(yearsOfServiceAmount) || 0,
+        substituteNoticeAmount: Number(substituteNoticeAmount) || 0,
+        afcDeductionAmount: Number(afcDeductionAmount) || 0,
+      }),
+    [vacationPaymentAmount, pendingRemunerationAmount, yearsOfServiceAmount, substituteNoticeAmount, afcDeductionAmount],
+  );
 
   function handleCategoryChange(val: string) {
     const cat = val as GuardEventCategory;
@@ -504,6 +510,7 @@ function EventCreateForm({
           pendingRemunerationAmount: isFiniquito ? (Number(pendingRemunerationAmount) || null) : null,
           yearsOfServiceAmount: isFiniquito ? (Number(yearsOfServiceAmount) || null) : null,
           substituteNoticeAmount: isFiniquito ? (Number(substituteNoticeAmount) || null) : null,
+          afcDeductionAmount: isFiniquito ? (Number(afcDeductionAmount) || null) : null,
           totalSettlementAmount: isFiniquito ? totalSettlement : null,
           aiGeneratedHtml: isAmonestacion && aiPreviewHtml ? aiPreviewHtml : null,
         }),
@@ -729,8 +736,26 @@ function EventCreateForm({
                 placeholder="0"
                 className="text-sm max-w-xs"
               />
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-[12px] text-ds-text-3">
                 Solo aplica si se invoca Art. 161 con menos de 30 días de aviso previo
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3">
+            <h5 className="text-sm font-medium">Descuentos</h5>
+            <div className="space-y-1.5">
+              <Label className="text-xs">AFC (se resta) ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                value={afcDeductionAmount}
+                onChange={(e) => setAfcDeductionAmount(e.target.value)}
+                placeholder="0"
+                className="text-sm max-w-xs h-10 sm:h-9"
+              />
+              <p className="text-[12px] text-ds-text-3">
+                Descuento del aporte AFC a la cuenta individual (Art. 13 Ley 19.728). Se resta del total.
               </p>
             </div>
           </div>
@@ -994,6 +1019,12 @@ function EventDetailView({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Indemn. sustitutiva aviso</span>
                 <span className="font-medium">{formatCLP(event.substituteNoticeAmount)}</span>
+              </div>
+            )}
+            {event.afcDeductionAmount != null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Descuento AFC</span>
+                <span className="font-medium">− {formatCLP(event.afcDeductionAmount)}</span>
               </div>
             )}
           </div>

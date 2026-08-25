@@ -14,6 +14,21 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { HireContractFields } from "@/components/ops/HireContractFields";
+import {
+  EMPTY_HIRE_CONTRACT,
+  toHireContractApiPayload,
+  validateHireContractFields,
+  type HireContractFields as HireContractValue,
+} from "@/lib/personas-lifecycle";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { confirmDialog } from "@/components/ui/confirm-service";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -308,6 +323,8 @@ export function AtsPipelineClient({
   );
   const [selected, setSelected] = useState<Application | null>(null);
   const [moving, setMoving] = useState(false);
+  const [hireModalAppId, setHireModalAppId] = useState<string | null>(null);
+  const [hireContract, setHireContract] = useState<HireContractValue>(EMPTY_HIRE_CONTRACT);
   const [showDescartados, setShowDescartados] = useState(false);
   const [channelUrls, setChannelUrls] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -373,13 +390,25 @@ export function AtsPipelineClient({
     if (list) list.push(app);
   }
 
-  async function moveEtapa(appId: string, nuevaEtapa: string) {
+  async function moveEtapa(
+    appId: string,
+    nuevaEtapa: string,
+    extra?: Record<string, unknown>,
+  ) {
+    if (nuevaEtapa === "CONTRATADO" && !extra) {
+      setHireContract({
+        ...EMPTY_HIRE_CONTRACT,
+        startDate: new Date().toISOString().slice(0, 10),
+      });
+      setHireModalAppId(appId);
+      return;
+    }
     setMoving(true);
     try {
       const res = await fetch(`/api/ops/ats/jobs/${job.id}/applications/${appId}/etapa`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ etapa: nuevaEtapa }),
+        body: JSON.stringify({ etapa: nuevaEtapa, ...extra }),
       });
       const json = await res.json();
       if (!json.success) {
@@ -388,6 +417,7 @@ export function AtsPipelineClient({
       }
       toast.success(`Movido a ${ETAPA_LABELS[nuevaEtapa]}`);
       setSelected(null);
+      setHireModalAppId(null);
       router.refresh();
     } catch {
       toast.error("Error de red");
@@ -1284,6 +1314,35 @@ export function AtsPipelineClient({
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={!!hireModalAppId} onOpenChange={(open) => !open && setHireModalAppId(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Contratar desde ATS</DialogTitle>
+            <DialogDescription>
+              Define tipo de contrato y plazos antes de pasar a Contratado.
+            </DialogDescription>
+          </DialogHeader>
+          <HireContractFields value={hireContract} onChange={setHireContract} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHireModalAppId(null)}>Cancelar</Button>
+            <Button
+              disabled={moving}
+              onClick={() => {
+                if (!hireModalAppId) return;
+                const error = validateHireContractFields(hireContract);
+                if (error) {
+                  toast.error(error);
+                  return;
+                }
+                void moveEtapa(hireModalAppId, "CONTRATADO", toHireContractApiPayload(hireContract));
+              }}
+            >
+              {moving ? "Guardando..." : "Contratar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

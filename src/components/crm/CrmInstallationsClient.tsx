@@ -20,6 +20,11 @@ import { MapPin, Loader2 } from "lucide-react";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  fetchInstallationRosterBlockers,
+  InstallationRosterBlockers,
+} from "@/components/crm/InstallationRosterBlockers";
+import type { InstallationRosterBlocker } from "@/lib/crm/installation-roster-guard";
 import { Tag } from "@/components/opai-ds";
 import { validateGeoreferencedAddress } from "@/lib/crm/installation-address";
 
@@ -90,6 +95,8 @@ export function CrmInstallationsClient({
   const [open, setOpen] = useState(false);
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<Set<string>>(new Set());
   const [accountActiveState, setAccountActiveState] = useState(accountIsActive);
+  const [rosterBlockers, setRosterBlockers] = useState<InstallationRosterBlocker[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
   const [statusConfirm, setStatusConfirm] = useState<{ open: boolean; id: string; next: boolean; activateAccount: boolean }>({
     open: false,
     id: "",
@@ -166,12 +173,19 @@ export function CrmInstallationsClient({
   const openToggleInstallationStatus = (inst: InstallationRow) => {
     const current = inst.status === "active";
     const next = !current;
+    setRosterBlockers([]);
     setStatusConfirm({
       open: true,
       id: inst.id,
       next,
       activateAccount: next && accountActiveState === false,
     });
+    if (!next) {
+      setRosterLoading(true);
+      void fetchInstallationRosterBlockers(inst.id)
+        .then(setRosterBlockers)
+        .finally(() => setRosterLoading(false));
+    }
   };
 
   const toggleInstallationStatus = async () => {
@@ -188,7 +202,12 @@ export function CrmInstallationsClient({
         }),
       });
       const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload?.error || "No se pudo actualizar");
+      if (!response.ok || !payload.success) {
+        if (payload.code === "INSTALLATION_HAS_ACTIVE_ROSTER" && Array.isArray(payload.blockers)) {
+          setRosterBlockers(payload.blockers);
+        }
+        throw new Error(payload?.error || "No se pudo actualizar");
+      }
 
       setInstallations((prev) =>
         prev.map((i) =>
@@ -202,7 +221,7 @@ export function CrmInstallationsClient({
       toast.success(statusConfirm.next ? "Instalación activada" : "Instalación desactivada");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo cambiar el estado de la instalación.");
+      toast.error(error instanceof Error ? error.message : "No se pudo cambiar el estado de la instalación.");
     } finally {
       setStatusUpdatingIds((prev) => {
         const nextSet = new Set(prev);
@@ -374,10 +393,16 @@ export function CrmInstallationsClient({
             ? statusConfirm.activateAccount
               ? "La instalación quedará activa y también se activará la cuenta asociada."
               : "La instalación quedará activa."
-            : "La instalación quedará inactiva."
+            : (
+              <span className="space-y-3 block">
+                <span className="block">La instalación quedará inactiva.</span>
+                <InstallationRosterBlockers blockers={rosterBlockers} loading={rosterLoading} />
+              </span>
+            )
         }
         confirmLabel={statusConfirm.next ? "Activar" : "Desactivar"}
         variant="default"
+        confirmDisabled={!statusConfirm.next && (rosterLoading || rosterBlockers.length > 0)}
         onConfirm={toggleInstallationStatus}
       />
     </>

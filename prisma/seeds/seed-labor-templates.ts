@@ -11,6 +11,10 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import {
+  ensureAfcTokenListed,
+  patchFiniquitoTemplateContent,
+} from "../../src/lib/docs/patch-finiquito-afc-template";
 
 const prisma = new PrismaClient();
 
@@ -292,6 +296,9 @@ const finiquitoTemplate = buildTiptapDoc([
     bold(""), token("labor_event.yearsOfServiceAmount"), hardBreak(),
     text("4. Indemnización sustitutiva del aviso previo: "),
     bold(""), token("labor_event.substituteNoticeAmount"),
+    hardBreak(),
+    text("5. Descuento AFC (Ley 19.728): "),
+    bold(""), token("labor_event.afcDeductionAmount"),
   ]),
   paragraph([
     bold("TOTAL A PAGAR: "),
@@ -384,6 +391,7 @@ const TEMPLATES = [
       "labor_event.finiquitoDate", "labor_event.vacationDaysPending",
       "labor_event.vacationPaymentAmount", "labor_event.pendingRemunerationAmount",
       "labor_event.yearsOfServiceAmount", "labor_event.substituteNoticeAmount",
+      "labor_event.afcDeductionAmount",
       "labor_event.totalSettlementAmount",
     ],
     isDefault: true,
@@ -399,6 +407,23 @@ export async function seedLaborTemplates(tenantId: string, createdBy: string) {
     });
 
     if (existing) {
+      if (tpl.category === "finiquito") {
+        const patched = patchFiniquitoTemplateContent(existing.content);
+        const tokensUsed = ensureAfcTokenListed(existing.tokensUsed);
+        const tokensChanged = JSON.stringify(tokensUsed) !== JSON.stringify(existing.tokensUsed);
+        if (patched.changed || tokensChanged) {
+          const updated = await prisma.docTemplate.update({
+            where: { id: existing.id },
+            data: {
+              content: patched.content as object,
+              tokensUsed,
+            },
+          });
+          console.log(`  ✏  Template "${tpl.name}" patched with AFC deduction`);
+          results.push(updated);
+          continue;
+        }
+      }
       console.log(`  ⏭  Template "${tpl.name}" already exists, skipping`);
       results.push(existing);
       continue;

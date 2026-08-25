@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   applyTeDiscountToLiquido,
+  shouldPaintTeWeeklyProjection,
   computeCellDrift,
   computeF29FutureClp,
   computeFiniquitosMonthly,
@@ -130,6 +131,63 @@ describe("applyTeDiscountToLiquido", () => {
     const r = applyTeDiscountToLiquido(500_000, 840_000, 1);
     expect(r.discount).toBe(840_000);
     expect(r.net).toBe(0);
+  });
+
+  it("TE + quincena en cadena: total caja = líquido base", () => {
+    const liquidoBase = 92_130_760;
+    const teMes = 4_606_540;
+    const quincena = 4_606_538;
+    const afterTe = applyTeDiscountToLiquido(liquidoBase, teMes, 1);
+    const afterQuin = applyTeDiscountToLiquido(afterTe.net, quincena, 1);
+    expect(afterQuin.net + teMes + quincena).toBe(liquidoBase);
+  });
+});
+
+describe("shouldPaintTeWeeklyProjection", () => {
+  const blocked = new Set<string>();
+
+  it("pinta semanas futuras", () => {
+    expect(
+      shouldPaintTeWeeklyProjection({
+        weekYmd: "2026-08-31",
+        currentWeek: "2026-08-24",
+        pendingTeTotal: 0,
+        blocked,
+      }),
+    ).toBe(true);
+  });
+
+  it("no pinta la semana actual si hay TE aprobado por pagar", () => {
+    expect(
+      shouldPaintTeWeeklyProjection({
+        weekYmd: "2026-08-24",
+        currentWeek: "2026-08-24",
+        pendingTeTotal: 840_000,
+        blocked,
+      }),
+    ).toBe(false);
+  });
+
+  it("pinta la semana actual si no hay TE pendiente", () => {
+    expect(
+      shouldPaintTeWeeklyProjection({
+        weekYmd: "2026-08-24",
+        currentWeek: "2026-08-24",
+        pendingTeTotal: 0,
+        blocked,
+      }),
+    ).toBe(true);
+  });
+
+  it("no pinta semanas bloqueadas por plan", () => {
+    expect(
+      shouldPaintTeWeeklyProjection({
+        weekYmd: "2026-08-31",
+        currentWeek: "2026-08-24",
+        pendingTeTotal: 0,
+        blocked: new Set(["2026-08-31"]),
+      }),
+    ).toBe(false);
   });
 });
 
