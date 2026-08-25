@@ -37,7 +37,7 @@ export function getLifecycleTransitions(currentStatus: string): GuardiaLifecycle
   if (s === "postulante") return ["seleccionado", "te", "inactivo", "contratado"];
   if (s === "seleccionado") return ["contratado", "inactivo", "te"];
   if (s === "te") return ["seleccionado", "contratado", "inactivo"];
-  if (s === "contratado") return []; // Finiquito, o anulación explícita (contratacion_anulada)
+  if (s === "contratado") return []; // Finiquito, o inactivar sin contrato (contratacion_anulada)
   if (s === "inactivo") return ["contratado", "te"];
   return [];
 }

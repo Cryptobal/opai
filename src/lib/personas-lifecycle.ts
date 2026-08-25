@@ -10,6 +10,16 @@ export const CANCEL_HIRE_NOTE_OPTIONS = [
   { value: "otro", label: "Otro" },
 ] as const;
 
+export type CancelHireBlockCode = "not_contratado" | "signed_contract" | "has_work";
+
+export type CancelHireEligibility = {
+  eligible: boolean;
+  reason: string | null;
+  code: CancelHireBlockCode | null;
+};
+
+const SIGNED_LABOR_SIGNATURE_STATUSES = new Set(["completed", "external"]);
+
 export type ContractTypeValue = "indefinido" | "plazo_fijo";
 
 export type HireContractFields = {
@@ -40,21 +50,54 @@ export function isAllowedLifecycleTransition(
   return getLifecycleTransitions(current).includes(next as GuardiaLifecycleStatus);
 }
 
+/** Contrato laboral generado en Documentos y firmado (digital o marca externa). */
+export function isSignedLaborContractDocument(doc: {
+  category?: string | null;
+  signatureStatus?: string | null;
+  signedAt?: Date | string | null;
+}): boolean {
+  if ((doc.category ?? "").toLowerCase() !== "contrato_laboral") return false;
+  if (doc.signedAt) return true;
+  const status = (doc.signatureStatus ?? "").toLowerCase();
+  return SIGNED_LABOR_SIGNATURE_STATUSES.has(status);
+}
+
+/** Inactivación administrativa (sin finiquito), no una desvinculación laboral. */
+export function isCancelledHireRecord(input: {
+  terminationReason?: string | null;
+}): boolean {
+  return input.terminationReason === CANCEL_HIRE_REASON;
+}
+
 export function canCancelHireFromCounts(input: {
   lifecycleStatus: string;
   marcaciones: number;
   liquidaciones: number;
-}): { eligible: boolean; reason: string | null } {
+  signedLaborContracts?: number;
+}): CancelHireEligibility {
   if (input.lifecycleStatus.toLowerCase() !== "contratado") {
-    return { eligible: false, reason: "Solo se puede anular una contratación activa." };
+    return {
+      eligible: false,
+      reason: "Solo se puede anular una contratación activa.",
+      code: "not_contratado",
+    };
+  }
+  if ((input.signedLaborContracts ?? 0) > 0) {
+    return {
+      eligible: false,
+      reason:
+        "Hay un contrato laboral firmado. Debes registrar un finiquito en la pestaña Contractual → Eventos.",
+      code: "signed_contract",
+    };
   }
   if (input.marcaciones > 0 || input.liquidaciones > 0) {
     return {
       eligible: false,
-      reason: "Debe finiquitarse; ya hay registro de trabajo.",
+      reason: "Debe finiquitarse; ya hay registro de trabajo (marcaciones o liquidaciones).",
+      code: "has_work",
     };
   }
-  return { eligible: true, reason: null };
+  return { eligible: true, reason: null, code: null };
 }
 
 export function toHireContractApiPayload(input: HireContractFields) {
