@@ -595,10 +595,21 @@ export function RondasPortalClient() {
 
   return (
     <div className="flex flex-col overflow-hidden h-full min-h-0">
+      {deviceToken && deviceInfo && currentGuard && screen !== "login" && screen !== "ronda-activa" && (
+        <GuardSelectorHeader
+          installationName={deviceInfo.installationName}
+          deviceToken={deviceToken}
+          currentGuardId={currentGuard.id}
+          currentGuardName={currentGuard.name}
+          onGuardChange={handleGuardChange}
+        />
+      )}
+
       <TruthBar
         gpsStatus="off"
         online={!isOffline}
         queueCount={queueCount}
+        stickyTop="0px"
         trailing={
           session ? (
             <SosHoldButton
@@ -630,16 +641,6 @@ export function RondasPortalClient() {
         </div>
       )}
       {panicBanner !== "off" && <div className="h-10 shrink-0" aria-hidden="true" />}
-
-      {deviceToken && deviceInfo && currentGuard && screen !== "login" && screen !== "ronda-activa" && (
-        <GuardSelectorHeader
-          installationName={deviceInfo.installationName}
-          deviceToken={deviceToken}
-          currentGuardId={currentGuard.id}
-          currentGuardName={currentGuard.name}
-          onGuardChange={handleGuardChange}
-        />
-      )}
 
       {needsGuardPicker && deviceToken && (
         <GuardPickerScreen
