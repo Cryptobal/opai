@@ -84,7 +84,7 @@ export function computeTePctPayrollWeekly(
   return Math.round((pct * liquidoMensual) / weeksInMonth);
 }
 
-/** Descuento TE→líquido: max(0, liquidoBase - round(tePeriodo × discountPct)). */
+/** Descuento de caja sobre líquido: max(0, liquidoBase - round(amount × discountPct)). */
 export function applyTeDiscountToLiquido(
   liquidoBase: number,
   tePeriodoClp: number,
@@ -96,6 +96,22 @@ export function applyTeDiscountToLiquido(
   const discount = Math.round(te * pct);
   const net = Math.max(0, base - discount);
   return { net, discount, base };
+}
+
+/**
+ * Proyectar TE semanal: nunca en el pasado; no encima de plan manual;
+ * no en la semana actual si ya hay TE aprobado por pagar (evita pending + forecast).
+ */
+export function shouldPaintTeWeeklyProjection(args: {
+  weekYmd: string;
+  currentWeek: string;
+  pendingTeTotal: number;
+  blocked: Set<string>;
+}): boolean {
+  if (args.weekYmd < args.currentWeek) return false;
+  if (args.blocked.has(args.weekYmd)) return false;
+  if (args.weekYmd === args.currentWeek && args.pendingTeTotal > 0) return false;
+  return true;
 }
 
 /** Finiquitos: manual si seteado; si no promedio de reales (0 si vacío). */
