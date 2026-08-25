@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { currentYearMonthInChile } from "@/lib/dates-cl";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { SupervisionGrilla } from "@/components/supervision/SupervisionGrilla";
-import { IncidentesSupervisionCard } from "@/components/supervision/IncidentesSupervisionCard";
+
 export default async function OpsSupervisionPage({
   searchParams,
 }: {
@@ -19,13 +20,12 @@ export default async function OpsSupervisionPage({
   }
 
   const params = await searchParams;
-  const now = new Date();
-  const year = params.year ? parseInt(params.year) : now.getFullYear();
-  const month = params.month ? parseInt(params.month) : now.getMonth() + 1;
+  const chileNow = currentYearMonthInChile();
+  const year = params.year ? parseInt(params.year) : chileNow.year;
+  const month = params.month ? parseInt(params.month) : chileNow.month;
 
   return (
-    <div className="min-w-0 space-y-4">
-      <IncidentesSupervisionCard />
+    <div className="min-w-0">
       <SupervisionGrilla year={year} month={month} />
     </div>
   );
