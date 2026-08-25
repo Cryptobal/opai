@@ -41,9 +41,9 @@ describe("patchFiniquitoTemplateContent", () => {
 
 describe("ensureAfcTokenListed", () => {
   it("agrega el token una sola vez", () => {
-    expect(ensureAfcTokenListed(["labor_event.totalSettlementAmount"])).toContain(
+    expect(ensureAfcTokenListed(["labor_event.totalSettlementAmount"]) as string[]).toContain(
       "labor_event.afcDeductionAmount",
     );
-    expect(ensureAfcTokenListed(["labor_event.afcDeductionAmount"])).toHaveLength(1);
+    expect(ensureAfcTokenListed(["labor_event.afcDeductionAmount"]) as string[]).toHaveLength(1);
   });
 });
