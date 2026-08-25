@@ -365,8 +365,8 @@ export function SupervisionGrilla({
             {(
               [
                 ["az", "A-Z"],
-                ["vis_desc", "↑ Vis"],
-                ["vis_asc", "↓ Vis"],
+                ["vis_desc", "↓ Vis"],
+                ["vis_asc", "↑ Vis"],
                 ["hrs", "↓ Hrs"],
                 ["inc", "↓ Inc"],
                 ["cobertura", "Cobertura"],
