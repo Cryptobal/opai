@@ -298,7 +298,7 @@ describe("SupervisionGrilla", () => {
     expect(screen.getByText(/Sitio que exige visita nocturna/)).toBeTruthy();
     expect(screen.getByText(/este mes todavía no la tiene/)).toBeTruthy();
 
-    fireEvent.click(screen.getByText("Sin noche"));
+    fireEvent.click(screen.getByText("Sitios que exigen visita nocturna y no la tienen"));
     await waitFor(() => {
       expect(screen.getByText("Faena nocturna")).toBeTruthy();
       expect(screen.queryByText("Bodega Norte")).toBeNull();
