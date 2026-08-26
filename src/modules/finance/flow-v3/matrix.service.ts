@@ -28,6 +28,7 @@ import type { FlowMatrixResponse, OpeningBalanceDetail } from "./matrix-types";
 import { compareFlowRows } from "./row-sort";
 import { nestFlowRows } from "./row-tree";
 import { isFallbackBandejaRow } from "./unmatched-count";
+import { splitStackedRecurrencesForTenant } from "./recurring-plan.service";
 
 export type { FlowMatrixResponse } from "./matrix-types";
 
@@ -74,6 +75,7 @@ export async function buildFlowMatrix(
   if (q.allowBootstrap) {
     await ensureFlowBootstrap(tenantId);
     await reconcileIncomeRows(tenantId);
+    await splitStackedRecurrencesForTenant(tenantId);
   }
 
   const dbRows = await prisma.financeFlowRow.findMany({ where: { tenantId } });

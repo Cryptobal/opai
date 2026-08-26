@@ -13,6 +13,7 @@ import { listClosedV3Weeks } from "./weekly-close.adapter";
 import { projectUfWithGrowth, ufTargetDate, ufToClp } from "./uf-occurrence";
 import { normalizeNameForDedupe } from "./row-visibility";
 import { stampCellNotes } from "./cell-note.service";
+import { SUBROW_SECTIONS } from "./row-tree";
 
 /**
  * Egresos recurrentes de PLAN (§5J / v4 UF). La regla se persiste
@@ -22,6 +23,11 @@ import { stampCellNotes } from "./cell-note.service";
  *
  * currency=UF: cada ocurrencia resuelve CLP con la política UF y se materializa
  * como entero. rematerializeUfRecurrences recalcula futuras no selladas.
+ *
+ * Varias reglas FIXED no comparten fila: cada una vive en subfila (o hermana)
+ * propia. Si ya había varias apiladas en una categoría (p. ej. T.G.R.), se
+ * mueven todas al cargar la planilla, al crear/editar y en el cron; el padre
+ * queda como cabecera y suma los meses superpuestos.
  */
 
 /** Secciones que admiten egreso recurrente de plan (v5: + FINANCIAMIENTO). */
@@ -270,6 +276,222 @@ async function assertPlanRecurrenceRow(tenantId: string, rowId: string): Promise
   return { section: row.section };
 }
 
+type RecurrenceNameInput = {
+  amount: number;
+  currency?: string | null;
+  amountMode?: string | null;
+  amountUf?: number | null;
+  /** Porcentaje 0–100 (no fracción). */
+  pctSales?: number | null;
+  note?: string | null;
+};
+
+/** Nombre visible de la subfila dedicada a una recurrencia. */
+export function dedicatedRecurrenceRowName(
+  parentName: string,
+  input: RecurrenceNameInput,
+): string {
+  const parent = parentName.trim() || "Recurrente";
+  const note = input.note?.trim();
+  let suffix: string;
+  if (note) {
+    suffix = note.length > 48 ? `${note.slice(0, 45)}…` : note;
+  } else if (input.amountMode === "PCT_SALES" && input.pctSales != null) {
+    suffix = `${input.pctSales}% ventas`;
+  } else if (input.currency === "UF" && input.amountUf != null) {
+    suffix = `${Number(input.amountUf).toLocaleString("es-CL", { maximumFractionDigits: 4 })} UF`;
+  } else {
+    suffix = `$${Math.round(Math.abs(Number(input.amount) || 0)).toLocaleString("es-CL")}`;
+  }
+  return `${parent} · ${suffix}`.slice(0, 120);
+}
+
+type RowAnchor = {
+  id: string;
+  name: string;
+  section: string;
+  parentId: string | null;
+  canonicalKey: string | null;
+};
+
+/**
+ * Dónde colgar la fila dedicada: hijo del ancla si admite subfilas;
+ * si el ancla ya es hijo, hermano; si es canónica o sección sin árbol, hermana raíz.
+ */
+function attachParentIdForDedicatedRow(row: RowAnchor): string | null {
+  if (row.parentId) return row.parentId;
+  if (row.canonicalKey) return null;
+  if (!SUBROW_SECTIONS.has(row.section)) return null;
+  return row.id;
+}
+
+/** El ancla puede quedar como cabecera (rollup) y vaciarse de reglas FIXED. */
+function shouldVacateAnchor(row: RowAnchor): boolean {
+  return attachParentIdForDedicatedRow(row) === row.id;
+}
+
+function uniquifyRowName(base: string, taken: Set<string>): string {
+  const key = (n: string) => normalizeNameForDedupe(n);
+  if (!taken.has(key(base))) return base;
+  for (let i = 2; i < 80; i++) {
+    const candidate = `${base} (${i})`.slice(0, 120);
+    if (!taken.has(key(candidate))) return candidate;
+  }
+  return `${base} (${Date.now()})`.slice(0, 120);
+}
+
+async function createDedicatedRecurrenceRow(
+  tenantId: string,
+  anchor: RowAnchor,
+  naming: RecurrenceNameInput,
+): Promise<string> {
+  const parentId = attachParentIdForDedicatedRow(anchor);
+  const siblings = await prisma.financeFlowRow.findMany({
+    where: parentId
+      ? { tenantId, parentId }
+      : { tenantId, section: anchor.section as never, parentId: null, archivedAt: null },
+    select: { name: true },
+  });
+  const taken = new Set(siblings.map((s) => normalizeNameForDedupe(s.name)));
+  const name = uniquifyRowName(dedicatedRecurrenceRowName(anchor.name, naming), taken);
+  const last = await prisma.financeFlowRow.findFirst({
+    where: { tenantId },
+    orderBy: { orderIndex: "desc" },
+    select: { orderIndex: true },
+  });
+  const created = await prisma.financeFlowRow.create({
+    data: {
+      tenantId,
+      section: anchor.section as never,
+      name,
+      mapping: "MANUAL",
+      categoryId: null,
+      parentId,
+      orderIndex: (last?.orderIndex ?? -1) + 1,
+    },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+function namingFromRule(rule: FinanceFlowPlanRecurrence): RecurrenceNameInput {
+  const frac = rule.pctSales != null ? Number(rule.pctSales) : null;
+  return {
+    amount: Number(rule.amount),
+    currency: rule.currency,
+    amountMode: rule.amountMode ?? "FIXED",
+    amountUf: rule.amountUf != null ? Number(rule.amountUf) : null,
+    pctSales: frac != null && Number.isFinite(frac) ? Math.round(frac * 10_000) / 100 : null,
+    note: rule.note,
+  };
+}
+
+async function loadRowAnchor(tenantId: string, rowId: string): Promise<RowAnchor> {
+  const row = await prisma.financeFlowRow.findFirst({
+    where: { id: rowId, tenantId },
+    select: { id: true, name: true, section: true, parentId: true, canonicalKey: true },
+  });
+  if (!row) throw new Error("Fila no encontrada");
+  return {
+    id: row.id,
+    name: row.name,
+    section: row.section,
+    parentId: row.parentId,
+    canonicalKey: row.canonicalKey,
+  };
+}
+
+/**
+ * Mueve reglas FIXED a filas dedicadas y rematerializa futuras no selladas.
+ * En el ancla original deja 0 en esas semanas (no pisa otras filas).
+ */
+async function relocateFixedRulesToDedicatedRows(
+  tenantId: string,
+  sourceRowId: string,
+  anchor: RowAnchor,
+  rules: FinanceFlowPlanRecurrence[],
+  updatedBy: string | null,
+): Promise<void> {
+  if (rules.length === 0) return;
+  const currentWeek = currentWeekYmd();
+  const isFuture = (w: string) => w >= currentWeek;
+  for (const rule of rules) {
+    const dedicatedId = await createDedicatedRecurrenceRow(
+      tenantId,
+      anchor,
+      namingFromRule(rule),
+    );
+    const moved = await prisma.financeFlowPlanRecurrence.update({
+      where: { id: rule.id },
+      data: { rowId: dedicatedId },
+    });
+    const extraFuture = occurrenceWeeks(moved).filter(isFuture);
+    if (extraFuture.length > 0) {
+      await materializeClp(tenantId, sourceRowId, extraFuture, 0, updatedBy);
+    }
+    const cells = await materializeRule(tenantId, moved, extraFuture, updatedBy);
+    const stampWeeks = cells.length > 0 ? cells.map((c) => c.weekStart) : extraFuture;
+    await stampRuleNoteOnWeeks(tenantId, moved, stampWeeks, updatedBy, false);
+  }
+}
+
+/**
+ * Si una fila tiene 2+ recurrencias FIXED, las separa a subfilas (o hermanas).
+ * En categorías que admiten árbol (p. ej. T.G.R. en Impuestos) se mueven
+ * TODAS, incluida la primera, para que el padre quede como cabecera y sume.
+ */
+export async function splitStackedRecurrencesOnRow(
+  tenantId: string,
+  rowId: string,
+  updatedBy: string | null,
+): Promise<number> {
+  const rules = await prisma.financeFlowPlanRecurrence.findMany({
+    where: { tenantId, rowId, amountMode: "FIXED" },
+    orderBy: { createdAt: "asc" },
+  });
+  if (rules.length <= 1) return rules.length;
+
+  const anchor = await loadRowAnchor(tenantId, rowId);
+  const toMove = shouldVacateAnchor(anchor) ? rules : rules.slice(1);
+  await relocateFixedRulesToDedicatedRows(tenantId, rowId, anchor, toMove, updatedBy);
+  return rules.length - toMove.length;
+}
+
+/** Reparte recurrencias apiladas en todas las filas del tenant (bootstrap / cron). */
+export async function splitStackedRecurrencesForTenant(
+  tenantId: string,
+  updatedBy: string | null = null,
+): Promise<{ rows: number }> {
+  const rules = await prisma.financeFlowPlanRecurrence.findMany({
+    where: { tenantId, amountMode: "FIXED" },
+    select: { rowId: true },
+  });
+  const counts = new Map<string, number>();
+  for (const r of rules) counts.set(r.rowId, (counts.get(r.rowId) ?? 0) + 1);
+  const stacked = [...counts.entries()].filter(([, n]) => n > 1).map(([id]) => id);
+  for (const rowId of stacked) {
+    await splitStackedRecurrencesOnRow(tenantId, rowId, updatedBy);
+  }
+  return { rows: stacked.length };
+}
+
+async function refreshRuleAfterSplit(
+  tenantId: string,
+  ruleId: string,
+  updatedBy: string | null,
+): Promise<FinanceFlowPlanRecurrence> {
+  const rule = await prisma.financeFlowPlanRecurrence.findFirst({
+    where: { id: ruleId, tenantId },
+  });
+  if (!rule) throw new Error("Regla recurrente no encontrada");
+  await splitStackedRecurrencesOnRow(tenantId, rule.rowId, updatedBy);
+  const fresh = await prisma.financeFlowPlanRecurrence.findFirst({
+    where: { id: ruleId, tenantId },
+  });
+  if (!fresh) throw new Error("Regla recurrente no encontrada");
+  return fresh;
+}
+
 export interface RecurrenceDto {
   id: string;
   rowId: string;
@@ -390,6 +612,7 @@ export async function createRecurrence(
   createdBy: string | null,
 ): Promise<RecurrenceResult> {
   const resolvedRowId = await resolveOrCreateTargetRow(tenantId, rowId, input.newRow);
+  await splitStackedRecurrencesOnRow(tenantId, resolvedRowId, createdBy);
   if (input.endDate && input.endDate < input.startDate) {
     throw new Error("endDate no puede ser anterior a startDate");
   }
@@ -397,18 +620,69 @@ export async function createRecurrence(
     throw new Error("endAfterOccurrences debe ser ≥ 1");
   }
   const amountMode: FlowRecurrenceAmountMode = input.amountMode ?? "FIXED";
+  let targetRowId = resolvedRowId;
+  if (amountMode !== "PCT_SALES") {
+    const existingFixed = await prisma.financeFlowPlanRecurrence.findMany({
+      where: { tenantId, rowId: resolvedRowId, amountMode: "FIXED" },
+      orderBy: { createdAt: "asc" },
+    });
+    const anchor = await loadRowAnchor(tenantId, resolvedRowId);
+    const vacate = shouldVacateAnchor(anchor);
+    if (existingFixed.length >= 1 && vacate) {
+      await relocateFixedRulesToDedicatedRows(
+        tenantId,
+        resolvedRowId,
+        anchor,
+        existingFixed,
+        createdBy,
+      );
+      targetRowId = await createDedicatedRecurrenceRow(tenantId, anchor, {
+        amount: input.amount,
+        currency: input.currency ?? "CLP",
+        amountMode,
+        amountUf: input.amountUf,
+        pctSales: input.pctSales,
+        note: input.note,
+      });
+    } else if (existingFixed.length >= 1) {
+      targetRowId = await createDedicatedRecurrenceRow(tenantId, anchor, {
+        amount: input.amount,
+        currency: input.currency ?? "CLP",
+        amountMode,
+        amountUf: input.amountUf,
+        pctSales: input.pctSales,
+        note: input.note,
+      });
+    } else if (vacate) {
+      const kids = await prisma.financeFlowRow.findMany({
+        where: { tenantId, parentId: resolvedRowId },
+        select: { id: true },
+        take: 1,
+      });
+      if (kids.length > 0) {
+        targetRowId = await createDedicatedRecurrenceRow(tenantId, anchor, {
+          amount: input.amount,
+          currency: input.currency ?? "CLP",
+          amountMode,
+          amountUf: input.amountUf,
+          pctSales: input.pctSales,
+          note: input.note,
+        });
+      }
+    }
+  }
   if (amountMode === "PCT_SALES") {
     if (input.frequency !== "MONTHLY") {
       throw new Error("La recurrencia % ventas exige periodicidad mensual");
     }
     const frac = pctSalesFractionFromInput(input.pctSales);
     if (frac == null) throw new Error("pctSales debe estar entre 0 y 100");
-    await replaceExistingPctSalesRule(tenantId, resolvedRowId);
+    await replaceExistingPctSalesRule(tenantId, targetRowId);
     const note = normalizeRecurrenceNote(input.note);
     const rule = await prisma.financeFlowPlanRecurrence.create({
       data: {
         tenantId,
-        rowId: resolvedRowId,
+        rowId: targetRowId,
         amount: input.amount ?? 0,
         currency: "CLP",
         amountMode: "PCT_SALES",
@@ -441,7 +715,7 @@ export async function createRecurrence(
   const rule = await prisma.financeFlowPlanRecurrence.create({
     data: {
       tenantId,
-      rowId: resolvedRowId,
+      rowId: targetRowId,
       amount: amountClp,
       currency,
       amountMode: "FIXED",
@@ -473,10 +747,7 @@ export async function updateRecurrence(
   input: Partial<RecurrenceInput>,
   updatedBy: string | null,
 ): Promise<RecurrenceResult> {
-  const old = await prisma.financeFlowPlanRecurrence.findFirst({
-    where: { id: ruleId, tenantId },
-  });
-  if (!old) throw new Error("Regla recurrente no encontrada");
+  const old = await refreshRuleAfterSplit(tenantId, ruleId, updatedBy);
 
   const amountMode: FlowRecurrenceAmountMode =
     input.amountMode ?? old.amountMode ?? "FIXED";
@@ -623,10 +894,7 @@ export async function deleteRecurrence(
   keepCells: boolean,
   updatedBy: string | null,
 ): Promise<{ deleted: true }> {
-  const rule = await prisma.financeFlowPlanRecurrence.findFirst({
-    where: { id: ruleId, tenantId },
-  });
-  if (!rule) throw new Error("Regla recurrente no encontrada");
+  const rule = await refreshRuleAfterSplit(tenantId, ruleId, updatedBy);
 
   if (!keepCells && rule.amountMode !== "PCT_SALES") {
     const currentWeek = currentWeekYmd();
@@ -662,13 +930,18 @@ export async function rematerializeUfRecurrences(
   return { rules: rules.length, cells };
 }
 
-/** Reglas recurrentes de una fila (para editarlas desde el menú). */
+/** Reglas recurrentes de una fila y de sus subfilas (para editarlas desde el menú). */
 export async function listRecurrencesForRow(
   tenantId: string,
   rowId: string,
 ): Promise<FinanceFlowPlanRecurrence[]> {
+  const children = await prisma.financeFlowRow.findMany({
+    where: { tenantId, parentId: rowId },
+    select: { id: true },
+  });
+  const rowIds = [rowId, ...children.map((c) => c.id)];
   return prisma.financeFlowPlanRecurrence.findMany({
-    where: { tenantId, rowId },
+    where: { tenantId, rowId: { in: rowIds } },
     orderBy: { createdAt: "asc" },
   });
 }

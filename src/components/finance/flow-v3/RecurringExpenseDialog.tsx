@@ -452,6 +452,12 @@ export function RecurringExpenseDialog({
                   Esta fila aún no tiene recurrencias. Completa el formulario para crear una.
                 </span>
               )}
+              {!isEditing && existingRules.length > 0 && (
+                <span className="block text-[12px] text-ds-text-3">
+                  Cada recurrencia vive en una subfila propia: si se superponen en un mes,
+                  ambas se ven y se suman en la categoría padre.
+                </span>
+              )}
             </label>
           )}
 
