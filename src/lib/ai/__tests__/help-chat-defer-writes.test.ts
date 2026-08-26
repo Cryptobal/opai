@@ -52,6 +52,12 @@ describe("help-chat-defer-writes", () => {
       "attach_file_to_entity",
       "add_deal_note",
       "create_crm_from_email",
+      "delete_deal",
+      "delete_quote",
+      "delete_lead",
+      "approve_lead",
+      "convert_lead",
+      "reject_lead",
     ];
     // Lecturas nuevas del buscador de correos NUNCA deben diferirse.
     expect(WRITE_TOOL_NAMES.has("resolve_entity")).toBe(false);

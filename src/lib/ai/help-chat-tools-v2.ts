@@ -144,6 +144,25 @@ import {
   toolAuthorizeBankMovements,
 } from "@/lib/ai/help-chat-banking-tools";
 import {
+  crmComercialReadToolDefinitions,
+  crmComercialWriteToolDefinitions,
+  CRM_COMERCIAL_PREVIEW_TO_CONFIRM,
+  CRM_COMERCIAL_WRITE_TOOL_LABELS,
+  searchLeadsForQuery,
+  toolSearchLeads,
+  toolGetLead,
+  toolPreviewDeleteDeal,
+  toolDeleteDeal,
+  toolPreviewDeleteQuote,
+  toolDeleteQuote,
+  toolPreviewDeleteLead,
+  toolDeleteLead,
+  toolPreviewApproveLead,
+  toolApproveLead,
+  toolPreviewRejectLead,
+  toolRejectLead,
+} from "@/lib/ai/help-chat-crm-comercial-tools";
+import {
   aiTool_get_quote_share_link,
   aiTool_manage_quote_extras,
   aiTool_update_quote,
@@ -837,7 +856,7 @@ function v2ToolDefinitions() {
       function: {
         name: "search_all",
         description:
-          "Búsqueda unificada: busca un término en TODAS las entidades del CRM en paralelo (cuentas, deals, cotizaciones, instalaciones, contactos y guardias). Úsala cuando el usuario escriba un nombre, código o término suelto y quieras encontrar TODO lo relacionado de una sola vez.",
+          "Búsqueda unificada: busca un término en TODAS las entidades del CRM en paralelo (cuentas, leads, deals, cotizaciones, instalaciones, contactos y guardias). Úsala cuando el usuario escriba un nombre, código o término suelto y quieras encontrar TODO lo relacionado de una sola vez. Los correos «nuevo lead» de OPAI aparecen en leads (no en deals/CPQ).",
         parameters: {
           type: "object",
           properties: {
@@ -1857,7 +1876,7 @@ function writeToolDefinitions() {
       function: {
         name: "update_lead",
         description:
-          "Actualiza un lead/prospecto existente. Requiere id (UUID). Si el usuario lo menciona por nombre/empresa, llama search_all primero (los leads aparecen en la búsqueda general). Patch parcial: solo pasa los campos que cambian. No usar para aprobar/rechazar leads (esos tienen tools dedicadas en el módulo CRM).",
+          "Actualiza un lead/prospecto existente. Requiere id (UUID). Si el usuario lo menciona por nombre/empresa, llama search_leads (o search_all, que incluye leads). Patch parcial: solo pasa los campos que cambian. No usar para aprobar/rechazar/eliminar: usa preview_approve_lead/approve_lead (o convert_lead), preview_reject_lead/reject_lead, preview_delete_lead/delete_lead.",
         parameters: {
           type: "object",
           properties: {
@@ -2720,6 +2739,7 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
   preview_licitacion_regenerar: { confirmToolName: "licitacion_regenerar_seccion", label: "Regenerar sección de la propuesta" },
   preview_propuesta_editar_seccion: { confirmToolName: "propuesta_editar_seccion", label: "Editar sección de la presentación" },
   ...BANKING_PREVIEW_TO_CONFIRM,
+  ...CRM_COMERCIAL_PREVIEW_TO_CONFIRM,
 };
 
 /**
@@ -2780,6 +2800,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   bulk_update_installations: "Actualizar instalaciones en lote",
   update_dte_cost_center: "Asignar centro de costo de DTE",
   ...BANKING_WRITE_TOOL_LABELS,
+  ...CRM_COMERCIAL_WRITE_TOOL_LABELS,
 };
 
 /** Descripción humana corta de una escritura diferida para la tarjeta de Slack. */
@@ -2849,6 +2870,7 @@ export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(
     ...writeToolDefinitions(),
     ...billingDraftWriteToolDefinitions(),
     ...bankingWriteToolDefinitions(),
+    ...crmComercialWriteToolDefinitions(),
   ]
     .map((d) => d.function.name)
     .filter(
@@ -2865,6 +2887,7 @@ export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: b
     ...v2ToolDefinitions(),
     ...billingDraftReadToolDefinitions(),
     ...bankingReadToolDefinitions(),
+    ...crmComercialReadToolDefinitions(),
   ];
   return allowWrites
     ? [
@@ -2872,6 +2895,7 @@ export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: b
         ...writeToolDefinitions(),
         ...billingDraftWriteToolDefinitions(),
         ...bankingWriteToolDefinitions(),
+        ...crmComercialWriteToolDefinitions(),
       ]
     : reads;
 }
@@ -3182,11 +3206,12 @@ async function toolSearchAll(
   limitPerType: number,
 ) {
   const q = query.trim();
-  if (!q) return { accounts: [], deals: [], quotes: [], installations: [], contacts: [], guardias: [] };
+  if (!q) return { accounts: [], leads: [], deals: [], quotes: [], installations: [], contacts: [], guardias: [] };
   const lim = Math.max(1, Math.min(limitPerType || 5, 10));
 
-  const [accounts, deals, quotes, installations, contacts, guardias] = await Promise.all([
+  const [accounts, leads, deals, quotes, installations, contacts, guardias] = await Promise.all([
     toolSearchAccounts(tenantId, q, lim),
+    searchLeadsForQuery(tenantId, q, lim),
     toolSearchDeals(tenantId, q, undefined, lim),
     toolSearchQuotes(tenantId, q, undefined, lim),
     toolSearchInstallations(tenantId, q, lim),
@@ -3194,7 +3219,7 @@ async function toolSearchAll(
     searchGuardiasByNameOrRut(tenantId, q, lim).catch(() => []),
   ]);
 
-  return { accounts, deals, quotes, installations, contacts, guardias };
+  return { accounts, leads, deals, quotes, installations, contacts, guardias };
 }
 
 async function toolGetDailyAttendance(tenantId: string, dateStr: string) {
@@ -5583,7 +5608,7 @@ async function toolUpdateLead(
   const id = typeof args.id === "string" ? args.id.trim() : "";
   if (!id) {
     await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
-    return { ok: false, error: "Falta id del lead. Usa search_all para obtenerlo." };
+    return { ok: false, error: "Falta id del lead. Usa search_leads o search_all para obtenerlo." };
   }
   if (!isUuid(id)) {
     await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
@@ -9272,6 +9297,42 @@ export async function executeToolCallV2(
   }
   if (toolName === "authorize_bank_movements") {
     return await toolAuthorizeBankMovements(tenantId, userId, perms, args);
+  }
+  if (toolName === "search_leads") {
+    return await toolSearchLeads(tenantId, userId, perms, args);
+  }
+  if (toolName === "get_lead") {
+    return await toolGetLead(tenantId, userId, perms, args);
+  }
+  if (toolName === "preview_delete_deal") {
+    return await toolPreviewDeleteDeal(tenantId, userId, perms, args);
+  }
+  if (toolName === "delete_deal") {
+    return await toolDeleteDeal(tenantId, userId, perms, args);
+  }
+  if (toolName === "preview_delete_quote") {
+    return await toolPreviewDeleteQuote(tenantId, userId, perms, args);
+  }
+  if (toolName === "delete_quote") {
+    return await toolDeleteQuote(tenantId, userId, perms, args);
+  }
+  if (toolName === "preview_delete_lead") {
+    return await toolPreviewDeleteLead(tenantId, userId, perms, args);
+  }
+  if (toolName === "delete_lead") {
+    return await toolDeleteLead(tenantId, userId, perms, args);
+  }
+  if (toolName === "preview_approve_lead") {
+    return await toolPreviewApproveLead(tenantId, userId, perms, args);
+  }
+  if (toolName === "approve_lead" || toolName === "convert_lead") {
+    return await toolApproveLead(tenantId, userId, perms, args, toolName);
+  }
+  if (toolName === "preview_reject_lead") {
+    return await toolPreviewRejectLead(tenantId, userId, perms, args);
+  }
+  if (toolName === "reject_lead") {
+    return await toolRejectLead(tenantId, userId, perms, args);
   }
   if (toolName === "search_emails" || toolName === "search_emails_semantic") {
     return await toolSearchEmails(tenantId, userId, args, perms);

@@ -23,6 +23,14 @@ describe("toMcpTools", () => {
         parameters: { type: "object", properties: {} },
       },
     },
+    {
+      type: "function" as const,
+      function: {
+        name: "delete_deal",
+        description: "Elimina negocio",
+        parameters: { type: "object", properties: {} },
+      },
+    },
   ];
 
   it("marca readOnlyHint en tools de lectura", () => {
@@ -35,10 +43,18 @@ describe("toMcpTools", () => {
 
   it("marca destructiveHint en tools destructivas de escritura", () => {
     expect(MCP_DESTRUCTIVE_TOOL_NAMES.has("remove_quote_position")).toBe(true);
-    const tools = toMcpTools(defs, { writeToolNames: new Set(["remove_quote_position"]) });
+    expect(MCP_DESTRUCTIVE_TOOL_NAMES.has("delete_deal")).toBe(true);
+    expect(MCP_DESTRUCTIVE_TOOL_NAMES.has("delete_quote")).toBe(true);
+    expect(MCP_DESTRUCTIVE_TOOL_NAMES.has("delete_lead")).toBe(true);
+    const tools = toMcpTools(defs, {
+      writeToolNames: new Set(["remove_quote_position", "delete_deal"]),
+    });
     const write = tools.find((t) => t.name === "remove_quote_position");
     expect(write?.annotations.readOnlyHint).toBe(false);
     expect(write?.annotations.destructiveHint).toBe(true);
+    const del = tools.find((t) => t.name === "delete_deal");
+    expect(del?.annotations.readOnlyHint).toBe(false);
+    expect(del?.annotations.destructiveHint).toBe(true);
   });
 });
 

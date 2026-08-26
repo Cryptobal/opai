@@ -25,8 +25,8 @@ Cada tenant genera **API keys** desde el panel anterior. La key resuelve el **te
 
 | Scope efectivo | Tools en `tools/list` |
 | --- | --- |
-| `READ` | **58** (solo lectura; incluye `search_received_dtes`) |
-| `READ_WRITE` + `allowWrites` | **116** (58 lectura + 58 escritura; incluye `update_dte_cost_center`) |
+| `READ` | **60** (solo lectura; incluye `search_leads` / `get_lead`) |
+| `READ_WRITE` + `allowWrites` | **129** (60 lectura + 69 escritura; incluye deletes comerciales y approve/reject lead) |
 
 ## Autenticación
 
@@ -83,7 +83,7 @@ Cada tool incluye:
 ```
 
 - `readOnlyHint`: false en tools de escritura.
-- `destructiveHint`: true en `remove_quote_position`, `bulk_update_installations`.
+- `destructiveHint`: true en `remove_quote_position`, `bulk_update_installations`, `delete_deal`, `delete_quote`, `delete_lead`.
 - `openWorldHint`: false (datos acotados al tenant de la key).
 
 ---
@@ -180,31 +180,37 @@ Leyenda: **R** = lectura (scope READ), **W** = escritura (requiere READ_WRITE + 
 | `get_uf_utm` | R | Indicadores globales |
 | `get_pending_rendiciones` | R | `scope=all` requiere capability `rendicion_view_all` |
 
-### Comercial / CRM (18 R, 22 W)
+### Comercial / CRM (20 R, 31 W)
 
 | Tool | R/W | Guard |
 | --- | --- | --- |
 | `search_accounts`, `get_account_detail`, `list_account_documents` | R | `canView(crm, accounts)` |
 | `search_contacts` | R | CRM contactos |
 | `search_deals`, `get_deal_pipeline`, `get_deal_notes`, `get_deal_communications`, `list_deal_tasks` | R | CRM deals |
+| `search_leads`, `get_lead` | R | `canView(crm, leads)`. `get_lead` no marca `firstViewedAt` (eso lo hace la ficha UI). |
 | `search_installations` | R | CRM instalaciones |
-| `search_all`, `resolve_entity` | R | Búsqueda cross-módulo |
-| `create_lead`, `update_lead`, `create_lead_from_email` | W | `canEdit(crm, leads)` |
+| `search_all`, `resolve_entity` | R | Búsqueda cross-módulo. `search_all` consulta `crmLead` en paralelo (antes omitía leads). No aplica `canView` por tipo, igual que cuentas/deals; para filtrar por permiso usa `search_leads`. |
+| `create_lead`, `update_lead`, `create_lead_from_email` | W | `canEdit(crm, leads)`. `update_lead` no aprueba/rechaza/elimina. |
+| `preview_approve_lead`, `approve_lead`, `convert_lead` | W | `canEdit(crm, leads)`. Mismo POST `/api/crm/leads/[id]/approve` (crea cuenta+contacto+deal+CPQ+instalaciones). `convert_lead` es alias de `approve_lead`; ambos exigen `confirm=true` + `previewToken` de `preview_approve_lead`. |
+| `preview_reject_lead`, `reject_lead` | W | `canEdit(crm, leads)`. Mismo POST `/api/crm/leads/[id]/reject`. |
+| `preview_delete_lead`, `delete_lead` | W | `canDelete(crm, leads)` (nivel **full**). No borra leads `approved`. Exige `confirm=true` + `previewToken`. |
 | `create_account`, `update_account` | W | `canEdit(crm, accounts)` |
 | `create_contact`, `update_contact` | W | `canEdit(crm, contacts)` |
 | `create_deal`, `update_deal`, `add_deal_note`, `create_deal_checklist` | W | `canEdit(crm, deals)` |
+| `preview_delete_deal`, `delete_deal` | W | `canDelete(crm, deals)`. Mismo DELETE `/api/crm/deals/[id]` (cotizaciones a papelera). Exige `confirm=true` + `previewToken`. |
 | `create_installation`, `update_installation`, `preview_bulk_update_installations`, `bulk_update_installations` | W | `canEdit(crm, installations)` |
 | `create_crm_from_email`, `attach_file_to_entity` | W | Permisos CRM mixtos + staging chat |
 
-**Gap Grok Comercial:** pipeline cubierto. No hay tool dedicada Apollo/prospección (solo UI). Email→CRM requiere contexto de hilo o `threadId`.
+**Gap Grok Comercial:** pipeline y ciclo de lead (buscar/ver/aprobar/rechazar/eliminar) cubiertos. No hay tool dedicada Apollo/prospección (solo UI). Email→CRM requiere contexto de hilo o `threadId`. No borrar en prod Gard (Seúl/Tempus) desde MCP salvo instrucción explícita.
 
-### CPQ / cotizaciones (4 R, 18 W)
+### CPQ / cotizaciones (4 R, 20 W)
 
 | Tool | R/W | Guard |
 | --- | --- | --- |
 | `search_quotes`, `get_quote_detail`, `get_quote_share_link` | R | `canView(cpq)` o `canView(crm, quotes)` |
 | `create_quote`, `clone_quote`, `update_quote`, `update_quote_margin`, `update_quote_status` | W | CPQ/CRM quotes edit |
 | `add_quote_position`, `update_quote_position`, `remove_quote_position`, previews | W | CPQ edit; remove requiere nivel full CPQ |
+| `preview_delete_quote`, `delete_quote` | W | `canDelete(cpq)` o `canDelete(crm, quotes)`. Mismo camino UI: impacto + blockers + `deleteQuoteToTrash` (no wipe SQL). Exige `confirm=true` + `previewToken`. |
 | `manage_quote_extras`, `manage_quote_includes`, `get_quote_proposal`, `preview_send_quote_proposal`, `send_quote_proposal` | W | CPQ + envío propuesta |
 
 ### Finanzas — reportes y flujo (9 R, 1 W)
@@ -291,7 +297,7 @@ Escritura desde correo va por tools CRM (`create_*_from_email`).
 | --- | --- | --- |
 | **Tesorero** | `search_received_dtes({search:"5144"})` o `{search:"11.111.111-1"}`; `search_dtes({search:"5144"})` (con search cubre compras); `get_dte_detail({folio:5144})`; `flow_cashflow_overview`, banca, KPIs/balance/EERR | RCV período, proyección multi-escenario, factoring 1→N deposit |
 | **Cobranzas** | `search_dtes` (`direction`), `get_dte_detail` (`paymentStatus`, `factoring`) | Sin filtro server-side DTEs no cedidos; sin registrar cobros |
-| **Comercial** | Pipeline CRM + CPQ + email | Sin Apollo; CPQ write riesgoso en multi-agente |
+| **Comercial** | Pipeline CRM + CPQ + email; `search_leads` / `get_lead`; approve/reject/delete lead; `delete_deal` / `delete_quote` (papelera) | Sin Apollo; deletes destructivos — solo tenant de prueba y `confirm=true` |
 | **Ops** | Guardias, rondas, tickets, asistencia | Sin pautas, inventario, marcación |
 
 Recomendación multi-agente: **keys READ separadas por agente** hoy; **READ_WRITE solo para agentes de confianza** con Admin de mínimo privilegio. Scopes por dominio → ver `mcp-scopes-design.md`.
