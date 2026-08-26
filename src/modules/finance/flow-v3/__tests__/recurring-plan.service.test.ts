@@ -441,10 +441,35 @@ describe("createRecurrence — una fila por recurrencia FIXED", () => {
     expect(asMock(bulkFill).mock.calls[0][1]).toBe("row-tgr");
   });
 
-  it("la segunda recurrencia se materializa en una subfila, no pisa la original", async () => {
-    asMock(prisma.financeFlowPlanRecurrence.findMany).mockResolvedValue([{ id: "rec-old" }]);
+  it("la segunda recurrencia mueve la primera a subfila y no pisa celdas", async () => {
+    const recOld = {
+      id: "rec-old",
+      tenantId: "t1",
+      rowId: "row-tgr",
+      amount: "6579338",
+      currency: "CLP" as const,
+      amountMode: "FIXED" as const,
+      pctSales: null,
+      amountUf: null,
+      ufPolicy: null,
+      ufCustomDay: null,
+      frequency: "MONTHLY" as const,
+      dayOfMonth: 25,
+      startDate: new Date("2026-08-06T00:00:00.000Z"),
+      endDate: new Date("2027-06-30T00:00:00.000Z"),
+      endAfterOccurrences: null,
+      note: null,
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    };
+    asMock(prisma.financeFlowPlanRecurrence.findMany).mockResolvedValue([recOld]);
     asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(tgrRow);
-    asMock(prisma.financeFlowRow.create).mockResolvedValue({ id: "row-child" });
+    asMock(prisma.financeFlowRow.create)
+      .mockResolvedValueOnce({ id: "row-first" })
+      .mockResolvedValueOnce({ id: "row-child" });
+    asMock(prisma.financeFlowPlanRecurrence.update).mockResolvedValue({
+      ...recOld,
+      rowId: "row-first",
+    });
     asMock(prisma.financeFlowPlanRecurrence.create).mockResolvedValue({
       id: "rec-2",
       tenantId: "t1",
@@ -478,28 +503,92 @@ describe("createRecurrence — una fila por recurrencia FIXED", () => {
       "u1",
     );
 
-    expect(asMock(prisma.financeFlowRow.create)).toHaveBeenCalledWith(
+    expect(asMock(prisma.financeFlowPlanRecurrence.update)).toHaveBeenCalledWith({
+      where: { id: "rec-old" },
+      data: { rowId: "row-first" },
+    });
+    expect(asMock(prisma.financeFlowRow.create)).toHaveBeenCalledTimes(2);
+    expect(asMock(prisma.financeFlowRow.create).mock.calls[0][0].data).toEqual(
       expect.objectContaining({
-        data: expect.objectContaining({
-          section: "IMPUESTOS",
-          parentId: "row-tgr",
-          mapping: "MANUAL",
-          name: "T.G.R. · $3.557.227",
-        }),
+        parentId: "row-tgr",
+        name: "T.G.R. · $6.579.338",
       }),
     );
-    expect(asMock(prisma.financeFlowPlanRecurrence.create)).toHaveBeenCalledWith(
+    expect(asMock(prisma.financeFlowRow.create).mock.calls[1][0].data).toEqual(
       expect.objectContaining({
-        data: expect.objectContaining({ rowId: "row-child", amount: 3_557_227 }),
+        parentId: "row-tgr",
+        name: "T.G.R. · $3.557.227",
       }),
     );
     expect(result.rule.rowId).toBe("row-child");
-    expect(asMock(bulkFill).mock.calls[0][1]).toBe("row-child");
+    const filledRows = asMock(bulkFill).mock.calls.map((c) => c[1]);
+    expect(filledRows).toContain("row-first");
+    expect(filledRows).toContain("row-child");
+    const nonzeroByRow = new Map<string, number>();
+    for (const call of asMock(bulkFill).mock.calls) {
+      const row = call[1] as string;
+      const amount = call[3] as number;
+      if (amount !== 0) nonzeroByRow.set(row, amount);
+    }
+    expect(nonzeroByRow.get("row-first")).toBe(6_579_338);
+    expect(nonzeroByRow.get("row-child")).toBe(3_557_227);
+    expect(nonzeroByRow.has("row-tgr")).toBe(false);
+  });
+
+  it("si T.G.R. ya es cabecera con subfilas, la siguiente recurrencia también va a subfila", async () => {
+    asMock(prisma.financeFlowPlanRecurrence.findMany).mockResolvedValue([]);
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(tgrRow);
+    asMock(prisma.financeFlowRow.findMany)
+      .mockResolvedValueOnce([{ id: "row-first" }])
+      .mockResolvedValueOnce([]);
+    asMock(prisma.financeFlowRow.create).mockResolvedValue({ id: "row-third" });
+    asMock(prisma.financeFlowPlanRecurrence.create).mockResolvedValue({
+      id: "rec-3",
+      tenantId: "t1",
+      rowId: "row-third",
+      amount: "1000000",
+      currency: "CLP",
+      amountMode: "FIXED",
+      pctSales: null,
+      amountUf: null,
+      ufPolicy: null,
+      ufCustomDay: null,
+      frequency: "MONTHLY",
+      dayOfMonth: 10,
+      startDate: new Date("2026-10-10T00:00:00.000Z"),
+      endDate: null,
+      endAfterOccurrences: null,
+      note: null,
+    });
+
+    const result = await createRecurrence(
+      "t1",
+      "row-tgr",
+      {
+        amount: 1_000_000,
+        frequency: "MONTHLY",
+        dayOfMonth: 10,
+        startDate: "2026-10-10",
+        currency: "CLP",
+      },
+      "u1",
+    );
+
+    expect(asMock(prisma.financeFlowRow.create)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          parentId: "row-tgr",
+          name: "T.G.R. · $1.000.000",
+        }),
+      }),
+    );
+    expect(result.rule.rowId).toBe("row-third");
+    expect(asMock(bulkFill).mock.calls.some((c) => c[1] === "row-third" && c[3] === 1_000_000)).toBe(true);
   });
 });
 
 describe("splitStackedRecurrencesOnRow", () => {
-  it("mueve extras a subfila y rematerializa la regla que permanece", async () => {
+  it("mueve todas las reglas a subfilas y deja el padre en 0", async () => {
     const kept = {
       id: "rec-kept",
       tenantId: "t1",
@@ -536,20 +625,33 @@ describe("splitStackedRecurrencesOnRow", () => {
       parentId: null,
       canonicalKey: null,
     });
-    asMock(prisma.financeFlowRow.create).mockResolvedValue({ id: "row-extra" });
-    const moved = { ...extra, rowId: "row-extra" };
-    asMock(prisma.financeFlowPlanRecurrence.update).mockResolvedValue(moved);
-    asMock(prisma.financeFlowPlanRecurrence.findFirst).mockResolvedValue(kept);
+    asMock(prisma.financeFlowRow.create)
+      .mockResolvedValueOnce({ id: "row-kept" })
+      .mockResolvedValueOnce({ id: "row-extra" });
+    asMock(prisma.financeFlowPlanRecurrence.update)
+      .mockResolvedValueOnce({ ...kept, rowId: "row-kept" })
+      .mockResolvedValueOnce({ ...extra, rowId: "row-extra" });
 
     const remaining = await splitStackedRecurrencesOnRow("t1", "row-tgr", "u1");
-    expect(remaining).toBe(1);
+    expect(remaining).toBe(0);
+    expect(asMock(prisma.financeFlowPlanRecurrence.update)).toHaveBeenCalledTimes(2);
+    expect(asMock(prisma.financeFlowPlanRecurrence.update)).toHaveBeenCalledWith({
+      where: { id: "rec-kept" },
+      data: { rowId: "row-kept" },
+    });
     expect(asMock(prisma.financeFlowPlanRecurrence.update)).toHaveBeenCalledWith({
       where: { id: "rec-extra" },
       data: { rowId: "row-extra" },
     });
-    const rowIds = asMock(bulkFill).mock.calls.map((c) => c[1]);
-    expect(rowIds).toContain("row-tgr");
-    expect(rowIds).toContain("row-extra");
+    const nonzero = asMock(bulkFill).mock.calls
+      .filter((c) => c[3] !== 0)
+      .map((c) => [c[1], c[3]]);
+    expect(nonzero).toEqual(expect.arrayContaining([
+      ["row-kept", 6_579_338],
+      ["row-extra", 3_557_227],
+    ]));
+    expect(nonzero.every(([, amt]) => amt === 6_579_338 || amt === 3_557_227)).toBe(true);
+    expect(nonzero.some(([row]) => row === "row-tgr")).toBe(false);
     const zeroCall = asMock(bulkFill).mock.calls.find((c) => c[1] === "row-tgr" && c[3] === 0);
     expect(zeroCall).toBeTruthy();
   });

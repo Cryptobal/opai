@@ -454,8 +454,8 @@ export function RecurringExpenseDialog({
               )}
               {!isEditing && existingRules.length > 0 && (
                 <span className="block text-[12px] text-ds-text-3">
-                  La nueva recurrencia se crea en una subfila propia para no pisar las celdas
-                  de las existentes en los meses en que se superponen.
+                  Cada recurrencia vive en una subfila propia: si se superponen en un mes,
+                  ambas se ven y se suman en la categoría padre.
                 </span>
               )}
             </label>
