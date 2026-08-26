@@ -82,6 +82,9 @@ export interface McpTool {
 export const MCP_DESTRUCTIVE_TOOL_NAMES = new Set([
   "remove_quote_position",
   "bulk_update_installations",
+  "delete_deal",
+  "delete_quote",
+  "delete_lead",
 ]);
 
 /** Garantiza un JSON Schema de objeto válido para `inputSchema`. */

@@ -12,15 +12,7 @@ import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth
 import { createDealSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { requireTenantModule } from '@/lib/require-module';
-import {
-  buildDealDeleteImpact,
-  resolveDealQuoteIds,
-} from "@/modules/cpq/quote-delete-impact";
-import { deleteQuoteToTrash } from "@/modules/cpq/quote-trash.service";
-import {
-  cascadeCancelDealAgenda,
-  loadDealInstallationImpact,
-} from "@/modules/crm/deal-delete-cascade";
+import { executeDealDelete } from "@/modules/crm/delete-deal.service";
 
 export async function GET(
   _request: NextRequest,
@@ -255,129 +247,25 @@ export async function DELETE(
     if (forbidden) return forbidden;
 
     const { id } = await params;
-    const tenantId = ctx.tenantId;
     const url = new URL(request.url);
-    const force = url.searchParams.get("force") === "true";
-    const reason = url.searchParams.get("reason")?.trim() || null;
-    const deleteInstallationParam = url.searchParams.get("deleteInstallation");
-    const wantDeleteInstallation = deleteInstallationParam === "true";
-
-    const existing = await prisma.crmDeal.findFirst({
-      where: { id, tenantId },
-    });
-    if (!existing) {
-      return NextResponse.json(
-        { success: false, error: "Negocio no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    // Cotizaciones del negocio: FK directa (dealId) ∪ links crm.deal_quotes.
-    const [quoteIds, impact, bundles] = await Promise.all([
-      resolveDealQuoteIds(tenantId, id),
-      buildDealDeleteImpact(tenantId, id),
-      prisma.cpqProposalBundle.findMany({
-        where: { tenantId, dealId: id },
-        select: { id: true },
-      }),
-    ]);
-    const bundleIds = bundles.map((b) => b.id);
-
-    if (impact && impact.blockers.length > 0 && !force) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "El negocio tiene cotizaciones con dependencias que impiden eliminarlas",
-          blockers: impact.blockers,
-        },
-        { status: 409 }
-      );
-    }
-
-    // Agenda + Google ANTES de borrar el deal (fuera de la transacción).
-    const agendaCascade = await cascadeCancelDealAgenda({
-      tenantId,
+    const result = await executeDealDelete({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
       dealId: id,
-      actorUserId: ctx.userId,
+      force: url.searchParams.get("force") === "true",
+      reason: url.searchParams.get("reason")?.trim() || null,
+      deleteInstallation: url.searchParams.get("deleteInstallation") === "true",
     });
-
-    const installationImpact =
-      impact?.installation ??
-      (await loadDealInstallationImpact(tenantId, id, quoteIds));
-    const installationIdToDelete =
-      wantDeleteInstallation &&
-      installationImpact?.canDelete &&
-      installationImpact.id
-        ? installationImpact.id
-        : null;
-
-    // Cascada real: cada cotización va a la papelera (restaurable), las
-    // propuestas se eliminan (unlink — sus membresías caen por FK cascade) y
-    // finalmente el negocio (stageHistory, dealQuotes, tasks caen por cascade).
-    const trashedQuoteIds: string[] = [];
-    let installationDeleted = false;
-    await prisma.$transaction(async (tx) => {
-      for (const quoteId of quoteIds) {
-        await deleteQuoteToTrash({ tx, tenantId, quoteId, userId: ctx.userId, reason });
-        trashedQuoteIds.push(quoteId);
-      }
-      if (bundleIds.length > 0) {
-        await tx.cpqProposalBundle.deleteMany({
-          where: { id: { in: bundleIds }, tenantId },
-        });
-      }
-      if (installationIdToDelete) {
-        // Desvincular cotizaciones en papelera para poder borrar la instalación.
-        await tx.cpqQuote.updateMany({
-          where: { tenantId, installationId: installationIdToDelete },
-          data: { installationId: null },
-        });
-        await tx.agendaVisita.updateMany({
-          where: { tenantId, installationId: installationIdToDelete },
-          data: { installationId: null },
-        });
-        const deleted = await tx.crmInstallation.deleteMany({
-          where: { id: installationIdToDelete, tenantId },
-        });
-        installationDeleted = deleted.count > 0;
-      }
-      await tx.crmDeal.delete({ where: { id } });
-      await createCrmHistoryLog(
-        {
-          tenantId,
-          entityType: "deal",
-          entityId: id,
-          action: "deal_deleted",
-          details: {
-            title: existing.title,
-            accountId: existing.accountId,
-            cascaded: {
-              quotes: trashedQuoteIds,
-              bundles: bundleIds,
-              agendaEvents: agendaCascade.deletedVisitas,
-              licitacionLinkDeleted: agendaCascade.licitacionLinkDeleted,
-              installationId: installationIdToDelete,
-              installationDeleted,
-              googleErrors: agendaCascade.googleErrors,
-            },
-            reason,
-          },
-          createdBy: ctx.userId,
-        },
-        tx as unknown as Parameters<typeof createCrmHistoryLog>[1],
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, error: result.error, blockers: result.blockers },
+        { status: result.status },
       );
-    });
+    }
 
     return NextResponse.json({
       success: true,
-      cascaded: {
-        quotes: trashedQuoteIds.length,
-        bundles: bundleIds.length,
-        agendaEvents: agendaCascade.deletedVisitas.length,
-        licitacionBands: agendaCascade.licitacionLinkDeleted ? 1 : 0,
-        installationDeleted,
-        googleErrors: agendaCascade.googleErrors.length,
-      },
+      cascaded: result.cascaded,
     });
   } catch (error) {
     console.error("Error deleting deal:", error);

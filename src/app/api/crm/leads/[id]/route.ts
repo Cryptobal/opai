@@ -12,6 +12,7 @@ import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth
 import { createLeadSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { requireTenantModule } from '@/lib/require-module';
+import { executeLeadDelete } from "@/modules/crm/leads/delete-lead.service";
 
 export async function GET(
   _request: NextRequest,
@@ -142,26 +143,13 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const existing = await prisma.crmLead.findFirst({
-      where: { id, tenantId: ctx.tenantId },
-    });
-    if (!existing) {
+    const result = await executeLeadDelete({ tenantId: ctx.tenantId, leadId: id });
+    if (!result.ok) {
       return NextResponse.json(
-        { success: false, error: "Prospecto no encontrado" },
-        { status: 404 }
+        { success: false, error: result.error },
+        { status: result.status },
       );
     }
-
-    const DELETABLE_STATUSES = ["new", "pending", "in_review", "rejected"];
-    if (!DELETABLE_STATUSES.includes(existing.status)) {
-      return NextResponse.json(
-        { success: false, error: "No se puede eliminar un lead aprobado" },
-        { status: 400 }
-      );
-    }
-
-    // Instalaciones con leadId usan onDelete: SetNull, se desvinculan
-    await prisma.crmLead.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -14,9 +14,7 @@ import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
 import { requireTenantModule } from '@/lib/require-module';
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
-import { buildQuoteDeleteImpact } from "@/modules/cpq/quote-delete-impact";
-import { deleteQuoteToTrash } from "@/modules/cpq/quote-trash.service";
-import { ensureBundleNotEmpty } from "@/modules/cpq/bundles/bundle.service";
+import { executeQuoteDelete } from "@/modules/cpq/delete-quote.service";
 
 export async function GET(
   _request: NextRequest,
@@ -298,47 +296,19 @@ export async function DELETE(
     const force = url.searchParams.get("force") === "true";
     const reason = url.searchParams.get("reason")?.trim() || null;
 
-    const impact = await buildQuoteDeleteImpact(tenantId, id);
-    if (!impact) {
-      return NextResponse.json(
-        { success: false, error: "Quote not found" },
-        { status: 404 }
-      );
-    }
-
-    if (impact.blockers.length > 0 && !force) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "La cotización tiene dependencias que impiden eliminarla directamente",
-          blockers: impact.blockers,
-        },
-        { status: 409 }
-      );
-    }
-
-    // deleteQuoteToTrash guarda snapshot restaurable + borra la cotización
-    // (sus membresías de propuesta caen por FK cascade). Luego, si la propuesta
-    // quedó vacía, se elimina.
-    const result = await prisma.$transaction(async (tx) => {
-      const trash = await deleteQuoteToTrash({
-        tx,
-        tenantId,
-        quoteId: id,
-        userId: ctx.userId,
-        reason,
-      });
-      let bundleDeleted = false;
-      if (trash.bundleId) {
-        const state = await ensureBundleNotEmpty({
-          tx,
-          tenantId,
-          bundleId: trash.bundleId,
-        });
-        bundleDeleted = state.bundleDeleted;
-      }
-      return { trashId: trash.trashId, bundleDeleted };
+    const result = await executeQuoteDelete({
+      tenantId,
+      userId: ctx.userId,
+      quoteId: id,
+      force,
+      reason,
     });
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, error: result.error, blockers: result.blockers },
+        { status: result.status },
+      );
+    }
 
     return NextResponse.json({
       success: true,

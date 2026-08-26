@@ -29,11 +29,19 @@ export type BankingPersistToolName =
   | "classify_bank_to_flow_row"
   | "authorize_bank_movements";
 
+export type CrmComercialPersistToolName =
+  | "delete_deal"
+  | "delete_quote"
+  | "delete_lead"
+  | "approve_lead"
+  | "reject_lead";
+
 export type PreviewBackedToolName =
   | DtePreviewToolName
   | CpqPersistToolName
   | LicitacionPersistToolName
-  | BankingPersistToolName;
+  | BankingPersistToolName
+  | CrmComercialPersistToolName;
 
 export type PreviewPayload = {
   tenantId: string;
