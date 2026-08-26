@@ -119,6 +119,32 @@ describe("createRow", () => {
     expect(data.orderIndex).toBe(2);
   });
 
+  it("crea subfila bajo un padre IMPUESTOS", async () => {
+    asMock(prisma.financeFlowRow.findFirst)
+      .mockResolvedValueOnce({
+        id: "tgr-1",
+        section: "IMPUESTOS",
+        parentId: null,
+        canonicalKey: null,
+        archivedAt: null,
+      })
+      .mockResolvedValueOnce({ orderIndex: 4 });
+    asMock(prisma.financeFlowRow.create).mockResolvedValue({ id: "tgr-child" });
+    asMock(prisma.financeFlowRow.findFirstOrThrow).mockResolvedValue({
+      id: "tgr-child", parentId: "tgr-1",
+    });
+
+    const created = await createRow(TENANT, {
+      section: "IMPUESTOS",
+      name: "T.G.R. · $3.557.227",
+      mapping: "MANUAL",
+      parentId: "tgr-1",
+    });
+    expect(created.id).toBe("tgr-child");
+    expect(asMock(prisma.financeFlowRow.create).mock.calls[0][0].data.parentId).toBe("tgr-1");
+    expect(asMock(prisma.financeFlowRow.create).mock.calls[0][0].data.section).toBe("IMPUESTOS");
+  });
+
   it("rechaza subfila si el padre ya es hijo", async () => {
     asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
       id: "child-1",

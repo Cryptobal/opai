@@ -87,7 +87,7 @@ export const flowRowCreateSchema = z
     /** @deprecated Preferir accountPlanIds. */
     categoryId: z.string().uuid().nullish(),
     supplierId: z.string().uuid().nullish(),
-    /** Categoría padre (GAV/OTROS). Solo un nivel. */
+    /** Categoría padre (GAV/OTROS/IMPUESTOS). Solo un nivel. */
     parentId: z.string().uuid().optional(),
     /** Egreso recurrente de la subfila (opcional; el diálogo lo envía). */
     recurrence: flowSubRowRecurrenceSchema.optional(),

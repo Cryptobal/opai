@@ -1,5 +1,5 @@
 /**
- * Árbol de un nivel para renglones GAV/OTROS (categoría → subfilas).
+ * Árbol de un nivel para renglones GAV/OTROS/IMPUESTOS (categoría → subfilas).
  * Puro: lo usan el matrix, la planilla y los tests.
  */
 import type { FlowRowKey } from "@prisma/client";
@@ -7,7 +7,7 @@ import { computeCellExecution } from "./residual";
 import type { FlowMatrixCellDto } from "./matrix-assemble";
 import { PAYROLL_PARENT_KEYS } from "./row-keys";
 
-export const SUBROW_SECTIONS = new Set(["GAV", "OTROS"]);
+export const SUBROW_SECTIONS = new Set(["GAV", "OTROS", "IMPUESTOS"]);
 
 export interface FlowTreeRowRef {
   id: string;

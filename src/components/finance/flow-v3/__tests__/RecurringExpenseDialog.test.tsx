@@ -91,6 +91,7 @@ describe("RecurringExpenseDialog — listar / editar / eliminar", () => {
       expect(screen.getByRole("button", { name: "Crear recurrente" })).toBeTruthy();
     });
     expect(screen.queryByRole("button", { name: "Eliminar" })).toBeNull();
+    expect(screen.getByText(/subfila propia/)).toBeTruthy();
   });
 
   it("confirma y elimina la recurrencia seleccionada", async () => {

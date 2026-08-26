@@ -2102,7 +2102,20 @@ export function PlanillaGrid({
         categories={expenseCategories}
         busy={busy}
         onClose={() => setRowDialog(null)}
-        onConfirm={(body) => actions.createRecurring(body)}
+        onConfirm={async (body) => {
+          const r = await actions.createRecurring(body);
+          if (r && rowDialog?.kind === "recurring") {
+            const createdRowId =
+              typeof r === "object" && r !== null && "rule" in r
+                ? (r as { rule?: { rowId?: string } }).rule?.rowId
+                : undefined;
+            const anchor = rowDialog.row;
+            const expandId = anchor.parentId
+              ?? (createdRowId && createdRowId !== anchor.id ? anchor.id : null);
+            if (expandId) persistExpanded(new Set([...expandedParents, expandId]));
+          }
+          return r;
+        }}
         onUpdate={(id, body) => actions.updateRecurring(id, body)}
         onDelete={(id) => actions.deleteRecurring(id, false)}
       />

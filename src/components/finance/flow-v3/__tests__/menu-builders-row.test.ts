@@ -82,6 +82,11 @@ describe("buildRowMenu — subfilas", () => {
     expect(items.some((i) => i.key === "edit-subrow")).toBe(false);
   });
 
+  it("padre Impuestos (T.G.R.) admite subfila", () => {
+    const items = buildRowMenu(row({ name: "T.G.R.", section: "IMPUESTOS" }), [], cbs());
+    expect(items.some((i) => i.key === "add-subrow" && i.label === "Agregar subfila…")).toBe(true);
+  });
+
   it("hijo muestra Editar subfila, no Agregar", () => {
     const items = buildRowMenu(row({ id: "c1", parentId: "p1", name: "Uniformes" }), [], cbs());
     expect(items.some((i) => i.key === "add-subrow")).toBe(false);

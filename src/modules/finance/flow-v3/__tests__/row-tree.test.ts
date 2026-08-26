@@ -29,6 +29,14 @@ describe("canHaveSubRows", () => {
     expect(canHaveSubRows({ id: "c", name: "Contador", section: "GAV", parentId: "a" })).toBe(false);
     expect(canHaveSubRows({ id: "d", name: "Sueldo", section: "REMUNERACIONES" })).toBe(false);
   });
+  it("permite Impuestos raíz sin llave de sistema (T.G.R.)", () => {
+    expect(canHaveSubRows({ id: "tgr", name: "T.G.R.", section: "IMPUESTOS" })).toBe(true);
+  });
+  it("rechaza IVA F29 canónico", () => {
+    expect(canHaveSubRows({
+      id: "iva", name: "IVA F29", section: "IMPUESTOS", canonicalKey: "IVA_F29",
+    })).toBe(false);
+  });
 });
 
 describe("nestFlowRows", () => {

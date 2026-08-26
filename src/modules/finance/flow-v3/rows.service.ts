@@ -155,7 +155,7 @@ async function assertParentForSubRow(
   if (parent.parentId) throw new Error("Solo un nivel: el padre ya es una subfila");
   if (parent.canonicalKey) throw new Error("Las filas de sistema no admiten subfilas");
   if (!SUBROW_SECTIONS.has(parent.section)) {
-    throw new Error("Las subfilas solo aplican a GAV u Otros");
+    throw new Error("Las subfilas solo aplican a GAV, Otros o Impuestos");
   }
   return parent;
 }

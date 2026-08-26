@@ -21,7 +21,7 @@ import { recomputeIvaUpcoming } from "@/modules/finance/cashflow/generators/iva-
 import { backfillRecurringDteItems } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
 import { recomputeRetiroSociosAmounts } from "@/modules/finance/cashflow/generators/retiro-socios-sync";
 import { recomputeQuincenaAmounts } from "@/modules/finance/cashflow/generators/quincena-sync";
-import { rematerializeUfRecurrences } from "@/modules/finance/flow-v3/recurring-plan.service";
+import { rematerializeUfRecurrences, splitStackedRecurrencesForTenant } from "@/modules/finance/flow-v3/recurring-plan.service";
 
 interface TenantStats {
   tenantId: string;
@@ -33,6 +33,7 @@ interface TenantStats {
   retiroSocios: number;
   quincena: number;
   flowUfRematerialize: number;
+  flowRecurrenceSplit: number;
   errors: string[];
 }
 
@@ -73,6 +74,7 @@ export async function GET(request: NextRequest) {
       retiroSocios: 0,
       quincena: 0,
       flowUfRematerialize: 0,
+      flowRecurrenceSplit: 0,
       errors: [],
     };
     try {
@@ -138,6 +140,13 @@ export async function GET(request: NextRequest) {
       stats.flowUfRematerialize = r.cells;
     } catch (err) {
       stats.errors.push(`flow-uf: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    try {
+      // Una recurrencia FIXED por fila: extras a subfila para no pisar celdas.
+      const r = await splitStackedRecurrencesForTenant(cfg.tenantId);
+      stats.flowRecurrenceSplit = r.rows;
+    } catch (err) {
+      stats.errors.push(`flow-recurrence-split: ${err instanceof Error ? err.message : String(err)}`);
     }
     results.push(stats);
   }

@@ -68,7 +68,7 @@ export interface AssembleRowInput {
   nameIsManual?: boolean;
   /** Caption UF de egreso recurrente (ej. "UF 24,5"), si aplica. */
   ufCaption?: string | null;
-  /** Categoría padre (subfila GAV/OTROS). */
+  /** Categoría padre (subfila GAV/OTROS/IMPUESTOS). */
   parentId?: string | null;
   /** Hijos directos (0 en subfilas). */
   childCount?: number;
