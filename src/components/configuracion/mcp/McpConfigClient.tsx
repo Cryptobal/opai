@@ -158,7 +158,7 @@ export function McpConfigClient({ baseUrl }: { baseUrl: string }) {
           <CardTitle>¿Qué es el servidor MCP?</CardTitle>
           <CardDescription>
             Conecta Cursor, Claude Code, claude.ai o Grok Bot a OPAI con ~60 tools de lectura
-            (o ~129 con key READ_WRITE y allowWrites). Cada key hereda tus permisos de Admin.
+            (o ~141 con key READ_WRITE y allowWrites). Cada key hereda tus permisos de Admin.
           </CardDescription>
         </CardHeader>
       </Card>

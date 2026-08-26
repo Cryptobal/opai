@@ -26,7 +26,7 @@ Cada tenant genera **API keys** desde el panel anterior. La key resuelve el **te
 | Scope efectivo | Tools en `tools/list` |
 | --- | --- |
 | `READ` | **60** (solo lectura; incluye `search_leads` / `get_lead`) |
-| `READ_WRITE` + `allowWrites` | **129** (60 lectura + 69 escritura; incluye deletes comerciales y approve/reject lead) |
+| `READ_WRITE` + `allowWrites` | **141** (60 lectura + 81 escritura; incluye deletes comerciales y approve/reject lead) |
 
 ## Autenticación
 
