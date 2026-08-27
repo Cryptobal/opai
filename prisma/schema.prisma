@@ -2591,6 +2591,7 @@ model CrmInstallation {
   verificacionesFisicas               DocVerificacionFisica[]
   vraReports                          VraReport[]
   bankLinkAllocations                 FinanceBankLinkAllocation[] @relation("BankLinkAllocationInstallation")
+  reportQrs                           OpsReportQr[]               @relation("ops_report_qr_installation")
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -6000,6 +6001,76 @@ model DevicePairing {
   @@index([tenantId], map: "idx_device_pairing_tenant")
   @@index([status], map: "idx_device_pairing_status")
   @@map("device_pairings")
+  @@schema("ops")
+}
+
+/// Lote de adhesivos QR de incidencias (se imprimen primero, se asignan después).
+model OpsReportQrLote {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  code      String
+  quantity  Int
+  note      String?
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  qrs OpsReportQr[]
+
+  @@unique([tenantId, code], map: "uq_ops_report_qr_lotes_tenant_code")
+  @@index([tenantId], map: "idx_ops_report_qr_lotes_tenant")
+  @@map("report_qr_lotes")
+  @@schema("ops")
+}
+
+/// Activo físico: un QR imprimible de reporte público de incidentes.
+model OpsReportQr {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  loteId         String    @map("lote_id") @db.Uuid
+  serial         Int
+  serialLabel    String    @map("serial_label")
+  token          String    @unique
+  /// unassigned | assigned | retired
+  status         String    @default("unassigned")
+  installationId String?   @map("installation_id") @db.Uuid
+  assignedAt     DateTime? @map("assigned_at") @db.Timestamptz(6)
+  assignedBy     String?   @map("assigned_by")
+  retiredAt      DateTime? @map("retired_at") @db.Timestamptz(6)
+  retiredBy      String?   @map("retired_by")
+  retiredReason  String?   @map("retired_reason")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  lote         OpsReportQrLote     @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  installation CrmInstallation?    @relation("ops_report_qr_installation", fields: [installationId], references: [id], onDelete: SetNull)
+  events       OpsReportQrEvent[]
+
+  @@unique([tenantId, serial], map: "uq_ops_report_qrs_tenant_serial")
+  @@unique([tenantId, serialLabel], map: "uq_ops_report_qrs_tenant_serial_label")
+  @@index([tenantId, status], map: "idx_ops_report_qrs_tenant_status")
+  @@index([installationId], map: "idx_ops_report_qrs_installation")
+  @@index([loteId], map: "idx_ops_report_qrs_lote")
+  @@map("report_qrs")
+  @@schema("ops")
+}
+
+model OpsReportQrEvent {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  qrId           String   @map("qr_id") @db.Uuid
+  /// assign | reassign | unassign | retire
+  action         String
+  installationId String?  @map("installation_id") @db.Uuid
+  actorId        String   @map("actor_id")
+  actorKind      String   @default("erp") @map("actor_kind")
+  note           String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  qr OpsReportQr @relation(fields: [qrId], references: [id], onDelete: Cascade)
+
+  @@index([qrId], map: "idx_ops_report_qr_events_qr")
+  @@index([tenantId], map: "idx_ops_report_qr_events_tenant")
+  @@map("report_qr_events")
   @@schema("ops")
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   INCIDENTE_CATEGORIES,
   MAX_PHOTO_BYTES,
@@ -9,10 +9,12 @@ import {
   MAX_VIDEO_SECONDS,
   MIN_DESCRIPTION_CHARS,
 } from "@/lib/incidentes-instalacion/constants";
+import { DEVICE_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 import { CategoryGrid } from "../_components/CategoryGrid";
 import { GpsPill, useGpsFix } from "../_components/GpsPill";
 import { MediaTray, type MediaItem } from "../_components/MediaTray";
 import { SuccessScreen } from "../_components/SuccessScreen";
+import { ReporteAsignarClient } from "./ReporteAsignarClient";
 
 type Ctx = {
   installationName: string;
@@ -34,6 +36,20 @@ export function ReportePublicoClient({ token, context }: { token: string; contex
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ code: string; followUrl: string } | null>(null);
+  const [staffCanReassign, setStaffCanReassign] = useState(false);
+  const [reassign, setReassign] = useState(false);
+
+  useEffect(() => {
+    const headers: Record<string, string> = {};
+    const device = safeStorage.getItem(DEVICE_TOKEN_KEY);
+    if (device) headers.Authorization = `Bearer ${device}`;
+    fetch(`/api/public/reporte/${encodeURIComponent(token)}/staff`, { headers })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success && j.data?.canAssign) setStaffCanReassign(true);
+      })
+      .catch(() => undefined);
+  }, [token]);
 
   const addFiles = useCallback(async (list: FileList) => {
     setError(null);
@@ -152,7 +168,10 @@ export function ReportePublicoClient({ token, context }: { token: string; contex
       });
       const json = await res.json();
       if (!res.ok) {
-        if (json.code === "OUT_OF_RANGE") gps.setOutOfRange();
+        if (json.code === "OUT_OF_RANGE") {
+          gps.setOutOfRange();
+          if (staffCanReassign) setReassign(true);
+        }
         throw new Error(json.error ?? "No se pudo enviar el reporte.");
       }
       const data = json.data ?? json;
@@ -166,6 +185,15 @@ export function ReportePublicoClient({ token, context }: { token: string; contex
 
   if (success) {
     return <SuccessScreen code={success.code} followUrl={success.followUrl} />;
+  }
+
+  if (reassign) {
+    return (
+      <ReporteAsignarClient
+        token={token}
+        fallbackTenantName={context.tenantName}
+      />
+    );
   }
 
   return (
@@ -248,6 +276,14 @@ export function ReportePublicoClient({ token, context }: { token: string; contex
       </section>
 
       {error ? <p className="r-error" role="alert">{error}</p> : null}
+      {staffCanReassign ? (
+        <p className="r-hint" style={{ textAlign: "center" }}>
+          ¿Moviste el adhesivo?{" "}
+          <button type="button" className="r-collapse" onClick={() => setReassign(true)}>
+            Reasignar a otra instalación
+          </button>
+        </p>
+      ) : null}
 
       <div className="r-cta-wrap">
         <p className="r-hint">{hint}</p>

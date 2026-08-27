@@ -237,6 +237,12 @@ describe("nav registry", () => {
       expect(parent?.key).toBe("ops-inventario");
     });
 
+    it("finds Incidentes en terreno for Señalética QR", () => {
+      expect(findActiveModule("/ops/incidentes-terreno")?.key).toBe("ops");
+      expect(findActiveModule("/ops/incidentes-terreno/qr")?.key).toBe("ops");
+      expect(findN3Parent("/ops/incidentes-terreno/qr")?.key).toBe("ops-incidentes-terreno");
+    });
+
     it("finds Rondas (N3 parent) for /ops/rondas/monitoreo", () => {
       const parent = findN3Parent("/ops/rondas/monitoreo");
       expect(parent?.key).toBe("ops-rondas");

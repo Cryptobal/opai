@@ -1,90 +1,54 @@
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
 import { logAudit } from "@/lib/audit";
 import { resolveTeamAdminIds } from "@/lib/notifications/resolve-team-admins";
 import { formatPersonName } from "@/lib/personas";
 import { INCIDENTE_TICKET_TYPE } from "./constants";
-import { generateReportToken, truncateToken } from "./tokens";
 import { IncidenteError } from "./errors";
-
-export type ReportChannelInstallation = {
-  id: string;
-  tenantId: string;
-  name: string;
-  address: string | null;
-  city: string | null;
-  commune: string | null;
-  lat: number | null;
-  lng: number | null;
-  geoRadiusM: number;
-  isActive: boolean;
-  status: string;
-  publicReportEnabled: boolean;
-  publicReportToken: string | null;
-  tenantName: string;
-};
-
-const INSTALLATION_SELECT = {
-  id: true,
-  tenantId: true,
-  name: true,
-  address: true,
-  city: true,
-  commune: true,
-  lat: true,
-  lng: true,
-  geoRadiusM: true,
-  isActive: true,
-  status: true,
-  publicReportEnabled: true,
-  publicReportToken: true,
-} satisfies Prisma.CrmInstallationSelect;
-
-function mapInstallation(
-  row: Prisma.CrmInstallationGetPayload<{ select: typeof INSTALLATION_SELECT }>,
-  tenantName: string,
-): ReportChannelInstallation {
-  return { ...row, tenantName };
-}
+import { lookupReportQr, retireReportQr } from "./report-qr";
+import type { ReportChannelInstallation } from "./report-qr";
 
 export async function resolveReportToken(
   token: string,
 ): Promise<ReportChannelInstallation> {
-  if (!token || token.length < 16) {
-    throw new IncidenteError("TOKEN_INVALID", "Este QR ya no está vigente.", 404);
+  const lookup = await lookupReportQr(token);
+  if (lookup.kind === "missing" || lookup.kind === "retired") {
+    throw new IncidenteError("TOKEN_INVALID", "Este QR ya no está vigente.", 404, {
+      tenantName: lookup.kind === "retired" ? lookup.tenantName : undefined,
+    });
   }
-  const row = await prisma.crmInstallation.findUnique({
-    where: { publicReportToken: token },
-    select: INSTALLATION_SELECT,
-  });
-  if (!row) {
-    throw new IncidenteError("TOKEN_INVALID", "Este QR ya no está vigente.", 404);
+  if (lookup.kind === "unassigned") {
+    throw new IncidenteError(
+      "QR_UNASSIGNED",
+      "Este código aún no está activo.",
+      409,
+      {
+        tenantName: lookup.tenantName,
+        serialLabel: lookup.qr.serialLabel,
+        qrId: lookup.qr.id,
+      },
+    );
   }
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: row.tenantId },
-    select: { name: true },
-  });
-  const tenantName = tenant?.name ?? "Seguridad";
-  if (!row.publicReportEnabled || !row.isActive || row.status !== "active") {
+  const inst = lookup.installation;
+  if (!inst.publicReportEnabled || !inst.isActive || inst.status !== "active") {
     throw new IncidenteError(
       "CHANNEL_DISABLED",
       "Este QR ya no está vigente.",
       403,
-      { tenantName },
+      { tenantName: inst.tenantName },
     );
   }
-  return mapInstallation(row, tenantName);
+  return inst;
 }
 
 export async function enableReportChannel(opts: {
   tenantId: string;
   installationId: string;
   actorId: string;
-}): Promise<{ token: string; rotatedAt: Date }> {
+}): Promise<{ enabled: true }> {
   const inst = await prisma.crmInstallation.findFirst({
     where: { id: opts.installationId, tenantId: opts.tenantId },
-    select: { id: true, lat: true, lng: true, publicReportToken: true, name: true },
+    select: { id: true, lat: true, lng: true },
   });
   if (!inst) throw new IncidenteError("NOT_FOUND", "Instalación no encontrada", 404);
   if (inst.lat == null || inst.lng == null) {
@@ -94,15 +58,9 @@ export async function enableReportChannel(opts: {
       422,
     );
   }
-  const token = inst.publicReportToken ?? generateReportToken();
-  const rotatedAt = new Date();
   await prisma.crmInstallation.update({
     where: { id: inst.id },
-    data: {
-      publicReportEnabled: true,
-      publicReportToken: token,
-      publicReportTokenRotatedAt: inst.publicReportToken ? undefined : rotatedAt,
-    },
+    data: { publicReportEnabled: true },
   });
   await logAudit({
     tenantId: opts.tenantId,
@@ -110,9 +68,9 @@ export async function enableReportChannel(opts: {
     action: "UPDATE",
     entity: "CrmInstallation.publicReport",
     entityId: inst.id,
-    details: { enabled: true, token: truncateToken(token) },
+    details: { enabled: true },
   });
-  return { token, rotatedAt };
+  return { enabled: true };
 }
 
 export async function disableReportChannel(opts: {
@@ -138,30 +96,33 @@ export async function rotateReportToken(opts: {
   tenantId: string;
   installationId: string;
   actorId: string;
-}): Promise<{ token: string; rotatedAt: Date }> {
+}): Promise<{ retired: number }> {
   const inst = await prisma.crmInstallation.findFirst({
     where: { id: opts.installationId, tenantId: opts.tenantId },
-    select: { id: true, publicReportEnabled: true },
+    select: { id: true },
   });
   if (!inst) throw new IncidenteError("NOT_FOUND", "Instalación no encontrada", 404);
-  const token = generateReportToken();
-  const rotatedAt = new Date();
-  await prisma.crmInstallation.update({
-    where: { id: inst.id },
-    data: {
-      publicReportToken: token,
-      publicReportTokenRotatedAt: rotatedAt,
-    },
+  const assigned = await prisma.opsReportQr.findMany({
+    where: { tenantId: opts.tenantId, installationId: inst.id, status: "assigned" },
+    select: { id: true },
   });
+  for (const qr of assigned) {
+    await retireReportQr({
+      tenantId: opts.tenantId,
+      qrId: qr.id,
+      actorId: opts.actorId,
+      reason: "Rotación de canal: adhesivos impresos invalidados",
+    });
+  }
   await logAudit({
     tenantId: opts.tenantId,
     userId: opts.actorId,
     action: "UPDATE",
     entity: "CrmInstallation.publicReportToken",
     entityId: inst.id,
-    details: { rotated: true, token: truncateToken(token) },
+    details: { rotated: true, retired: assigned.length },
   });
-  return { token, rotatedAt };
+  return { retired: assigned.length };
 }
 
 export async function ensureIncidenteTicketType(tenantId: string): Promise<{

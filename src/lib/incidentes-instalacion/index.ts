@@ -11,4 +11,5 @@ export * from "./create-public";
 export * from "./timeline";
 export * from "./lifecycle";
 export * from "./queries";
+export * from "./qr-labels";
 export * from "./senaletica-pdf";

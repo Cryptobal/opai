@@ -15,6 +15,7 @@ export async function GET(
   if (!ctx) return unauthorized();
   const { id } = await params;
   const format = request.nextUrl.searchParams.get("format") === "sticker" ? "sticker" : "a4";
+  const qrId = request.nextUrl.searchParams.get("qrId");
   const inst = await prisma.crmInstallation.findFirst({
     where: { id, tenantId: ctx.tenantId },
     select: {
@@ -23,13 +24,22 @@ export async function GET(
       commune: true,
       city: true,
       publicReportEnabled: true,
-      publicReportToken: true,
       marcacionCode: true,
+      reportQrs: {
+        where: {
+          status: "assigned",
+          ...(qrId ? { id: qrId } : {}),
+        },
+        orderBy: { assignedAt: "desc" },
+        take: 1,
+        select: { token: true, serialLabel: true },
+      },
     },
   });
-  if (!inst || !inst.publicReportEnabled || !inst.publicReportToken) {
+  const qr = inst?.reportQrs[0];
+  if (!inst || !inst.publicReportEnabled || !qr) {
     return NextResponse.json(
-      { success: false, error: "Habilita el canal de reportes antes de descargar la señalética." },
+      { success: false, error: "Asigna un QR y habilita el canal antes de descargar la señalética." },
       { status: 422 },
     );
   }
@@ -37,17 +47,17 @@ export async function GET(
   const tenantName = cfg.commercialName || cfg.companyName || "Seguridad";
   const tenantMonogram = tenantName.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g, "").slice(0, 2).toUpperCase() || "OP";
   const input = {
-    publicUrl: `${getCanonicalSiteUrl()}/r/${inst.publicReportToken}`,
+    publicUrl: `${getCanonicalSiteUrl()}/r/${qr.token}`,
     tenantName,
     tenantMonogram,
     installationName: inst.name,
     address: [inst.address, inst.commune, inst.city].filter(Boolean).join(", ") || null,
-    installationCode: inst.marcacionCode,
+    installationCode: qr.serialLabel,
   };
   const buf = format === "sticker" ? await buildStickerPdf(input) : await buildAficheA4Pdf(input);
   const filename = format === "sticker"
-    ? `adhesivo-reporte-${inst.name}.pdf`
-    : `afiche-reporte-${inst.name}.pdf`;
+    ? `adhesivo-reporte-${qr.serialLabel}.pdf`
+    : `afiche-reporte-${qr.serialLabel}.pdf`;
   return new NextResponse(new Uint8Array(buf), {
     headers: {
       "Content-Type": "application/pdf",
