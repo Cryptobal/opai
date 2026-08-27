@@ -156,3 +156,112 @@ export function explicitDteEmailsForSend(
     return Boolean(n) && !stored.has(n);
   });
 }
+
+export type DteResendRecipientRole = "xml_mailbox" | "billing" | "other";
+
+export type DteResendContactOption = {
+  email: string;
+  label: string;
+  role: DteResendRecipientRole;
+};
+
+export type PartitionedDteResendRecipients = {
+  xmlMailbox: string[];
+  others: string[];
+};
+
+/**
+ * Parte destinatarios de un reenvío manual: casilla XML (facturador
+ * electrónico / portal DTE) vs personas. La casilla recibe solo XML;
+ * el resto recibe XML + factura (PDF).
+ */
+export function partitionDteResendRecipients(
+  emails: string[],
+): PartitionedDteResendRecipients {
+  const xmlMailbox: string[] = [];
+  const others: string[] = [];
+  for (const email of normalizeEmailList(emails)) {
+    if (!email.includes("@")) continue;
+    if (isDteReceptionEmail(email)) xmlMailbox.push(email);
+    else others.push(email);
+  }
+  return { xmlMailbox, others };
+}
+
+function contactDisplayName(
+  firstName?: string | null,
+  lastName?: string | null,
+  email?: string,
+): string {
+  const name = [firstName, lastName].filter(Boolean).join(" ").trim();
+  return name || email || "";
+}
+
+/**
+ * Arma la lista de contactos del modal "Reenviar XML":
+ * casillas DTE primero, luego facturación, luego el resto.
+ * Incluye emails persistidos en el DTE aunque no estén en el CRM.
+ */
+export function buildDteResendContactOptions(input: {
+  contacts?: Array<{
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    recibeFacturacion?: boolean | null;
+  }> | null;
+  storedEmails?: string[] | null;
+}): DteResendContactOption[] {
+  const byEmail = new Map<string, DteResendContactOption>();
+
+  const upsert = (
+    rawEmail: string | null | undefined,
+    patch: Partial<Pick<DteResendContactOption, "label" | "role">>,
+  ) => {
+    const email = normalizeEmailAddress(rawEmail ?? "");
+    if (!email.includes("@")) return;
+    const prev = byEmail.get(email);
+    const role: DteResendRecipientRole =
+      patch.role === "xml_mailbox" || isDteReceptionEmail(email)
+        ? "xml_mailbox"
+        : patch.role === "billing" || prev?.role === "billing"
+          ? "billing"
+          : prev?.role ?? "other";
+    const label = patch.label?.trim() || prev?.label || email;
+    byEmail.set(email, { email, label, role });
+  };
+
+  for (const c of input.contacts ?? []) {
+    const email = normalizeEmailAddress(c.email ?? "");
+    if (!email.includes("@")) continue;
+    upsert(email, {
+      label: contactDisplayName(c.firstName, c.lastName, email),
+      role: isDteReceptionEmail(email)
+        ? "xml_mailbox"
+        : c.recibeFacturacion
+          ? "billing"
+          : "other",
+    });
+  }
+
+  for (const raw of input.storedEmails ?? []) {
+    upsert(raw, {});
+  }
+
+  const roleRank: Record<DteResendRecipientRole, number> = {
+    xml_mailbox: 0,
+    billing: 1,
+    other: 2,
+  };
+  return [...byEmail.values()].sort((a, b) => {
+    const rank = roleRank[a.role] - roleRank[b.role];
+    if (rank !== 0) return rank;
+    return a.label.localeCompare(b.label, "es");
+  });
+}
+
+/** Pre-marca la casilla XML (facturador electrónico). El resto lo elige el usuario. */
+export function defaultDteResendSelection(
+  options: DteResendContactOption[],
+): string[] {
+  return options.filter((o) => o.role === "xml_mailbox").map((o) => o.email);
+}

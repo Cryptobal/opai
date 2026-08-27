@@ -17,7 +17,10 @@ import { renderDteEmailHtml, renderDteEmailSubject } from "./dte-email-template"
 import { getFileBuffer } from "@/lib/storage";
 import { buildDteAttachmentBaseName } from "./dte-filename";
 import { enrichDteEmailRecipientsFromCrm } from "./dte-xml-compliance";
-import { explicitDteEmailsForSend } from "./dte-recipient-guard";
+import {
+  explicitDteEmailsForSend,
+  partitionDteResendRecipients,
+} from "./dte-recipient-guard";
 
 /**
  * Resuelve el kind del catálogo transaccional según el tipo de DTE.
@@ -413,4 +416,217 @@ export async function sendDteXmlToBackoffice(
     });
     return { success: false, error: message };
   }
+}
+
+export type ResendIssuedDteToContactsResult = {
+  success: boolean;
+  error?: string;
+  xmlMailbox?: { emails: string[]; messageId?: string };
+  others?: { emails: string[]; messageId?: string };
+};
+
+/**
+ * Reenvío manual de un DTE ya emitido a destinatarios elegidos en UI.
+ * No re-emite ni toca el XML SII.
+ *
+ * - Casilla XML / facturador electrónico (`isDteReceptionEmail`) → solo XML.
+ * - Resto de contactos → XML + factura (PDF).
+ *
+ * Respeta la selección: no enruta por CRM ni agrega destinatarios extra.
+ */
+export async function resendIssuedDteToSelectedContacts(
+  tenantId: string,
+  dteId: string,
+  emails: string[],
+  triggeredBy?: string,
+): Promise<ResendIssuedDteToContactsResult> {
+  const dte = await prisma.financeDte.findFirst({
+    where: { id: dteId, tenantId, direction: "ISSUED" },
+  });
+  if (!dte) return { success: false, error: "DTE no encontrado" };
+  if (dte.siiStatus === "DRAFT") {
+    return { success: false, error: "No se puede reenviar XML de un borrador" };
+  }
+  if (dte.siiStatus === "ANNULLED") {
+    return { success: false, error: "No se puede reenviar un DTE anulado" };
+  }
+
+  const { xmlMailbox, others } = partitionDteResendRecipients(emails);
+  if (xmlMailbox.length === 0 && others.length === 0) {
+    return { success: false, error: "Selecciona al menos un destinatario válido" };
+  }
+
+  const tenantConfig = await prisma.tenantDteConfig.findUnique({
+    where: { tenantId },
+  });
+  if (!tenantConfig) return { success: false, error: "Tenant DTE config no existe" };
+
+  const needPdf = others.length > 0;
+  let xmlBuffer: Buffer;
+  let pdfBuffer: Buffer | null = null;
+  try {
+    const provider = await getDteProvider(tenantId);
+    if (needPdf) {
+      [xmlBuffer, pdfBuffer] = await Promise.all([
+        provider.getXml(dte.dteType, dte.folio),
+        provider.getPdf(dte.dteType, dte.folio),
+      ]);
+    } else {
+      xmlBuffer = await provider.getXml(dte.dteType, dte.folio);
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: `Error obteniendo XML/PDF: ${(err as Error).message}`,
+    };
+  }
+
+  const emailCfg = await getTenantEmailConfig(tenantId);
+  const razonSocial = tenantConfig.emisorRazonSocial ?? emailCfg.companyName;
+  const tipoNombre = dteTypeName(dte.dteType);
+  const vars = {
+    razonSocial,
+    folio: String(dte.folio),
+    tipo: tipoNombre,
+    total: Number(dte.totalAmount).toLocaleString("es-CL"),
+    fecha: dte.date.toISOString().split("T")[0],
+    receiverName: dte.receiverName,
+  };
+  const dteFilenameBase = await buildDteAttachmentBaseName(tenantId, dte);
+  const xmlAttachment = {
+    filename: `${dteFilenameBase}.xml`,
+    content: xmlBuffer.toString("base64"),
+  };
+  const catalogKind = dteKindForType(dte.dteType);
+
+  const result: ResendIssuedDteToContactsResult = { success: true };
+  const errors: string[] = [];
+
+  if (xmlMailbox.length > 0) {
+    const subject = `[XML] ${tipoNombre} N° ${dte.folio} - ${razonSocial}`;
+    const html = `<!DOCTYPE html>
+<html><body style="font-family: -apple-system, sans-serif; max-width: 600px;">
+<p>Adjunto el XML de la ${tipoNombre} N° ${dte.folio} ya emitida, para la casilla de recepción DTE.</p>
+<table style="margin-top: 16px; border-collapse: collapse;">
+  <tr><td style="padding: 4px 12px;"><strong>Emisor:</strong></td><td>${razonSocial}</td></tr>
+  <tr><td style="padding: 4px 12px;"><strong>Receptor:</strong></td><td>${dte.receiverName} (${dte.receiverRut})</td></tr>
+  <tr><td style="padding: 4px 12px;"><strong>Fecha:</strong></td><td>${vars.fecha}</td></tr>
+  <tr><td style="padding: 4px 12px;"><strong>Total CLP:</strong></td><td>$${vars.total}</td></tr>
+</table>
+</body></html>`;
+    try {
+      const sent = await sendTenantEmail({
+        tenantId,
+        module: "finance",
+        kind: catalogKind,
+        to: xmlMailbox,
+        subject,
+        html,
+        attachments: [xmlAttachment],
+      });
+      await logEmail(tenantId, dteId, {
+        kind: "MANUAL_RESEND",
+        to: sent.effectiveTo,
+        cc: sent.effectiveCc,
+        bcc: sent.effectiveBcc,
+        subject,
+        attachments: "XML_ONLY",
+        status: "SENT",
+        resendId: sent.resendId ?? undefined,
+        sentBy: triggeredBy ?? null,
+      });
+      result.xmlMailbox = {
+        emails: sent.effectiveTo,
+        messageId: sent.resendId ?? undefined,
+      };
+    } catch (err) {
+      const message = (err as Error).message;
+      errors.push(`Casilla XML: ${message}`);
+      await logEmail(tenantId, dteId, {
+        kind: "MANUAL_RESEND",
+        to: xmlMailbox,
+        cc: [],
+        bcc: [],
+        subject,
+        attachments: "XML_ONLY",
+        status: "FAILED",
+        errorMessage: message,
+        sentBy: triggeredBy ?? null,
+      });
+    }
+  }
+
+  if (others.length > 0 && pdfBuffer) {
+    const subject = renderDteEmailSubject(tenantConfig.emailTemplateSubject, vars);
+    const html = renderDteEmailHtml(tenantConfig.emailTemplateBody, vars);
+    const to = others[0]!;
+    const cc = others.slice(1);
+    try {
+      const sent = await sendTenantEmail({
+        tenantId,
+        module: "finance",
+        kind: catalogKind,
+        to,
+        cc,
+        subject,
+        html,
+        attachments: [
+          xmlAttachment,
+          {
+            filename: `${dteFilenameBase}.pdf`,
+            content: pdfBuffer.toString("base64"),
+          },
+        ],
+      });
+      await logEmail(tenantId, dteId, {
+        kind: "MANUAL_RESEND",
+        to: sent.effectiveTo,
+        cc: sent.effectiveCc,
+        bcc: sent.effectiveBcc,
+        subject,
+        attachments: "PDF_XML",
+        status: "SENT",
+        resendId: sent.resendId ?? undefined,
+        sentBy: triggeredBy ?? null,
+      });
+      result.others = {
+        emails: [...sent.effectiveTo, ...sent.effectiveCc],
+        messageId: sent.resendId ?? undefined,
+      };
+    } catch (err) {
+      const message = (err as Error).message;
+      errors.push(`Factura: ${message}`);
+      await logEmail(tenantId, dteId, {
+        kind: "MANUAL_RESEND",
+        to: [to],
+        cc,
+        bcc: [],
+        subject,
+        attachments: "PDF_XML",
+        status: "FAILED",
+        errorMessage: message,
+        sentBy: triggeredBy ?? null,
+      });
+    }
+  }
+
+  if (errors.length > 0 && !result.xmlMailbox && !result.others) {
+    return { success: false, error: errors.join(" · ") };
+  }
+
+  if (result.xmlMailbox || result.others) {
+    await prisma.financeDte.update({
+      where: { id: dteId },
+      data: { emailSentAt: new Date(), emailStatus: "SENT" },
+    });
+  }
+
+  if (errors.length > 0) {
+    return {
+      ...result,
+      success: false,
+      error: errors.join(" · "),
+    };
+  }
+  return result;
 }

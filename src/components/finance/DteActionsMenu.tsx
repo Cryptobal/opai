@@ -37,7 +37,6 @@ import {
   FileSearch,
   FileText,
   Loader2,
-  Mail,
   MessageCircle,
   MoreHorizontal,
   RefreshCw,
@@ -290,7 +289,7 @@ export function DteActionsMenu({
   const canCheckStatus =
     canManage && (row.siiStatus === "PENDING" || row.siiStatus === "SENT");
   const canResend = Boolean(
-    canManage && row.receiverEmail && hasXml && row.siiStatus !== "ANNULLED",
+    canManage && hasXml && row.siiStatus !== "ANNULLED",
   );
   const showFinancialSep =
     canManage && (canCreditNote || canDebitNote || canBeCeded);
@@ -372,9 +371,9 @@ export function DteActionsMenu({
                 {sendingEmail === row.id ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Mail className="h-4 w-4 mr-2" />
+                  <FileCode className="h-4 w-4 mr-2" />
                 )}
-                {row.emailSentAt ? "Reenviar email" : "Enviar email"}
+                {row.emailSentAt ? "Reenviar XML" : "Enviar XML"}
               </DropdownMenuItem>
             </>
           )}
