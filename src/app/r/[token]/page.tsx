@@ -1,6 +1,7 @@
 import { IncidenteError } from "@/lib/incidentes-instalacion/errors";
 import { getPublicReportContext } from "@/lib/incidentes-instalacion/create-public";
 import { ReportePublicoClient } from "./ReportePublicoClient";
+import { ReporteAsignarClient } from "./ReporteAsignarClient";
 import { ReporteErrorState } from "../_components/ReporteErrorState";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,19 @@ export default async function ReportePublicPage({
     const context = await getPublicReportContext(token);
     return <ReportePublicoClient token={token} context={context} />;
   } catch (err) {
+    if (err instanceof IncidenteError && err.code === "QR_UNASSIGNED") {
+      const tenantName =
+        typeof err.details?.tenantName === "string" ? err.details.tenantName : null;
+      const serialLabel =
+        typeof err.details?.serialLabel === "string" ? err.details.serialLabel : null;
+      return (
+        <ReporteAsignarClient
+          token={token}
+          fallbackTenantName={tenantName}
+          fallbackSerial={serialLabel}
+        />
+      );
+    }
     const tenantName =
       err instanceof IncidenteError && typeof err.details?.tenantName === "string"
         ? err.details.tenantName

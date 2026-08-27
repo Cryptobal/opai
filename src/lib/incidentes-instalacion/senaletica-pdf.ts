@@ -145,3 +145,82 @@ export async function buildStickerPdf(input: SenaleticaInput): Promise<Buffer> {
   pdf.text(`Operado por ${input.tenantName} · OPAI`, 50, 98, { align: "center" });
   return Buffer.from(pdf.output("arraybuffer"));
 }
+
+export type StockStickerItem = {
+  publicUrl: string;
+  serialLabel: string;
+};
+
+/** Hoja A4 con adhesivos 10×10 (2×2 por página), sin nombre de instalación. */
+export async function buildStockStickersPdf(opts: {
+  tenantName: string;
+  tenantMonogram: string;
+  loteCode: string;
+  items: StockStickerItem[];
+}): Promise<Buffer> {
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const brand: [number, number, number] = [23, 94, 63];
+  const pageW = 210;
+  const pageH = 297;
+  const sticker = 100;
+  const cols = 2;
+  const rows = 2;
+  const perPage = cols * rows;
+  const gapX = (pageW - cols * sticker) / (cols + 1);
+  const gapY = (pageH - rows * sticker) / (rows + 1);
+
+  if (opts.items.length === 0) {
+    pdf.setFontSize(12);
+    pdf.text("Lote vacío", pageW / 2, 40, { align: "center" });
+    return Buffer.from(pdf.output("arraybuffer"));
+  }
+
+  for (let i = 0; i < opts.items.length; i++) {
+    if (i > 0 && i % perPage === 0) pdf.addPage();
+    const slot = i % perPage;
+    const col = slot % cols;
+    const row = Math.floor(slot / cols);
+    const x = gapX + col * (sticker + gapX);
+    const y = gapY + row * (sticker + gapY);
+    const item = opts.items[i];
+    const qr = await qrPng(item.publicUrl);
+
+    pdf.setFillColor(244, 246, 243);
+    pdf.roundedRect(x, y, sticker, sticker, 3, 3, "F");
+    pdf.setDrawColor(...brand);
+    pdf.setLineWidth(0.4);
+    pdf.roundedRect(x, y, sticker, sticker, 3, 3, "S");
+
+    pdf.setTextColor(...brand);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6);
+    pdf.text("Canal oficial de reportes", x + sticker / 2, y + 7, { align: "center" });
+    pdf.setTextColor(18, 23, 20);
+    pdf.setFontSize(8);
+    pdf.text("¿Viste algo fuera de lugar?", x + sticker / 2, y + 13, { align: "center" });
+
+    const qrSize = 62;
+    const qrX = x + (sticker - qrSize) / 2;
+    const qrY = y + 16;
+    pdf.addImage(qr, "PNG", qrX, qrY, qrSize, qrSize);
+    drawFinderCorners(pdf, qrX - 2, qrY - 2, qrSize + 4, brand);
+
+    pdf.setFillColor(255, 255, 255);
+    pdf.circle(x + sticker / 2, qrY + qrSize / 2, 7, "F");
+    pdf.setTextColor(...brand);
+    pdf.setFontSize(7);
+    pdf.text(opts.tenantMonogram.slice(0, 2), x + sticker / 2, qrY + qrSize / 2 + 2, { align: "center" });
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(18, 23, 20);
+    pdf.text(item.serialLabel, x + sticker / 2, y + 86, { align: "center" });
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(5);
+    pdf.setTextColor(91, 103, 95);
+    pdf.text(`${opts.tenantName} · ${opts.loteCode}`, x + sticker / 2, y + 92, { align: "center" });
+    pdf.text("Asignar en terreno · OPAI", x + sticker / 2, y + 96, { align: "center" });
+  }
+
+  return Buffer.from(pdf.output("arraybuffer"));
+}

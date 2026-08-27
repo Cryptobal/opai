@@ -205,6 +205,8 @@ export async function createPublicReport(opts: {
         userAgent: opts.userAgent?.slice(0, 300),
         ip: opts.ip,
         dedupHash: hash,
+        serialLabel: inst.serialLabel ?? undefined,
+        qrId: inst.reportQrId ?? undefined,
       },
     },
   });

@@ -1302,7 +1302,7 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/ops/marcacion")) return { module: "ops", submodule: "marcaciones" };
   if (pathname.startsWith("/api/ops/control-nocturno")) return { module: "ops", submodule: "control_nocturno" };
   if (pathname.startsWith("/api/ops/rondas")) return { module: "ops", submodule: "rondas" };
-  if (pathname.startsWith("/api/ops/tickets") || pathname.startsWith("/api/ops/ticket-categories")) return { module: "ops", submodule: "tickets" };
+  if (pathname.startsWith("/api/ops/tickets") || pathname.startsWith("/api/ops/ticket-categories") || pathname.startsWith("/api/ops/report-qrs")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/api/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/api/ops/inventario")) return { module: "ops", submodule: "inventario" };
   if (pathname.startsWith("/api/ops/gamificacion") || pathname.startsWith("/api/gamification")) return { module: "ops", submodule: "gamificacion" };

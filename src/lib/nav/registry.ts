@@ -96,6 +96,7 @@ import {
   // Portales
   Monitor,
   ScanLine,
+  QrCode,
 } from "lucide-react";
 
 import {
@@ -706,6 +707,16 @@ export const NAV_MODULES: NavNode[] = [
         icon: Siren,
         module: "ops",
         submodule: "tickets",
+        children: [
+          {
+            key: "incidentes-terreno-qr",
+            href: "/ops/incidentes-terreno/qr",
+            label: "Señalética QR",
+            icon: QrCode,
+            module: "ops",
+            submodule: "tickets",
+          },
+        ],
       },
       // Supervisión (sub-módulo con N3)
       {

@@ -80,6 +80,7 @@ export type AttachmentKind = "report" | "closure" | "general";
 export type PublicErrorCode =
   | "TOKEN_INVALID"
   | "CHANNEL_DISABLED"
+  | "QR_UNASSIGNED"
   | "OUT_OF_RANGE"
   | "GPS_REQUIRED"
   | "RATE_LIMITED"

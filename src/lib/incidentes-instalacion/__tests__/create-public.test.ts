@@ -48,6 +48,8 @@ const INST = {
   publicReportEnabled: true,
   publicReportToken: "tok",
   tenantName: "Gard",
+  serialLabel: "QR-00001",
+  reportQrId: "qr-1",
 };
 
 beforeEach(() => {
@@ -171,6 +173,13 @@ describe("createPublicReport", () => {
         source: "public_qr",
         skipNotify: true,
         installationId: "inst-1",
+        metadata: expect.objectContaining({
+          publicReport: expect.objectContaining({
+            category: "emergencia",
+            serialLabel: "QR-00001",
+            qrId: "qr-1",
+          }),
+        }),
       }),
     );
   });
