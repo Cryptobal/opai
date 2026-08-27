@@ -31,6 +31,16 @@ const KIND_LABELS: Record<string, { label: string; auto: boolean }> = {
   MANUAL_BACKOFFICE: { label: "Reenvío XML al backoffice", auto: false },
 };
 
+function kindMeta(log: EmailLog): { label: string; auto: boolean } {
+  if (
+    log.attachments === "XML_ONLY" &&
+    (log.kind === "MANUAL_RESEND" || log.kind === "MANUAL_OVERRIDE_RECIPIENT")
+  ) {
+    return { label: "Reenvío XML a casilla", auto: false };
+  }
+  return KIND_LABELS[log.kind] ?? { label: log.kind, auto: false };
+}
+
 export function DteEmailTimeline({ dteId }: { dteId: string }) {
   const [logs, setLogs] = React.useState<EmailLog[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -68,7 +78,7 @@ export function DteEmailTimeline({ dteId }: { dteId: string }) {
       </p>
       <ul className="space-y-3">
         {logs.map((log) => {
-          const meta = KIND_LABELS[log.kind] ?? { label: log.kind, auto: false };
+          const meta = kindMeta(log);
           // SENT/DELIVERED/OPENED/QUEUED = ok. Tras el webhook de Resend el
           // status pasa de SENT → DELIVERED/OPENED; no tratarlos como fallo.
           const isOk = !["FAILED", "BOUNCED", "COMPLAINED"].includes(log.status);

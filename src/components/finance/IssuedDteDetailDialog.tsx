@@ -54,6 +54,7 @@ import {
 import { CederDteDialog } from "./factoring/CederDteDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
 import { SendEmailDialog } from "./SendEmailDialog";
+import { ResendXmlDialog } from "./ResendXmlDialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CostCenterEditor } from "./CostCenterEditor";
@@ -261,6 +262,7 @@ export function IssuedDteDetailDialog({
   const [showCederDialog, setShowCederDialog] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [showSendEmail, setShowSendEmail] = useState(false);
+  const [showResendXml, setShowResendXml] = useState(false);
   const [downloadingXml, setDownloadingXml] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [generatingEntry, setGeneratingEntry] = useState(false);
@@ -1080,6 +1082,17 @@ export function IssuedDteDetailDialog({
                       )}
                       XML
                     </Button>
+                    {showSendEmail && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowResendXml(true)}
+                        className="gap-1.5"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        Reenviar XML
+                      </Button>
+                    )}
                   </>
                 ) : canManage ? (
                   <Button
@@ -1139,15 +1152,26 @@ export function IssuedDteDetailDialog({
                         </DropdownMenuItem>
                       )}
                       {showSendEmail && (
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            handleOpenSendEmail();
-                          }}
-                        >
-                          <Mail className="h-4 w-4 mr-2" />
-                          {dte.emailSentAt ? "Reenviar email…" : "Enviar email…"}
-                        </DropdownMenuItem>
+                        <>
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setShowResendXml(true);
+                            }}
+                          >
+                            <FileCode className="h-4 w-4 mr-2" />
+                            Reenviar XML…
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              handleOpenSendEmail();
+                            }}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            {dte.emailSentAt ? "Reenviar email…" : "Enviar email…"}
+                          </DropdownMenuItem>
+                        </>
                       )}
                       {showCheckStatus && (
                         <DropdownMenuItem
@@ -1302,10 +1326,35 @@ export function IssuedDteDetailDialog({
           dteType={dte.dteType}
           defaultRecipient={dte.receiverEmail}
           defaultCc={dte.receiverEmailCc}
+          crmAccountId={dte.crmAccountId}
+          receiverRut={dte.receiverRut}
           onSent={() => {
             router.refresh();
             // Actualizamos el local state para reflejar emailSentAt al instante
             // sin esperar a que router.refresh re-fetchee.
+            setDte((prev) =>
+              prev
+                ? { ...prev, emailSentAt: new Date().toISOString(), emailStatus: "SENT" }
+                : prev,
+            );
+          }}
+        />
+      ) : null}
+      {dte ? (
+        <ResendXmlDialog
+          open={showResendXml}
+          onOpenChange={setShowResendXml}
+          dteId={dte.id}
+          folio={dte.folio}
+          dteType={dte.dteType}
+          crmAccountId={dte.crmAccountId}
+          receiverRut={dte.receiverRut}
+          storedEmails={[
+            dte.receiverEmail,
+            ...(dte.receiverEmailCc ?? []),
+          ].filter((e): e is string => Boolean(e))}
+          onSent={() => {
+            router.refresh();
             setDte((prev) =>
               prev
                 ? { ...prev, emailSentAt: new Date().toISOString(), emailStatus: "SENT" }

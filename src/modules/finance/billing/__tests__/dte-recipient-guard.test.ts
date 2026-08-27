@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDteResendContactOptions,
+  defaultDteResendSelection,
   explicitDteEmailsForSend,
   filterUnlinkedDteRecipients,
   isDteReceptionEmail,
   isLinkedDteRecipient,
+  partitionDteResendRecipients,
 } from "../dte-recipient-guard";
 
 describe("isDteReceptionEmail", () => {
@@ -190,5 +193,99 @@ describe("explicitDteEmailsForSend", () => {
         ["valesca.ortega@gl-events.com"],
       ),
     ).toEqual(["nuevo@cliente.cl"]);
+  });
+});
+
+describe("partitionDteResendRecipients", () => {
+  it("separa casilla XML de contactos de factura", () => {
+    const r = partitionDteResendRecipients([
+      "juan@cliente.cl",
+      "recepciondte_polpaico@polpaico.cl",
+      "76090823-1@prd.inbox.febos.cl",
+      "contabilidad@cliente.cl",
+    ]);
+    expect(r.xmlMailbox).toEqual([
+      "recepciondte_polpaico@polpaico.cl",
+      "76090823-1@prd.inbox.febos.cl",
+    ]);
+    expect(r.others).toEqual(["juan@cliente.cl", "contabilidad@cliente.cl"]);
+  });
+
+  it("deduplica y normaliza mayúsculas", () => {
+    const r = partitionDteResendRecipients([
+      "XML@cliente.cl",
+      "xml@cliente.cl",
+      "Juan@Cliente.cl",
+    ]);
+    expect(r.xmlMailbox).toEqual(["xml@cliente.cl"]);
+    expect(r.others).toEqual(["juan@cliente.cl"]);
+  });
+
+  it("lista vacía o inválida queda vacía", () => {
+    expect(partitionDteResendRecipients([])).toEqual({
+      xmlMailbox: [],
+      others: [],
+    });
+    expect(partitionDteResendRecipients(["no-es-email"])).toEqual({
+      xmlMailbox: [],
+      others: [],
+    });
+  });
+});
+
+describe("buildDteResendContactOptions", () => {
+  it("prioriza casilla XML, etiqueta facturador y suma emails del DTE", () => {
+    const options = buildDteResendContactOptions({
+      contacts: [
+        {
+          email: "juan@cliente.cl",
+          firstName: "Juan",
+          lastName: "Pérez",
+          recibeFacturacion: true,
+        },
+        {
+          email: "recepciondte@cliente.cl",
+          firstName: "Facturador",
+          lastName: "Electrónico",
+          recibeFacturacion: false,
+        },
+        {
+          email: "otro@cliente.cl",
+          firstName: "Ana",
+          lastName: "Soto",
+        },
+      ],
+      storedEmails: ["juan@cliente.cl", "compras@cliente.cl"],
+    });
+    expect(options.map((o) => o.email)).toEqual([
+      "recepciondte@cliente.cl",
+      "juan@cliente.cl",
+      "otro@cliente.cl",
+      "compras@cliente.cl",
+    ]);
+    expect(options[0]).toMatchObject({
+      email: "recepciondte@cliente.cl",
+      role: "xml_mailbox",
+      label: "Facturador Electrónico",
+    });
+    expect(options.find((o) => o.email === "juan@cliente.cl")?.role).toBe(
+      "billing",
+    );
+    expect(options.find((o) => o.email === "compras@cliente.cl")).toMatchObject({
+      role: "other",
+      label: "compras@cliente.cl",
+    });
+    expect(defaultDteResendSelection(options)).toEqual([
+      "recepciondte@cliente.cl",
+    ]);
+  });
+
+  it("sin casilla no pre-marca a nadie", () => {
+    const options = buildDteResendContactOptions({
+      contacts: [
+        { email: "juan@cliente.cl", firstName: "Juan", lastName: "Pérez" },
+      ],
+    });
+    expect(defaultDteResendSelection(options)).toEqual([]);
   });
 });

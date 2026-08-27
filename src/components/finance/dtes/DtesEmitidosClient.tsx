@@ -13,7 +13,7 @@
  *   - BulkActionBar       (acciones masivas)
  *   - FiltersDrawer       (sheet de filtros estructurado)
  *   - IssuedDteSlideOver  (detalle)
- *   - Modales auxiliares: NC/ND, Ceder, PdfPreview, SendEmail, EmisiónConfirm
+ *   - Modales auxiliares: NC/ND, Ceder, PdfPreview, Reenviar XML, EmisiónConfirm
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -34,7 +34,7 @@ import { confirmDialog } from "@/components/ui/confirm-service";
 import { formatDateOnlyUtcYmd } from "@/lib/fx-date";
 import { EmisionConfirmDialog } from "../EmisionConfirmDialog";
 import { CreditNoteModal } from "../CreditNoteModal";
-import { SendEmailDialog } from "../SendEmailDialog";
+import { ResendXmlDialog } from "../ResendXmlDialog";
 import { PaginationControls } from "../PaginationControls";
 import { KpiStrip } from "./KpiStrip";
 import { DtesToolbar } from "./DtesToolbar";
@@ -1206,16 +1206,18 @@ export function DtesEmitidosClient({
       )}
 
       {emailDte && (
-        <SendEmailDialog
+        <ResendXmlDialog
           open={emailDteId !== null}
           onOpenChange={(o) => !o && setEmailDteId(null)}
           dteId={emailDte.id}
           folio={emailDte.folio}
           dteType={emailDte.dteType}
-          defaultRecipient={emailDte.receiverEmail}
-          defaultCc={[]}
           crmAccountId={emailDte.crmAccountId}
           receiverRut={emailDte.receiverRut}
+          storedEmails={[
+            emailDte.receiverEmail,
+            ...(emailDte.receiverEmailCc ?? []),
+          ].filter((e): e is string => Boolean(e))}
           onSent={() => router.refresh()}
         />
       )}

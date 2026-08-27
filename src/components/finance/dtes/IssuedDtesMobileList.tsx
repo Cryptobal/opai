@@ -33,7 +33,6 @@ import {
   ClipboardCheck,
   Copy,
   FileText,
-  Mail,
   MessageCircle,
   MoreHorizontal,
   RefreshCw,
@@ -206,7 +205,7 @@ function buildActionItems(
   const canCheckStatus =
     canManage && (row.siiStatus === "PENDING" || row.siiStatus === "SENT");
   const canResend = Boolean(
-    canManage && row.receiverEmail && hasXml && row.siiStatus !== "ANNULLED",
+    canManage && hasXml && row.siiStatus !== "ANNULLED",
   );
 
   if (hasXml) {
@@ -233,9 +232,9 @@ function buildActionItems(
   if (canResend) {
     items.push({
       key: "email",
-      label: row.emailSentAt ? "Reenviar email" : "Enviar email",
+      label: row.emailSentAt ? "Reenviar XML" : "Enviar XML",
       description: row.receiverEmail ?? undefined,
-      icon: <Mail className="h-4 w-4" />,
+      icon: <FileCode className="h-4 w-4" />,
       disabled: sendingEmail === row.id,
       onSelect: handlers.onResendEmail,
     });
