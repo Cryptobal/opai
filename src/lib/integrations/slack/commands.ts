@@ -109,8 +109,10 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
       return;
     }
     const { buildAdjudicadosDigest } = await import("./comercial/digest");
-    const dg = await buildAdjudicadosDigest(workspace.tenantId);
-    await slackRespondUrl(responseUrl, { response_type: "in_channel", replace_original: true, text: dg.text, blocks: dg.blocks });
+    const publicDg = await buildAdjudicadosDigest(workspace.tenantId, { includeAmounts: false });
+    await slackRespondUrl(responseUrl, { response_type: "in_channel", replace_original: true, text: publicDg.text, blocks: publicDg.blocks });
+    const privateDg = await buildAdjudicadosDigest(workspace.tenantId, { includeAmounts: true });
+    await ephemeral(privateDg.text, privateDg.blocks);
     return;
   }
 
