@@ -459,6 +459,73 @@ export async function retireReportQr(opts: {
   return updated;
 }
 
+export async function deleteReportQr(opts: {
+  tenantId: string;
+  qrId: string;
+  actorId: string;
+}): Promise<{ id: string; serialLabel: string }> {
+  const qr = await loadQrForTenant(opts.tenantId, opts.qrId);
+  if (qr.status === REPORT_QR_STATUS.assigned) {
+    throw new IncidenteError(
+      "VALIDATION_ERROR",
+      `No se puede eliminar ${qr.serialLabel}: está asignado a una instalación. Libéralo o retíralo primero.`,
+      409,
+    );
+  }
+
+  await prisma.opsReportQr.delete({ where: { id: qr.id } });
+
+  await logAudit({
+    tenantId: opts.tenantId,
+    userId: opts.actorId,
+    action: "DELETE",
+    entity: "OpsReportQr",
+    entityId: qr.id,
+    details: { serial: qr.serialLabel, status: qr.status, token: truncateToken(qr.token) },
+  });
+
+  return { id: qr.id, serialLabel: qr.serialLabel };
+}
+
+export async function deleteReportQrLote(opts: {
+  tenantId: string;
+  loteId: string;
+  actorId: string;
+}): Promise<{ loteId: string; code: string; deletedQrs: number }> {
+  const lote = await prisma.opsReportQrLote.findFirst({
+    where: { id: opts.loteId, tenantId: opts.tenantId },
+    select: {
+      id: true,
+      code: true,
+      qrs: { select: { id: true, status: true } },
+    },
+  });
+  if (!lote) throw new IncidenteError("NOT_FOUND", "Lote no encontrado", 404);
+
+  const assignedCount = lote.qrs.filter((q) => q.status === REPORT_QR_STATUS.assigned).length;
+  if (assignedCount > 0) {
+    throw new IncidenteError(
+      "VALIDATION_ERROR",
+      `No se puede eliminar el lote ${lote.code}: ${assignedCount} QR ${assignedCount === 1 ? "sigue asignado" : "siguen asignados"}. Libéralos o retíralos primero.`,
+      409,
+      { assignedCount },
+    );
+  }
+
+  await prisma.opsReportQrLote.delete({ where: { id: lote.id } });
+
+  await logAudit({
+    tenantId: opts.tenantId,
+    userId: opts.actorId,
+    action: "DELETE",
+    entity: "OpsReportQrLote",
+    entityId: lote.id,
+    details: { code: lote.code, deletedQrs: lote.qrs.length },
+  });
+
+  return { loteId: lote.id, code: lote.code, deletedQrs: lote.qrs.length };
+}
+
 export async function listReportQrLotes(tenantId: string) {
   const lotes = await prisma.opsReportQrLote.findMany({
     where: { tenantId },

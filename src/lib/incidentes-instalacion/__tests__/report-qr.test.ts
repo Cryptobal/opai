@@ -6,11 +6,14 @@ const findUniqueInst = vi.fn();
 const findUniqueTenant = vi.fn();
 const findFirstQr = vi.fn();
 const findFirstInst = vi.fn();
+const findFirstLote = vi.fn();
 const findManyLotes = vi.fn();
 const aggregateQr = vi.fn();
 const updateQr = vi.fn();
 const updateInst = vi.fn();
 const createEvent = vi.fn();
+const deleteQr = vi.fn();
+const deleteLote = vi.fn();
 const transaction = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
@@ -20,9 +23,12 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: (...args: unknown[]) => findFirstQr(...args),
       update: (...args: unknown[]) => updateQr(...args),
       aggregate: (...args: unknown[]) => aggregateQr(...args),
+      delete: (...args: unknown[]) => deleteQr(...args),
     },
     opsReportQrLote: {
       findMany: (...args: unknown[]) => findManyLotes(...args),
+      findFirst: (...args: unknown[]) => findFirstLote(...args),
+      delete: (...args: unknown[]) => deleteLote(...args),
     },
     crmInstallation: {
       findUnique: (...args: unknown[]) => findUniqueInst(...args),
@@ -40,6 +46,8 @@ vi.mock("@/lib/emails/site-url", () => ({ getCanonicalSiteUrl: () => "https://ww
 
 import {
   assignReportQr,
+  deleteReportQr,
+  deleteReportQrLote,
   generateReportQrLote,
   lookupReportQr,
   retireReportQr,
@@ -360,5 +368,79 @@ describe("retireReportQr", () => {
     expect(row.status).toBe("retired");
     expect(row.installationId).toBeNull();
     expect(eventAction).toBe("retire");
+  });
+});
+
+describe("deleteReportQr", () => {
+  it("borra un QR sin asignar", async () => {
+    findFirstQr.mockResolvedValue(QR_UNASSIGNED);
+    deleteQr.mockResolvedValue(QR_UNASSIGNED);
+    const result = await deleteReportQr({
+      tenantId: "tenant-1",
+      qrId: "qr-1",
+      actorId: "user-1",
+    });
+    expect(result.serialLabel).toBe("QR-00001");
+    expect(deleteQr).toHaveBeenCalledWith({ where: { id: "qr-1" } });
+  });
+
+  it("borra un QR retirado", async () => {
+    findFirstQr.mockResolvedValue({ ...QR_UNASSIGNED, status: "retired" });
+    deleteQr.mockResolvedValue({ ...QR_UNASSIGNED, status: "retired" });
+    await deleteReportQr({ tenantId: "tenant-1", qrId: "qr-1", actorId: "user-1" });
+    expect(deleteQr).toHaveBeenCalled();
+  });
+
+  it("rechaza un QR asignado", async () => {
+    findFirstQr.mockResolvedValue({
+      ...QR_UNASSIGNED,
+      status: "assigned",
+      installationId: INST.id,
+    });
+    await expect(
+      deleteReportQr({ tenantId: "tenant-1", qrId: "qr-1", actorId: "user-1" }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR", httpStatus: 409 });
+    expect(deleteQr).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteReportQrLote", () => {
+  it("borra el lote si no hay QR asignados", async () => {
+    findFirstLote.mockResolvedValue({
+      id: "lote-1",
+      code: "L-202608-001",
+      qrs: [
+        { id: "qr-1", status: "unassigned" },
+        { id: "qr-2", status: "retired" },
+      ],
+    });
+    deleteLote.mockResolvedValue({});
+    const result = await deleteReportQrLote({
+      tenantId: "tenant-1",
+      loteId: "lote-1",
+      actorId: "user-1",
+    });
+    expect(result).toEqual({ loteId: "lote-1", code: "L-202608-001", deletedQrs: 2 });
+    expect(deleteLote).toHaveBeenCalledWith({ where: { id: "lote-1" } });
+  });
+
+  it("rechaza un lote con QR asignados", async () => {
+    findFirstLote.mockResolvedValue({
+      id: "lote-1",
+      code: "L-202608-001",
+      qrs: [{ id: "qr-1", status: "assigned" }],
+    });
+    await expect(
+      deleteReportQrLote({ tenantId: "tenant-1", loteId: "lote-1", actorId: "user-1" }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR", httpStatus: 409 });
+    expect(deleteLote).not.toHaveBeenCalled();
+  });
+
+  it("404 si el lote no existe", async () => {
+    findFirstLote.mockResolvedValue(null);
+    await expect(
+      deleteReportQrLote({ tenantId: "tenant-1", loteId: "lote-x", actorId: "user-1" }),
+    ).rejects.toBeInstanceOf(IncidenteError);
+    expect(deleteLote).not.toHaveBeenCalled();
   });
 });
