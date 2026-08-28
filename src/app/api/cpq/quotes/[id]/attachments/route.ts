@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { uploadFile } from "@/lib/storage";
 import { requireTenantModule } from '@/lib/require-module';
@@ -34,6 +35,8 @@ export async function GET(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const quote = await prisma.cpqQuote.findFirst({
@@ -74,6 +77,8 @@ export async function POST(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const quote = await prisma.cpqQuote.findFirst({

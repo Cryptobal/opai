@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { sendQuoteToPortal } from "@/modules/cpq/send/send-quote-to-portal";
 import { requireTenantModule } from '@/lib/require-module';
 
@@ -20,6 +21,8 @@ export async function POST(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

@@ -545,7 +545,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   })(),
 
   editor: {
-    modules: { hub: "full", productividad: "edit", ops: "edit", crm: "edit", docs: "edit", cpq: "edit", payroll: "view", finance: "view", config: "view" },
+    modules: { hub: "full", productividad: "edit", ops: "edit", crm: "edit", docs: "edit", cpq: "none", payroll: "none", finance: "none", config: "view" },
     submodules: {
       // Admin-only: bloqueados explícitamente
       "config.empresa": "none",
@@ -578,6 +578,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "config.grupos": "view",
       "config.payroll": "view",
       "config.finanzas": "view",
+      // Cifras de empresa: solo owner/admin. Rendiciones = operativa de gastos.
+      "crm.deals": "none",
+      "crm.quotes": "none",
+      "finance.rendiciones": "edit",
     },
     capabilities: {
       te_approve: true,
@@ -591,7 +595,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       supervision_dashboard: true,
       rendicion_submit: true,
       rendicion_approve: true,
-      rendicion_view_all: true,
       alerta_cobertura_crear: true,
       alerta_cobertura_gestionar: true,
       copiloto_correos: true,
@@ -599,7 +602,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   },
 
   jefe_operaciones: {
-    modules: { hub: "view", ops: "edit", crm: "view", docs: "none", cpq: "none", payroll: "none", finance: "view", config: "none" },
+    modules: { hub: "view", ops: "edit", crm: "view", docs: "none", cpq: "none", payroll: "none", finance: "none", config: "none" },
     submodules: {
       "productividad.agenda": "view",
       "productividad.tareas": "view",
@@ -687,7 +690,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
 
   viewer: {
     modules: { hub: "view", productividad: "view", ops: "view", crm: "view", docs: "view", cpq: "none", payroll: "none", finance: "none", config: "none" },
-    submodules: {},
+    submodules: {
+      "crm.deals": "none",
+      "crm.quotes": "none",
+    },
     capabilities: {},
   },
 
@@ -697,15 +703,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
 
   // LEGACY
   rrhh: {
-    modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "view" },
+    modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
     submodules: { "productividad.agenda": "view", "productividad.tareas": "view", "crm.installations": "view", "crm.dotacion": "view", "ops.installations": "view", "ops.gamificacion": "edit" },
     capabilities: { rendicion_view_all: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
   },
 
   // LEGACY
   operaciones: {
-    modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "edit" },
-    submodules: { "productividad.agenda": "view", "productividad.tareas": "view", "finance.pagos": "none", "finance.configuracion": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
+    modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
+    submodules: { "productividad.agenda": "view", "productividad.tareas": "view", "finance.rendiciones": "edit", "finance.pagos": "none", "finance.configuracion": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
     capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, monitoreo_cerrar_turno: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
   },
 
@@ -729,7 +735,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   // LEGACY
   solo_crm: {
     modules: { hub: "view", productividad: "edit", ops: "none", crm: "edit", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
-    submodules: {},
+    submodules: { "crm.deals": "none", "crm.quotes": "none" },
     capabilities: { copiloto_correos: true },
   },
 

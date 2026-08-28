@@ -5,7 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
+import { requireCrmView } from "@/lib/api-auth-crm";
+import { canView } from "@/lib/permissions";
 import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/render-proposal";
 import type { ProposalProps } from "@/lib/pdf/templates/proposal/build-proposal-props";
 import type { ProposalAIContent } from "@/lib/pdf/templates/proposal/proposal-ai";
@@ -87,6 +89,15 @@ export async function POST(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbiddenLead = await requireCrmView(ctx, "leads");
+    if (forbiddenLead) return forbiddenLead;
+    const perms = await resolveApiPerms(ctx);
+    if (!canView(perms, "cpq") && !canView(perms, "crm", "quotes")) {
+      return NextResponse.json(
+        { success: false, error: "Sin permisos para ver cotizaciones" },
+        { status: 403 },
+      );
+    }
 
     await params;
     const body = await request.json();

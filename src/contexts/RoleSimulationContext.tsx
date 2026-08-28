@@ -27,6 +27,7 @@ import {
     EMPTY_PERMISSIONS,
     type RolePermissions,
 } from '@/lib/permissions';
+import { applyRoleLocks } from '@/lib/financial-access';
 import {
     SIMULATED_ROLE_SESSION_KEY,
     setSimulatedRoleCookie,
@@ -258,15 +259,19 @@ export function RoleSimulationProvider({
 
         if (dbRole?.permissions) {
             // El servidor ya hizo el merge para owner/admin; para el resto,
-            // mergeamos defaults + overrides BD (overrides ganan).
-            return applyPermissionCompats(
-                mergeRolePermissions(defaults, dbRole.permissions),
+            // mergeamos defaults + overrides BD (overrides ganan) y aplicamos
+            // locks no-overridables (sueldo sensible + cifras financieras).
+            return applyRoleLocks(
+                simulatedRole,
+                applyPermissionCompats(
+                    mergeRolePermissions(defaults, dbRole.permissions),
+                ),
             );
         }
 
         // 2) Sin permiso para ver el cuerpo (no es owner/admin) — usar defaults
         if (defaults && Object.keys(defaults.modules).length > 0) {
-            return applyPermissionCompats(defaults);
+            return applyRoleLocks(simulatedRole, applyPermissionCompats(defaults));
         }
 
         return EMPTY_PERMISSIONS;

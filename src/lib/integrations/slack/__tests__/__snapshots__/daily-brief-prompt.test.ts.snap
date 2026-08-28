@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildBriefPrompt > admin incluye titular de caja y cotizaciones 1`] = `"Genera mi brief ejecutivo del día: tickets abiertos y con SLA vencido míos, aprobaciones pendientes, cotizaciones por vencer esta semana, titular de caja del mes. Máximo 10 líneas, sin saludos, con cifras reales de las tools. No menciones permisos denegados, tools a las que no llamaste, ni cifras financieras si no las pedí."`;
+
+exports[`buildBriefPrompt > supervisor no pide caja ni cotizaciones 1`] = `"Genera mi brief ejecutivo del día: tickets abiertos y con SLA vencido míos, aprobaciones pendientes. Máximo 10 líneas, sin saludos, con cifras reales de las tools. No menciones permisos denegados, tools a las que no llamaste, ni cifras financieras si no las pedí."`;

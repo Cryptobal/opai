@@ -172,13 +172,15 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
   },
   editor: {
     rank: 2,
-    appAccess: ["hub", "docs", "crm", "cpq", "ops", "finance", "payroll"],
+    appAccess: ["hub", "docs", "crm", "ops", "finance"],
+    // finance en appAccess solo para operativa de rendiciones (nav nueva
+    // resuelve por submódulo). Cifras de empresa las bloquea el lock.
     permissions: [
       PERMISSIONS.EDIT_TEMPLATES, PERMISSIONS.VIEW_TEMPLATES,
       PERMISSIONS.SEND_PRESENTATIONS, PERMISSIONS.CREATE_PRESENTATIONS, PERMISSIONS.VIEW_PRESENTATIONS,
       PERMISSIONS.VIEW_ANALYTICS,
     ],
-    crmSubmodules: ALL_CRM_SUBMODULES,
+    crmSubmodules: ["overview", "leads", "accounts", "installations", "contacts"],
     configSubmodules: [],
     docsSubmodules: ALL_DOCS_SUBMODULES,
     opsCapabilities: [
@@ -237,7 +239,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     rank: 0,
     appAccess: ["hub", "ops", "crm", "docs"],
     permissions: [PERMISSIONS.VIEW_TEMPLATES, PERMISSIONS.VIEW_PRESENTATIONS],
-    crmSubmodules: ALL_CRM_SUBMODULES,
+    crmSubmodules: ["overview", "accounts", "installations", "contacts", "leads"],
     configSubmodules: [],
     docsSubmodules: ["overview", "documents", "templates"],
     opsCapabilities: [],

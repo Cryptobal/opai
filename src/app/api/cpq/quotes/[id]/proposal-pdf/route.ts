@@ -4,7 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAuth, unauthorized } from '@/lib/api-auth';
+import { requireCpqView } from '@/lib/api-auth-cpq';
 import { renderProposalToBufferFromProps } from '@/lib/pdf/templates/proposal/render-proposal';
 import { buildProposalProps } from '@/lib/pdf/templates/proposal/build-proposal-props';
 import { buildContentDisposition } from '@/lib/pdf/cpq-quote-pdf-filename';
@@ -30,12 +31,12 @@ export async function GET(
     if (!modCheck.authorized) return modCheck.response;
 
     const { id } = await params;
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
 
-    const tenantId = session.user.tenantId;
+    const tenantId = ctx.tenantId;
     if (!tenantId) {
       return NextResponse.json({ success: false, error: 'Tenant not found' }, { status: 401 });
     }

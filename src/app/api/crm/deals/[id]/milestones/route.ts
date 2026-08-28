@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAgendaAccess } from "@/lib/api-auth-agenda";
+import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import {
   isDealMilestoneKind,
   listDealMilestones,
@@ -22,6 +23,8 @@ async function loadDeal(tenantId: string, dealId: string) {
 export async function GET(_request: NextRequest, routeCtx: Ctx) {
   const access = await requireAgendaAccess();
   if (!access.ok) return access.response;
+  const forbidden = await requireCrmView(access.ctx, "deals");
+  if (forbidden) return forbidden;
   const { id } = await routeCtx.params;
   const deal = await loadDeal(access.ctx.tenantId, id);
   if (!deal) {
@@ -34,6 +37,8 @@ export async function GET(_request: NextRequest, routeCtx: Ctx) {
 export async function PUT(request: NextRequest, routeCtx: Ctx) {
   const access = await requireAgendaAccess();
   if (!access.ok) return access.response;
+  const forbidden = await requireCrmEdit(access.ctx, "deals");
+  if (forbidden) return forbidden;
   const { id } = await routeCtx.params;
   const deal = await loadDeal(access.ctx.tenantId, id);
   if (!deal) {

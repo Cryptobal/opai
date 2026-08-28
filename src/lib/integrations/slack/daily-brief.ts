@@ -3,9 +3,32 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { canView, hasCapability, type RolePermissions } from "@/lib/permissions";
 
-export const BRIEF_PROMPT =
-  "Genera mi brief ejecutivo del día: tickets abiertos y con SLA vencido míos, aprobaciones pendientes, cotizaciones por vencer esta semana y titular de caja del mes. Máximo 10 líneas, sin saludos, con cifras reales de las tools.";
+export function buildBriefPrompt(perms: RolePermissions): string {
+  const topics: string[] = [
+    "tickets abiertos y con SLA vencido míos",
+    "aprobaciones pendientes",
+  ];
+  if (canView(perms, "cpq") || canView(perms, "crm", "quotes")) {
+    topics.push("cotizaciones por vencer esta semana");
+  }
+  if (hasCapability(perms, "cashflow_view")) {
+    topics.push("titular de caja del mes");
+  }
+  return (
+    `Genera mi brief ejecutivo del día: ${topics.join(", ")}. ` +
+    "Máximo 10 líneas, sin saludos, con cifras reales de las tools. " +
+    "No menciones permisos denegados, tools a las que no llamaste, ni cifras financieras si no las pedí."
+  );
+}
+
+/** Prompt completo (owner/admin). Conservado para callers que no resuelven perms. */
+export const BRIEF_PROMPT = buildBriefPrompt({
+  modules: { finance: "full", crm: "full", cpq: "full" },
+  submodules: {},
+  capabilities: { cashflow_view: true },
+});
 
 type BriefOptInValue = { adminIds: string[] };
 

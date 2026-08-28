@@ -7,7 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAuth, unauthorized } from '@/lib/api-auth';
+import { requireCpqView } from '@/lib/api-auth-cpq';
 import {
   buildQuotationProps,
   normalizeDbSectionsToProposalFormat,
@@ -55,12 +56,11 @@ export async function GET(
     if (!modCheck.authorized) return modCheck.response;
 
     const { id } = await params;
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const tenantId = session.user.tenantId;
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
+    const tenantId = ctx.tenantId;
     const templateSlug = request.nextUrl.searchParams.get('templateSlug');
 
     let templateSectionsOverride: Partial<ProposalTemplateSections> | undefined;
@@ -99,15 +99,11 @@ export async function POST(
     if (!modCheck.authorized) return modCheck.response;
 
     const { id } = await params;
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 },
-      );
-    }
-
-    const tenantId = session.user.tenantId;
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
+    const tenantId = ctx.tenantId;
     const { fileName, ...props } = await buildQuotationProps(id, tenantId);
     const pdfBuffer = await renderQuotationToBuffer(props);
 

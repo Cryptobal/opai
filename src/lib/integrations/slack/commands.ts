@@ -18,6 +18,7 @@ import { toSlackMarkdown } from "./markdown";
 import { assistantSection, contextLine, confirmActionsBlock } from "./blocks";
 import { openModalByCallback } from "./modals/dispatch";
 import { SUBCOMMANDS, buildHelpText } from "./subcommands";
+import { buildBriefPrompt } from "./daily-brief";
 
 export interface SlashCommandInput {
   teamId: string;
@@ -108,8 +109,10 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
       return;
     }
     const { buildAdjudicadosDigest } = await import("./comercial/digest");
-    const dg = await buildAdjudicadosDigest(workspace.tenantId);
-    await slackRespondUrl(responseUrl, { response_type: "in_channel", replace_original: true, text: dg.text, blocks: dg.blocks });
+    const publicDg = await buildAdjudicadosDigest(workspace.tenantId, { includeAmounts: false });
+    await slackRespondUrl(responseUrl, { response_type: "in_channel", replace_original: true, text: publicDg.text, blocks: publicDg.blocks });
+    const privateDg = await buildAdjudicadosDigest(workspace.tenantId, { includeAmounts: true });
+    await ephemeral(privateDg.text, privateDg.blocks);
     return;
   }
 
@@ -140,13 +143,21 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
   }
 
   // Resto: consulta al asistente (subcomando prompt o pregunta libre).
-  const prompt = sub?.kind === "prompt" ? sub.toPrompt(rawRest) : trimmed;
+  let prompt = sub?.kind === "prompt" ? sub.toPrompt(rawRest) : trimmed;
 
   const linked = await resolveLinkedAdmin(workspace, slackUserId);
   if (!linked) {
     const linkPrompt = buildLinkPrompt(workspace, slackUserId);
     await slackRespondUrl(responseUrl, { response_type: "ephemeral", replace_original: true, text: linkPrompt.text, blocks: linkPrompt.blocks });
     return;
+  }
+
+  if (sub?.name === "caja" && !hasCapability(linked.perms, "cashflow_view")) {
+    await ephemeral("No tienes permiso para consultar caja.");
+    return;
+  }
+  if (sub?.name === "brief") {
+    prompt = buildBriefPrompt(linked.perms);
   }
 
   try {
