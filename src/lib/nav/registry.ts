@@ -92,6 +92,7 @@ import {
   FolderTree,
   Mail,
   KeyRound,
+  ShieldCheck,
   LayoutDashboard,
   // Portales
   Monitor,
@@ -918,6 +919,7 @@ export const NAV_MODULES: NavNode[] = [
       // ── Permisos ──
       { key: "config-usuarios", href: "/opai/configuracion/usuarios", label: "Usuarios", icon: Users, module: "config", submodule: "usuarios", category: "permisos", description: "Gestión de usuarios y asignación de roles" },
       { key: "config-roles", href: "/opai/configuracion/roles", label: "Roles y Permisos", shortLabel: "Roles", icon: KeyRound, module: "config", submodule: "roles", category: "permisos", description: "Configurar permisos por módulo y submódulo" },
+      { key: "config-roles-auditoria", href: "/opai/configuracion/roles/auditoria", label: "Auditoría de acceso financiero", shortLabel: "Auditoría $", icon: ShieldCheck, module: "config", submodule: "roles", category: "permisos", adminOnly: true, description: "Matriz efectiva de quién ve cifras de la empresa" },
       { key: "config-grupos", href: "/opai/configuracion/grupos", label: "Grupos", icon: Users, module: "config", submodule: "grupos", category: "permisos", description: "Grupos organizacionales para cadenas de aprobación" },
       // ── Comunicación ──
       { key: "config-integraciones", href: "/opai/configuracion/integraciones", label: "Integraciones", icon: Plug, module: "config", submodule: "integraciones", category: "comunicacion", description: "Gmail y conectores externos" },

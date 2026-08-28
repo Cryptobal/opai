@@ -328,3 +328,31 @@ export function denyFinancialToolIfUnauthorized(
 export function isFinancialToolName(toolName: string): boolean {
   return isRegisteredFinancialTool(toolName) || matchesFinancialPrefix(toolName);
 }
+
+/** Columnas de la matriz de auditoría de acceso financiero (valores efectivos post-lock). */
+export const FINANCIAL_AUDIT_COLUMNS = [
+  { key: "deals", label: "Negocios" },
+  { key: "quotes", label: "Cotiz." },
+  { key: "cpq", label: "CPQ" },
+  { key: "payroll", label: "Payroll" },
+  { key: "cashflow_view", label: "Caja" },
+  { key: "banking_view", label: "Banca" },
+  { key: "purchases_view", label: "Compras" },
+  { key: "facturacion_view", label: "Factur." },
+  { key: "reports_finance_view", label: "Reportes" },
+  { key: "rendiciones", label: "Rendic." },
+] as const;
+
+export type FinancialAuditMatrixKey = (typeof FINANCIAL_AUDIT_COLUMNS)[number]["key"];
+
+export type FinancialAuditMatrix = Record<FinancialAuditMatrixKey, boolean>;
+
+export type FinancialAuditRow = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  templateName: string | null;
+  templateSlug: string | null;
+  matrix: FinancialAuditMatrix;
+};
