@@ -12,7 +12,7 @@ import { getSlackUserIdForAdmin } from "@/lib/integrations/slack/user-link";
 import { slackOpenDm, slackPostMessage } from "@/lib/integrations/slack/api";
 import { assistantSection } from "@/lib/integrations/slack/blocks";
 import { toSlackMarkdown } from "@/lib/integrations/slack/markdown";
-import { BRIEF_PROMPT, listTenantsWithDailyBriefOptIns } from "@/lib/integrations/slack/daily-brief";
+import { buildBriefPrompt, listTenantsWithDailyBriefOptIns } from "@/lib/integrations/slack/daily-brief";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
             perms,
             canViewAllRendiciones: hasCapability(perms, "rendicion_view_all"),
             history: [],
-            userMessage: BRIEF_PROMPT,
+            userMessage: buildBriefPrompt(perms),
             allowWrites: false,
           });
 
