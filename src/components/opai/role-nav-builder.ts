@@ -90,6 +90,7 @@ function nodeToNavSubItem(
     label: node.label,
     icon: node.icon,
     badge,
+    exactMatch: node.exactMatch,
     activePaths: node.activePaths,
     // children intencionalmente undefined — N3 vive en ModuleSubNav, no en sidebar.
   };
@@ -126,6 +127,7 @@ function moduleNodeToNavItem(
     icon: node.icon,
     show: true,
     badge,
+    exactMatch: node.exactMatch,
     activePaths: node.activePaths,
     children: visibleChildren.length > 0
       ? visibleChildren.map((c) => nodeToNavSubItem(c, ctx, notes))

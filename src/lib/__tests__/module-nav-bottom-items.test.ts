@@ -48,6 +48,15 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/ops/inventario");
     expect(hrefs).toContain("/crm/installations");
     expect(hrefs).toContain("/ops/incidentes-terreno");
+    expect(hrefs).toContain("/ops/incidentes-terreno/qr");
+  });
+
+  it("Señalética QR aparece en el bottom nav de Ops (N2, no enterrado en Incidentes)", () => {
+    const items = getBottomNavItems("/ops/incidentes-terreno/qr", "owner", ALL_ENABLED);
+    const hrefs = items.map((i) => i.href);
+    expect(hrefs).toContain("/ops/incidentes-terreno/qr");
+    expect(hrefs).toContain("/ops/pauta-mensual");
+    expect(hrefs).not.toContain("/ops/tickets");
   });
 
   it("Pautas inner page → mensual, diaria, ppc, refuerzos, marcaciones, auditoría", () => {

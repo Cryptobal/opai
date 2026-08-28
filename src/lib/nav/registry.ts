@@ -707,16 +707,21 @@ export const NAV_MODULES: NavNode[] = [
         icon: Siren,
         module: "ops",
         submodule: "tickets",
-        children: [
-          {
-            key: "incidentes-terreno-qr",
-            href: "/ops/incidentes-terreno/qr",
-            label: "Señalética QR",
-            icon: QrCode,
-            module: "ops",
-            submodule: "tickets",
-          },
-        ],
+        // exactMatch: /ops/incidentes-terreno/qr es N2 hermano (Señalética QR).
+        // Sin esto el prefijo activaba Incidentes y el flyout nunca listaba el QR.
+        exactMatch: true,
+      },
+      // N2 propio: el flyout de Operaciones y el bottom nav solo listan N2.
+      // Como hijo N3 de Incidentes era inalcanzable (el padre redirige a
+      // /ops/supervision/incidentes y el sidebar ignora child.children).
+      {
+        key: "ops-senaletica-qr",
+        href: "/ops/incidentes-terreno/qr",
+        label: "Señalética QR",
+        shortLabel: "QR",
+        icon: QrCode,
+        module: "ops",
+        submodule: "tickets",
       },
       // Supervisión (sub-módulo con N3)
       {

@@ -16,6 +16,7 @@ export interface NavSubItem {
   icon?: LucideIcon;
   children?: NavSubItem[];
   badge?: number;
+  exactMatch?: boolean;
   /** Rutas adicionales que activan este item (familias de rutas hermanas). */
   activePaths?: string[];
 }
@@ -27,6 +28,7 @@ export interface NavItem {
   show?: boolean;
   children?: NavSubItem[];
   badge?: number;
+  exactMatch?: boolean;
   /** Rutas adicionales que activan este item (familias de rutas hermanas). */
   activePaths?: string[];
 }
@@ -103,7 +105,7 @@ export function AppSidebar({
   };
 
   const isItemActive = useCallback(
-    (item: Pick<NavItem, 'href' | 'activePaths'>) =>
+    (item: Pick<NavItem, 'href' | 'activePaths' | 'exactMatch'>) =>
       pathMatchesNode(pathname ?? '/', item),
     [pathname]
   );

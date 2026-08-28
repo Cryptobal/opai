@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Printer, QrCode, Plus } from "lucide-react";
+import { Printer, QrCode, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Surface,
   Stat,
@@ -49,6 +50,67 @@ function statusTag(status: QrStatus) {
   if (status === "assigned") return <Tag variant="ok">Asignado</Tag>;
   if (status === "retired") return <Tag variant="neutral">Retirado</Tag>;
   return <Tag variant="warn">Sin asignar</Tag>;
+}
+
+function QrRowActions({
+  row,
+  canEdit,
+  busy,
+  onAssign,
+  onUnassign,
+  onRetire,
+  onDelete,
+}: {
+  row: QrItem;
+  canEdit: boolean;
+  busy: boolean;
+  onAssign: () => void;
+  onUnassign: () => void;
+  onRetire: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap justify-end gap-1">
+      <a
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-ds-border-default px-3 text-[13px]"
+        href={`/api/ops/report-qrs/${row.id}/pdf?format=sticker`}
+      >
+        PDF
+      </a>
+      {canEdit && row.status === "unassigned" ? (
+        <Button type="button" variant="outline" className="min-h-11" onClick={onAssign}>
+          Asignar
+        </Button>
+      ) : null}
+      {canEdit && row.status === "assigned" ? (
+        <>
+          <Button type="button" variant="outline" className="min-h-11" onClick={onAssign}>
+            Mover
+          </Button>
+          <Button type="button" variant="outline" className="min-h-11" disabled={busy} onClick={onUnassign}>
+            Liberar
+          </Button>
+        </>
+      ) : null}
+      {canEdit && row.status !== "retired" ? (
+        <Button type="button" variant="outline" className="min-h-11" disabled={busy} onClick={onRetire}>
+          Retirar
+        </Button>
+      ) : null}
+      {canEdit && row.status !== "assigned" ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11 text-status-danger-fg border-status-danger-border"
+          disabled={busy}
+          onClick={onDelete}
+        >
+          <Trash2 className="mr-1 h-4 w-4" />
+          Eliminar
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 export function ReportQrInventoryClient({ canEdit }: { canEdit: boolean }) {
@@ -122,16 +184,16 @@ export function ReportQrInventoryClient({ canEdit }: { canEdit: boolean }) {
     }
   }
 
-  async function postAction(url: string, body?: unknown) {
+  async function sendAction(url: string, method: "POST" | "DELETE", body?: unknown) {
     setBusy(true);
     setError(null);
     try {
       const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: body ? JSON.stringify(body) : "{}",
+        method,
+        headers: method === "POST" ? { "Content-Type": "application/json" } : undefined,
+        body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
       });
-      const json = await res.json();
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(json.error ?? "No se pudo completar la acción");
       setAssignId(null);
       await load();
@@ -140,6 +202,44 @@ export function ReportQrInventoryClient({ canEdit }: { canEdit: boolean }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function postAction(url: string, body?: unknown) {
+    await sendAction(url, "POST", body);
+  }
+
+  async function deleteQr(row: QrItem) {
+    if (
+      !(await confirmDialog({
+        title: "Eliminar QR",
+        description: `Se eliminará ${row.serialLabel} de forma permanente. El adhesivo impreso dejará de funcionar.`,
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    ) {
+      return;
+    }
+    await sendAction(`/api/ops/report-qrs/${row.id}`, "DELETE");
+  }
+
+  async function deleteLote(lote: LoteItem) {
+    if (lote.counts.assigned > 0) {
+      setError(
+        `No se puede eliminar ${lote.code}: ${lote.counts.assigned} QR ${lote.counts.assigned === 1 ? "sigue asignado" : "siguen asignados"}. Libéralos o retíralos primero.`,
+      );
+      return;
+    }
+    if (
+      !(await confirmDialog({
+        title: "Eliminar lote",
+        description: `Se eliminarán ${lote.quantity} QR de ${lote.code}. Los adhesivos impresos dejarán de funcionar. No se puede deshacer.`,
+        variant: "destructive",
+        confirmLabel: "Eliminar lote",
+      }))
+    ) {
+      return;
+    }
+    await sendAction(`/api/ops/report-qrs/lotes/${lote.id}`, "DELETE");
   }
 
   useEffect(() => {
@@ -175,44 +275,19 @@ export function ReportQrInventoryClient({ canEdit }: { canEdit: boolean }) {
         header: "",
         align: "right",
         cell: (row) => (
-          <div className="flex flex-wrap justify-end gap-1">
-            <a
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-ds-border-default px-3 text-[13px]"
-              href={`/api/ops/report-qrs/${row.id}/pdf?format=sticker`}
-            >
-              PDF
-            </a>
-            {canEdit && row.status === "unassigned" ? (
-              <Button type="button" variant="outline" className="min-h-11" onClick={() => { setAssignId(row.id); setInstQuery(""); }}>
-                Asignar
-              </Button>
-            ) : null}
-            {canEdit && row.status === "assigned" ? (
-              <>
-                <Button type="button" variant="outline" className="min-h-11" onClick={() => { setAssignId(row.id); setInstQuery(""); }}>
-                  Mover
-                </Button>
-                <Button type="button" variant="outline" className="min-h-11" disabled={busy} onClick={() => postAction(`/api/ops/report-qrs/${row.id}/unassign`)}>
-                  Liberar
-                </Button>
-              </>
-            ) : null}
-            {canEdit && row.status !== "retired" ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-11"
-                disabled={busy}
-                onClick={() => {
-                  if (window.confirm(`¿Retirar ${row.serialLabel}? El adhesivo impreso deja de funcionar.`)) {
-                    postAction(`/api/ops/report-qrs/${row.id}/retire`, { reason: "Retirado desde inventario" });
-                  }
-                }}
-              >
-                Retirar
-              </Button>
-            ) : null}
-          </div>
+          <QrRowActions
+            row={row}
+            canEdit={canEdit}
+            busy={busy}
+            onAssign={() => { setAssignId(row.id); setInstQuery(""); }}
+            onUnassign={() => postAction(`/api/ops/report-qrs/${row.id}/unassign`)}
+            onRetire={() => {
+              if (window.confirm(`¿Retirar ${row.serialLabel}? El adhesivo impreso deja de funcionar.`)) {
+                postAction(`/api/ops/report-qrs/${row.id}/retire`, { reason: "Retirado desde inventario" });
+              }
+            }}
+            onDelete={() => deleteQr(row)}
+          />
         ),
       },
     ],
@@ -277,13 +352,32 @@ export function ReportQrInventoryClient({ canEdit }: { canEdit: boolean }) {
                     {lote.note ? ` · ${lote.note}` : ""}
                   </p>
                 </div>
-                <a
-                  href={`/api/ops/report-qrs/lotes/${lote.id}/pdf`}
-                  className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-ds-border-default px-3 text-[13px]"
-                >
-                  <Printer className="h-4 w-4" />
-                  PDF adhesivos
-                </a>
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={`/api/ops/report-qrs/lotes/${lote.id}/pdf`}
+                    className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-ds-border-default px-3 text-[13px]"
+                  >
+                    <Printer className="h-4 w-4" />
+                    PDF adhesivos
+                  </a>
+                  {canEdit ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 text-status-danger-fg border-status-danger-border"
+                      disabled={busy || lote.counts.assigned > 0}
+                      title={
+                        lote.counts.assigned > 0
+                          ? "Libera o retira los QR asignados antes de eliminar el lote"
+                          : "Eliminar lote y sus QR"
+                      }
+                      onClick={() => deleteLote(lote)}
+                    >
+                      <Trash2 className="mr-1 h-4 w-4" />
+                      Eliminar
+                    </Button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -344,19 +438,19 @@ export function ReportQrInventoryClient({ canEdit }: { canEdit: boolean }) {
                     {statusTag(row.status)}
                   </div>
                   <p className="text-[13px]">{row.installationName ?? "Sin instalación"}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <a
-                      className="inline-flex min-h-11 items-center rounded-xl border border-ds-border-default px-3 text-[13px]"
-                      href={`/api/ops/report-qrs/${row.id}/pdf?format=sticker`}
-                    >
-                      PDF
-                    </a>
-                    {canEdit && row.status !== "retired" ? (
-                      <Button type="button" variant="outline" className="min-h-11" onClick={() => { setAssignId(row.id); setInstQuery(""); }}>
-                        {row.status === "assigned" ? "Mover" : "Asignar"}
-                      </Button>
-                    ) : null}
-                  </div>
+                  <QrRowActions
+                    row={row}
+                    canEdit={canEdit}
+                    busy={busy}
+                    onAssign={() => { setAssignId(row.id); setInstQuery(""); }}
+                    onUnassign={() => postAction(`/api/ops/report-qrs/${row.id}/unassign`)}
+                    onRetire={() => {
+                      if (window.confirm(`¿Retirar ${row.serialLabel}? El adhesivo impreso deja de funcionar.`)) {
+                        postAction(`/api/ops/report-qrs/${row.id}/retire`, { reason: "Retirado desde inventario" });
+                      }
+                    }}
+                    onDelete={() => deleteQr(row)}
+                  />
                 </Surface>
               </li>
             ))}
