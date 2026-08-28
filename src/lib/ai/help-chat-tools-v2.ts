@@ -71,6 +71,7 @@ import {
   canView,
   type RolePermissions,
 } from "@/lib/permissions";
+import { denyFinancialToolIfUnauthorized } from "@/lib/financial-access";
 import { z } from "zod";
 import { createOpsTicket } from "@/lib/tickets-create";
 import { transitionTicketStatus } from "@/lib/tickets-transition";
@@ -9237,6 +9238,9 @@ export async function executeToolCallV2(
   canViewAllRendiciones: boolean,
   pageContext: HelpChatPageContext | null = null,
 ): Promise<unknown> {
+  const denied = denyFinancialToolIfUnauthorized(toolName, perms);
+  if (denied) return denied;
+
   const legacy = await executeLegacyTool(toolName, args, tenantId, userId, canViewAllRendiciones);
   if (legacy !== null) return legacy;
 
