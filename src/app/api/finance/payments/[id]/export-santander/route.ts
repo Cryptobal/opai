@@ -18,7 +18,7 @@ export async function GET(
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
 
-    if (!hasCapability(perms, "rendicion_pay")) {
+    if (!hasCapability(perms, "rendicion_pay") || !hasCapability(perms, "banking_view")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos para exportar pagos" },
         { status: 403 },

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { deleteFile } from "@/lib/storage";
 import { requireTenantModule } from '@/lib/require-module';
@@ -20,6 +21,8 @@ export async function DELETE(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id, attachmentId } = await params;
     const attachment = await prisma.cpqQuoteAttachment.findFirst({

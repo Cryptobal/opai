@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { auth } from "@/lib/auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { requireTenantModule } from '@/lib/require-module';
@@ -19,11 +20,11 @@ export async function POST(
     if (!modCheck.authorized) return modCheck.response;
 
     const { id: quoteId, positionId } = await params;
-    const session = await auth();
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
-    }
-    const tenantId = session.user.tenantId;
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
+    const tenantId = ctx.tenantId;
 
     // Verify quote belongs to tenant
     const quote = await prisma.cpqQuote.findFirst({
@@ -88,7 +89,7 @@ export async function POST(
         sourcePositionId: positionId,
         clonedPositionId: cloned.id,
       },
-      createdBy: session?.user?.id ?? null,
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json({ success: true, data: cloned }, { status: 201 });

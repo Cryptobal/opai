@@ -4,7 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from '@/lib/require-module';
 import { cloneCpqQuote } from "@/modules/cpq/clone-quote.service";
@@ -18,11 +19,11 @@ export async function POST(
     if (!modCheck.authorized) return modCheck.response;
 
     const { id } = await params;
-    const session = await auth();
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
-    }
-    const tenantId = session.user.tenantId;
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
+    const tenantId = ctx.tenantId;
 
     const json = await request.json().catch(() => ({}));
     const optionalName =
@@ -33,7 +34,7 @@ export async function POST(
         tenantId,
         sourceQuoteId: id,
         overrideName: optionalName,
-        createdBy: session.user?.id ?? null,
+        createdBy: ctx.userId,
       });
       const full = await prisma.cpqQuote.findFirst({
         where: { id: cloned.id, tenantId },
