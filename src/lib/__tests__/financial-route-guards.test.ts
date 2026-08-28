@@ -40,6 +40,7 @@ const SCOPES = [
   "src/app/api/crm/deals",
   "src/app/api/crm/quotes",
   "src/app/api/crm/dashboard",
+  "src/app/api/crm/leads",
   "src/app/api/cpq/quotes",
 ];
 
