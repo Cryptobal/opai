@@ -50,6 +50,23 @@ describe("buildNavItems — sidebar back-compat", () => {
     expect(childLabels).not.toContain("Prospección");
   });
 
+  it("Operaciones lista Señalética QR como hijo N2", () => {
+    const items = buildNavItems({
+      permissions: getDefaultPermissions("owner"),
+      isAdmin: true,
+      isComplianceVisible: false,
+      isModuleEnabled: allEnabled,
+    });
+    const ops = items.find((i) => i.label === "Operaciones");
+    const childLabels = ops?.children?.map((c) => c.label) ?? [];
+    expect(childLabels).toContain("Señalética QR");
+    expect(childLabels).toContain("Incidentes en terreno");
+    expect(ops?.children?.find((c) => c.label === "Señalética QR")?.href).toBe(
+      "/ops/incidentes-terreno/qr",
+    );
+    expect(ops?.children?.find((c) => c.label === "Incidentes en terreno")?.exactMatch).toBe(true);
+  });
+
   it("Finanzas children include Inicio, Rendiciones, Compras y Ventas, Banca, Contabilidad, Informes", () => {
     const items = buildNavItems({
       permissions: getDefaultPermissions("owner"),
