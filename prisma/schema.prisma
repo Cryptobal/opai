@@ -5173,6 +5173,12 @@ model OpsAsistenciaDiaria {
   modificationReason   String?   @map("modification_reason")
   isModified           Boolean   @default(false) @map("is_modified")
 
+  // ── PPC operacional (retiro anticipado + ad-hoc inducción/refuerzo) ──
+  earlyDepartureAt     DateTime? @map("early_departure_at") @db.Timestamptz(6)
+  earlyDepartureReason String?   @map("early_departure_reason")
+  isAdhoc              Boolean   @default(false) @map("is_adhoc")
+  adhocReason          String?   @map("adhoc_reason") // induccion | refuerzo | otro
+
   installation       CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Restrict)
   puesto             OpsPuestoOperativo @relation(fields: [puestoId], references: [id], onDelete: Restrict)
   plannedGuardia     OpsGuardia?        @relation("ops_asistencia_planificada_guardia", fields: [plannedGuardiaId], references: [id], onDelete: SetNull)

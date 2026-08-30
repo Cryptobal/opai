@@ -165,6 +165,36 @@ export const updateAsistenciaSchema = z.object({
   teAmountJustification: z.string().trim().min(3, "Mínimo 3 caracteres").max(500).optional(),
 });
 
+/** Retiro anticipado: conserva status=asistio y horas parciales; TE de cobertura opcional. */
+export const retiroAnticipadoSchema = z.object({
+  checkOutAt: z.string().datetime("checkOutAt debe ser ISO datetime"),
+  reason: z.string().trim().min(3, "Motivo mínimo 3 caracteres").max(500),
+  cobertura: z
+    .object({
+      guardiaId: z.string().uuid("guardiaId inválido"),
+      amountClp: z.coerce.number().positive("Monto debe ser positivo").optional(),
+      amountJustification: z.string().trim().min(3).max(500).optional(),
+    })
+    .optional(),
+});
+
+/** PPC ad-hoc (inducción / refuerzo / otro) que no proviene de la pauta. */
+export const createAsistenciaAdhocSchema = z.object({
+  installationId: z.string().uuid("installationId inválido"),
+  puestoId: z.string().uuid("puestoId inválido"),
+  date: z.string().regex(dateRegex, "date debe tener formato YYYY-MM-DD"),
+  reason: z.enum(["induccion", "refuerzo", "otro"]),
+  shiftStart: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "shiftStart debe ser HH:mm")
+    .optional(),
+  shiftEnd: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "shiftEnd debe ser HH:mm")
+    .optional(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+});
+
 export const createGuardiaSchema = z.object({
   firstName: z.string().trim().min(1, "Nombre es requerido").max(100),
   lastName: z.string().trim().min(1, "Apellido es requerido").max(100),

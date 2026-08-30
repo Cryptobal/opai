@@ -17,7 +17,7 @@ export default async function OpsPautaMensualPage() {
   const tenantId = session.user.tenantId;
   const role = session.user.role;
 
-  const [clients, guardias] = await Promise.all([
+  const [clients, guardias, shiftPatterns] = await Promise.all([
     prisma.crmAccount.findMany({
       where: {
         tenantId,
@@ -54,6 +54,17 @@ export default async function OpsPautaMensualPage() {
       },
       orderBy: [{ persona: { lastName: "asc" } }],
     }),
+    // Roles CPQ activos con patrón (tenant + globales) — misma fuente que puestos
+    prisma.cpqRol.findMany({
+      where: {
+        OR: [{ tenantId }, { tenantId: null }],
+        active: true,
+        patternWork: { not: null },
+        patternOff: { not: null },
+      },
+      select: { id: true, name: true, patternWork: true, patternOff: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   return (
@@ -61,6 +72,7 @@ export default async function OpsPautaMensualPage() {
       <OpsPautaMensualClient
         initialClients={JSON.parse(JSON.stringify(clients))}
         guardias={JSON.parse(JSON.stringify(guardias))}
+        shiftPatterns={JSON.parse(JSON.stringify(shiftPatterns))}
         userRole={role}
         currentUserId={session.user.id}
       />

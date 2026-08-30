@@ -368,6 +368,10 @@ export async function PATCH(
           overtimeMinutes: metrics.overtimeMinutes,
           lateMinutes: metrics.lateMinutes,
           hoursCalculatedAt: new Date(),
+          // Reset limpia retiro anticipado (las horas/status ya vuelven a inicial)
+          ...(isResetToInitial
+            ? { earlyDepartureAt: null, earlyDepartureReason: null }
+            : {}),
         },
       });
 
@@ -711,3 +715,87 @@ export async function PATCH(
     );
   }
 }
+
+/**
+ * DELETE /api/ops/asistencia/[id]
+ * Solo filas ad-hoc sin TE approved/paid. TE pending se elimina en cascada.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<Params> }
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await ensureOpsAccess(ctx);
+    if (forbidden) return forbidden;
+
+    const { id } = await params;
+
+    const asistencia = await prisma.opsAsistenciaDiaria.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: {
+        id: true,
+        isAdhoc: true,
+        lockedAt: true,
+        turnosExtra: {
+          where: { status: { not: "rejected" } },
+          select: { id: true, status: true },
+        },
+      },
+    });
+
+    if (!asistencia) {
+      return NextResponse.json(
+        { success: false, error: "Asistencia no encontrada" },
+        { status: 404 }
+      );
+    }
+    if (!asistencia.isAdhoc) {
+      return NextResponse.json(
+        { success: false, error: "Solo se pueden eliminar filas ad-hoc" },
+        { status: 400 }
+      );
+    }
+    if (asistencia.lockedAt) {
+      return NextResponse.json(
+        { success: false, error: "El turno está bloqueado y no se puede eliminar" },
+        { status: 409 }
+      );
+    }
+
+    const blockingTe = asistencia.turnosExtra.find(
+      (t) => t.status === "approved" || t.status === "paid"
+    );
+    if (blockingTe) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No se puede eliminar: tiene un turno extra aprobado o pagado",
+        },
+        { status: 409 }
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const pendingIds = asistencia.turnosExtra
+        .filter((t) => t.status === "pending")
+        .map((t) => t.id);
+      if (pendingIds.length > 0) {
+        await tx.opsTurnoExtra.deleteMany({ where: { id: { in: pendingIds } } });
+      }
+      await tx.opsAsistenciaDiaria.delete({ where: { id: asistencia.id } });
+    });
+
+    await createOpsAuditLog(ctx, "asistencia.adhoc_deleted", "ops_asistencia", id, {});
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[OPS] Error eliminando asistencia ad-hoc:", error);
+    return NextResponse.json(
+      { success: false, error: "No se pudo eliminar el PPC ad-hoc" },
+      { status: 500 }
+    );
+  }
+}
+

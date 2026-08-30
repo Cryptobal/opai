@@ -118,6 +118,11 @@ export function AsistenciaDiaSheet({
   const [asistioItem, setAsistioItem] = useState<AsistenciaItem | null>(null);
   const [ausenteItem, setAusenteItem] = useState<AsistenciaItem | null>(null);
   const [replacementItem, setReplacementItem] = useState<AsistenciaItem | null>(null);
+  const [coverMode, setCoverMode] = useState<"reemplazo" | "retiro">("reemplazo");
+  const [retiroPending, setRetiroPending] = useState<{
+    checkOutAt: string;
+    reason: string;
+  } | null>(null);
   const [montoTeState, setMontoTeState] = useState<{
     item: AsistenciaItem;
     guard: GuardiaOption;
@@ -127,6 +132,9 @@ export function AsistenciaDiaSheet({
   const [contradiction, setContradiction] = useState<ContradictionState | null>(null);
   const [confirmBulkOpen, setConfirmBulkOpen] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [retiroItem, setRetiroItem] = useState<AsistenciaItem | null>(null);
+  const [retiroCoverOnly, setRetiroCoverOnly] = useState(false);
+  const [adhocOpen, setAdhocOpen] = useState(false);
 
   const handleClose = useCallback(() => onClose(dirtyRef.current), [onClose]);
 
@@ -172,11 +180,38 @@ export function AsistenciaDiaSheet({
       if (!montoTeState) return;
       const { item } = montoTeState;
       const baseAmount = Number(item.puesto.teMontoClp) || 0;
+      const isModified = data.amount !== baseAmount;
+
+      if (coverMode === "retiro") {
+        const pending = retiroPending ?? {
+          checkOutAt: item.checkOutAt ?? new Date().toISOString(),
+          reason: item.earlyDepartureReason ?? "Retiro anticipado",
+        };
+        const result = await hook.retiroAnticipado(item.id, {
+          checkOutAt: pending.checkOutAt,
+          reason: pending.reason,
+          cobertura: {
+            guardiaId: data.guardId,
+            ...(isModified
+              ? { amountClp: data.amount, amountJustification: data.justification }
+              : {}),
+          },
+        });
+        if (result.ok) {
+          dirtyRef.current = true;
+          toast.success("Retiro anticipado con cobertura");
+          setMontoTeState(null);
+          setRetiroPending(null);
+          setCoverMode("reemplazo");
+        }
+        return;
+      }
+
       const payload: Record<string, unknown> = {
         attendanceStatus: "reemplazo",
         replacementGuardiaId: data.guardId,
       };
-      if (data.amount !== baseAmount) {
+      if (isModified) {
         payload.teAmountOverride = data.amount;
         payload.teAmountJustification = data.justification;
       }
@@ -186,7 +221,37 @@ export function AsistenciaDiaSheet({
         setMontoTeState(null);
       }
     },
-    [montoTeState, patchTracked]
+    [montoTeState, patchTracked, coverMode, retiroPending, hook]
+  );
+
+  const handleDeleteAdhoc = useCallback(
+    async (item: AsistenciaItem) => {
+      if (!window.confirm("¿Eliminar este PPC ad-hoc?")) return;
+      const result = await hook.eliminarAdhoc(item.id);
+      if (result.ok) {
+        dirtyRef.current = true;
+        toast.success("PPC ad-hoc eliminado");
+      }
+    },
+    [hook]
+  );
+
+  const handleCrearAdhoc = useCallback(
+    async (payload: Parameters<typeof hook.crearAdhoc>[0]) => {
+      const result = await hook.crearAdhoc(payload);
+      if (result.ok) dirtyRef.current = true;
+      return result;
+    },
+    [hook]
+  );
+
+  const handleRetiroAnticipado = useCallback(
+    async (...args: Parameters<typeof hook.retiroAnticipado>) => {
+      const result = await hook.retiroAnticipado(...args);
+      if (result.ok) dirtyRef.current = true;
+      return result;
+    },
+    [hook]
   );
 
   const handlePatchWithContradiction = useCallback(
@@ -226,6 +291,7 @@ export function AsistenciaDiaSheet({
         bulkLoading={bulkLoading}
         onBulkMark={() => setConfirmBulkOpen(true)}
         pendientes={pendientes}
+        onCreateAdhoc={() => setAdhocOpen(true)}
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
@@ -255,9 +321,22 @@ export function AsistenciaDiaSheet({
                 onSectionToggle={() => {}}
                 onMarkPresent={setAsistioItem}
                 onMarkAbsent={setAusenteItem}
-                onAssignReplacement={setReplacementItem}
+                onAssignReplacement={(item) => {
+                  setCoverMode("reemplazo");
+                  setRetiroPending(null);
+                  setReplacementItem(item);
+                }}
                 onReset={setResetItem}
                 onViewMarcacion={(m) => setMarcacionDetalle(m ?? null)}
+                onEarlyDeparture={(item) => {
+                  setRetiroCoverOnly(false);
+                  setRetiroItem(item);
+                }}
+                onCoverEarlyDeparture={(item) => {
+                  setRetiroCoverOnly(true);
+                  setRetiroItem(item);
+                }}
+                onDeleteAdhoc={handleDeleteAdhoc}
               />
             ))}
           </div>
@@ -279,16 +358,31 @@ export function AsistenciaDiaSheet({
       onCloseAsistio={() => setAsistioItem(null)}
       ausenteItem={ausenteItem}
       onCloseAusente={() => setAusenteItem(null)}
-      onOpenBuscarReemplazo={setReplacementItem}
+      onOpenBuscarReemplazo={(item) => {
+        setCoverMode("reemplazo");
+        setReplacementItem(item);
+      }}
       replacementItem={replacementItem}
-      onCloseReplacement={() => setReplacementItem(null)}
+      onCloseReplacement={() => {
+        setReplacementItem(null);
+        if (coverMode === "retiro") {
+          setRetiroPending(null);
+          setCoverMode("reemplazo");
+        }
+      }}
       onSelectGuard={(guard) => {
         if (!replacementItem) return;
         setReplacementItem(null);
         setMontoTeState({ item: replacementItem, guard });
       }}
       montoTeState={montoTeState}
-      onCloseMontoTe={() => setMontoTeState(null)}
+      onCloseMontoTe={() => {
+        setMontoTeState(null);
+        if (coverMode === "retiro") {
+          setRetiroPending(null);
+          setCoverMode("reemplazo");
+        }
+      }}
       onConfirmReemplazo={handleConfirmReemplazo}
       resetItem={resetItem}
       onCloseReset={() => setResetItem(null)}
@@ -301,6 +395,31 @@ export function AsistenciaDiaSheet({
       eligibleCount={eligibleItems.length}
       bulkLoading={bulkLoading}
       onConfirmBulk={handleBulkMark}
+      retiroItem={retiroItem}
+      retiroCoverOnly={retiroCoverOnly}
+      onCloseRetiro={() => {
+        setRetiroItem(null);
+        setRetiroCoverOnly(false);
+      }}
+      retiroAnticipado={handleRetiroAnticipado}
+      onRequestCoverFromRetiro={(item, pending) => {
+        setRetiroPending(pending);
+        setCoverMode("retiro");
+        setReplacementItem(item);
+      }}
+      adhocOpen={adhocOpen}
+      onCloseAdhoc={() => setAdhocOpen(false)}
+      selectedDate={date}
+      clients={[
+        {
+          id: "sheet",
+          name: installationName,
+          installations: [{ id: installationId, name: installationName }],
+        },
+      ]}
+      defaultInstallationId={installationId}
+      crearAdhoc={handleCrearAdhoc}
+      isSavingAdhoc={hook.savingId === "adhoc"}
     />
   );
 

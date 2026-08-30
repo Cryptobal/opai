@@ -63,6 +63,7 @@ const FALLBACK_PATTERNS = [
   { code: "6x1", work: 6, off: 1, label: "6x1" },
   { code: "2x2", work: 2, off: 2, label: "2x2" },
   { code: "2x5", work: 2, off: 5, label: "2x5" },
+  { code: "14x14", work: 14, off: 14, label: "14x14" },
 ];
 
 const SHIFT_COLORS: Record<string, string> = {

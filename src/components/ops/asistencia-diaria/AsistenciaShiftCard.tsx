@@ -1,18 +1,17 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Check, Clock, Info, MapPin, RotateCcw, X } from "lucide-react";
+import { Check, Clock, Info, LogOut, MapPin, RotateCcw, Trash2, X } from "lucide-react";
 import { formatPersonName } from "@/lib/personas";
 import type { AsistenciaItem, AttendanceStatus } from "@/types/ops-asistencia";
 import {
   STATUS_CONFIG,
+  ADHOC_REASON_LABELS,
   isDayShift,
+  isDescubiertoPorRetiro,
   getActiveTe,
-  getInitialStatus,
   hasChanges as itemHasChanges,
 } from "@/types/ops-asistencia";
-
-/* ── Time helper ─────────────────────────────────────────────────────── */
 
 function timeFromISO(iso?: string | null): string {
   if (!iso) return "";
@@ -21,22 +20,20 @@ function timeFromISO(iso?: string | null): string {
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-/* ── Props ────────────────────────────────────────────────────────────── */
-
 interface AsistenciaShiftCardProps {
   item: AsistenciaItem;
   isDesktop: boolean;
   canExecuteOps: boolean;
   savingId: string | null;
-  // Actions
   onMarkPresent: (item: AsistenciaItem) => void;
   onMarkAbsent: (item: AsistenciaItem) => void;
   onAssignReplacement: (item: AsistenciaItem) => void;
   onReset: (item: AsistenciaItem) => void;
   onViewMarcacion: (marcaciones: AsistenciaItem["marcaciones"]) => void;
+  onEarlyDeparture?: (item: AsistenciaItem) => void;
+  onCoverEarlyDeparture?: (item: AsistenciaItem) => void;
+  onDeleteAdhoc?: (item: AsistenciaItem) => void;
 }
-
-/* ── Component ────────────────────────────────────────────────────────── */
 
 export function AsistenciaShiftCard({
   item,
@@ -48,6 +45,9 @@ export function AsistenciaShiftCard({
   onAssignReplacement,
   onReset,
   onViewMarcacion,
+  onEarlyDeparture,
+  onCoverEarlyDeparture,
+  onDeleteAdhoc,
 }: AsistenciaShiftCardProps) {
   const te = getActiveTe(item);
   const isLocked = Boolean(item.lockedAt);
@@ -60,15 +60,86 @@ export function AsistenciaShiftCard({
     isPPC || status === "no_asistio" || (status === "reemplazo" && item.replacementGuardia);
   const canReset = itemHasChanges(item);
   const isSaving = savingId === item.id;
+  const canEarlyLeave =
+    status === "asistio" && Boolean(item.checkInAt) && !isLocked && canExecuteOps;
+  const descubiertoRetiro = isDescubiertoPorRetiro(item);
+  const coveredEarly =
+    Boolean(item.earlyDepartureAt) &&
+    Boolean(te) &&
+    (te?.status === "pending" || te?.status === "approved" || te?.status === "paid");
+  const adhocLabel = item.isAdhoc
+    ? `Ad-hoc · ${ADHOC_REASON_LABELS[item.adhocReason ?? ""] ?? item.adhocReason ?? "Otro"}`
+    : null;
 
-  // ── Mobile layout ─────────────────────────────────────────────────────
+  const badges = (
+    <>
+      {adhocLabel && (
+        <span className="inline-flex items-center rounded-full bg-tint-violet px-2 py-0.5 text-[12px] font-medium text-tint-violet-fg">
+          {adhocLabel}
+        </span>
+      )}
+      {descubiertoRetiro && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-tint-amber px-2 py-0.5 text-[12px] font-medium text-tint-amber-fg">
+          Retiro anticipado · sin cobertura
+        </span>
+      )}
+      {coveredEarly && (
+        <span className="inline-flex items-center rounded-full bg-tint-amber/60 px-2 py-0.5 text-[12px] font-medium text-tint-amber-fg">
+          Retiro anticipado · cubierto (TE)
+        </span>
+      )}
+    </>
+  );
+
+  const earlyActions = (
+    <>
+      {canEarlyLeave && !item.earlyDepartureAt && onEarlyDeparture && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-10 sm:h-8 text-xs px-2 border-status-warn-border text-status-warn-fg"
+          disabled={isSaving}
+          onClick={() => onEarlyDeparture(item)}
+          title="Se retiró antes"
+        >
+          <LogOut className="h-3.5 w-3.5 mr-1" />
+          Se retiró antes
+        </Button>
+      )}
+      {descubiertoRetiro && onCoverEarlyDeparture && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-10 sm:h-8 text-xs px-2"
+          disabled={isSaving || isLocked || !canExecuteOps}
+          onClick={() => onCoverEarlyDeparture(item)}
+        >
+          Cubrir
+        </Button>
+      )}
+      {item.isAdhoc &&
+        status !== "reemplazo" &&
+        !(te?.status === "approved" || te?.status === "paid") &&
+        onDeleteAdhoc && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-10 w-10 sm:h-8 sm:w-8 p-0 text-status-danger-fg"
+            disabled={isSaving || isLocked || !canExecuteOps}
+            onClick={() => onDeleteAdhoc(item)}
+            title="Eliminar PPC ad-hoc"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+    </>
+  );
 
   if (!isDesktop) {
     return (
       <div
         className={`rounded-lg border-l-[3px] ${cfg.border} ${cfg.bg} px-3 py-2 space-y-1 ${isLocked ? "opacity-60" : ""}`}
       >
-        {/* Row 1: Status icon + guard name + actions */}
         <div className="flex items-center gap-2 min-w-0">
           <span className={`text-sm font-bold ${cfg.color} shrink-0 w-5 text-center`}>
             {cfg.icon}
@@ -83,14 +154,13 @@ export function AsistenciaShiftCard({
                 : "Sin asignar (PPC)"}
             </span>
           </div>
-          {/* Inline actions */}
           <div className="flex items-center gap-1 shrink-0">
             {showAsistioNoAsistio && (
               <>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 w-7 p-0 text-status-ok-fg hover:bg-status-ok-soft"
+                  className="h-10 w-10 p-0 text-status-ok-fg hover:bg-status-ok-soft"
                   disabled={isSaving || isLocked || !canExecuteOps || status === "no_asistio"}
                   onClick={() => onMarkPresent(item)}
                   title="Asistió"
@@ -100,7 +170,7 @@ export function AsistenciaShiftCard({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 w-7 p-0 text-status-danger-fg hover:bg-status-danger-soft"
+                  className="h-10 w-10 p-0 text-status-danger-fg hover:bg-status-danger-soft"
                   disabled={isSaving || isLocked || !canExecuteOps}
                   onClick={() => onMarkAbsent(item)}
                   title="No asistió"
@@ -113,7 +183,7 @@ export function AsistenciaShiftCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-xs px-2"
+                className="h-10 text-xs px-2"
                 disabled={isSaving || isLocked || !canExecuteOps}
                 onClick={() => onAssignReplacement(item)}
               >
@@ -124,7 +194,7 @@ export function AsistenciaShiftCard({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-7 w-7 p-0 text-muted-foreground"
+                className="h-10 w-10 p-0 text-muted-foreground"
                 disabled={isSaving || isLocked || !canExecuteOps}
                 onClick={() => onReset(item)}
                 title="Resetear"
@@ -135,25 +205,28 @@ export function AsistenciaShiftCard({
           </div>
         </div>
 
-        {/* Row 2: Position details */}
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground pl-7">
+        {(adhocLabel || descubiertoRetiro || coveredEarly) && (
+          <div className="flex flex-wrap gap-1.5 pl-7">{badges}</div>
+        )}
+
+        <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground pl-7">
           <span>S{item.slotNumber}</span>
           <span>·</span>
           <span>{item.puesto.name}</span>
           <span>·</span>
           <span>
-            {item.puesto.shiftStart}-{item.puesto.shiftEnd}
+            {item.plannedShiftStart ?? item.puesto.shiftStart}-
+            {item.plannedShiftEnd ?? item.puesto.shiftEnd}
           </span>
-          <span
-            className={
-              isDayShift(item.puesto.shiftStart) ? "text-status-info-fg" : "text-status-info-fg"
-            }
-          >
+          <span className="text-status-info-fg">
             {isDayShift(item.puesto.shiftStart) ? "Día" : "Noche"}
           </span>
         </div>
 
-        {/* Row 3: Replacement info (if any) */}
+        {(canEarlyLeave || descubiertoRetiro || item.isAdhoc) && (
+          <div className="flex flex-wrap gap-1.5 pl-7 pt-0.5">{earlyActions}</div>
+        )}
+
         {status === "reemplazo" && item.replacementGuardia && (
           <div className="flex items-center gap-1.5 text-xs pl-7">
             <span className="text-violet-400">
@@ -163,50 +236,48 @@ export function AsistenciaShiftCard({
                 item.replacementGuardia.persona.lastName
               )}
             </span>
-            {item.replacementGuardia.lifecycleStatus === "te" && (
-              <span className="inline-flex items-center rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
-                TE
-              </span>
-            )}
             {te && (
               <span className="text-status-warn-fg">
                 {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
                 {te.amountJustification && (
-                  <span title={te.amountJustification ?? undefined}><Info className="h-3 w-3 text-status-warn-fg inline ml-0.5" /></span>
+                  <span title={te.amountJustification ?? undefined}>
+                    <Info className="h-3 w-3 text-status-warn-fg inline ml-0.5" />
+                  </span>
                 )}
               </span>
             )}
           </div>
         )}
 
-        {/* Row 4: Marcación info (if any) */}
         {status !== "reemplazo" && item.marcaciones && item.marcaciones.length > 0 && (
           <div className="flex items-center gap-1.5 text-xs pl-7">
             {(() => {
-              const entrada = item.marcaciones.filter((m) => m.tipo === "entrada").sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0];
-              const salida = item.marcaciones.filter((m) => m.tipo === "salida").sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).pop();
+              const entrada = item.marcaciones
+                .filter((m) => m.tipo === "entrada")
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0];
+              const salida = item.marcaciones
+                .filter((m) => m.tipo === "salida")
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                .pop();
               return (
                 <>
                   {entrada && (
                     <span className="text-status-ok-fg inline-flex items-center gap-0.5">
                       <Clock className="h-3 w-3" />
-                      {new Date(entrada.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(entrada.timestamp).toLocaleTimeString("es-CL", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
                   )}
                   {salida && (
                     <span className="text-status-warn-fg inline-flex items-center gap-0.5">
                       <MapPin className="h-3 w-3" />
-                      {new Date(salida.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(salida.timestamp).toLocaleTimeString("es-CL", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
-                  )}
-                  {entrada?.metodoId === "face_id" && (
-                    <span className="text-[10px] px-1 rounded bg-status-ok-soft text-status-ok-fg font-medium">Face ID</span>
-                  )}
-                  {(entrada?.metodoId === "pin_fallback" || entrada?.metodoId === "rut_pin") && (
-                    <span className="text-[10px] px-1 rounded bg-status-warn-soft text-status-warn-fg font-medium">PIN</span>
-                  )}
-                  {entrada?.metodoId === "manual" && (
-                    <span className="text-[10px] px-1 rounded bg-zinc-500/20 text-zinc-400 font-medium">Manual</span>
                   )}
                   <button
                     type="button"
@@ -221,23 +292,21 @@ export function AsistenciaShiftCard({
           </div>
         )}
 
-        {/* Inline checkIn/out display when asistio without marcaciones */}
-        {status === "asistio" && (!item.marcaciones || item.marcaciones.length === 0) && (item.checkInAt || item.checkOutAt) && (
-          <div className="text-xs pl-7 text-muted-foreground">
-            {timeFromISO(item.checkInAt)} – {timeFromISO(item.checkOutAt)}
-          </div>
-        )}
+        {status === "asistio" &&
+          (!item.marcaciones || item.marcaciones.length === 0) &&
+          (item.checkInAt || item.checkOutAt) && (
+            <div className="text-xs pl-7 text-muted-foreground">
+              {timeFromISO(item.checkInAt)} – {timeFromISO(item.checkOutAt)}
+            </div>
+          )}
       </div>
     );
   }
-
-  // ── Desktop layout (5-column grid) ────────────────────────────────────
 
   return (
     <div
       className={`rounded-lg border border-border/60 p-2 min-w-0 overflow-hidden ${isLocked ? "opacity-60" : ""} grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,150px)_auto] gap-x-3 items-start`}
     >
-      {/* Col 1: Puesto + Slot + Horas */}
       <div className="flex items-center gap-2 min-w-0">
         <span title={item.attendanceStatus} className="text-base shrink-0">
           {cfg.icon}
@@ -245,21 +314,23 @@ export function AsistenciaShiftCard({
         <div className="min-w-0">
           <div className="font-medium text-sm leading-tight">{item.puesto.name}</div>
           <div className="text-xs text-muted-foreground leading-tight">
-            S{item.slotNumber} · {item.puesto.shiftStart}-{item.puesto.shiftEnd}{" "}
-            <span className={isDayShift(item.puesto.shiftStart) ? "text-status-info-fg" : "text-status-info-fg"}>
+            S{item.slotNumber} · {item.plannedShiftStart ?? item.puesto.shiftStart}-
+            {item.plannedShiftEnd ?? item.puesto.shiftEnd}{" "}
+            <span className="text-status-info-fg">
               {isDayShift(item.puesto.shiftStart) ? "Día" : "Noche"}
             </span>
           </div>
+          <div className="flex flex-wrap gap-1 mt-0.5">{badges}</div>
           {item.plannedGuardiaId && (
             <div className="flex flex-wrap items-center gap-1 mt-0.5">
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[12px] text-muted-foreground">
                 T:{((item.workedMinutes ?? 0) / 60).toFixed(1)}h
               </span>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[12px] text-muted-foreground">
                 J:{((item.plannedMinutes ?? 0) / 60).toFixed(1)}h
               </span>
               {(item.overtimeMinutes ?? 0) > 0 && (
-                <span className="text-[10px] text-status-warn-fg font-medium">
+                <span className="text-[12px] text-status-warn-fg font-medium">
                   HE:{((item.overtimeMinutes ?? 0) / 60).toFixed(1)}h
                 </span>
               )}
@@ -268,18 +339,15 @@ export function AsistenciaShiftCard({
         </div>
       </div>
 
-      {/* Col 2: Planificado */}
       <div className="flex items-center gap-2 text-sm min-w-0">
         {item.plannedGuardia ? (
           <span className="truncate flex items-center gap-2">
-            {formatPersonName(item.plannedGuardia.persona.firstName, item.plannedGuardia.persona.lastName)}
+            {formatPersonName(
+              item.plannedGuardia.persona.firstName,
+              item.plannedGuardia.persona.lastName
+            )}
             {item.plannedGuardia.code && (
               <span className="text-xs text-muted-foreground">({item.plannedGuardia.code})</span>
-            )}
-            {item.plannedGuardia.lifecycleStatus === "te" && (
-              <span className="inline-flex items-center rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
-                TE
-              </span>
             )}
           </span>
         ) : (
@@ -287,24 +355,22 @@ export function AsistenciaShiftCard({
         )}
       </div>
 
-      {/* Col 3: Reemplazo */}
       <div className="text-sm min-w-0 flex items-center">
         {status === "reemplazo" && item.replacementGuardia ? (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-status-danger-fg">
-              {formatPersonName(item.replacementGuardia.persona.firstName, item.replacementGuardia.persona.lastName)}
+              {formatPersonName(
+                item.replacementGuardia.persona.firstName,
+                item.replacementGuardia.persona.lastName
+              )}
             </span>
-            {item.replacementGuardia.lifecycleStatus === "te" && (
-              <span className="inline-flex items-center rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-400">
-                TE
-              </span>
-            )}
             {te && (
               <span className="text-xs text-status-warn-fg ml-2 inline-flex items-center gap-1">
-                {te.tipo === "hora_extra" ? `HHEE ${te.horasExtra ?? "?"}h` : "TE"}{" "}
-                {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
+                TE {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
                 {te.amountJustification && (
-                  <span title={te.amountJustification ?? undefined}><Info className="h-3 w-3 text-status-warn-fg inline" /></span>
+                  <span title={te.amountJustification ?? undefined}>
+                    <Info className="h-3 w-3 text-status-warn-fg inline" />
+                  </span>
                 )}
               </span>
             )}
@@ -320,48 +386,47 @@ export function AsistenciaShiftCard({
           >
             Buscar guardia…
           </Button>
+        ) : coveredEarly && te ? (
+          <span className="text-xs text-status-warn-fg">
+            Cobertura TE · {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
+          </span>
         ) : (
           <span className="text-muted-foreground text-sm">—</span>
         )}
       </div>
 
-      {/* Col 4: Marcación */}
       <div className="text-sm min-w-0 flex items-center">
         {status === "reemplazo" ? (
           <span className="text-muted-foreground text-xs">—</span>
         ) : item.marcaciones && item.marcaciones.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {(() => {
-              const entrada = item.marcaciones.filter((m) => m.tipo === "entrada").sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0];
-              const salida = item.marcaciones.filter((m) => m.tipo === "salida").sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).pop();
+              const entrada = item.marcaciones
+                .filter((m) => m.tipo === "entrada")
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0];
+              const salida = item.marcaciones
+                .filter((m) => m.tipo === "salida")
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                .pop();
               return (
                 <>
                   {entrada && (
-                    <span className={`inline-flex items-center gap-0.5 text-xs ${entrada.gpsStatus === "fuera_rango" ? "text-status-warn-fg" : "text-status-ok-fg"}`}>
+                    <span className="inline-flex items-center gap-0.5 text-xs text-status-ok-fg">
                       <Clock className="h-3.5 w-3.5" />
-                      {new Date(entrada.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
-                      {entrada.gpsStatus === "fuera_rango" && (
-                        <span className="ml-0.5 text-[9px] bg-status-warn-soft text-status-warn-fg px-1 rounded">GPS</span>
-                      )}
+                      {new Date(entrada.timestamp).toLocaleTimeString("es-CL", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
                   )}
                   {salida && (
-                    <span className={`inline-flex items-center gap-0.5 text-xs ${salida.gpsStatus === "fuera_rango" ? "text-status-warn-fg" : "text-status-warn-fg"}`}>
+                    <span className="inline-flex items-center gap-0.5 text-xs text-status-warn-fg">
                       <MapPin className="h-3.5 w-3.5" />
-                      {new Date(salida.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
-                      {salida.gpsStatus === "fuera_rango" && (
-                        <span className="ml-0.5 text-[9px] bg-status-warn-soft text-status-warn-fg px-1 rounded">GPS</span>
-                      )}
+                      {new Date(salida.timestamp).toLocaleTimeString("es-CL", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
-                  )}
-                  {entrada?.metodoId === "face_id" && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-ok-soft text-status-ok-fg font-medium">Face ID</span>
-                  )}
-                  {(entrada?.metodoId === "pin_fallback" || entrada?.metodoId === "rut_pin") && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-warn-soft text-status-warn-fg font-medium">PIN</span>
-                  )}
-                  {entrada?.metodoId === "manual" && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-500/20 text-zinc-400 font-medium">Manual</span>
                   )}
                   <button
                     type="button"
@@ -385,15 +450,14 @@ export function AsistenciaShiftCard({
         )}
       </div>
 
-      {/* Col 5: Actions */}
       <div className="flex flex-col items-end justify-center gap-2">
-        <div className="flex flex-wrap gap-1.5 items-center">
+        <div className="flex flex-wrap gap-1.5 items-center justify-end">
           {showAsistioNoAsistio && (
             <>
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 w-7 p-0 border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft"
+                className="h-9 w-9 p-0 border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft"
                 disabled={isSaving || isLocked || !canExecuteOps || status === "no_asistio"}
                 onClick={() => onMarkPresent(item)}
                 title="Asistió"
@@ -403,11 +467,7 @@ export function AsistenciaShiftCard({
               <Button
                 size="sm"
                 variant="outline"
-                className={`h-7 w-7 p-0 ${
-                  status === "no_asistio"
-                    ? "border-status-danger bg-status-danger-soft text-status-danger-fg"
-                    : "border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
-                }`}
+                className="h-9 w-9 p-0 border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
                 disabled={isSaving || isLocked || !canExecuteOps}
                 onClick={() => onMarkAbsent(item)}
                 title="No asistió"
@@ -416,11 +476,12 @@ export function AsistenciaShiftCard({
               </Button>
             </>
           )}
+          {earlyActions}
           {canReset && (
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 text-xs px-2 text-muted-foreground"
+              className="h-9 text-xs px-2 text-muted-foreground"
               disabled={isSaving || isLocked || !canExecuteOps}
               onClick={() => onReset(item)}
               title="Resetear"

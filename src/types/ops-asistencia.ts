@@ -99,11 +99,20 @@ export type AsistenciaItem = {
   checkOutAt?: string | null;
   checkInSource?: string | null;
   checkOutSource?: string | null;
+  plannedShiftStart?: string | null;
+  plannedShiftEnd?: string | null;
   plannedMinutes?: number;
   workedMinutes?: number;
   overtimeMinutes?: number;
   lateMinutes?: number;
   lockedAt?: string | null;
+  /** Retiro anticipado: salida real registrada; status sigue asistio. */
+  earlyDepartureAt?: string | null;
+  earlyDepartureReason?: string | null;
+  /** PPC ad-hoc (inducción/refuerzo) que no proviene de la pauta. */
+  isAdhoc?: boolean;
+  adhocReason?: string | null;
+  notes?: string | null;
   installation: { id: string; name: string };
   puesto: PuestoRef;
   plannedGuardia?: GuardiaRef | null;
@@ -111,6 +120,26 @@ export type AsistenciaItem = {
   replacementGuardia?: GuardiaRef | null;
   turnosExtra?: TurnoExtraItem[];
   marcaciones?: MarcacionItem[];
+};
+
+/** Descubierto por retiro anticipado sin TE de cobertura activo. */
+export function isDescubiertoPorRetiro(item: AsistenciaItem): boolean {
+  if (!item.earlyDepartureAt) return false;
+  const hasActiveTe = item.turnosExtra?.some(
+    (t) => t.status === "pending" || t.status === "approved" || t.status === "paid"
+  );
+  return !hasActiveTe;
+}
+
+/** Cuenta/filtra como PPC del día: sin planificado, o retiro anticipado sin cobertura. */
+export function isPpcDelDia(item: AsistenciaItem): boolean {
+  return !item.plannedGuardiaId || isDescubiertoPorRetiro(item);
+}
+
+export const ADHOC_REASON_LABELS: Record<string, string> = {
+  induccion: "Inducción",
+  refuerzo: "Refuerzo",
+  otro: "Otro",
 };
 
 // ── Metrics type ────────────────────────────────────────────────────────
@@ -151,5 +180,9 @@ export function getInitialStatus(item: AsistenciaItem): "pendiente" | "ppc" {
 
 export function hasChanges(item: AsistenciaItem): boolean {
   const initialStatus = getInitialStatus(item);
-  return item.attendanceStatus !== initialStatus || item.replacementGuardiaId != null;
+  return (
+    item.attendanceStatus !== initialStatus ||
+    item.replacementGuardiaId != null ||
+    Boolean(item.earlyDepartureAt)
+  );
 }

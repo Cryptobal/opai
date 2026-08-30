@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, CheckCheck, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCheck, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AsistenciaMetrics } from "@/types/ops-asistencia";
 
@@ -29,6 +29,7 @@ interface AsistenciaDiaSheetHeaderProps {
   bulkLoading: boolean;
   onBulkMark: () => void;
   pendientes: number;
+  onCreateAdhoc?: () => void;
 }
 
 export function AsistenciaDiaSheetHeader({
@@ -44,6 +45,7 @@ export function AsistenciaDiaSheetHeader({
   bulkLoading,
   onBulkMark,
   pendientes,
+  onCreateAdhoc,
 }: AsistenciaDiaSheetHeaderProps) {
   return (
     <div className="space-y-3 shrink-0 border-b border-ds-border-subtle pb-3">
@@ -96,22 +98,35 @@ export function AsistenciaDiaSheetHeader({
       </div>
 
       {canExecuteOps && (
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full h-10 sm:h-9 gap-2"
-          disabled={eligibleCount === 0 || bulkLoading}
-          onClick={onBulkMark}
-        >
-          {bulkLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CheckCheck className="h-4 w-4" />
+        <div className="flex flex-col gap-2">
+          {onCreateAdhoc && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-10 sm:h-9 gap-2"
+              onClick={onCreateAdhoc}
+            >
+              <Plus className="h-4 w-4" />
+              PPC ad-hoc
+            </Button>
           )}
-          {eligibleCount > 0
-            ? `Marcar ${eligibleCount} turno${eligibleCount === 1 ? "" : "s"} como asistidos`
-            : "Marcar todos con horario planificado"}
-        </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full h-10 sm:h-9 gap-2"
+            disabled={eligibleCount === 0 || bulkLoading}
+            onClick={onBulkMark}
+          >
+            {bulkLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCheck className="h-4 w-4" />
+            )}
+            {eligibleCount > 0
+              ? `Marcar ${eligibleCount} turno${eligibleCount === 1 ? "" : "s"} como asistidos`
+              : "Marcar todos con horario planificado"}
+          </Button>
+        </div>
       )}
     </div>
   );

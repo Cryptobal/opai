@@ -47,7 +47,9 @@ export async function ensureAsistenciaDia(params: {
   const effectiveShiftCode = await buildEffectiveShiftCode({ tenantId, date }, pauta);
 
   // Limpiar asistencias huérfanas de puestos inactivos (no bloqueadas, sin reemplazo/TE)
-  // Nunca borrar filas con replacementGuardiaId: tienen TE asignado y deben persistir
+  // Nunca borrar filas con replacementGuardiaId: tienen TE asignado y deben persistir.
+  // Nota: filas isAdhoc en puesto luego desactivado pueden eliminarse aquí si siguen
+  // pendiente|ppc sin reemplazo (comportamiento aceptable: el puesto ya no opera).
   const orphanedRows = await prisma.opsAsistenciaDiaria.findMany({
     where: {
       tenantId,
@@ -72,6 +74,7 @@ export async function ensureAsistenciaDia(params: {
   // Limpiar filas de asistencia para días sin serie pintada (shiftCode != "T")
   // Esto elimina "fantasmas" de filas creadas antes del filtro por shiftCode.
   // Solo limpia filas no bloqueadas, sin reemplazo y sin TE aprobado/pagado.
+  // NUNCA poda filas isAdhoc (PPC de inducción/refuerzo creados manualmente).
   const pautaKeys = new Set(
     pauta.map((p) => `${p.puestoId}|${p.slotNumber}`)
   );
@@ -83,6 +86,7 @@ export async function ensureAsistenciaDia(params: {
       lockedAt: null,
       replacementGuardiaId: null,
       attendanceStatus: { in: ["pendiente", "ppc"] },
+      isAdhoc: false,
     },
     select: { id: true, puestoId: true, slotNumber: true },
   });
