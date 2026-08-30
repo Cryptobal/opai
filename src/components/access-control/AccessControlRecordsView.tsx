@@ -69,6 +69,7 @@ export function AccessControlRecordsView({ installationId }: Props) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const applyPreset = (p: DatePreset) => {
     setDatePreset(p);
@@ -126,28 +127,56 @@ export function AccessControlRecordsView({ installationId }: Props) {
     fetchRecords();
   }, [fetchRecords]);
 
-  const handleExport = () => {
-    const headers = ["Tipo", "RUT", "Nombre", "Empresa", "Entrada", "Salida", "Patente"];
-    const rows = records.map((r) => [
-      RECORD_TYPE_CONFIG[r.recordType]?.label || r.recordType,
-      r.rut ? formatRut(r.rut) : "",
-      r.fullName || "",
-      r.company || "",
-      new Date(r.entryAt).toLocaleString("es-CL"),
-      r.exitAt ? new Date(r.exitAt).toLocaleString("es-CL") : "En sitio",
-      r.vehiclePlate || "",
-    ]);
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (dateFrom) params.set("from", dateFrom);
+      if (dateTo) params.set("to", dateTo);
+      if (typeFilter) params.set("type", typeFilter);
+      if (statusFilter) params.set("status", statusFilter);
+      if (listMatchFilter) params.set("listMatch", listMatchFilter);
+      if (qrSourceFilter) params.set("qrSource", qrSourceFilter);
 
-    const csv = [headers, ...rows]
-      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `accesos_${installationId}_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+      const qs = params.toString();
+      const res = await fetch(
+        `/api/access-control/records/${installationId}/export${qs ? `?${qs}` : ""}`,
+      );
+      if (!res.ok) {
+        let message = "No se pudo exportar los registros.";
+        try {
+          const json = await res.json();
+          if (typeof json?.error === "string") message = json.error;
+        } catch {
+          /* cuerpo no JSON */
+        }
+        toast.error(message);
+        return;
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition");
+      const utf8 = disposition?.match(/filename\*=UTF-8''([^;]+)/i);
+      const quoted = disposition?.match(/filename="([^"]+)"/i);
+      const filename = utf8?.[1]
+        ? decodeURIComponent(utf8[1])
+        : quoted?.[1] ?? `accesos_export.xlsx`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("No se pudo exportar los registros.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -180,8 +209,12 @@ export function AccessControlRecordsView({ installationId }: Props) {
         </div>
         <DatePickerField value={dateFrom || null} onChange={(ymd) => { setDateFrom((ymd ?? "")); setDatePreset(""); setPage(1); }} triggerClassName={"w-36 bg-zinc-800 border-zinc-600"} />
         <DatePickerField value={dateTo || null} onChange={(ymd) => { setDateTo((ymd ?? "")); setDatePreset(""); setPage(1); }} triggerClassName={"w-36 bg-zinc-800 border-zinc-600"} />
-        <Button variant="outline" size="sm" onClick={handleExport}>
-          <Download className="mr-1 h-4 w-4" />
+        <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
+          {exporting ? (
+            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-1 h-4 w-4" />
+          )}
           Exportar
         </Button>
       </div>

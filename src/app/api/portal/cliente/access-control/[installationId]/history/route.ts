@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ensureInstallationAccess, requirePortalClienteAuth } from "@/lib/portal-cliente";
+import { buildAccessRecordSearchOr } from "@/lib/access-control/utils";
 
 export async function GET(
   request: NextRequest,
@@ -26,23 +28,22 @@ export async function GET(
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 200);
 
-    const where: Record<string, unknown> = {
+    const where: Prisma.AccessControlRecordWhereInput = {
       tenantId: session.tenantId,
       installationId,
     };
 
     const status = searchParams.get("status");
     if (status === "in_site") where.exitAt = null;
-    if (from) where.entryAt = { ...(where.entryAt as object || {}), gte: new Date(from) };
-    if (to) where.entryAt = { ...(where.entryAt as object || {}), lte: new Date(to) };
+    const entryAt: Prisma.DateTimeFilter = {};
+    if (from) entryAt.gte = new Date(from);
+    if (to) entryAt.lte = new Date(to);
+    if (Object.keys(entryAt).length > 0) {
+      where.entryAt = entryAt;
+    }
     if (type) where.recordType = type;
     if (search) {
-      where.OR = [
-        { fullName: { contains: search, mode: "insensitive" } },
-        { rut: { contains: search } },
-        { company: { contains: search, mode: "insensitive" } },
-        { vehiclePlate: { contains: search, mode: "insensitive" } },
-      ];
+      where.OR = buildAccessRecordSearchOr(search, { includeCompany: true });
     }
 
     const [records, total] = await Promise.all([
