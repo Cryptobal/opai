@@ -11,7 +11,7 @@ import type {
   GuardiaOption,
   InstallationGroup,
 } from "@/types/ops-asistencia";
-import { isDayShift } from "@/types/ops-asistencia";
+import { isDayShift, isPpcDelDia } from "@/types/ops-asistencia";
 
 // ── Date helpers ────────────────────────────────────────────────────────
 
@@ -223,7 +223,7 @@ export function useAsistenciaDiaria({
     if (kpiFilter === "todos") return shiftFilteredItems;
     return shiftFilteredItems.filter((item) => {
       if (kpiFilter === "cubiertos") return isCubierto(item);
-      if (kpiFilter === "ppc") return !item.plannedGuardiaId;
+      if (kpiFilter === "ppc") return isPpcDelDia(item);
       if (kpiFilter === "te")
         return item.turnosExtra?.some((t) => t.status !== "rejected");
       if (kpiFilter === "fuera_rango") return hasFueraDeRango(item);
@@ -254,7 +254,7 @@ export function useAsistenciaDiaria({
     for (const item of shiftFilteredItems) {
       total++;
       if (isCubierto(item)) cubiertos++;
-      if (!item.plannedGuardiaId) ppc++;
+      if (isPpcDelDia(item)) ppc++;
       if (item.turnosExtra?.some((t) => t.status !== "rejected")) te++;
       if (hasFueraDeRango(item)) fueraDeRango++;
     }
@@ -313,6 +313,108 @@ export function useAsistenciaDiaria({
     []
   );
 
+  // ── Retiro anticipado ─────────────────────────────────────────────────
+
+  const retiroAnticipado = useCallback(
+    async (
+      id: string,
+      payload: {
+        checkOutAt: string;
+        reason: string;
+        cobertura?: {
+          guardiaId: string;
+          amountClp?: number;
+          amountJustification?: string;
+        };
+      }
+    ): Promise<PatchResult> => {
+      setSavingId(id);
+      try {
+        const res = await fetch(`/api/ops/asistencia/${id}/retiro-anticipado`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          const errMsg = data.error || "Error registrando retiro anticipado";
+          toast.error(errMsg);
+          return { ok: false, error: errMsg };
+        }
+        const updatedItem = data.data as AsistenciaItem;
+        setItems((prev) => prev.map((row) => (row.id === id ? updatedItem : row)));
+        return { ok: true, data: updatedItem };
+      } catch (error) {
+        const msg =
+          error instanceof Error ? error.message : "No se pudo registrar el retiro anticipado";
+        toast.error(msg);
+        return { ok: false, error: msg };
+      } finally {
+        setSavingId(null);
+      }
+    },
+    []
+  );
+
+  // ── PPC ad-hoc ────────────────────────────────────────────────────────
+
+  const crearAdhoc = useCallback(
+    async (payload: {
+      installationId: string;
+      puestoId: string;
+      date: string;
+      reason: "induccion" | "refuerzo" | "otro";
+      shiftStart?: string;
+      shiftEnd?: string;
+      notes?: string | null;
+    }): Promise<PatchResult> => {
+      setSavingId("adhoc");
+      try {
+        const res = await fetch("/api/ops/asistencia/adhoc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          const errMsg = data.error || "Error creando PPC ad-hoc";
+          toast.error(errMsg);
+          return { ok: false, error: errMsg };
+        }
+        await fetchAsistencia();
+        return { ok: true, data: data.data as AsistenciaItem };
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "No se pudo crear el PPC ad-hoc";
+        toast.error(msg);
+        return { ok: false, error: msg };
+      } finally {
+        setSavingId(null);
+      }
+    },
+    [fetchAsistencia]
+  );
+
+  const eliminarAdhoc = useCallback(async (id: string): Promise<PatchResult> => {
+    setSavingId(id);
+    try {
+      const res = await fetch(`/api/ops/asistencia/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        const errMsg = data.error || "Error eliminando PPC ad-hoc";
+        toast.error(errMsg);
+        return { ok: false, error: errMsg };
+      }
+      setItems((prev) => prev.filter((row) => row.id !== id));
+      return { ok: true };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "No se pudo eliminar el PPC ad-hoc";
+      toast.error(msg);
+      return { ok: false, error: msg };
+    } finally {
+      setSavingId(null);
+    }
+  }, []);
+
   // ── Replacement guard filtering ───────────────────────────────────────
 
   const filterGuardias = useCallback(
@@ -361,6 +463,9 @@ export function useAsistenciaDiaria({
 
     // Actions
     patchAsistencia,
+    retiroAnticipado,
+    crearAdhoc,
+    eliminarAdhoc,
     refetch: fetchAsistencia,
     filterGuardias,
   };
