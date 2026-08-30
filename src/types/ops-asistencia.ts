@@ -99,6 +99,8 @@ export type AsistenciaItem = {
   checkOutAt?: string | null;
   checkInSource?: string | null;
   checkOutSource?: string | null;
+  plannedShiftStart?: string | null;
+  plannedShiftEnd?: string | null;
   plannedMinutes?: number;
   workedMinutes?: number;
   overtimeMinutes?: number;

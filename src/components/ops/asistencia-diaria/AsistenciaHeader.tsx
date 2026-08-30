@@ -3,7 +3,7 @@
 import { DatePickerField } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
 import type { AsistenciaMetrics } from "@/types/ops-asistencia";
 import type { KpiFilterType } from "@/hooks/useAsistenciaDiaria";
 
@@ -95,6 +95,9 @@ interface AsistenciaHeaderProps {
   onExportHE: () => void;
   loading: boolean;
   hasItems: boolean;
+  // PPC ad-hoc
+  canExecuteOps?: boolean;
+  onCreateAdhoc?: () => void;
 }
 
 /* ── Component ────────────────────────────────────────────────────────── */
@@ -115,6 +118,8 @@ export function AsistenciaHeader({
   onExportHE,
   loading,
   hasItems,
+  canExecuteOps = false,
+  onCreateAdhoc,
 }: AsistenciaHeaderProps) {
   const kpiCards: { id: KpiFilterType | "cobertura"; label: string; value: number | string; color: string }[] = [
     { id: "todos", label: "Total", value: metrics.total, color: "text-foreground" },
@@ -164,6 +169,18 @@ export function AsistenciaHeader({
             {/* Export — desktop */}
             {isDesktop && (
               <div className="flex items-center gap-2 ml-2">
+                {canExecuteOps && onCreateAdhoc && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 sm:h-8 text-xs"
+                    disabled={loading}
+                    onClick={onCreateAdhoc}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    PPC
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -208,17 +225,31 @@ export function AsistenciaHeader({
               ))}
             </div>
 
-            {/* Mobile export button */}
+            {/* Mobile export + PPC */}
             {!isDesktop && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs shrink-0"
-                disabled={loading}
-                onClick={onExportHE}
-              >
-                HE
-              </Button>
+              <>
+                {canExecuteOps && onCreateAdhoc && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 text-xs shrink-0"
+                    disabled={loading}
+                    onClick={onCreateAdhoc}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    PPC
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 text-xs shrink-0"
+                  disabled={loading}
+                  onClick={onExportHE}
+                >
+                  HE
+                </Button>
+              </>
             )}
           </div>
 

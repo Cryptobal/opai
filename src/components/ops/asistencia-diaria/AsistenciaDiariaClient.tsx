@@ -24,8 +24,8 @@ import { SheetBuscarGuardia } from "./modals/SheetBuscarGuardia";
 import { SheetMontoTE } from "./modals/SheetMontoTE";
 import { SheetResetTurno } from "./modals/SheetResetTurno";
 import { SheetMarcarAusente } from "./modals/SheetMarcarAusente";
-
-/* ── Props ────────────────────────────────────────────────────────────── */
+import { SheetRetiroAnticipado } from "./modals/SheetRetiroAnticipado";
+import { SheetCrearPpcAdhoc } from "./modals/SheetCrearPpcAdhoc";
 
 interface AsistenciaDiariaClientProps {
   initialClients: ClientOption[];
@@ -33,15 +33,13 @@ interface AsistenciaDiariaClientProps {
   userRole: string;
 }
 
-/* ── Component ────────────────────────────────────────────────────────── */
+type CoverMode = "reemplazo" | "retiro";
 
 export function AsistenciaDiariaClient({
   initialClients,
   guardias,
   userRole,
 }: AsistenciaDiariaClientProps) {
-  // ── Desktop detection ─────────────────────────────────────────────────
-
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
     const m = window.matchMedia("(min-width: 768px)");
@@ -51,20 +49,19 @@ export function AsistenciaDiariaClient({
     return () => m.removeEventListener("change", handler);
   }, []);
 
-  // ── Permissions ───────────────────────────────────────────────────────
-
   const canManagePaidTeReset = userRole === "owner" || userRole === "admin";
   const canExecuteOps = hasOpsCapability(userRole, "ops_execution");
 
-  // ── Hook ──────────────────────────────────────────────────────────────
-
   const hook = useAsistenciaDiaria({ initialClients, guardias });
-
-  // ── Modal/sheet state ─────────────────────────────────────────────────
 
   const [asistioItem, setAsistioItem] = useState<AsistenciaItem | null>(null);
   const [ausenteItem, setAusenteItem] = useState<AsistenciaItem | null>(null);
   const [replacementItem, setReplacementItem] = useState<AsistenciaItem | null>(null);
+  const [coverMode, setCoverMode] = useState<CoverMode>("reemplazo");
+  const [retiroPending, setRetiroPending] = useState<{
+    checkOutAt: string;
+    reason: string;
+  } | null>(null);
   const [montoTeState, setMontoTeState] = useState<{
     item: AsistenciaItem;
     guard: GuardiaOption;
@@ -72,9 +69,12 @@ export function AsistenciaDiariaClient({
   const [resetItem, setResetItem] = useState<AsistenciaItem | null>(null);
   const [marcacionDetalle, setMarcacionDetalle] = useState<MarcacionItem[] | null>(null);
   const [contradiction, setContradiction] = useState<ContradictionState | null>(null);
-  const [allSectionsState, setAllSectionsState] = useState<"default" | "all-collapsed" | "all-expanded">("default");
-
-  // ── Action handlers ───────────────────────────────────────────────────
+  const [allSectionsState, setAllSectionsState] = useState<
+    "default" | "all-collapsed" | "all-expanded"
+  >("default");
+  const [retiroItem, setRetiroItem] = useState<AsistenciaItem | null>(null);
+  const [retiroCoverOnly, setRetiroCoverOnly] = useState(false);
+  const [adhocOpen, setAdhocOpen] = useState(false);
 
   const handleMarkPresent = useCallback((item: AsistenciaItem) => {
     setAsistioItem(item);
@@ -85,8 +85,38 @@ export function AsistenciaDiariaClient({
   }, []);
 
   const handleAssignReplacement = useCallback((item: AsistenciaItem) => {
+    setCoverMode("reemplazo");
+    setRetiroPending(null);
     setReplacementItem(item);
   }, []);
+
+  const handleEarlyDeparture = useCallback((item: AsistenciaItem) => {
+    setRetiroCoverOnly(false);
+    setRetiroItem(item);
+  }, []);
+
+  const handleCoverEarlyDeparture = useCallback((item: AsistenciaItem) => {
+    setRetiroCoverOnly(true);
+    setRetiroItem(item);
+  }, []);
+
+  const handleRequestCoverFromRetiro = useCallback(
+    (item: AsistenciaItem, pending: { checkOutAt: string; reason: string }) => {
+      setRetiroPending(pending);
+      setCoverMode("retiro");
+      setReplacementItem(item);
+    },
+    []
+  );
+
+  const handleDeleteAdhoc = useCallback(
+    async (item: AsistenciaItem) => {
+      if (!window.confirm("¿Eliminar este PPC ad-hoc?")) return;
+      const result = await hook.eliminarAdhoc(item.id);
+      if (result.ok) toast.success("PPC ad-hoc eliminado");
+    },
+    [hook]
+  );
 
   const handleReset = useCallback((item: AsistenciaItem) => {
     setResetItem(item);
@@ -96,7 +126,6 @@ export function AsistenciaDiariaClient({
     setMarcacionDetalle(marcaciones ?? null);
   }, []);
 
-  // Guard selected from search → open SheetMontoTE
   const handleGuardSelected = useCallback(
     (guard: GuardiaOption) => {
       if (!replacementItem) return;
@@ -106,13 +135,36 @@ export function AsistenciaDiariaClient({
     [replacementItem]
   );
 
-  // Confirm replacement with TE amount
   const handleConfirmReemplazo = useCallback(
     async (data: { guardId: string; amount: number; justification?: string }) => {
       if (!montoTeState) return;
       const { item } = montoTeState;
       const baseAmount = Number(item.puesto.teMontoClp) || 0;
       const isModified = data.amount !== baseAmount;
+
+      if (coverMode === "retiro") {
+        const pending = retiroPending ?? {
+          checkOutAt: item.checkOutAt ?? new Date().toISOString(),
+          reason: item.earlyDepartureReason ?? "Retiro anticipado",
+        };
+        const result = await hook.retiroAnticipado(item.id, {
+          checkOutAt: pending.checkOutAt,
+          reason: pending.reason,
+          cobertura: {
+            guardiaId: data.guardId,
+            ...(isModified
+              ? { amountClp: data.amount, amountJustification: data.justification }
+              : {}),
+          },
+        });
+        if (result.ok) {
+          toast.success("Retiro anticipado con cobertura");
+          setMontoTeState(null);
+          setRetiroPending(null);
+          setCoverMode("reemplazo");
+        }
+        return;
+      }
 
       const payload: Record<string, unknown> = {
         attendanceStatus: "reemplazo",
@@ -129,10 +181,9 @@ export function AsistenciaDiariaClient({
         setMontoTeState(null);
       }
     },
-    [montoTeState, hook]
+    [montoTeState, hook, coverMode, retiroPending]
   );
 
-  // Wrapper for absent that handles contradiction
   const handlePatchWithContradiction = useCallback(
     async (id: string, payload: Record<string, unknown>): ReturnType<typeof hook.patchAsistencia> => {
       const result = await hook.patchAsistencia(id, payload);
@@ -149,14 +200,10 @@ export function AsistenciaDiariaClient({
     [hook]
   );
 
-  // ── Export handler ────────────────────────────────────────────────────
-
   const handleExportHE = useCallback(() => {
     const params = new URLSearchParams({ from: hook.selectedDate, to: hook.selectedDate });
     window.open(`/api/ops/asistencia/export-horas-extra?${params.toString()}`, "_blank");
   }, [hook.selectedDate]);
-
-  // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-2">
@@ -176,9 +223,10 @@ export function AsistenciaDiariaClient({
         onExportHE={handleExportHE}
         loading={hook.loading}
         hasItems={hook.items.length > 0}
+        canExecuteOps={canExecuteOps}
+        onCreateAdhoc={() => setAdhocOpen(true)}
       />
 
-      {/* Content */}
       {hook.loading && hook.items.length === 0 ? (
         <div className="flex items-center justify-center py-16">
           <Spinner size="md" />
@@ -189,13 +237,15 @@ export function AsistenciaDiariaClient({
             <EmptyState
               icon={CalendarCheck2}
               title="Sin asistencia"
-              description="No hay puestos para la fecha seleccionada. Genera primero la pauta mensual."
+              description="No hay puestos para la fecha seleccionada. Genera primero la pauta mensual o crea un PPC ad-hoc."
               compact
             />
           </CardContent>
         </Card>
       ) : (
-        <div className={`space-y-2 ${hook.loading ? "opacity-80 transition-opacity" : "opacity-100 transition-opacity"}`}>
+        <div
+          className={`space-y-2 ${hook.loading ? "opacity-80 transition-opacity" : "opacity-100 transition-opacity"}`}
+        >
           {hook.groupedByInstallation.map(([instId, group]) => (
             <AsistenciaInstallationGroup
               key={instId}
@@ -206,18 +256,21 @@ export function AsistenciaDiariaClient({
               canExecuteOps={canExecuteOps}
               savingId={hook.savingId}
               allSectionsState={allSectionsState}
-              onSectionToggle={() => { setAllSectionsState("default"); }}
+              onSectionToggle={() => {
+                setAllSectionsState("default");
+              }}
               onMarkPresent={handleMarkPresent}
               onMarkAbsent={handleMarkAbsent}
               onAssignReplacement={handleAssignReplacement}
               onReset={handleReset}
               onViewMarcacion={handleViewMarcacion}
+              onEarlyDeparture={handleEarlyDeparture}
+              onCoverEarlyDeparture={handleCoverEarlyDeparture}
+              onDeleteAdhoc={handleDeleteAdhoc}
             />
           ))}
         </div>
       )}
-
-      {/* ── Modals & Sheets ──────────────────────────────────────────── */}
 
       <ModalMarcarAsistencia
         item={asistioItem}
@@ -239,7 +292,13 @@ export function AsistenciaDiariaClient({
 
       <SheetBuscarGuardia
         open={!!replacementItem}
-        onClose={() => setReplacementItem(null)}
+        onClose={() => {
+          setReplacementItem(null);
+          if (coverMode === "retiro") {
+            setRetiroPending(null);
+            setCoverMode("reemplazo");
+          }
+        }}
         item={replacementItem}
         isDesktop={isDesktop}
         guardias={guardias}
@@ -249,13 +308,15 @@ export function AsistenciaDiariaClient({
 
       <SheetMontoTE
         open={!!montoTeState}
-        onClose={() => setMontoTeState(null)}
+        onClose={() => {
+          setMontoTeState(null);
+          if (coverMode === "retiro") {
+            setRetiroPending(null);
+            setCoverMode("reemplazo");
+          }
+        }}
         guard={montoTeState?.guard ?? null}
-        baseAmount={
-          montoTeState
-            ? Number(montoTeState.item.puesto.teMontoClp) || 0
-            : 0
-        }
+        baseAmount={montoTeState ? Number(montoTeState.item.puesto.teMontoClp) || 0 : 0}
         isDesktop={isDesktop}
         isSaving={!!hook.savingId}
         onConfirm={handleConfirmReemplazo}
@@ -269,6 +330,30 @@ export function AsistenciaDiariaClient({
         canManagePaidTeReset={canManagePaidTeReset}
         isSaving={!!hook.savingId}
         patchAsistencia={hook.patchAsistencia}
+      />
+
+      <SheetRetiroAnticipado
+        open={!!retiroItem}
+        onClose={() => {
+          setRetiroItem(null);
+          setRetiroCoverOnly(false);
+        }}
+        item={retiroItem}
+        isDesktop={isDesktop}
+        isSaving={!!hook.savingId}
+        coverOnly={retiroCoverOnly}
+        retiroAnticipado={hook.retiroAnticipado}
+        onRequestCover={handleRequestCoverFromRetiro}
+      />
+
+      <SheetCrearPpcAdhoc
+        open={adhocOpen}
+        onClose={() => setAdhocOpen(false)}
+        isDesktop={isDesktop}
+        isSaving={hook.savingId === "adhoc"}
+        selectedDate={hook.selectedDate}
+        clients={hook.clients}
+        crearAdhoc={hook.crearAdhoc}
       />
 
       <ModalDetalleMarcacion

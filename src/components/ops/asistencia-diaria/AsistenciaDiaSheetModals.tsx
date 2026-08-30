@@ -1,6 +1,6 @@
 "use client";
 
-import type { AsistenciaItem, GuardiaOption, MarcacionItem } from "@/types/ops-asistencia";
+import type { AsistenciaItem, ClientOption, GuardiaOption, MarcacionItem } from "@/types/ops-asistencia";
 import type { PatchResult } from "@/hooks/useAsistenciaDiaria";
 import type { ContradictionState } from "./modals/ModalContradiccion";
 import { ModalMarcarAsistencia } from "./modals/ModalMarcarAsistencia";
@@ -10,6 +10,8 @@ import { SheetBuscarGuardia } from "./modals/SheetBuscarGuardia";
 import { SheetMontoTE } from "./modals/SheetMontoTE";
 import { SheetResetTurno } from "./modals/SheetResetTurno";
 import { SheetMarcarAusente } from "./modals/SheetMarcarAusente";
+import { SheetRetiroAnticipado } from "./modals/SheetRetiroAnticipado";
+import { SheetCrearPpcAdhoc } from "./modals/SheetCrearPpcAdhoc";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface AsistenciaDiaSheetModalsProps {
@@ -46,6 +48,41 @@ interface AsistenciaDiaSheetModalsProps {
   eligibleCount: number;
   bulkLoading: boolean;
   onConfirmBulk: () => void | Promise<void>;
+  // Retiro anticipado / ad-hoc
+  retiroItem: AsistenciaItem | null;
+  retiroCoverOnly: boolean;
+  onCloseRetiro: () => void;
+  retiroAnticipado: (
+    id: string,
+    payload: {
+      checkOutAt: string;
+      reason: string;
+      cobertura?: {
+        guardiaId: string;
+        amountClp?: number;
+        amountJustification?: string;
+      };
+    }
+  ) => Promise<PatchResult>;
+  onRequestCoverFromRetiro: (
+    item: AsistenciaItem,
+    pending: { checkOutAt: string; reason: string }
+  ) => void;
+  adhocOpen: boolean;
+  onCloseAdhoc: () => void;
+  selectedDate: string;
+  clients: ClientOption[];
+  defaultInstallationId?: string;
+  crearAdhoc: (payload: {
+    installationId: string;
+    puestoId: string;
+    date: string;
+    reason: "induccion" | "refuerzo" | "otro";
+    shiftStart?: string;
+    shiftEnd?: string;
+    notes?: string | null;
+  }) => Promise<PatchResult>;
+  isSavingAdhoc: boolean;
 }
 
 export function AsistenciaDiaSheetModals({
@@ -78,6 +115,18 @@ export function AsistenciaDiaSheetModals({
   eligibleCount,
   bulkLoading,
   onConfirmBulk,
+  retiroItem,
+  retiroCoverOnly,
+  onCloseRetiro,
+  retiroAnticipado,
+  onRequestCoverFromRetiro,
+  adhocOpen,
+  onCloseAdhoc,
+  selectedDate,
+  clients,
+  defaultInstallationId,
+  crearAdhoc,
+  isSavingAdhoc,
 }: AsistenciaDiaSheetModalsProps) {
   return (
     <>
@@ -123,6 +172,26 @@ export function AsistenciaDiaSheetModals({
         canManagePaidTeReset={canManagePaidTeReset}
         isSaving={isSaving}
         patchAsistencia={patchAsistencia}
+      />
+      <SheetRetiroAnticipado
+        open={!!retiroItem}
+        onClose={onCloseRetiro}
+        item={retiroItem}
+        isDesktop={isDesktop}
+        isSaving={isSaving}
+        coverOnly={retiroCoverOnly}
+        retiroAnticipado={retiroAnticipado}
+        onRequestCover={onRequestCoverFromRetiro}
+      />
+      <SheetCrearPpcAdhoc
+        open={adhocOpen}
+        onClose={onCloseAdhoc}
+        isDesktop={isDesktop}
+        isSaving={isSavingAdhoc}
+        selectedDate={selectedDate}
+        clients={clients}
+        defaultInstallationId={defaultInstallationId}
+        crearAdhoc={crearAdhoc}
       />
       <ModalDetalleMarcacion marcaciones={marcacionDetalle} onClose={onCloseMarcacion} />
       <ModalContradiccion

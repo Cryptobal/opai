@@ -13,12 +13,14 @@ interface AsistenciaInstallationGroupProps {
   savingId: string | null;
   allSectionsState: "default" | "all-collapsed" | "all-expanded";
   onSectionToggle: (nextOpen: boolean) => void;
-  // Actions
   onMarkPresent: (item: AsistenciaItem) => void;
   onMarkAbsent: (item: AsistenciaItem) => void;
   onAssignReplacement: (item: AsistenciaItem) => void;
   onReset: (item: AsistenciaItem) => void;
   onViewMarcacion: (marcaciones: AsistenciaItem["marcaciones"]) => void;
+  onEarlyDeparture?: (item: AsistenciaItem) => void;
+  onCoverEarlyDeparture?: (item: AsistenciaItem) => void;
+  onDeleteAdhoc?: (item: AsistenciaItem) => void;
 }
 
 export function AsistenciaInstallationGroup({
@@ -35,6 +37,9 @@ export function AsistenciaInstallationGroup({
   onAssignReplacement,
   onReset,
   onViewMarcacion,
+  onEarlyDeparture,
+  onCoverEarlyDeparture,
+  onDeleteAdhoc,
 }: AsistenciaInstallationGroupProps) {
   const covered = items.filter(
     (i) => i.attendanceStatus === "asistio" || i.attendanceStatus === "reemplazo"
@@ -81,6 +86,9 @@ export function AsistenciaInstallationGroup({
             onAssignReplacement={onAssignReplacement}
             onReset={onReset}
             onViewMarcacion={onViewMarcacion}
+            onEarlyDeparture={onEarlyDeparture}
+            onCoverEarlyDeparture={onCoverEarlyDeparture}
+            onDeleteAdhoc={onDeleteAdhoc}
           />
         ))}
       </div>
