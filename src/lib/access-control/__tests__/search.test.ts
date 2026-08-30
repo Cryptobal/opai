@@ -30,6 +30,17 @@ describe("buildAccessRecordSearchOr", () => {
     );
   });
 
+  it("acepta RUT con solo guion (caso portal cliente)", () => {
+    const or = buildAccessRecordSearchOr("9368146-0", { includeCompany: true });
+    expect(or).toEqual(
+      expect.arrayContaining([
+        { rut: { contains: "9368146-0" } },
+        { rut: { contains: "93681460" } },
+        { company: { contains: "9368146-0", mode: "insensitive" } },
+      ]),
+    );
+  });
+
   it("no duplica el RUT si ya viene limpio", () => {
     const or = buildAccessRecordSearchOr("141700618");
     const rutClauses = or.filter((c) => c.rut);
