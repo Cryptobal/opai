@@ -8,7 +8,8 @@ import { resolvePagePerms, canView, canEdit, canViewInstallations, canEditInstal
 import { canViewSensitiveSalary, redactPuestoSalaryFields } from "@/lib/salary-privacy";
 import { prisma } from "@/lib/prisma";
 import { CrmInstallationDetailClient } from "@/components/crm";
-import { hoyChileDate, notEndedWhere } from "@/lib/ops/asignacion-vigencia";
+import { hoyChileDate } from "@/lib/ops/asignacion-vigencia";
+import { notEndedWhere } from "@/lib/ops/asignacion-vigencia-db";
 export default async function CrmInstallationDetailPage({
   params,
 }: {

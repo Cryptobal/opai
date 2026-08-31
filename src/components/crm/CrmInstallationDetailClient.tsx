@@ -61,7 +61,7 @@ import {
 import type { InstallationRosterBlocker } from "@/lib/crm/installation-roster-guard";
 import { formatPersonName } from "@/lib/personas";
 import { todayInChile } from "@/lib/dates-cl";
-import { parseDateOnly, toISODate } from "@/lib/ops";
+import { parseDateOnly, toISODate } from "@/lib/ops-dates";
 import { addDays, nextAsignacion, resolveVigente } from "@/lib/ops/asignacion-vigencia";
 import { ymdToDdMm } from "@/lib/ops/pauta-cell-state";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";

@@ -10,10 +10,9 @@ import { normalizeNullable } from "@/lib/personas";
 import {
   addDays,
   hoyChileDate,
-  notEndedWhere,
   resolveVigente,
-  vigenteWhere,
 } from "@/lib/ops/asignacion-vigencia";
+import { notEndedWhere, vigenteWhere } from "@/lib/ops/asignacion-vigencia-db";
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 

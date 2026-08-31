@@ -5,6 +5,9 @@ import type { AuthContext } from "@/lib/api-auth";
 import type { OpsCapability } from "@/lib/ops-rbac";
 import { resolvePermissions } from "@/lib/permissions-server";
 import { hasModuleAccess, hasCapability, type CapabilityKey } from "@/lib/permissions";
+import { parseDateOnly, toISODate } from "@/lib/ops-dates";
+
+export { parseDateOnly, toISODate } from "@/lib/ops-dates";
 
 export type WeekdayKey =
   | "monday"
@@ -75,23 +78,6 @@ export async function ensureOpsCapability(
     }
   }
   return null;
-}
-
-export function parseDateOnly(value: string): Date {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) {
-    throw new Error("Formato de fecha inválido. Usa YYYY-MM-DD.");
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-
-  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-}
-
-export function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }
 
 export function getWeekdayKey(date: Date): WeekdayKey {

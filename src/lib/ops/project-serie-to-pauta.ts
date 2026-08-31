@@ -18,7 +18,8 @@
 import { prisma } from "@/lib/prisma";
 import { generateSerieForMonth } from "@/lib/ops";
 import { installationFilterFor } from "./ensure-asistencia-dia-helpers";
-import { resolveVigente, vigenteWhere } from "@/lib/ops/asignacion-vigencia";
+import { resolveVigente } from "@/lib/ops/asignacion-vigencia";
+import { vigenteWhere } from "@/lib/ops/asignacion-vigencia-db";
 
 export async function projectActiveSeriesToPauta(params: {
   tenantId: string;

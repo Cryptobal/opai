@@ -8,7 +8,7 @@ import {
   buildEffectiveShiftCode,
   loadPautaForDate,
 } from "@/lib/ops/ensure-asistencia-dia-helpers";
-import { vigenteWhere } from "@/lib/ops/asignacion-vigencia";
+import { vigenteWhere } from "@/lib/ops/asignacion-vigencia-db";
 import { resolvePautaCellState } from "@/lib/ops/pauta-cell-state";
 import { formatPersonName } from "@/lib/personas";
 

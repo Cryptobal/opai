@@ -15,9 +15,9 @@ import { ABSENCE_CODES } from "@/lib/ops/ensure-asistencia-dia-helpers";
 import {
   hoyChileDate,
   resolveVigente,
-  solapaRangoWhere,
   type RangoVigencia,
 } from "@/lib/ops/asignacion-vigencia";
+import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia-db";
 
 type SlotAsignacion = RangoVigencia & { guardiaId: string };
 

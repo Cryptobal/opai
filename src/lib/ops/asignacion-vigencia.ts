@@ -7,10 +7,13 @@
  *
  * Todas las comparaciones son sobre fechas UTC-midnight (`@db.Date`):
  * comparar con `getTime()`, nunca con `new Date()` sin normalizar.
+ *
+ * Este módulo es seguro para `"use client"`. Los fragmentos Prisma
+ * (`vigenteWhere`, `solapaRangoWhere`, `notEndedWhere`) viven en
+ * `asignacion-vigencia-db.ts`.
  */
-import type { Prisma } from "@prisma/client";
 import { todayInChile } from "@/lib/dates-cl";
-import { parseDateOnly } from "@/lib/ops";
+import { parseDateOnly } from "@/lib/ops-dates";
 
 export type RangoVigencia = {
   startDate: Date;
@@ -31,31 +34,6 @@ export function overlapsRange(a: RangoVigencia, start: Date, end: Date): boolean
   if (a.startDate.getTime() > end.getTime()) return false;
   if (a.endDate === null) return true;
   return a.endDate.getTime() >= start.getTime();
-}
-
-/**
- * Fragmento Prisma de vigencia en `date` (inclusiva).
- * Spread-earlo en el `where`; no combinar con otro `OR` al mismo nivel.
- */
-export function vigenteWhere(date: Date): Prisma.OpsAsignacionGuardiaWhereInput {
-  return {
-    startDate: { lte: date },
-    OR: [{ endDate: null }, { endDate: { gte: date } }],
-  };
-}
-
-/**
- * Fragmento Prisma de solape con el rango `[start, end]` (ambos inclusivos).
- * Spread-earlo en el `where`; no combinar con otro `OR` al mismo nivel.
- */
-export function solapaRangoWhere(
-  start: Date,
-  end: Date,
-): Prisma.OpsAsignacionGuardiaWhereInput {
-  return {
-    startDate: { lte: end },
-    OR: [{ endDate: null }, { endDate: { gte: start } }],
-  };
 }
 
 /**
@@ -98,16 +76,6 @@ export function nextAsignacion<T extends { startDate: Date }>(
  */
 export function isNotEndedOn(a: { endDate: Date | null }, date: Date): boolean {
   return a.endDate === null || a.endDate.getTime() >= date.getTime();
-}
-
-/**
- * Fragmento Prisma: no vencida en `date` (incluye futuras).
- * Spread-earlo en el `where`; no combinar con otro `OR` al mismo nivel.
- */
-export function notEndedWhere(date: Date): Prisma.OpsAsignacionGuardiaWhereInput {
-  return {
-    OR: [{ endDate: null }, { endDate: { gte: date } }],
-  };
 }
 
 /** Hoy Chile como UTC-midnight (`@db.Date`). */

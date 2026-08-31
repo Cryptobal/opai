@@ -5,7 +5,8 @@ import { requireTenantModule } from '@/lib/require-module';
 import { canView } from "@/lib/permissions";
 import { parseDateOnly } from "@/lib/ops";
 import { todayInChile } from "@/lib/dates-cl";
-import { hoyChileDate, vigenteWhere } from "@/lib/ops/asignacion-vigencia";
+import { hoyChileDate } from "@/lib/ops/asignacion-vigencia";
+import { vigenteWhere } from "@/lib/ops/asignacion-vigencia-db";
 
 type Params = { installationId: string };
 
