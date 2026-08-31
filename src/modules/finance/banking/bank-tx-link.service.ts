@@ -40,6 +40,11 @@ import {
 import type { CostCenterAssignment } from "./cost-allocation-math";
 import { replaceLinkAllocations, loadAllocationsForLinks } from "./cost-allocation.service";
 import type { EnrichedAllocation } from "./cost-allocation.service";
+import {
+  dteIneligibleReconcileReason,
+  isDteEligibleForBankReconcile,
+  sortDteCandidatesByAmountMatch,
+} from "./dte-reconcile-match";
 
 // ── Helpers internos ──
 
@@ -48,14 +53,17 @@ import type { EnrichedAllocation } from "./cost-allocation.service";
  * - Excluye NC (61) / ND (56): no son documentos cobrables.
  * - Excluye facturas anuladas por NC total (`voidedByCreditNoteId`) o
  *   rechazadas/anuladas en SII: no deben ofrecerse como candidatos.
+ * - Excluye borradores (`siiStatus=DRAFT` o folio 0): nunca se concilian;
+ *   hay que emitir la factura primero.
  * Las NC parciales (creditedNetAmount > 0, voidedByCreditNoteId null)
  * SÍ permanecen — el saldo pendiente ya refleja el ajuste.
  */
 const RECONCILE_ELIGIBLE_DTE: Prisma.FinanceDteWhereInput = {
   dteType: { notIn: [56, 61] },
   voidedByCreditNoteId: null,
+  folio: { gt: 0 },
   siiStatus: {
-    notIn: ["ANNULLED", "REJECTED"] as FinanceSiiStatus[],
+    notIn: ["ANNULLED", "REJECTED", "DRAFT"] as FinanceSiiStatus[],
   },
 };
 
@@ -551,15 +559,31 @@ type FactoringOpRow = {
   } | null;
 };
 
-/** True si el DTE de la cesión no es cobrable (NC/ND, anulada o rechazada). */
+/** True si el DTE de la cesión no es cobrable (borrador, NC/ND, anulada). */
 function isIneligibleReconcileDte(
   dte: FactoringOpRow["dte"],
 ): boolean {
   if (!dte) return false;
-  if (dte.voidedByCreditNoteId) return true;
-  if (dte.siiStatus === "ANNULLED" || dte.siiStatus === "REJECTED") return true;
-  if (dte.dteType === 56 || dte.dteType === 61) return true;
-  return false;
+  return !isDteEligibleForBankReconcile({
+    siiStatus: dte.siiStatus ?? "PENDING",
+    folio: dte.folio ?? 0,
+    voidedByCreditNoteId: dte.voidedByCreditNoteId,
+    dteType: dte.dteType,
+  });
+}
+
+function throwIfDtesIneligibleForReconcile(
+  dtes: Array<{
+    siiStatus: string;
+    folio: number;
+    voidedByCreditNoteId?: string | null;
+    dteType?: number | null;
+  }>,
+): void {
+  for (const d of dtes) {
+    const reason = dteIneligibleReconcileReason(d);
+    if (reason) throw new Error(reason);
+  }
 }
 
 function decimalToNumber(
@@ -791,13 +815,166 @@ function scoreFactoringOperationCandidate(params: {
   return { confidence, matchSignals: [...new Set(signals)] };
 }
 
+type ReconcileDteRow = {
+  id: string;
+  direction: string;
+  code: string;
+  dteType: number;
+  folio: number;
+  issuerName: string | null;
+  receiverName: string | null;
+  receiverRut: string | null;
+  issuerRut: string | null;
+  totalAmount: { toNumber(): number };
+  amountPaid: { toNumber(): number };
+  amountPending: { toNumber(): number };
+  date: Date;
+  paymentStatus: string;
+  installationId: string | null;
+  notes: string | null;
+  siiStatus?: string;
+};
+
+function mergeDteRowsById(
+  priority: ReconcileDteRow[],
+  rest: ReconcileDteRow[],
+): ReconcileDteRow[] {
+  const seen = new Set<string>();
+  const out: ReconcileDteRow[] = [];
+  for (const d of [...priority, ...rest]) {
+    if (seen.has(d.id)) continue;
+    seen.add(d.id);
+    out.push(d);
+  }
+  return out;
+}
+
+function toCandidateDte(
+  d: ReconcileDteRow,
+  instNames: Map<string, string>,
+): CandidateDte {
+  return {
+    id: d.id,
+    direction: d.direction as "ISSUED" | "RECEIVED",
+    documentType: d.code,
+    dteType: d.dteType,
+    folio: d.folio,
+    issuerName: d.issuerName ?? "",
+    receiverName: d.receiverName ?? "",
+    receiverRut: d.receiverRut ?? null,
+    issuerRut: d.issuerRut ?? null,
+    total: d.totalAmount.toNumber(),
+    amountPaid: d.amountPaid.toNumber(),
+    amountPending: d.amountPending.toNumber(),
+    issuedAt: d.date.toISOString(),
+    paymentStatus: d.paymentStatus,
+    installationName: d.installationId
+      ? instNames.get(d.installationId) ?? null
+      : null,
+    glosa: d.notes ?? null,
+  };
+}
+
+/**
+ * Carga DTEs conciliables: primero los que calzan el monto del banco
+ * (para que el match no se caiga del `take: 200` por fecha), después
+ * los más recientes de la ventana. El caller filtra links/CEDED y ordena.
+ */
+async function loadReconcileDteRows(params: {
+  tenantId: string;
+  direction: "ISSUED" | "RECEIVED";
+  isFactoring: boolean;
+  minDate: Date;
+  maxDate: Date;
+  amountAbs: number;
+}): Promise<ReconcileDteRow[]> {
+  const baseWhere: Prisma.FinanceDteWhereInput = {
+    tenantId: params.tenantId,
+    direction: params.direction,
+    ...RECONCILE_ELIGIBLE_DTE,
+    paymentStatus: {
+      in: (params.isFactoring
+        ? ["UNPAID", "PARTIAL", "OVERDUE", "PAID"]
+        : ["UNPAID", "PARTIAL", "OVERDUE"]) as Prisma.EnumFinancePaymentStatusFilter["in"],
+    },
+    ...(params.isFactoring ? {} : { amountPending: { gt: 0 } }),
+    date: { gte: params.minDate, lte: params.maxDate },
+  };
+  const amountBand = {
+    gte: params.amountAbs - 1,
+    lte: params.amountAbs + 1,
+  };
+
+  const [exactRows, recentRows] = await Promise.all([
+    prisma.financeDte.findMany({
+      where: {
+        ...baseWhere,
+        OR: [{ amountPending: amountBand }, { totalAmount: amountBand }],
+      },
+      orderBy: { date: "desc" },
+      take: 50,
+    }),
+    prisma.financeDte.findMany({
+      where: baseWhere,
+      orderBy: { date: "desc" },
+      take: 200,
+    }),
+  ]);
+
+  return mergeDteRowsById(
+    exactRows as unknown as ReconcileDteRow[],
+    recentRows as unknown as ReconcileDteRow[],
+  );
+}
+
+async function finalizeReconcileDteCandidates(params: {
+  tenantId: string;
+  rows: ReconcileDteRow[];
+  isFactoring: boolean;
+  amountAbs: number;
+}): Promise<CandidateDte[]> {
+  let filtered = params.rows;
+  if (!params.isFactoring && filtered.length > 0) {
+    const dteIds = filtered.map((d) => d.id);
+    const linked = await prisma.financeBankTransactionLink.findMany({
+      where: {
+        tenantId: params.tenantId,
+        targetType: { in: ["DTE_ISSUED", "DTE_RECEIVED"] },
+        targetId: { in: dteIds },
+      },
+      select: { targetId: true },
+    });
+    const linkedSet = new Set(
+      linked.map((l) => l.targetId).filter((x): x is string => !!x),
+    );
+    filtered = filtered.filter((d) => !linkedSet.has(d.id));
+  }
+
+  filtered = filtered.filter(
+    (d) =>
+      d.paymentStatus !== "CEDED" &&
+      d.folio > 0 &&
+      d.siiStatus !== "DRAFT",
+  );
+
+  const instNames = await fetchInstallationNames(
+    params.tenantId,
+    filtered.map((d) => d.installationId),
+  );
+
+  return sortDteCandidatesByAmountMatch(
+    filtered.map((d) => toCandidateDte(d, instNames)),
+    params.amountAbs,
+  );
+}
+
 /**
  * Busca DTEs candidatos para conciliar con un movimiento bancario:
  * ingreso → emitidos; egreso → recibidos. Si `detectFactoringFromTx` marca
  * factoring, amplía la ventana de fechas como antes.
  *
- * Ordena por fecha de emisión (más reciente primero). Excluye NC/ND,
- * facturas anuladas por NC total y rechazadas/anuladas en SII.
+ * Ordena por afinidad de monto (match exacto primero). Excluye borradores,
+ * NC/ND, facturas anuladas por NC total y rechazadas/anuladas en SII.
  */
 export async function findDteCandidates(
   tenantId: string,
@@ -826,98 +1003,32 @@ export async function findDteCandidates(
   );
   const isFactoring = isIncome && detection.isFactoring;
 
-  // Ventana de fecha: 90 días antes / 30 después para movimientos normales,
-  // 180 antes / 7 después para factoring (cesiones pueden ser viejas).
   const minDate = new Date(tx.transactionDate);
   minDate.setDate(minDate.getDate() - (isFactoring ? 180 : 90));
   const maxDate = new Date(tx.transactionDate);
   maxDate.setDate(maxDate.getDate() + (isFactoring ? 7 : 30));
 
-  // NO filtramos por rango de monto: un depósito de factoring suele cubrir
-  // N facturas chicas cuyo bruto individual nunca cae en ±%X del banco.
-  // En su lugar traemos todas las pendientes en la ventana y ordenamos por
-  // afinidad de monto — el 1:1 exacto queda arriba como antes, y los casos
-  // N:M (factoring, cobros parciales) ahora son alcanzables. La UI ya tiene
-  // filtros (search/monto/fecha) para que el usuario refine.
-  //
-  // CEDED nunca se ofrece como candidato DTE: el cobro lo gestiona el
-  // factoring y el vínculo correcto es FACTORING_OPERATION (ver
-  // findFactoringCandidates / resolveCededIntoFactoring).
-  const dtes = await prisma.financeDte.findMany({
-    where: {
-      tenantId,
-      direction,
-      ...RECONCILE_ELIGIBLE_DTE,
-      paymentStatus: {
-        in: (isFactoring
-          ? ["UNPAID", "PARTIAL", "OVERDUE", "PAID"]
-          : ["UNPAID", "PARTIAL", "OVERDUE"]) as Prisma.EnumFinancePaymentStatusFilter["in"],
-      },
-      ...(isFactoring ? {} : { amountPending: { gt: 0 } }),
-      date: { gte: minDate, lte: maxDate },
-    },
-    // Siempre por fecha de emisión (más reciente primero).
-    orderBy: { date: "desc" },
-    take: 200,
+  const rows = await loadReconcileDteRows({
+    tenantId,
+    direction,
+    isFactoring,
+    minDate,
+    maxDate,
+    amountAbs,
   });
 
-  // Defensa-en-profundidad: excluimos DTEs que ya tengan algún link bancario
-  // DTE_ISSUED/DTE_RECEIVED vivo. Para factoring esto NO se aplica (el caller
-  // usa esta función para sugerir, y un mismo DTE cedido puede aparecer en
-  // varias propuestas de match).
-  let filteredByExistingLink = dtes;
-  if (!isFactoring && dtes.length > 0) {
-    const dteIds = dtes.map((d) => d.id);
-    const linked = await prisma.financeBankTransactionLink.findMany({
-      where: {
-        tenantId,
-        targetType: { in: ["DTE_ISSUED", "DTE_RECEIVED"] },
-        targetId: { in: dteIds },
-      },
-      select: { targetId: true },
-    });
-    const linkedSet = new Set(
-      linked.map((l) => l.targetId).filter((x): x is string => !!x),
-    );
-    filteredByExistingLink = dtes.filter((d) => !linkedSet.has(d.id));
-  }
-
-  // Salvaguarda contable: CEDED no se concilia como DTE_ISSUED.
-  filteredByExistingLink = filteredByExistingLink.filter(
-    (d) => d.paymentStatus !== "CEDED",
-  );
-
-  const instNames = await fetchInstallationNames(
+  return finalizeReconcileDteCandidates({
     tenantId,
-    filteredByExistingLink.map((d) => d.installationId),
-  );
-
-  return filteredByExistingLink.map((d) => ({
-    id: d.id,
-    direction: d.direction as "ISSUED" | "RECEIVED",
-    documentType: d.code,
-    dteType: d.dteType,
-    folio: d.folio,
-    issuerName: d.issuerName ?? "",
-    receiverName: d.receiverName ?? "",
-    receiverRut: d.receiverRut ?? null,
-    issuerRut: d.issuerRut ?? null,
-    total: d.totalAmount.toNumber(),
-    amountPaid: d.amountPaid.toNumber(),
-    amountPending: d.amountPending.toNumber(),
-    issuedAt: d.date.toISOString(),
-    paymentStatus: d.paymentStatus,
-    installationName: d.installationId
-      ? instNames.get(d.installationId) ?? null
-      : null,
-    glosa: d.notes ?? null,
-  }));
+    rows,
+    isFactoring,
+    amountAbs,
+  });
 }
 
 /**
  * Versión bulk de `findDteCandidates`. Recibe N bankTxIds (selección
  * múltiple del usuario) y devuelve DTEs candidatos ordenados por
- * afinidad al MONTO TOTAL ABSOLUTO de los movimientos.
+ * afinidad al MONTO TOTAL ABSOLUTO de los movimientos (match exacto primero).
  *
  * - La dirección (ISSUED/RECEIVED) se decide por el signo de la SUMA:
  *   suma > 0 → ingreso → buscamos ventas (ISSUED).
@@ -927,8 +1038,9 @@ export async function findDteCandidates(
  * - Detecta factoring desde la glosa del movimiento de mayor monto
  *   (misma heurística que single) para ampliar ventana y estados.
  * - CEDED nunca se ofrece como candidato DTE (salvaguarda contable).
+ * - Borradores nunca se ofrecen (siiStatus=DRAFT / folio 0).
  * - Excluye DTEs ya conciliados con CUALQUIERA de los bankTxIds.
- * - Orden por fecha de emisión desc; excluye NC/ND y anuladas por NC/SII.
+ * - Excluye NC/ND y anuladas por NC/SII.
  */
 export async function findDteCandidatesForBulk(
   tenantId: string,
@@ -958,7 +1070,6 @@ export async function findDteCandidatesForBulk(
   const isIncome = totalSigned > 0;
   const direction = isIncome ? "ISSUED" : "RECEIVED";
 
-  // Detección de factoring: glosa del movimiento de mayor monto absoluto.
   const largest = [...txs].sort(
     (a, b) => Math.abs(b.amount.toNumber()) - Math.abs(a.amount.toNumber()),
   )[0]!;
@@ -975,69 +1086,21 @@ export async function findDteCandidatesForBulk(
   const maxDate = new Date(Math.max(...dates));
   maxDate.setDate(maxDate.getDate() + (isFactoring ? 7 : 30));
 
-  const dtes = await prisma.financeDte.findMany({
-    where: {
-      tenantId,
-      direction,
-      ...RECONCILE_ELIGIBLE_DTE,
-      paymentStatus: {
-        in: (isFactoring
-          ? ["UNPAID", "PARTIAL", "OVERDUE", "PAID"]
-          : ["UNPAID", "PARTIAL", "OVERDUE"]) as Prisma.EnumFinancePaymentStatusFilter["in"],
-      },
-      ...(isFactoring ? {} : { amountPending: { gt: 0 } }),
-      date: { gte: minDate, lte: maxDate },
-    },
-    // Siempre por fecha de emisión (más reciente primero).
-    orderBy: { date: "desc" },
-    take: 200,
+  const rows = await loadReconcileDteRows({
+    tenantId,
+    direction,
+    isFactoring,
+    minDate,
+    maxDate,
+    amountAbs: totalAbs,
   });
 
-  let filtered = dtes;
-  if (!isFactoring && dtes.length > 0) {
-    const dteIds = dtes.map((d) => d.id);
-    const linked = await prisma.financeBankTransactionLink.findMany({
-      where: {
-        tenantId,
-        targetType: { in: ["DTE_ISSUED", "DTE_RECEIVED"] },
-        targetId: { in: dteIds },
-      },
-      select: { targetId: true },
-    });
-    const linkedSet = new Set(
-      linked.map((l) => l.targetId).filter((x): x is string => !!x),
-    );
-    filtered = dtes.filter((d) => !linkedSet.has(d.id));
-  }
-
-  // Salvaguarda contable: CEDED → cesión, nunca DTE directo.
-  filtered = filtered.filter((d) => d.paymentStatus !== "CEDED");
-
-  const instNames = await fetchInstallationNames(
+  return finalizeReconcileDteCandidates({
     tenantId,
-    filtered.map((d) => d.installationId),
-  );
-
-  return filtered.map((d) => ({
-    id: d.id,
-    direction: d.direction as "ISSUED" | "RECEIVED",
-    documentType: d.code,
-    dteType: d.dteType,
-    folio: d.folio,
-    issuerName: d.issuerName ?? "",
-    receiverName: d.receiverName ?? "",
-    receiverRut: d.receiverRut ?? null,
-    issuerRut: d.issuerRut ?? null,
-    total: d.totalAmount.toNumber(),
-    amountPaid: d.amountPaid.toNumber(),
-    amountPending: d.amountPending.toNumber(),
-    issuedAt: d.date.toISOString(),
-    paymentStatus: d.paymentStatus,
-    installationName: d.installationId
-      ? instNames.get(d.installationId) ?? null
-      : null,
-    glosa: d.notes ?? null,
-  }));
+    rows,
+    isFactoring,
+    amountAbs: totalAbs,
+  });
 }
 
 /**
@@ -1648,26 +1711,12 @@ export async function searchReconcileCandidates(
       tenantId,
       openDtes.map((d) => d.installationId),
     );
-    dteCandidates = openDtes.map((d) => ({
-      id: d.id,
-      direction: d.direction as "ISSUED" | "RECEIVED",
-      documentType: d.code,
-      dteType: d.dteType,
-      folio: d.folio,
-      issuerName: d.issuerName ?? "",
-      receiverName: d.receiverName ?? "",
-      receiverRut: d.receiverRut ?? null,
-      issuerRut: d.issuerRut ?? null,
-      total: d.totalAmount.toNumber(),
-      amountPaid: d.amountPaid.toNumber(),
-      amountPending: d.amountPending.toNumber(),
-      issuedAt: d.date.toISOString(),
-      paymentStatus: d.paymentStatus,
-      installationName: d.installationId
-        ? instNames.get(d.installationId) ?? null
-        : null,
-      glosa: d.notes ?? null,
-    }));
+    dteCandidates = sortDteCandidatesByAmountMatch(
+      openDtes.map((d) =>
+        toCandidateDte(d as unknown as ReconcileDteRow, instNames),
+      ),
+      ctx.totalAbs,
+    );
   }
 
   if (wantFactoring) {
@@ -1798,7 +1847,10 @@ export async function searchReconcileCandidates(
   }
 
   return {
-    data: dteCandidates.slice(0, limit),
+    data: sortDteCandidatesByAmountMatch(dteCandidates, ctx.totalAbs).slice(
+      0,
+      limit,
+    ),
     factoring: factoringCandidates
       .sort((a, b) => b.confidence - a.confidence)
       .slice(0, limit),
@@ -2191,6 +2243,30 @@ export async function setTransactionLinks(
     (l) => l.targetType === "DTE_ISSUED" || l.targetType === "DTE_RECEIVED"
   );
 
+  const dteTargetIds = [
+    ...new Set(
+      dteLinks.map((l) => l.targetId).filter((x): x is string => !!x),
+    ),
+  ];
+  if (dteTargetIds.length > 0) {
+    const targetDtes = await prisma.financeDte.findMany({
+      where: { tenantId, id: { in: dteTargetIds } },
+      select: {
+        id: true,
+        siiStatus: true,
+        folio: true,
+        voidedByCreditNoteId: true,
+        dteType: true,
+      },
+    });
+    if (targetDtes.length !== dteTargetIds.length) {
+      throw new Error(
+        "Una o más facturas no existen o pertenecen a otro tenant",
+      );
+    }
+    throwIfDtesIneligibleForReconcile(targetDtes);
+  }
+
   await prisma.$transaction(async (tx2: Prisma.TransactionClient) => {
     // 1. Revertir cualquier FinancePaymentRecord que esta misma tx haya
     //    creado en una conciliación previa: borrar sus allocations,
@@ -2486,9 +2562,14 @@ export async function bulkReconcileToDte(
       direction: true,
       totalAmount: true,
       amountPending: true,
+      siiStatus: true,
+      folio: true,
+      voidedByCreditNoteId: true,
+      dteType: true,
     },
   });
   if (!dte) throw new Error("Factura no encontrada");
+  throwIfDtesIneligibleForReconcile([dte]);
   if (dte.direction !== expectedDirection) {
     throw new Error(
       isIncome
@@ -2811,12 +2892,17 @@ export async function bulkReconcileToDtes(
             direction: true,
             totalAmount: true,
             amountPending: true,
+            siiStatus: true,
+            folio: true,
+            voidedByCreditNoteId: true,
+            dteType: true,
           },
         })
       : [];
   if (dtes.length !== dteIds.length) {
     throw new Error("Una o más facturas no existen o pertenecen a otro tenant");
   }
+  throwIfDtesIneligibleForReconcile(dtes);
   for (const d of dtes) {
     if (d.direction !== expectedDirection) {
       throw new Error(

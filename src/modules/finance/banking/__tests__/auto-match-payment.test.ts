@@ -208,6 +208,14 @@ describe("tryAutoMatchBankTransactionToDte", () => {
 
     expect(r.matched).toBe(false);
     expect(r.reason).toBe("no_candidate");
+    expect(prisma.financeDte.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          folio: { gt: 0 },
+          siiStatus: { notIn: ["REJECTED", "DRAFT", "ANNULLED"] },
+        }),
+      }),
+    );
   });
 
   it("matchea con AMOUNT_ONLY cuando hay 1 solo candidato sin RUT en texto", async () => {
