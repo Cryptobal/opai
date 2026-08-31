@@ -175,13 +175,14 @@ export async function tryAutoMatchBankTransactionToDte(
     //  - Pendientes (UNPAID/PARTIAL/OVERDUE): candidatos clásicos.
     //  - PAID por marca manual (bulk-mark-paid) con reconciledAt=null:
     //    también deben auto-conciliarse cuando aparece el movimiento real.
-    // siiStatus: un DTE REJECTED por SII no debe auto-conciliarse; los
-    // importados sin estado SII significativo sí. Filtramos siiStatus != REJECTED.
+    // siiStatus: borrador/anulado/rechazado nunca auto-conciliable.
+    // folio > 0 descarta DRAFT (todos nacen con folio=0).
     const candidates = await tx.financeDte.findMany({
       where: {
         tenantId,
         direction: dteDirection,
-        siiStatus: { not: "REJECTED" },
+        folio: { gt: 0 },
+        siiStatus: { notIn: ["REJECTED", "DRAFT", "ANNULLED"] },
         OR: [
           { paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] } },
           { paymentStatus: "PAID", reconciledAt: null },

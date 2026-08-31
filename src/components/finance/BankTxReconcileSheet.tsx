@@ -73,6 +73,10 @@ import {
   type CostCenterAssignment,
 } from "./CostCenterAllocationBlock";
 import { assignmentFromAllocations } from "@/modules/finance/banking/cost-allocation-math";
+import {
+  compareDteCandidatesByAmountMatch,
+  isExactDteAmountMatch,
+} from "@/modules/finance/banking/dte-reconcile-match";
 import { SaveAsRuleModal } from "./SaveAsRuleModal";
 import { DTE_TYPE_SHORT_LABELS } from "@/components/finance/dtes/shared/constants";
 import { AllocationRail } from "./reconcile/AllocationRail";
@@ -770,7 +774,7 @@ export function BankTxReconcileSheet({
 
   // Filtrado: fuente = resultados de búsqueda server-side si hay query;
   // si no, candidatos cargados. Filtros locales solo monto/fecha/dirección.
-  // Orden final siempre por fecha de emisión (más reciente primero).
+  // Orden: match exacto de monto primero, luego afinidad, luego fecha desc.
   const filteredCandidates = useMemo(() => {
     const source = searchQuery.trim() ? searchDtes : candidates;
     const selectedKeys = new Set(links.map((l) => l.key));
@@ -798,7 +802,9 @@ export function BankTxReconcileSheet({
         }
         return true;
       })
-      .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
+      .sort((a, b) =>
+        compareDteCandidatesByAmountMatch(totalAmountAbs, a, b),
+      );
   }, [
     candidates,
     searchDtes,
@@ -811,6 +817,7 @@ export function BankTxReconcileSheet({
     filterIncludePaid,
     onlySelected,
     links,
+    totalAmountAbs,
   ]);
 
   // Cesiones: misma fuente (search vs base) + filtros locales monto/fecha.
@@ -2387,7 +2394,7 @@ export function BankTxReconcileSheet({
                       : deltaTotal;
                   const deltaPct =
                     refAmountAbs > 0 ? Math.abs(delta) / refAmountAbs : 0;
-                  const isExact = Math.abs(delta) <= 1;
+                  const isExact = isExactDteAmountMatch(refAmountAbs, c);
                   const isFactoringLike =
                     !isExact && delta > 0 && deltaPct <= 0.3;
                   const badges: Array<{

@@ -225,8 +225,8 @@ describe("findFactoringCandidatesForBulk", () => {
   });
 });
 
-describe("findDteCandidatesForBulk — excluye anuladas por NC", () => {
-  it("el where de candidatos incluye voidedByCreditNoteId null y excluye NC/ND", async () => {
+describe("findDteCandidatesForBulk — excluye anuladas por NC y borradores", () => {
+  it("el where de candidatos excluye NC/ND, anuladas y borradores", async () => {
     asMock(prisma.financeBankTransaction.findMany).mockResolvedValue([
       {
         id: "t1",
@@ -253,7 +253,8 @@ describe("findDteCandidatesForBulk — excluye anuladas por NC", () => {
           tenantId: "tenant-a",
           voidedByCreditNoteId: null,
           dteType: { notIn: [56, 61] },
-          siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
+          folio: { gt: 0 },
+          siiStatus: { notIn: ["ANNULLED", "REJECTED", "DRAFT"] },
         }),
         orderBy: { date: "desc" },
       }),
@@ -363,6 +364,138 @@ describe("findDteCandidatesForBulk — regla CEDED", () => {
     ]);
     const data = await findDteCandidatesForBulk("tenant-a", ["t1", "t2"]);
     expect(data).toHaveLength(0);
+  });
+});
+
+describe("findDteCandidatesForBulk — match de monto primero", () => {
+  it("pone el DTE con pendiente igual a la suma arriba aunque sea más antiguo", async () => {
+    const txs = [
+      {
+        id: "t1",
+        amount: dec(4_000_000),
+        transactionDate: new Date("2026-07-15"),
+        description: "abono cliente",
+        reference: null,
+      },
+      {
+        id: "t2",
+        amount: dec(3_938_500),
+        transactionDate: new Date("2026-07-15"),
+        description: "abono cliente",
+        reference: null,
+      },
+    ];
+    asMock(prisma.financeBankTransaction.findMany).mockResolvedValue(txs);
+
+    const newerOther = {
+      id: "dte-nuevo",
+      direction: "ISSUED",
+      code: "33",
+      dteType: 33,
+      folio: 2000,
+      issuerName: "Gard",
+      receiverName: "Embajada Brasil",
+      receiverRut: null,
+      issuerRut: null,
+      totalAmount: dec(9_511_641),
+      amountPaid: dec(0),
+      amountPending: dec(9_511_641),
+      date: new Date("2026-08-20"),
+      paymentStatus: "UNPAID",
+      installationId: null,
+      notes: null,
+    };
+    const olderMatch = {
+      id: "dte-match",
+      direction: "ISSUED",
+      code: "33",
+      dteType: 33,
+      folio: 1780,
+      issuerName: "Gard",
+      receiverName: "Embajada Brasil",
+      receiverRut: null,
+      issuerRut: null,
+      totalAmount: dec(7_938_500),
+      amountPaid: dec(0),
+      amountPending: dec(7_938_500),
+      date: new Date("2026-07-01"),
+      paymentStatus: "UNPAID",
+      installationId: null,
+      notes: null,
+    };
+    asMock(prisma.financeDte.findMany).mockResolvedValue([
+      newerOther,
+      olderMatch,
+    ]);
+
+    const data = await findDteCandidatesForBulk("tenant-a", ["t1", "t2"]);
+    expect(data[0]?.id).toBe("dte-match");
+    expect(data[0]?.folio).toBe(1780);
+    expect(data.find((d) => d.id === "dte-nuevo")).toBeTruthy();
+  });
+
+  it("no ofrece un DTE borrador aunque el mock lo devuelva", async () => {
+    asMock(prisma.financeBankTransaction.findMany).mockResolvedValue([
+      {
+        id: "t1",
+        amount: dec(5_000_000),
+        transactionDate: new Date("2026-07-15"),
+        description: "abono",
+        reference: null,
+      },
+      {
+        id: "t2",
+        amount: dec(5_000_000),
+        transactionDate: new Date("2026-07-15"),
+        description: "abono",
+        reference: null,
+      },
+    ]);
+    asMock(prisma.financeDte.findMany).mockResolvedValue([
+      {
+        id: "dte-draft",
+        direction: "ISSUED",
+        code: "33",
+        dteType: 33,
+        folio: 0,
+        issuerName: "Gard",
+        receiverName: "Embajada Brasil",
+        receiverRut: null,
+        issuerRut: null,
+        totalAmount: dec(10_000_000),
+        amountPaid: dec(0),
+        amountPending: dec(10_000_000),
+        date: new Date("2026-08-20"),
+        paymentStatus: "UNPAID",
+        installationId: null,
+        notes: null,
+        siiStatus: "DRAFT",
+      },
+      {
+        id: "dte-issued",
+        direction: "ISSUED",
+        code: "33",
+        dteType: 33,
+        folio: 1693,
+        issuerName: "Gard",
+        receiverName: "Embajada Brasil",
+        receiverRut: null,
+        issuerRut: null,
+        totalAmount: dec(10_000_000),
+        amountPaid: dec(0),
+        amountPending: dec(10_000_000),
+        date: new Date("2026-06-01"),
+        paymentStatus: "UNPAID",
+        installationId: null,
+        notes: null,
+        siiStatus: "ACCEPTED",
+      },
+    ]);
+
+    const data = await findDteCandidatesForBulk("tenant-a", ["t1", "t2"]);
+    expect(data.find((d) => d.id === "dte-draft")).toBeUndefined();
+    expect(data.find((d) => d.id === "dte-issued")).toBeTruthy();
+    expect(data[0]?.id).toBe("dte-issued");
   });
 });
 
