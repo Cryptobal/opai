@@ -1,7 +1,10 @@
 /**
  * Efectos diferidos de traslados y finiquitos en la fecha Chile de hoy.
- * Idempotente. Lo dispara el cron horario de consolidar-marcaciones a las 04:00 UTC
- * (no hay slot libre en vercel.json para un cron propio).
+ * Idempotente. Lo dispara el cron horario de consolidar-marcaciones a las 04:00 UTC.
+ *
+ * No hay ruta propia en `/api/cron/*`: Vercel rechaza el deploy al instante
+ * al registrar un 67.º cron (límite del proyecto). Manual: GET
+ * `/api/cron/consolidar-marcaciones?vigencia=1` con Bearer CRON_SECRET.
  */
 import { prisma } from "@/lib/prisma";
 import { toISODate } from "@/lib/ops";
@@ -23,6 +26,14 @@ export type SyncAsignacionesVigenciaResult = {
 /** Slot diario: 04:00 UTC ≈ medianoche / 01:00 Chile. */
 export function isVigenciaSyncUtcHour(now: Date = new Date()): boolean {
   return now.getUTCHours() === 4;
+}
+
+/** Cron horario o `?vigencia=1` en consolidar-marcaciones. */
+export function shouldRunVigenciaSync(
+  now: Date = new Date(),
+  force = false,
+): boolean {
+  return force || isVigenciaSyncUtcHour(now);
 }
 
 export async function runSyncAsignacionesVigencia(

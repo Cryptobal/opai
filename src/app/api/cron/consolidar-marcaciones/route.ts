@@ -4,13 +4,17 @@
  *
  * Schedule: cada hora (vercel.json)
  * Auth: CRON_SECRET header
+ *
+ * A las 04:00 UTC (o `?vigencia=1`) aplica también el sync de vigencia
+ * de asignaciones. No hay ruta `/api/cron/sync-asignaciones-vigencia`:
+ * un 67.º cron rechaza el deploy de Vercel.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  isVigenciaSyncUtcHour,
   runSyncAsignacionesVigencia,
+  shouldRunVigenciaSync,
 } from "@/lib/ops/sync-asignaciones-vigencia";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +46,8 @@ export async function GET(req: NextRequest) {
   console.log(`[CRON] consolidar-marcaciones: ${result.count} consolidadas`);
 
   let vigencia: Awaited<ReturnType<typeof runSyncAsignacionesVigencia>> | null = null;
-  if (isVigenciaSyncUtcHour()) {
+  const forceVigencia = req.nextUrl.searchParams.get("vigencia") === "1";
+  if (shouldRunVigenciaSync(new Date(), forceVigencia)) {
     try {
       vigencia = await runSyncAsignacionesVigencia();
     } catch (error) {

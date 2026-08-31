@@ -203,10 +203,18 @@ describe("addDays", () => {
 
 describe("isVigenciaSyncUtcHour", () => {
   it("corre solo en la hora UTC 4 (slot diario embebido en consolidar-marcaciones)", async () => {
-    const { isVigenciaSyncUtcHour } = await import("../sync-asignaciones-vigencia");
+    const { isVigenciaSyncUtcHour, shouldRunVigenciaSync } = await import(
+      "../sync-asignaciones-vigencia"
+    );
     expect(isVigenciaSyncUtcHour(new Date("2026-08-31T04:00:00.000Z"))).toBe(true);
     expect(isVigenciaSyncUtcHour(new Date("2026-08-31T04:59:59.000Z"))).toBe(true);
     expect(isVigenciaSyncUtcHour(new Date("2026-08-31T03:59:59.000Z"))).toBe(false);
     expect(isVigenciaSyncUtcHour(new Date("2026-08-31T05:00:00.000Z"))).toBe(false);
+    expect(
+      shouldRunVigenciaSync(new Date("2026-08-31T03:00:00.000Z"), true),
+    ).toBe(true);
+    expect(
+      shouldRunVigenciaSync(new Date("2026-08-31T03:00:00.000Z"), false),
+    ).toBe(false);
   });
 });
