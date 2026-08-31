@@ -62,7 +62,7 @@ import type { InstallationRosterBlocker } from "@/lib/crm/installation-roster-gu
 import { formatPersonName } from "@/lib/personas";
 import { todayInChile } from "@/lib/dates-cl";
 import { parseDateOnly, toISODate } from "@/lib/ops";
-import { addDays, resolveVigente } from "@/lib/ops/asignacion-vigencia";
+import { addDays, nextAsignacion, resolveVigente } from "@/lib/ops/asignacion-vigencia";
 import { ymdToDdMm } from "@/lib/ops/pauta-cell-state";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { AccessControlConfigTab } from "@/components/access-control/AccessControlConfigTab";
@@ -822,9 +822,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                     endDate: asUtcDate(a.endDate ?? null),
                   }));
                   const assignment = resolveVigente(ranged, hoyDate);
-                  const proximo = ranged
-                    .filter((a) => a.startDate.getTime() > hoyDate.getTime())
-                    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0];
+                  const proximo = nextAsignacion(ranged, hoyDate);
                   const endKey = assignment?.endDate ? toISODate(assignment.endDate) : null;
                   const showHasta = Boolean(endKey);
                   return (

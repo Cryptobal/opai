@@ -78,6 +78,38 @@ export function resolveVigente<T extends RangoVigencia>(
   return vigentes[0] ?? null;
 }
 
+/**
+ * Próxima asignación con `startDate` posterior a `date` (la de inicio más cercano).
+ * Independiente de `isActive`.
+ */
+export function nextAsignacion<T extends { startDate: Date }>(
+  list: T[],
+  date: Date,
+): T | null {
+  const futuras = list.filter((a) => a.startDate.getTime() > date.getTime());
+  if (futuras.length === 0) return null;
+  futuras.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  return futuras[0] ?? null;
+}
+
+/**
+ * No vencida en `date` (incluye vigentes y futuras). `endDate` inclusivo.
+ * Coincide con `listAsignaciones({ activeOnly: true })`.
+ */
+export function isNotEndedOn(a: { endDate: Date | null }, date: Date): boolean {
+  return a.endDate === null || a.endDate.getTime() >= date.getTime();
+}
+
+/**
+ * Fragmento Prisma: no vencida en `date` (incluye futuras).
+ * Spread-earlo en el `where`; no combinar con otro `OR` al mismo nivel.
+ */
+export function notEndedWhere(date: Date): Prisma.OpsAsignacionGuardiaWhereInput {
+  return {
+    OR: [{ endDate: null }, { endDate: { gte: date } }],
+  };
+}
+
 /** Hoy Chile como UTC-midnight (`@db.Date`). */
 export function hoyChileDate(now: Date = new Date()): Date {
   return parseDateOnly(todayInChile(now));

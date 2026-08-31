@@ -31,9 +31,32 @@ import {
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { formatPersonName } from "@/lib/personas";
+import { parseDateOnly, toISODate } from "@/lib/ops";
+import {
+  hoyChileDate,
+  isNotEndedOn,
+  nextAsignacion,
+  resolveVigente,
+} from "@/lib/ops/asignacion-vigencia";
+import { ymdToDdMm } from "@/lib/ops/pauta-cell-state";
 
 function toDateInput(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+/** UTC-midnight desde ISO/`YYYY-MM-DD` o Date `@db.Date`. */
+function asUtcDate(value: string | Date | null | undefined): Date | null {
+  if (value == null) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const ymd = String(value).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  try {
+    return parseDateOnly(ymd);
+  } catch {
+    return null;
+  }
 }
 
 /* ── constants ─────────────────────────────────── */
@@ -87,6 +110,7 @@ type AsignacionItem = {
   installationId: string;
   isActive: boolean;
   startDate: string;
+  endDate?: string | null;
   guardia: {
     id: string;
     code?: string | null;
@@ -94,6 +118,16 @@ type AsignacionItem = {
     persona: { firstName: string; lastName: string; rut?: string | null };
   };
 };
+
+type AsignacionRango = AsignacionItem & { startDate: Date; endDate: Date | null };
+
+function withVigenciaDates(a: AsignacionItem): AsignacionRango {
+  return {
+    ...a,
+    startDate: asUtcDate(a.startDate) ?? parseDateOnly("1970-01-01"),
+    endDate: asUtcDate(a.endDate ?? null),
+  };
+}
 
 type GuardiaOption = {
   id: string;
@@ -168,12 +202,24 @@ export function OpsPuestosClient({
 
   /** All installations enriched with stats */
   const allInstallations = useMemo(() => {
+    const hoy = hoyChileDate();
     const rows: InstallationRow[] = [];
     for (const client of clients) {
       for (const inst of client.installations) {
         const instPuestos = puestos.filter((p) => p.installationId === inst.id && p.active);
         const totalSlots = instPuestos.reduce((sum, p) => sum + p.requiredGuards, 0);
-        const assignedSlots = asignaciones.filter((a) => a.installationId === inst.id && a.isActive).length;
+        const bySlot = new Map<string, AsignacionRango[]>();
+        for (const a of asignaciones) {
+          if (a.installationId !== inst.id) continue;
+          const key = `${a.puestoId}|${a.slotNumber}`;
+          const list = bySlot.get(key) ?? [];
+          list.push(withVigenciaDates(a));
+          bySlot.set(key, list);
+        }
+        let assignedSlots = 0;
+        for (const list of bySlot.values()) {
+          if (resolveVigente(list, hoy)) assignedSlots += 1;
+        }
         rows.push({
           id: inst.id,
           name: inst.name,
@@ -277,13 +323,25 @@ export function OpsPuestosClient({
   }, [selectedInstallation, fetchData]);
 
   /* ── Assignment logic ── */
-  const getSlotAssignment = (puestoId: string, slot: number) =>
-    asignaciones.find((a) => a.puestoId === puestoId && a.slotNumber === slot && a.isActive);
+  const getSlotView = (puestoId: string, slot: number) => {
+    const hoy = hoyChileDate();
+    const ranged = asignaciones
+      .filter((a) => a.puestoId === puestoId && a.slotNumber === slot)
+      .map(withVigenciaDates);
+    return {
+      assignment: resolveVigente(ranged, hoy),
+      proximo: nextAsignacion(ranged, hoy),
+    };
+  };
 
-  const assignedGuardiaIds = useMemo(
-    () => new Set(asignaciones.filter((a) => a.isActive).map((a) => a.guardiaId)),
-    [asignaciones]
-  );
+  const assignedGuardiaIds = useMemo(() => {
+    const hoy = hoyChileDate();
+    return new Set(
+      asignaciones
+        .filter((a) => isNotEndedOn(withVigenciaDates(a), hoy))
+        .map((a) => a.guardiaId),
+    );
+  }, [asignaciones]);
 
   const availableGuardias = useMemo(() => {
     const q = assignSearch.trim().toLowerCase();
@@ -464,35 +522,46 @@ export function OpsPuestosClient({
                   </div>
 
                   {Array.from({ length: puesto.requiredGuards }, (_, i) => i + 1).map((slotNum) => {
-                    const assignment = getSlotAssignment(puesto.id, slotNum);
+                    const { assignment, proximo } = getSlotView(puesto.id, slotNum);
+                    const endKey = assignment?.endDate ? toISODate(assignment.endDate) : null;
                     return (
                       <div
                         key={slotNum}
+                        className="space-y-0.5"
+                      >
+                      <div
                         className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs ${
                           assignment ? "border-border/60" : "border-dashed border-status-warn-border bg-status-warn-soft"
                         }`}
                       >
-                        <span className="text-muted-foreground font-mono text-[10px] shrink-0 w-5">{slotNum}</span>
+                        <span className="text-muted-foreground font-mono text-[12px] shrink-0 w-5">{slotNum}</span>
                         <div className="flex-1 min-w-0">
                           {assignment ? (
+                            <div className="flex items-center gap-1.5 min-w-0">
                             <Link
                               href={`/personas/guardias/${assignment.guardiaId}`}
-                              className="font-medium text-xs hover:text-primary transition-colors hover:underline underline-offset-2 truncate block"
+                              className="font-medium text-xs hover:text-primary transition-colors hover:underline underline-offset-2 truncate"
                             >
                               {formatPersonName(assignment.guardia.persona.firstName, assignment.guardia.persona.lastName)}
                               {assignment.guardia.code && (
                                 <span className="text-muted-foreground font-normal ml-1">({assignment.guardia.code})</span>
                               )}
                             </Link>
+                            {endKey && (
+                              <Badge variant="outline" className="shrink-0 bg-status-warn-soft text-status-warn-fg border-status-warn-border text-[12px] py-0 px-1.5 h-5">
+                                hasta {ymdToDdMm(endKey)}
+                              </Badge>
+                            )}
+                            </div>
                           ) : (
-                            <span className="text-status-warn-fg/80 italic text-[11px]">Vacante</span>
+                            <span className="text-status-warn-fg/80 italic text-[12px]">Vacante</span>
                           )}
                         </div>
                         <div className="shrink-0">
                           {assignment ? (
                             <Button
                               size="sm" variant="ghost"
-                              className="h-6 text-[10px] px-1.5 text-muted-foreground"
+                              className="h-10 w-10 sm:h-6 sm:w-auto sm:px-1.5 text-muted-foreground"
                               onClick={() => setUnassignConfirm({
                                 open: true,
                                 asignacionId: assignment.id,
@@ -504,13 +573,19 @@ export function OpsPuestosClient({
                           ) : (
                             <Button
                               size="sm" variant="outline"
-                              className="h-6 text-[10px] px-1.5"
+                              className="h-10 sm:h-6 text-[12px] px-1.5"
                               onClick={() => openAssign(puesto.id, slotNum, puesto.name)}
                             >
                               <UserPlus className="h-3 w-3" />
                             </Button>
                           )}
                         </div>
+                      </div>
+                      {proximo && (
+                        <p className="pl-7 text-[12px] text-status-info-fg">
+                          Próximo: {formatPersonName(proximo.guardia.persona.firstName, proximo.guardia.persona.lastName)} desde {ymdToDdMm(toISODate(proximo.startDate))}
+                        </p>
+                      )}
                       </div>
                     );
                   })}

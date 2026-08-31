@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { parseDateOnly } from "@/lib/ops";
 import {
   addDays,
+  isNotEndedOn,
   isVigenteOn,
+  nextAsignacion,
+  notEndedWhere,
   overlapsRange,
   resolveVigente,
   solapaRangoWhere,
@@ -153,6 +156,30 @@ describe("vigenteWhere / solapaRangoWhere", () => {
     expect(solapaRangoWhere(start, end)).toEqual({
       startDate: { lte: end },
       OR: [{ endDate: null }, { endDate: { gte: start } }],
+    });
+  });
+});
+
+describe("nextAsignacion / isNotEndedOn", () => {
+  const hoy = d("2026-09-03");
+
+  it("elige la futura de startDate más cercano y ignora la vigente", () => {
+    const vigente = { id: "saliente", startDate: d("2026-08-01"), endDate: d("2026-09-10") };
+    const far = { id: "lejana", startDate: d("2026-10-01"), endDate: null };
+    const near = { id: "entrante", startDate: d("2026-09-11"), endDate: null };
+    expect(nextAsignacion([far, vigente, near], hoy)?.id).toBe("entrante");
+    expect(nextAsignacion([vigente], hoy)).toBeNull();
+  });
+
+  it("isNotEndedOn incluye hoy, futuras y endDate null; excluye vencidas", () => {
+    expect(isNotEndedOn({ endDate: d("2026-09-03") }, hoy)).toBe(true);
+    expect(isNotEndedOn({ endDate: null }, hoy)).toBe(true);
+    expect(isNotEndedOn({ endDate: d("2026-09-02") }, hoy)).toBe(false);
+  });
+
+  it("notEndedWhere no filtra por startDate (incluye futuras)", () => {
+    expect(notEndedWhere(hoy)).toEqual({
+      OR: [{ endDate: null }, { endDate: { gte: hoy } }],
     });
   });
 });

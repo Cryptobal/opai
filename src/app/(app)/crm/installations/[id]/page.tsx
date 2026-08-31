@@ -8,6 +8,7 @@ import { resolvePagePerms, canView, canEdit, canViewInstallations, canEditInstal
 import { canViewSensitiveSalary, redactPuestoSalaryFields } from "@/lib/salary-privacy";
 import { prisma } from "@/lib/prisma";
 import { CrmInstallationDetailClient } from "@/components/crm";
+import { hoyChileDate, notEndedWhere } from "@/lib/ops/asignacion-vigencia";
 export default async function CrmInstallationDetailPage({
   params,
 }: {
@@ -22,6 +23,7 @@ export default async function CrmInstallationDetailPage({
   if (!canViewInstallations(perms)) redirect("/crm");
   const canEditInstallation = canEditInstallations(perms);
   const tenantId = session.user.tenantId;
+  const hoy = hoyChileDate();
   const prismaAny = prisma as unknown as {
     opsRefuerzoSolicitud?: {
       findMany: (args: unknown) => Promise<unknown[]>;
@@ -132,7 +134,7 @@ export default async function CrmInstallationDetailPage({
       take: 20,
     }),
     prisma.opsAsignacionGuardia.findMany({
-      where: { tenantId, installationId: id, isActive: true },
+      where: { tenantId, installationId: id, ...notEndedWhere(hoy) },
       include: {
         guardia: {
           select: {

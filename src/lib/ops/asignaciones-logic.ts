@@ -10,6 +10,7 @@ import { normalizeNullable } from "@/lib/personas";
 import {
   addDays,
   hoyChileDate,
+  notEndedWhere,
   resolveVigente,
   vigenteWhere,
 } from "@/lib/ops/asignacion-vigencia";
@@ -828,9 +829,7 @@ export async function listAsignaciones(
       ...(filters.installationId ? { installationId: filters.installationId } : {}),
       ...(filters.puestoId ? { puestoId: filters.puestoId } : {}),
       ...(filters.guardiaId ? { guardiaId: filters.guardiaId } : {}),
-      ...(filters.activeOnly !== false
-        ? { OR: [{ endDate: null }, { endDate: { gte: hoy } }] }
-        : {}),
+      ...(filters.activeOnly !== false ? notEndedWhere(hoy) : {}),
     },
     include: {
       guardia: {

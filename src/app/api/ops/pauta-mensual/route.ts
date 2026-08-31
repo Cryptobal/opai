@@ -385,18 +385,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Also get active series for this installation
+    // Series del mes: activas o cerradas cuyo endDate solapa el mes (finiquito/traslado).
     // Uses try-catch: rotative fields may not exist if migration hasn't been applied
     const puestoIds = [...new Set(pauta.map((p) => p.puestoId))];
     let series: Record<string, unknown>[] = [];
+    const seriesWhere = {
+      tenantId: ctx.tenantId,
+      puestoId: { in: puestoIds },
+      OR: [{ isActive: true }, { endDate: { gte: start } }],
+    };
+    const seriesOrderBy = [
+      { isActive: "desc" as const },
+      { startDate: "desc" as const },
+    ];
     if (puestoIds.length > 0) {
       try {
         series = await prisma.opsSerieAsignacion.findMany({
-          where: {
-            tenantId: ctx.tenantId,
-            puestoId: { in: puestoIds },
-            isActive: true,
-          },
+          where: seriesWhere,
+          orderBy: seriesOrderBy,
           select: {
             id: true,
             puestoId: true,
@@ -426,11 +432,8 @@ export async function GET(request: NextRequest) {
       } catch {
         // Fallback: rotative fields not yet in DB (migration pending)
         series = await prisma.opsSerieAsignacion.findMany({
-          where: {
-            tenantId: ctx.tenantId,
-            puestoId: { in: puestoIds },
-            isActive: true,
-          },
+          where: seriesWhere,
+          orderBy: seriesOrderBy,
           select: {
             id: true,
             puestoId: true,

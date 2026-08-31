@@ -821,22 +821,25 @@ export function OpsPautaMensualClient({
       }
     }
 
-    // Enrich with serie info (pattern code + rotativo)
+    // Enrich with serie info (pattern code + rotativo).
+    // El API ordena isActive desc, startDate desc: la primera por slot gana.
+    const serieApplied = new Set<RowKey>();
     for (const s of series) {
       const key: RowKey = `${s.puestoId}|${s.slotNumber}`;
+      if (serieApplied.has(key)) continue;
       const row = rows.get(key);
-      if (row) {
-        row.patternCode = s.patternCode;
-        row.patternWork = s.patternWork;
-        row.patternOff = s.patternOff;
-        row.startDate = s.startDate ? toDateKey(s.startDate) : undefined;
-        row.startPosition = s.startPosition;
-        row.isRotativo = s.isRotativo ?? false;
-        row.rotatePuestoId = s.rotatePuestoId ?? null;
-        row.rotateSlotNumber = s.rotateSlotNumber ?? null;
-        row.startShift =
-          s.startShift === "day" || s.startShift === "night" ? s.startShift : null;
-      }
+      if (!row) continue;
+      serieApplied.add(key);
+      row.patternCode = s.patternCode;
+      row.patternWork = s.patternWork;
+      row.patternOff = s.patternOff;
+      row.startDate = s.startDate ? toDateKey(s.startDate) : undefined;
+      row.startPosition = s.startPosition;
+      row.isRotativo = s.isRotativo ?? false;
+      row.rotatePuestoId = s.rotatePuestoId ?? null;
+      row.rotateSlotNumber = s.rotateSlotNumber ?? null;
+      row.startShift =
+        s.startShift === "day" || s.startShift === "night" ? s.startShift : null;
     }
 
     // Nombre y chips por vigencia del mes (hoy si cae dentro; si no, último día).
