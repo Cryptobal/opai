@@ -43,7 +43,7 @@ export async function createAjusteConciliacion(
   }
 
   const kind = input.amountClp > 0 ? "INCOME" : "EXPENSE";
-  const categoryCode =
+  const categoryCode: AjusteResult["categoryCode"] =
     kind === "INCOME"
       ? "ING_AJUSTE_CONCILIACION"
       : "EGR_AJUSTE_CONCILIACION";
@@ -126,7 +126,7 @@ export async function createAjusteConciliacion(
       itemId: item.id,
       occurrenceId: occurrence.id,
       categoryCode,
-    };
+    } satisfies AjusteResult;
   });
 
   if (input.bankTransactionId) {

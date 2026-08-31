@@ -6,7 +6,8 @@
  * categoryId o por prefijo del nombre de fila.
  */
 import { normalizeRowName } from "./row-match";
-import type { FlowRowRef, RealTxInput } from "./types";
+import type { RealTxInput } from "./derive-real";
+import type { FlowRowRef } from "./types";
 
 export interface OccurrenceFallbackInput {
   bankTransactionId: string;
