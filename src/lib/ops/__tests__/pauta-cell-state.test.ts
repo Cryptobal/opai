@@ -3,6 +3,7 @@ import { parseDateOnly } from "@/lib/ops";
 import {
   resolvePautaCellState,
   resolveSlotHeader,
+  slotHeaderExportLabel,
 } from "../pauta-cell-state";
 
 const d = (iso: string) => parseDateOnly(iso);
@@ -342,5 +343,29 @@ describe("resolveSlotHeader", () => {
       ],
     });
     expect(header?.chips.some((c) => c.code === "desde")).toBe(false);
+  });
+});
+
+describe("slotHeaderExportLabel", () => {
+  it("null → Sin asignar", () => {
+    expect(slotHeaderExportLabel(null)).toBe("Sin asignar");
+  });
+
+  it("incluye hasta dd/mm cuando el chip existe", () => {
+    const header = resolveSlotHeader({
+      monthStartKey: "2026-09-01",
+      monthEndKey: "2026-09-30",
+      todayKey: "2026-09-02",
+      ghost: null,
+      asignaciones: [
+        {
+          guardiaId: "g1",
+          name: "Miguel Flores",
+          startDate: d("2026-08-01"),
+          endDate: d("2026-09-03"),
+        },
+      ],
+    });
+    expect(slotHeaderExportLabel(header)).toBe("Miguel Flores (hasta 03/09)");
   });
 });
