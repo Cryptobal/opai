@@ -11,6 +11,8 @@ import {
 import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData, loadEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
 import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { hoyChileDate } from "@/lib/ops/asignacion-vigencia";
+import { parseDateOnly } from "@/lib/ops";
 
 /**
  * GET /api/ops/guard-events — List guard events
@@ -219,16 +221,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Finiquito → mark guardia inactive, deactivate assignment, clean pauta, generate docs
+    // Finiquito → mark terminatedAt always; lifecycle inactivo solo si la fecha ya pasó
     if (category === "finiquito" && body.finiquitoDate) {
       const finiquitoDateObj = new Date(body.finiquitoDate);
+      const finiquitoYmd = String(body.finiquitoDate).slice(0, 10);
+      const finiquitoDay = /^\d{4}-\d{2}-\d{2}$/.test(finiquitoYmd)
+        ? parseDateOnly(finiquitoYmd)
+        : finiquitoDateObj;
+      const hoy = hoyChileDate();
+      const applyInactive = finiquitoDay.getTime() < hoy.getTime();
 
       await prisma.opsGuardia.update({
         where: { id: guardiaId },
         data: {
           terminatedAt: finiquitoDateObj,
           terminationReason: body.causalDtLabel ?? "Finiquito",
-          lifecycleStatus: "inactivo",
+          ...(applyInactive ? { lifecycleStatus: "inactivo" } : {}),
         },
       });
 
@@ -274,17 +282,19 @@ export async function POST(request: NextRequest) {
       }
 
       const previousStatus = guardiaForHistory?.lifecycleStatus ?? "contratado";
-      await prisma.opsGuardiaHistory.create({
-        data: {
-          tenantId: ctx.tenantId,
-          guardiaId,
-          eventType: "lifecycle_changed",
-          previousValue: { lifecycleStatus: previousStatus },
-          newValue: { lifecycleStatus: "inactivo", from: previousStatus, to: "inactivo" },
-          reason: `Finiquito — ${body.causalDtLabel ?? "Sin causal"} — Fecha: ${body.finiquitoDate}`,
-          createdBy: ctx.userId,
-        },
-      });
+      if (applyInactive) {
+        await prisma.opsGuardiaHistory.create({
+          data: {
+            tenantId: ctx.tenantId,
+            guardiaId,
+            eventType: "lifecycle_changed",
+            previousValue: { lifecycleStatus: previousStatus },
+            newValue: { lifecycleStatus: "inactivo", from: previousStatus, to: "inactivo" },
+            reason: `Finiquito — ${body.causalDtLabel ?? "Sin causal"} — Fecha: ${body.finiquitoDate}`,
+            createdBy: ctx.userId,
+          },
+        });
+      }
     }
 
     // Amonestación → save pre-generated AI carta, or generate on the fly

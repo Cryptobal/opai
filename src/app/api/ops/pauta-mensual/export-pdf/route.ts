@@ -14,6 +14,14 @@ import {
 } from "@/lib/ops";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { formatPersonName } from "@/lib/personas";
+import { todayInChile } from "@/lib/dates-cl";
+import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia";
+import {
+  resolvePautaCellState,
+  resolveSlotHeader,
+  slotHeaderExportLabel,
+  type GhostAsignacion,
+} from "@/lib/ops/pauta-cell-state";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -105,6 +113,9 @@ export async function GET(request: NextRequest) {
               puestoTrabajo: { select: { name: true } },
             },
           },
+          previousGuardia: {
+            select: { persona: { select: { firstName: true, lastName: true } } },
+          },
         },
         orderBy: [{ puestoId: "asc" }, { slotNumber: "asc" }, { date: "asc" }],
       }),
@@ -112,13 +123,19 @@ export async function GET(request: NextRequest) {
         where: {
           tenantId: ctx.tenantId,
           installationId,
-          isActive: true,
+          ...solapaRangoWhere(start, end),
         },
         select: {
           puestoId: true,
           slotNumber: true,
+          startDate: true,
+          endDate: true,
           guardia: {
-            select: { persona: { select: { firstName: true, lastName: true } } },
+            select: {
+              id: true,
+              terminatedAt: true,
+              persona: { select: { firstName: true, lastName: true } },
+            },
           },
         },
       }),
@@ -151,6 +168,52 @@ export async function GET(request: NextRequest) {
     // Lógica canónica de ejecución compartida (ops.ts)
     const executionMap = buildExecutionMap(asistencia);
 
+    const ghostIds = [
+      ...new Set(
+        pauta
+          .filter((i) => !i.plannedGuardiaId && i.previousGuardiaId)
+          .map((i) => i.previousGuardiaId as string),
+      ),
+    ];
+    const ghostAsignaciones =
+      ghostIds.length > 0
+        ? await prisma.opsAsignacionGuardia.findMany({
+            where: {
+              tenantId: ctx.tenantId,
+              guardiaId: { in: ghostIds },
+              ...solapaRangoWhere(start, end),
+            },
+            select: {
+              guardiaId: true,
+              startDate: true,
+              endDate: true,
+              installationId: true,
+              installation: { select: { name: true } },
+              puesto: { select: { name: true } },
+            },
+          })
+        : [];
+    const ghostAsigsByGuardia = new Map<string, GhostAsignacion[]>();
+    for (const a of ghostAsignaciones) {
+      const list = ghostAsigsByGuardia.get(a.guardiaId) ?? [];
+      list.push({
+        startDate: a.startDate,
+        endDate: a.endDate,
+        installationId: a.installationId,
+        installationName: a.installation.name,
+        puestoName: a.puesto.name,
+      });
+      ghostAsigsByGuardia.set(a.guardiaId, list);
+    }
+
+    type CellInfo = {
+      shiftCode: string;
+      plannedGuardiaId: string | null;
+      previousGuardiaId: string | null;
+      previousGuardiaName: string | null;
+      unassignedReason: string | null;
+      unassignedAt: Date | null;
+    };
     const rows = new Map<
       string,
       {
@@ -160,7 +223,7 @@ export async function GET(request: NextRequest) {
         shiftEnd: string;
         slotNumber: number;
         guardiaName?: string;
-        cells: Map<string, string>;
+        cells: Map<string, CellInfo>;
       }
     >();
 
@@ -180,13 +243,55 @@ export async function GET(request: NextRequest) {
           cells: new Map(),
         });
       }
-      rows.get(key)?.cells.set(toDateKeyUTC(item.date), item.shiftCode || "");
+      rows.get(key)?.cells.set(toDateKeyUTC(item.date), {
+        shiftCode: item.shiftCode || "",
+        plannedGuardiaId: item.plannedGuardiaId,
+        previousGuardiaId: item.previousGuardiaId,
+        previousGuardiaName: item.previousGuardia
+          ? formatPersonName(item.previousGuardia.persona.firstName, item.previousGuardia.persona.lastName)
+          : null,
+        unassignedReason: item.unassignedReason,
+        unassignedAt: item.unassignedAt,
+      });
     }
 
+    const monthStartKey = toDateKeyUTC(start);
+    const monthEndKey = toDateKeyUTC(end);
+    const todayKey = todayInChile();
+    const asignacionesBySlot = new Map<string, typeof asignaciones>();
     for (const a of asignaciones) {
       const key = `${a.puestoId}|${a.slotNumber}`;
-      const row = rows.get(key);
-      if (row) row.guardiaName = formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName);
+      const list = asignacionesBySlot.get(key) ?? [];
+      list.push(a);
+      asignacionesBySlot.set(key, list);
+    }
+    for (const [key, row] of rows) {
+      const list = (asignacionesBySlot.get(key) ?? []).map((a) => ({
+        guardiaId: a.guardia.id,
+        name: formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName),
+        startDate: a.startDate,
+        endDate: a.endDate,
+        terminatedAt: a.guardia.terminatedAt,
+      }));
+      const ghostCell = Array.from(row.cells.values()).find(
+        (c) => c.previousGuardiaId && !c.plannedGuardiaId,
+      );
+      const ghost = ghostCell?.previousGuardiaId
+        ? {
+            guardiaId: ghostCell.previousGuardiaId,
+            name: ghostCell.previousGuardiaName ?? "Guardia",
+            reason: ghostCell.unassignedReason,
+          }
+        : null;
+      row.guardiaName = slotHeaderExportLabel(
+        resolveSlotHeader({
+          asignaciones: list,
+          ghost,
+          monthStartKey,
+          monthEndKey,
+          todayKey,
+        }),
+      );
     }
 
     const matrix = Array.from(rows.values()).sort((a, b) => {
@@ -207,6 +312,11 @@ export async function GET(request: NextRequest) {
       if (code === "P") return "shift-p";
       if (code === "PCG") return "shift-pcg";
       if (code === "PSG") return "shift-psg";
+      if (code === "F") return "shift-f";
+      if (code === "CI" || code === "CP") return "shift-ci";
+      if (code === "DES") return "shift-des";
+      if (code === "PR") return "shift-pr";
+      if (code === "PPC") return "shift-ppc";
       return "shift-empty";
     };
 
@@ -230,7 +340,23 @@ export async function GET(request: NextRequest) {
         const dayCells = monthDays
           .map((d) => {
             const dateKey = toDateKeyUTC(d);
-            const code = row.cells.get(dateKey) || "·";
+            const cell = row.cells.get(dateKey);
+            const state = cell
+              ? resolvePautaCellState({
+                  dateKey,
+                  shiftCode: cell.shiftCode,
+                  plannedGuardiaId: cell.plannedGuardiaId,
+                  previousGuardiaId: cell.previousGuardiaId,
+                  previousGuardiaName: cell.previousGuardiaName,
+                  unassignedReason: cell.unassignedReason,
+                  unassignedAt: cell.unassignedAt,
+                  ghostAsignaciones: cell.previousGuardiaId
+                    ? (ghostAsigsByGuardia.get(cell.previousGuardiaId) ?? [])
+                    : [],
+                  currentInstallationId: installationId,
+                })
+              : null;
+            const code = state?.code || cell?.shiftCode || "·";
             const exec = executionMap[`${row.puestoId}|${row.slotNumber}|${dateKey}`]?.state;
             return `<td><div class="cell ${shiftClass(code)}"><span>${escapeHtml(code)}</span>${execBadge(exec)}</div></td>`;
           })
@@ -277,6 +403,11 @@ export async function GET(request: NextRequest) {
     .shift-p { background: #ffedd5; color: #9a3412; }
     .shift-pcg { background: #fef3c7; color: #92400e; }
     .shift-psg { background: #ffedd5; color: #9a3412; }
+    .shift-f { background: #fecaca; color: #991b1b; }
+    .shift-ci { background: #e0e7ff; color: #3730a3; }
+    .shift-des { background: #e5e7eb; color: #374151; }
+    .shift-pr { background: #dbeafe; color: #1e40af; }
+    .shift-ppc { background: #e4e4e7; color: #3f3f46; }
     .shift-empty { background: #ffffff; color: #94a3b8; }
     .badge { position: absolute; right: -1px; bottom: -1px; font-size: 7px; line-height: 1; padding: 1px 2px; border-radius: 3px; color: #fff; }
     .badge-asi { background: #16a34a; }
@@ -324,6 +455,9 @@ export async function GET(request: NextRequest) {
       <div class="legend-row"><span class="sw" style="background:#fef3c7"></span>L = Licencia</div>
       <div class="legend-row"><span class="sw" style="background:#fef3c7"></span>PCG = Permiso con goce</div>
       <div class="legend-row"><span class="sw" style="background:#ffedd5"></span>PSG = Permiso sin goce</div>
+      <div class="legend-row"><span class="sw" style="background:#fecaca"></span>F = Finiquito</div>
+      <div class="legend-row"><span class="sw" style="background:#e0e7ff"></span>CI/CP = Cambio de instalación/puesto</div>
+      <div class="legend-row"><span class="sw" style="background:#e5e7eb"></span>DES = Desasignado</div>
     </div>
     <div>
       <h4>Ejecución real (badge)</h4>

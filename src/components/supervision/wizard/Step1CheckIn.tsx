@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { todayInChile } from "@/lib/dates-cl";
 import type { NearbyInstallation, DotacionGuard, VisitData } from "./types";
 
 type Props = {
@@ -70,7 +71,7 @@ export function Step1CheckIn({ onCheckedIn, mode = "regular" }: Props) {
       setLoadingDotacion(true);
       try {
         const now = new Date();
-        const today = now.toISOString().slice(0, 10);
+        const today = todayInChile(now);
         const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
         const res = await fetch(
           `/api/ops/supervision/installation-dotacion/${selectedInstallationId}?date=${today}&time=${currentTime}`,

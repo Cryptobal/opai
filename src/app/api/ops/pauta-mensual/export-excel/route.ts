@@ -12,6 +12,14 @@ import {
 } from "@/lib/ops";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { formatPersonName } from "@/lib/personas";
+import { todayInChile } from "@/lib/dates-cl";
+import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia";
+import {
+  resolvePautaCellState,
+  resolveSlotHeader,
+  slotHeaderExportLabel,
+  type GhostAsignacion,
+} from "@/lib/ops/pauta-cell-state";
 
 const SHIFT_LABELS: Record<string, string> = {
   T: "T",
@@ -21,6 +29,12 @@ const SHIFT_LABELS: Record<string, string> = {
   P: "P",
   PCG: "PCG",
   PSG: "PSG",
+  F: "F",
+  CI: "CI",
+  CP: "CP",
+  DES: "DES",
+  PR: "PR",
+  PPC: "PPC",
 };
 
 const SHIFT_FILLS: Record<string, string> = {
@@ -31,6 +45,12 @@ const SHIFT_FILLS: Record<string, string> = {
   P: "FFEDD5",
   PCG: "FEF3C7",
   PSG: "FFEDD5",
+  F: "FECACA",
+  CI: "E0E7FF",
+  CP: "E0E7FF",
+  DES: "E5E7EB",
+  PR: "DBEAFE",
+  PPC: "D4D4D8",
 };
 
 const EXEC_BADGE: Record<ExecutionState, string> = {
@@ -94,6 +114,9 @@ export async function GET(request: NextRequest) {
               puestoTrabajo: { select: { name: true } },
             },
           },
+          previousGuardia: {
+            select: { persona: { select: { firstName: true, lastName: true } } },
+          },
         },
         orderBy: [{ puestoId: "asc" }, { slotNumber: "asc" }, { date: "asc" }],
       }),
@@ -101,13 +124,19 @@ export async function GET(request: NextRequest) {
         where: {
           tenantId: ctx.tenantId,
           installationId,
-          isActive: true,
+          ...solapaRangoWhere(start, end),
         },
         select: {
           puestoId: true,
           slotNumber: true,
+          startDate: true,
+          endDate: true,
           guardia: {
-            select: { persona: { select: { firstName: true, lastName: true } } },
+            select: {
+              id: true,
+              terminatedAt: true,
+              persona: { select: { firstName: true, lastName: true } },
+            },
           },
         },
       }),
@@ -143,6 +172,52 @@ export async function GET(request: NextRequest) {
     // Lógica canónica de ejecución compartida (ops.ts)
     const executionMap = buildExecutionMap(asistencia);
 
+    const ghostIds = [
+      ...new Set(
+        pauta
+          .filter((i) => !i.plannedGuardiaId && i.previousGuardiaId)
+          .map((i) => i.previousGuardiaId as string),
+      ),
+    ];
+    const ghostAsignaciones =
+      ghostIds.length > 0
+        ? await prisma.opsAsignacionGuardia.findMany({
+            where: {
+              tenantId: ctx.tenantId,
+              guardiaId: { in: ghostIds },
+              ...solapaRangoWhere(start, end),
+            },
+            select: {
+              guardiaId: true,
+              startDate: true,
+              endDate: true,
+              installationId: true,
+              installation: { select: { name: true } },
+              puesto: { select: { name: true } },
+            },
+          })
+        : [];
+    const ghostAsigsByGuardia = new Map<string, GhostAsignacion[]>();
+    for (const a of ghostAsignaciones) {
+      const list = ghostAsigsByGuardia.get(a.guardiaId) ?? [];
+      list.push({
+        startDate: a.startDate,
+        endDate: a.endDate,
+        installationId: a.installationId,
+        installationName: a.installation.name,
+        puestoName: a.puesto.name,
+      });
+      ghostAsigsByGuardia.set(a.guardiaId, list);
+    }
+
+    type CellInfo = {
+      shiftCode: string;
+      plannedGuardiaId: string | null;
+      previousGuardiaId: string | null;
+      previousGuardiaName: string | null;
+      unassignedReason: string | null;
+      unassignedAt: Date | null;
+    };
     const rows = new Map<
       string,
       {
@@ -152,7 +227,7 @@ export async function GET(request: NextRequest) {
         shiftEnd: string;
         slotNumber: number;
         guardiaName?: string;
-        cells: Map<string, string>;
+        cells: Map<string, CellInfo>;
       }
     >();
 
@@ -172,15 +247,55 @@ export async function GET(request: NextRequest) {
           cells: new Map(),
         });
       }
-      rows.get(key)?.cells.set(toDateKeyUTC(item.date), item.shiftCode || "");
+      rows.get(key)?.cells.set(toDateKeyUTC(item.date), {
+        shiftCode: item.shiftCode || "",
+        plannedGuardiaId: item.plannedGuardiaId,
+        previousGuardiaId: item.previousGuardiaId,
+        previousGuardiaName: item.previousGuardia
+          ? formatPersonName(item.previousGuardia.persona.firstName, item.previousGuardia.persona.lastName)
+          : null,
+        unassignedReason: item.unassignedReason,
+        unassignedAt: item.unassignedAt,
+      });
     }
 
+    const monthStartKey = toDateKeyUTC(start);
+    const monthEndKey = toDateKeyUTC(end);
+    const todayKey = todayInChile();
+    const asignacionesBySlot = new Map<string, typeof asignaciones>();
     for (const a of asignaciones) {
       const key = `${a.puestoId}|${a.slotNumber}`;
-      const row = rows.get(key);
-      if (row) {
-        row.guardiaName = formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName);
-      }
+      const list = asignacionesBySlot.get(key) ?? [];
+      list.push(a);
+      asignacionesBySlot.set(key, list);
+    }
+    for (const [key, row] of rows) {
+      const list = (asignacionesBySlot.get(key) ?? []).map((a) => ({
+        guardiaId: a.guardia.id,
+        name: formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName),
+        startDate: a.startDate,
+        endDate: a.endDate,
+        terminatedAt: a.guardia.terminatedAt,
+      }));
+      const ghostCell = Array.from(row.cells.values()).find(
+        (c) => c.previousGuardiaId && !c.plannedGuardiaId,
+      );
+      const ghost = ghostCell?.previousGuardiaId
+        ? {
+            guardiaId: ghostCell.previousGuardiaId,
+            name: ghostCell.previousGuardiaName ?? "Guardia",
+            reason: ghostCell.unassignedReason,
+          }
+        : null;
+      row.guardiaName = slotHeaderExportLabel(
+        resolveSlotHeader({
+          asignaciones: list,
+          ghost,
+          monthStartKey,
+          monthEndKey,
+          todayKey,
+        }),
+      );
     }
 
     const matrix = Array.from(rows.values()).sort((a, b) => {
@@ -225,7 +340,23 @@ export async function GET(request: NextRequest) {
       ];
       monthDays.forEach((d) => {
         const dateKey = toDateKeyUTC(d);
-        const shiftCode = row.cells.get(dateKey) || "";
+        const cell = row.cells.get(dateKey);
+        const state = cell
+          ? resolvePautaCellState({
+              dateKey,
+              shiftCode: cell.shiftCode,
+              plannedGuardiaId: cell.plannedGuardiaId,
+              previousGuardiaId: cell.previousGuardiaId,
+              previousGuardiaName: cell.previousGuardiaName,
+              unassignedReason: cell.unassignedReason,
+              unassignedAt: cell.unassignedAt,
+              ghostAsignaciones: cell.previousGuardiaId
+                ? (ghostAsigsByGuardia.get(cell.previousGuardiaId) ?? [])
+                : [],
+              currentInstallationId: installationId,
+            })
+          : null;
+        const shiftCode = state?.code || cell?.shiftCode || "";
         const execResult = executionMap[`${row.puestoId}|${row.slotNumber}|${dateKey}`];
         const exec = execResult?.state;
         const displayShift = SHIFT_LABELS[shiftCode] ?? shiftCode;
@@ -247,7 +378,23 @@ export async function GET(request: NextRequest) {
         const dayIndex = c - 5;
         const dateKey = toDateKeyUTC(monthDays[dayIndex]);
         const rowData = matrix[r - 5];
-        const shiftCode = rowData.cells.get(dateKey) || "";
+        const cell = rowData.cells.get(dateKey);
+        const state = cell
+          ? resolvePautaCellState({
+              dateKey,
+              shiftCode: cell.shiftCode,
+              plannedGuardiaId: cell.plannedGuardiaId,
+              previousGuardiaId: cell.previousGuardiaId,
+              previousGuardiaName: cell.previousGuardiaName,
+              unassignedReason: cell.unassignedReason,
+              unassignedAt: cell.unassignedAt,
+              ghostAsignaciones: cell.previousGuardiaId
+                ? (ghostAsigsByGuardia.get(cell.previousGuardiaId) ?? [])
+                : [],
+              currentInstallationId: installationId,
+            })
+          : null;
+        const shiftCode = state?.code || cell?.shiftCode || "";
         const fillColor = SHIFT_FILLS[shiftCode];
         if (fillColor) {
           sheet.getCell(r, c).fill = {

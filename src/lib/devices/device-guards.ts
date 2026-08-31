@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatPersonName } from "@/lib/personas";
 import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
 import { cleanRut, toSiiRut } from "@/lib/chile-rut";
+import { vigenteWhere } from "@/lib/ops/asignacion-vigencia";
 
 export type DeviceGuard = {
   id: string;
@@ -55,7 +56,7 @@ function sortGuards(guards: DeviceGuard[]): DeviceGuard[] {
 /**
  * Guardias que un dispositivo de instalación puede seleccionar.
  *
- * Fuentes (sin query): asignaciones activas, currentInstallationId,
+ * Fuentes (sin query): asignaciones vigentes en la fecha, currentInstallationId,
  * pauta y asistencia de hoy (TZ Chile), turnos extra aprobados.
  * Con `query` (≥2 chars): busca en el tenant por nombre o código.
  */
@@ -98,7 +99,7 @@ export async function listDeviceGuards(args: {
       where: {
         tenantId: args.tenantId,
         installationId: args.installationId,
-        isActive: true,
+        ...vigenteWhere(today),
         guardia: activeAtInstallation,
       },
       select: { guardia: { select: GUARD_SELECT } },

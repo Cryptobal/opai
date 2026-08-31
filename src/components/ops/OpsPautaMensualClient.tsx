@@ -43,6 +43,13 @@ import {
 } from "@/lib/ops/pauta-mensual-day-status";
 import { AsistenciaDiaSheet } from "@/components/ops/asistencia-diaria";
 import type { GuardiaOption } from "@/types/ops-asistencia";
+import { parseDateOnly } from "@/lib/ops";
+import { resolveVigente } from "@/lib/ops/asignacion-vigencia";
+import {
+  resolvePautaCellState,
+  resolveSlotHeader,
+  type SlotHeaderChip,
+} from "@/lib/ops/pauta-cell-state";
 
 /* ── constants ─────────────────────────────────── */
 
@@ -75,6 +82,12 @@ const SHIFT_COLORS: Record<string, string> = {
   PCG: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/20",
   PSG: "bg-tint-rose text-tint-rose-fg border-tint-rose-fg/20",
   TE:  "bg-tint-sky text-tint-sky-fg border-tint-sky-fg/20",
+  F:   "bg-status-danger-soft text-status-danger-fg border-status-danger-border border-dashed",
+  CI:  "bg-tint-indigo text-tint-indigo-fg border-tint-indigo-fg/20 border-dashed",
+  CP:  "bg-tint-indigo text-tint-indigo-fg border-tint-indigo-fg/20 border-dashed",
+  DES: "bg-muted text-muted-foreground border-border border-dashed",
+  PR:  "bg-status-info-soft text-status-info-fg border-status-info-border",
+  PPC: "border-dashed border-zinc-500/40 bg-zinc-500/10 text-zinc-400",
 };
 
 // Mapea el subtype del evento de ausencia a su código/etiqueta de turno, para
@@ -185,9 +198,14 @@ type PuestoInfo = {
 };
 
 type SlotAsignacion = {
+  id?: string;
   puestoId: string;
   slotNumber: number;
   guardiaId: string;
+  startDate?: string | Date;
+  endDate?: string | Date | null;
+  isActive?: boolean;
+  reason?: string | null;
   guardia: {
     id: string;
     code?: string | null;
@@ -195,6 +213,16 @@ type SlotAsignacion = {
     terminatedAt?: string | null;
     persona: { firstName: string; lastName: string; rut?: string | null };
   };
+};
+
+type GuardiaAsignacionDestino = {
+  installationId: string;
+  installationName: string;
+  puestoId: string;
+  puestoName: string;
+  slotNumber: number;
+  startDate: string | Date;
+  endDate: string | Date | null;
 };
 
 type ExecutionState = "asistio" | "te" | "sin_cobertura" | "ppc";
@@ -218,6 +246,38 @@ function toDateKey(date: Date | string): string {
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/** UTC-midnight desde ISO/`YYYY-MM-DD` o Date `@db.Date`. */
+function asUtcDate(value: string | Date | null | undefined): Date | null {
+  if (value == null) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const ymd = String(value).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  try {
+    return parseDateOnly(ymd);
+  } catch {
+    return null;
+  }
+}
+
+function headerChipClass(code: SlotHeaderChip["code"]): string {
+  switch (code) {
+    case "hasta":
+      return "bg-status-warn-soft text-status-warn-fg border-status-warn-border";
+    case "F":
+      return "bg-status-danger-soft text-status-danger-fg border-status-danger-border";
+    case "desde":
+      return "bg-status-info-soft text-status-info-fg border-status-info-border";
+    case "CI":
+      return "bg-tint-indigo text-tint-indigo-fg border-tint-indigo-fg/20";
+    case "DES":
+      return "bg-muted text-muted-foreground border-border";
+    default:
+      return "bg-ds-surface-2 text-ds-text-3 border-ds-border-subtle";
+  }
 }
 
 function daysInMonth(year: number, month: number): Date[] {
@@ -349,6 +409,9 @@ export function OpsPautaMensualClient({
   const [items, setItems] = useState<PautaItem[]>([]);
   const [series, setSeries] = useState<SerieInfo[]>([]);
   const [slotAsignaciones, setSlotAsignaciones] = useState<SlotAsignacion[]>([]);
+  const [guardiaAsignacionesByGuardia, setGuardiaAsignacionesByGuardia] = useState<
+    Record<string, GuardiaAsignacionDestino[]>
+  >({});
   const [executionByCell, setExecutionByCell] = useState<Record<string, ExecutionCell>>({});
   const [allPuestos, setAllPuestos] = useState<PuestoInfo[]>([]);
   const [holidayDates, setHolidayDates] = useState<Map<string, string>>(new Map());
@@ -565,6 +628,11 @@ export function OpsPautaMensualClient({
               setItems((d2.items as PautaItem[]) ?? []);
               setSeries((d2.series as SerieInfo[]) ?? []);
               if (d2.asignaciones) setSlotAsignaciones(d2.asignaciones as SlotAsignacion[]);
+              if (d2.guardiaAsignacionesByGuardia) {
+                setGuardiaAsignacionesByGuardia(d2.guardiaAsignacionesByGuardia as Record<string, GuardiaAsignacionDestino[]>);
+              } else {
+                setGuardiaAsignacionesByGuardia({});
+              }
               setExecutionByCell((d2.executionByCell || {}) as Record<string, ExecutionCell>);
               if (d2.allPuestos) setAllPuestos(d2.allPuestos as PuestoInfo[]);
               if (d2.absencesByGuardia) setAbsencesByGuardia(d2.absencesByGuardia as Record<string, AbsenceInfo[]>);
@@ -590,12 +658,18 @@ export function OpsPautaMensualClient({
         setItems([]);
         setSeries([]);
         setSlotAsignaciones([]);
+        setGuardiaAsignacionesByGuardia({});
         setExecutionByCell({});
       } else {
         setItems(fetchedItems);
         setSeries(data.series as SerieInfo[]);
         if (data.asignaciones) {
           setSlotAsignaciones(data.asignaciones as SlotAsignacion[]);
+        }
+        if (data.guardiaAsignacionesByGuardia) {
+          setGuardiaAsignacionesByGuardia(data.guardiaAsignacionesByGuardia as Record<string, GuardiaAsignacionDestino[]>);
+        } else {
+          setGuardiaAsignacionesByGuardia({});
         }
         setExecutionByCell((data.executionByCell || {}) as Record<string, ExecutionCell>);
         if (data.absencesByGuardia) setAbsencesByGuardia(data.absencesByGuardia as Record<string, AbsenceInfo[]>);
@@ -691,6 +765,8 @@ export function OpsPautaMensualClient({
     cells: Map<string, CellData>;
     guardiaId?: string;
     guardiaName?: string;
+    headerChips?: SlotHeaderChip[];
+    headerTone?: "default" | "warn" | "danger" | "info" | "muted";
     isGuardiaFiniquitado?: boolean;
     finiquitadoGuardiaInfo?: { name: string; rut?: string | null };
     patternCode?: string;
@@ -745,40 +821,82 @@ export function OpsPautaMensualClient({
       }
     }
 
-    // Enrich with serie info (pattern code + rotativo)
+    // Enrich with serie info (pattern code + rotativo).
+    // El API ordena isActive desc, startDate desc: la primera por slot gana.
+    const serieApplied = new Set<RowKey>();
     for (const s of series) {
       const key: RowKey = `${s.puestoId}|${s.slotNumber}`;
+      if (serieApplied.has(key)) continue;
       const row = rows.get(key);
-      if (row) {
-        row.patternCode = s.patternCode;
-        row.patternWork = s.patternWork;
-        row.patternOff = s.patternOff;
-        row.startDate = s.startDate ? toDateKey(s.startDate) : undefined;
-        row.startPosition = s.startPosition;
-        row.isRotativo = s.isRotativo ?? false;
-        row.rotatePuestoId = s.rotatePuestoId ?? null;
-        row.rotateSlotNumber = s.rotateSlotNumber ?? null;
-        row.startShift =
-          s.startShift === "day" || s.startShift === "night" ? s.startShift : null;
-      }
+      if (!row) continue;
+      serieApplied.add(key);
+      row.patternCode = s.patternCode;
+      row.patternWork = s.patternWork;
+      row.patternOff = s.patternOff;
+      row.startDate = s.startDate ? toDateKey(s.startDate) : undefined;
+      row.startPosition = s.startPosition;
+      row.isRotativo = s.isRotativo ?? false;
+      row.rotatePuestoId = s.rotatePuestoId ?? null;
+      row.rotateSlotNumber = s.rotateSlotNumber ?? null;
+      row.startShift =
+        s.startShift === "day" || s.startShift === "night" ? s.startShift : null;
     }
 
-    // Guard name comes from active assignments (source of truth)
-    // Mark finiquitado guards so UI can show (F) badge
+    // Nombre y chips por vigencia del mes (hoy si cae dentro; si no, último día).
+    const monthDays = daysInMonth(year, month);
+    const monthStartKey = monthDays.length ? toDateKey(monthDays[0]) : "";
+    const monthEndKey = monthDays.length ? toDateKey(monthDays[monthDays.length - 1]) : "";
+    const todayKey = todayInChile();
+    const asignacionesBySlot = new Map<string, SlotAsignacion[]>();
     for (const a of slotAsignaciones) {
       const key: RowKey = `${a.puestoId}|${a.slotNumber}`;
-      const row = rows.get(key);
-      if (row && a.guardia) {
-        const isFiniquitado = a.guardia.lifecycleStatus === "inactivo" && a.guardia.terminatedAt != null;
-        row.guardiaId = a.guardiaId;
-        row.guardiaName = formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName);
-        row.isGuardiaFiniquitado = isFiniquitado;
-        if (isFiniquitado) {
-          row.finiquitadoGuardiaInfo = {
-            name: formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName),
-            rut: a.guardia.persona.rut ?? undefined,
-          };
+      const list = asignacionesBySlot.get(key) ?? [];
+      list.push(a);
+      asignacionesBySlot.set(key, list);
+    }
+    for (const [key, row] of rows) {
+      const list = (asignacionesBySlot.get(key) ?? []).map((a) => ({
+        guardiaId: a.guardiaId,
+        name: a.guardia
+          ? formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName)
+          : "Guardia",
+        startDate: asUtcDate(a.startDate) ?? parseDateOnly("1970-01-01"),
+        endDate: asUtcDate(a.endDate ?? null),
+        terminatedAt: a.guardia?.terminatedAt ?? null,
+      }));
+      const ghostCell = Array.from(row.cells.values()).find(
+        (c) => c.item.previousGuardia && !c.item.plannedGuardiaId,
+      );
+      const ghost = ghostCell?.item.previousGuardia
+        ? {
+            guardiaId: ghostCell.item.previousGuardia.id,
+            name: formatPersonName(
+              ghostCell.item.previousGuardia.persona.firstName,
+              ghostCell.item.previousGuardia.persona.lastName,
+            ),
+            reason: ghostCell.item.unassignedReason ?? null,
+          }
+        : null;
+      const header = resolveSlotHeader({
+        asignaciones: list,
+        ghost,
+        monthStartKey,
+        monthEndKey,
+        todayKey,
+      });
+      if (header) {
+        row.guardiaId = header.guardiaId ?? undefined;
+        row.guardiaName = header.name;
+        row.headerChips = header.chips;
+        row.headerTone = header.tone;
+        row.isGuardiaFiniquitado = header.tone === "danger";
+        if (header.tone === "danger") {
+          row.finiquitadoGuardiaInfo = { name: header.name };
         }
+      } else if (ghost) {
+        row.guardiaId = ghost.guardiaId;
+        row.guardiaName = ghost.name;
+        row.headerTone = "muted";
       }
     }
 
@@ -787,15 +905,23 @@ export function OpsPautaMensualClient({
       if (a.puestoName !== b.puestoName) return a.puestoName.localeCompare(b.puestoName);
       return a.slotNumber - b.slotNumber;
     });
-  }, [items, series, slotAsignaciones, executionByCell, allPuestos]);
+  }, [items, series, slotAsignaciones, executionByCell, allPuestos, year, month]);
 
-  const guardiaBySlotKey = useMemo(() => {
-    const bySlot = new Map<string, string>();
-    for (const asignacion of slotAsignaciones) {
-      bySlot.set(`${asignacion.puestoId}|${asignacion.slotNumber}`, asignacion.guardiaId);
-    }
-    return bySlot;
-  }, [slotAsignaciones]);
+  const guardiaForSlotOn = useCallback(
+    (puestoId: string, slotNumber: number, dateKey: string): string | undefined => {
+      const list = slotAsignaciones
+        .filter((a) => a.puestoId === puestoId && a.slotNumber === slotNumber)
+        .map((a) => ({
+          ...a,
+          startDate: asUtcDate(a.startDate) ?? parseDateOnly("1970-01-01"),
+          endDate: asUtcDate(a.endDate ?? null),
+        }));
+      const date = asUtcDate(dateKey);
+      if (!date) return undefined;
+      return resolveVigente(list, date)?.guardiaId ?? undefined;
+    },
+    [slotAsignaciones],
+  );
 
   /**
    * Devuelve la ausencia aprobada (código/etiqueta) que cubre `dateKey` para un
@@ -2176,26 +2302,41 @@ export function OpsPautaMensualClient({
                                           {row.guardiaId ? (
                                             <Link
                                               href={`/personas/guardias/${row.guardiaId}`}
-                                              className={`font-medium truncate max-w-[60px] sm:max-w-[120px] hover:text-primary hover:underline underline-offset-2 transition-colors ${row.isGuardiaFiniquitado ? "text-status-danger-fg line-through decoration-red-500/40" : "text-foreground"}`}
+                                              className={`font-medium truncate max-w-[60px] sm:max-w-[120px] hover:text-primary hover:underline underline-offset-2 transition-colors ${
+                                                row.headerTone === "muted"
+                                                  ? "text-ds-text-3"
+                                                  : row.headerTone === "danger"
+                                                    ? "text-status-danger-fg"
+                                                    : "text-foreground"
+                                              }`}
+                                              title={row.guardiaName}
                                             >
                                               {row.guardiaName}
                                             </Link>
                                           ) : (
-                                            <span className={`font-medium truncate max-w-[60px] sm:max-w-[120px] ${row.isGuardiaFiniquitado ? "text-status-danger-fg line-through decoration-red-500/40" : "text-foreground"}`}>
+                                            <span
+                                              className={`font-medium truncate max-w-[60px] sm:max-w-[120px] ${
+                                                row.headerTone === "muted" ? "text-ds-text-3" : "text-foreground"
+                                              }`}
+                                            >
                                               {row.guardiaName}
                                             </span>
                                           )}
-                                          {row.isGuardiaFiniquitado && (
-                                            <span className="relative group/f shrink-0">
-                                              <span className="rounded px-1 py-px text-[8px] font-bold bg-status-danger-soft text-status-danger-fg border border-status-danger-border cursor-help">
-                                                F
+                                          {(row.headerChips ?? []).map((chip) => {
+                                            const primary = (row.headerChips ?? []).find(
+                                              (c) => c.code === "F" || c.code === "hasta" || c.code === "desde",
+                                            );
+                                            const hideOnMobile = chip.code !== "more" && chip !== primary;
+                                            return (
+                                              <span
+                                                key={`${chip.code}-${chip.label}`}
+                                                title={chip.tooltip}
+                                                className={`shrink-0 rounded px-1 py-px text-[10px] font-semibold border ${headerChipClass(chip.code)} ${hideOnMobile ? "hidden sm:inline" : ""}`}
+                                              >
+                                                {chip.label}
                                               </span>
-                                              <span className="absolute hidden group-hover/f:block bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded-md border border-status-danger-border bg-zinc-900 px-2 py-1 text-[10px] text-status-danger-fg shadow-lg z-50 pointer-events-none">
-                                                Finiquitado: {row.finiquitadoGuardiaInfo?.name ?? row.guardiaName}
-                                                {row.finiquitadoGuardiaInfo?.rut ? ` (${row.finiquitadoGuardiaInfo.rut})` : ""}
-                                              </span>
-                                            </span>
-                                          )}
+                                            );
+                                          })}
                                         </>
                                       ) : (
                                         <span className="text-status-warn-fg/60 italic text-[10px]">sin asignar</span>
@@ -2251,12 +2392,10 @@ export function OpsPautaMensualClient({
                                       : (cell?.shiftCode ?? "");
                                     const isEmpty = !hasCell || !code;
                                     const isTrabajo = isRotativoRow ? (code === "Td" || code === "Tn") : code === "T";
-                                    // Overlay de ausencia en días libres: si la celda es descanso ("-")
-                                    // pero el guardia tiene una ausencia aprobada que cubre ese día,
-                                    // mostramos el código (L/V/PCG/PSG) con estilo de "libre con licencia".
-                                    const restAbsenceOverlay = (code === "-" && !cell?.replacementGuardiaId)
-                                      ? getAbsenceOverlay(cell?.plannedGuardiaId ?? guardiaBySlotKey.get(`${row.puestoId}|${row.slotNumber}`), dateKey)
-                                      : null;
+                                    const absenceOverlay = getAbsenceOverlay(
+                                      cell?.plannedGuardiaId ?? guardiaForSlotOn(row.puestoId, row.slotNumber, dateKey),
+                                      dateKey,
+                                    );
                                     const trabajoClass = isRotativoRow
                                       ? (code === "Tn"
                                         ? "bg-status-info-soft text-status-info-fg border-status-info-border"
@@ -2264,9 +2403,56 @@ export function OpsPautaMensualClient({
                                       : (group.shiftType === "night"
                                         ? "bg-status-info-soft text-status-info-fg border-status-info-border"
                                         : "bg-status-warn-soft text-status-warn-fg border-status-warn-border");
-                                    const colorClass = restAbsenceOverlay
-                                      ? `${SHIFT_COLORS[restAbsenceOverlay.code] ?? SHIFT_COLORS["-"]} border-dashed opacity-80`
-                                      : isTrabajo ? trabajoClass : (SHIFT_COLORS[code] ?? SHIFT_COLORS["-"] ?? "");
+                                    const previousGuardiaName = cell?.previousGuardia
+                                      ? formatPersonName(cell.previousGuardia.persona.firstName, cell.previousGuardia.persona.lastName)
+                                      : null;
+                                    const ghostAsigs = (cell?.previousGuardiaId
+                                      ? (guardiaAsignacionesByGuardia[cell.previousGuardiaId] ?? [])
+                                      : []
+                                    ).map((a) => ({
+                                      startDate: asUtcDate(a.startDate) ?? parseDateOnly("1970-01-01"),
+                                      endDate: asUtcDate(a.endDate),
+                                      installationId: a.installationId,
+                                      installationName: a.installationName,
+                                      puestoName: a.puestoName,
+                                    }));
+                                    const cellState = resolvePautaCellState({
+                                      dateKey,
+                                      shiftCode: code || cell?.shiftCode,
+                                      plannedGuardiaId: cell?.plannedGuardiaId,
+                                      plannedGuardia: cell?.plannedGuardia,
+                                      replacementGuardiaId: cell?.replacementGuardiaId,
+                                      previousGuardiaId: cell?.previousGuardiaId,
+                                      previousGuardiaName,
+                                      unassignedReason: cell?.unassignedReason,
+                                      unassignedAt: cell?.unassignedAt,
+                                      absenceCode: absenceOverlay?.code ?? null,
+                                      ghostAsignaciones: ghostAsigs,
+                                      currentInstallationId: installationId,
+                                      isRotativoRow,
+                                    });
+                                    const colorClass = (() => {
+                                      if (cellState.kind === "replacement") return SHIFT_COLORS.PR;
+                                      if (cellState.kind === "absence_rest") {
+                                        return `${SHIFT_COLORS[cellState.code] ?? SHIFT_COLORS["-"]} border-dashed opacity-80`;
+                                      }
+                                      if (cellState.kind === "absence_work") {
+                                        return SHIFT_COLORS[cellState.code] ?? SHIFT_COLORS.L;
+                                      }
+                                      if (cellState.kind === "ppc") return SHIFT_COLORS.PPC;
+                                      if (cellState.kind === "empty") {
+                                        return "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50";
+                                      }
+                                      if (cellState.kind === "ghost_finiquito") return SHIFT_COLORS.F;
+                                      if (cellState.kind === "ghost_traslado_instalacion" || cellState.kind === "ghost_traslado_puesto") {
+                                        return SHIFT_COLORS.CI;
+                                      }
+                                      if (cellState.kind === "ghost_desasignado") return SHIFT_COLORS.DES;
+                                      if ((cellState.kind === "work" || cellState.kind === "finiquito_pre") && isTrabajo) {
+                                        return trabajoClass;
+                                      }
+                                      return SHIFT_COLORS[cellState.styleKey] ?? SHIFT_COLORS["-"] ?? "";
+                                    })();
                                     const executionBadge =
                                       execution?.state === "te"
                                         ? "TE"
@@ -2290,43 +2476,26 @@ export function OpsPautaMensualClient({
 
                                     const clickPuestoId = row.puestoId;
                                     const clickSlotNumber = row.slotNumber;
-                                    const clickGuardiaId = guardiaBySlotKey.get(`${clickPuestoId}|${clickSlotNumber}`);
-                                    const displayCode = restAbsenceOverlay
-                                      ? restAbsenceOverlay.code
-                                      : isRotativoRow
-                                        ? (code || "·")
-                                        : (isTrabajo ? "T" : (code || "·"));
-                                    const displayBadge = isRotativoRow ? null : (isTrabajo ? (group.shiftType === "night" ? "N" : "D") : null);
-
-                                    const isGuardiaFiniquitado = cell?.plannedGuardia?.lifecycleStatus === "inactivo"
-                                      && cell?.plannedGuardia?.terminatedAt != null;
-
-                                    // Detect if this cell date is AFTER the finiquito date → should be PPC, not F
-                                    const isPostFiniquito = isGuardiaFiniquitado && (() => {
-                                      const terminatedAt = cell?.plannedGuardia?.terminatedAt;
-                                      if (!terminatedAt) return false;
-                                      const terminated = typeof terminatedAt === "string" ? terminatedAt.slice(0, 10) : "";
-                                      return dateKey > terminated;
-                                    })();
-
-                                    // A work cell with no planned guard, or a post-finiquito cell, is PPC
-                                    // Allow PPC display when execution state is also "ppc" (from pauta diaria)
-                                    // Make sure not to mark as PPC if a replacement is already assigned
-                                    const isUnassignedWork = isTrabajo && !cell?.plannedGuardiaId && !cell?.plannedGuardia && !cell?.replacementGuardiaId;
-                                    const showAsPpc = (isUnassignedWork || isPostFiniquito) && (!execution || execution.state === "ppc");
-
-                                    // Ghost: cell has previous guardia preserved (was planned but desasignado/finiquitado)
-                                    const previousGhost = cell?.previousGuardia && !cell?.plannedGuardiaId && !cell?.replacementGuardiaId
-                                      ? cell.previousGuardia
-                                      : null;
-                                    const previousGhostName = previousGhost
-                                      ? formatPersonName(previousGhost.persona.firstName, previousGhost.persona.lastName)
-                                      : null;
-                                    const previousGhostTooltip = previousGhost && cell?.unassignedAt
-                                      ? `Desasignado el ${String(cell.unassignedAt).slice(0, 10)}${cell?.unassignedReason ? ` (${cell.unassignedReason})` : ""} — ${previousGhostName}`
-                                      : previousGhost
-                                        ? `Desasignado — ${previousGhostName}`
+                                    const clickGuardiaId = guardiaForSlotOn(clickPuestoId, clickSlotNumber, dateKey);
+                                    const isGhostOrAbsence =
+                                      cellState.kind.startsWith("ghost_") ||
+                                      cellState.kind === "absence_work" ||
+                                      cellState.kind === "absence_rest";
+                                    const displayCode = isRotativoRow && (cellState.kind === "work" || cellState.kind === "finiquito_pre")
+                                      ? (code || "·")
+                                      : (cellState.code || "·");
+                                    const displayBadge = isRotativoRow || isGhostOrAbsence
+                                      ? null
+                                      : (cellState.kind === "work" || cellState.kind === "finiquito_pre") && isTrabajo
+                                        ? (group.shiftType === "night" ? "N" : "D")
                                         : null;
+
+                                    const cellTitle = cellState.tooltip
+                                      || (cell?.replacementGuardia
+                                        ? `Reemplazo: ${formatPersonName(cell.replacementGuardia.persona.firstName, cell.replacementGuardia.persona.lastName)}`
+                                        : cell?.plannedGuardia
+                                          ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
+                                          : "Sin asignar");
 
                                     return (
                                       <td
@@ -2335,27 +2504,12 @@ export function OpsPautaMensualClient({
                                       >
                                         {hasCell ? (
                                           <div
-                                            className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-8 sm:h-7 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer select-none touch-manipulation transition-colors active:scale-95 ${showAsPpc
-                                              ? "border-dashed border-zinc-500/40 bg-zinc-500/10 text-zinc-400"
-                                              : isEmpty
+                                            className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-8 sm:h-7 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer select-none touch-manipulation transition-colors active:scale-95 ${
+                                              isEmpty && cellState.kind === "empty"
                                                 ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
-                                                : cell?.replacementGuardiaId
-                                                  ? "bg-status-info-soft text-status-info-fg border-status-info-border"
-                                                  : colorClass
-                                              }`}
-                                            title={
-                                              previousGhostTooltip
-                                                ? previousGhostTooltip
-                                                : restAbsenceOverlay
-                                                  ? `Día libre — ${restAbsenceOverlay.label}`
-                                                  : showAsPpc
-                                                  ? "Puesto por cubrir (PPC)"
-                                                  : cell?.replacementGuardia
-                                                    ? `Reemplazo: ${formatPersonName(cell.replacementGuardia.persona.firstName, cell.replacementGuardia.persona.lastName)}`
-                                                    : cell?.plannedGuardia
-                                                      ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
-                                                      : "Sin asignar"
-                                            }
+                                                : colorClass
+                                            }`}
+                                            title={cellTitle}
                                             onPointerDown={(e) => {
                                               // Mouse: clic derecho vía onContextMenu. Touch/pen: long-press.
                                               if (e.pointerType === "mouse") return;
@@ -2416,8 +2570,8 @@ export function OpsPautaMensualClient({
                                               });
                                             }}
                                           >
-                                            {showAsPpc ? "PPC" : cell?.replacementGuardiaId ? "PR" : displayCode}
-                                            {!showAsPpc && displayBadge ? (
+                                            {displayCode}
+                                            {displayBadge ? (
                                               <span
                                                 className={`absolute -top-1.5 -right-1.5 rounded px-0.5 py-[1px] text-[9px] leading-none font-semibold ${displayBadge === "N"
                                                   ? "bg-status-info text-white"
@@ -2443,31 +2597,19 @@ export function OpsPautaMensualClient({
                                                 {executionBadge}
                                               </span>
                                             ) : null}
-                                            {isGuardiaFiniquitado && !executionBadge && !showAsPpc ? (
+                                            {cellState.kind === "finiquito_pre" && !executionBadge ? (
                                               <span className="absolute -bottom-1 -right-1 group/fc">
                                                 <span className="rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm bg-status-danger text-white cursor-help">
                                                   F
                                                 </span>
-                                                <span className="absolute hidden group-hover/fc:block bottom-full right-0 mb-1 whitespace-nowrap rounded-md border border-status-danger-border bg-zinc-900 px-2 py-1 text-[10px] text-status-danger-fg shadow-lg z-50 pointer-events-none">
-                                                  Finiquitado: {cell?.plannedGuardia ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName) : ""}
-                                                  {cell?.plannedGuardia?.persona?.rut ? ` (${cell.plannedGuardia.persona.rut})` : ""}
-                                                </span>
                                               </span>
                                             ) : null}
-                                            {showAsPpc && !executionBadge ? (
+                                            {cellState.isPpc && !executionBadge && cellState.code !== "PPC" ? (
                                               <span
                                                 className="absolute -bottom-1 -right-1 rounded px-1 py-px text-[10px] leading-none font-bold shadow-sm bg-zinc-600 text-zinc-100"
                                                 title="Puesto por cubrir"
                                               >
                                                 PPC
-                                              </span>
-                                            ) : null}
-                                            {previousGhost ? (
-                                              <span
-                                                className="absolute -top-1.5 -left-1.5 rounded-full px-[3px] py-[1px] text-[8px] leading-none font-bold shadow-sm bg-muted text-muted-foreground/80 border border-border/60"
-                                                title={previousGhostTooltip ?? undefined}
-                                              >
-                                                ↩
                                               </span>
                                             ) : null}
                                           </div>
@@ -2571,6 +2713,12 @@ export function OpsPautaMensualClient({
                       { code: "L", label: "Licencia", cls: "bg-tint-amber border-tint-amber-fg/20" },
                       { code: "PCG", label: "Permiso con goce", cls: "bg-tint-violet border-tint-violet-fg/20" },
                       { code: "PSG", label: "Permiso sin goce", cls: "bg-tint-rose border-tint-rose-fg/20" },
+                      { code: "PR", label: "Reemplazo", cls: "bg-status-info-soft border-status-info-border" },
+                      { code: "F", label: "Finiquito", cls: "bg-status-danger-soft border-status-danger-border" },
+                      { code: "CI", label: "Cambio de instalación", cls: "bg-tint-indigo border-tint-indigo-fg/20" },
+                      { code: "CP", label: "Cambio de puesto", cls: "bg-tint-indigo border-tint-indigo-fg/20" },
+                      { code: "DES", label: "Desasignado", cls: "bg-muted border-border" },
+                      { code: "PPC", label: "Puesto por cubrir", cls: "bg-zinc-500/10 border-zinc-500/40" },
                     ].map((l) => (
                       <span key={l.code} className="flex items-center gap-1">
                         <span className={`inline-block w-4 h-3 rounded border ${l.cls}`} />

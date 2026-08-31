@@ -27,6 +27,7 @@ import {
   ejecutarConDedup,
   resolverTrazabilidadMarca,
 } from "@/lib/marcacion-jornada";
+import { addDays, hoyChileDate, vigenteWhere } from "@/lib/ops/asignacion-vigencia";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -269,17 +270,31 @@ export async function POST(req: NextRequest) {
       fotoEvidenciaUrl = await uploadMarcacionPhoto(fotoBase64, guardia.id, tipo, installation.tenantId);
     }
 
-    // Buscar asignación activa del guardia en esta instalación para obtener puesto/slot
-    const asignacion = await prisma.opsAsignacionGuardia.findFirst({
+    // Asignación vigente hoy en esta instalación (fallback ayer para salida nocturna).
+    const hoy = hoyChileDate();
+    const ayer = addDays(hoy, -1);
+    let asignacion = await prisma.opsAsignacionGuardia.findFirst({
       where: {
         guardiaId: guardia.id,
         installationId: installation.id,
-        isActive: true,
+        ...vigenteWhere(hoy),
       },
       include: {
         puesto: { select: { shiftStart: true } },
       },
     });
+    if (!asignacion && tipo === "salida") {
+      asignacion = await prisma.opsAsignacionGuardia.findFirst({
+        where: {
+          guardiaId: guardia.id,
+          installationId: installation.id,
+          ...vigenteWhere(ayer),
+        },
+        include: {
+          puesto: { select: { shiftStart: true } },
+        },
+      });
+    }
 
     // Calcular atraso (minutos) cuando es entrada — shiftStart interpretado como hora Chile
     const atrasoMinutos =

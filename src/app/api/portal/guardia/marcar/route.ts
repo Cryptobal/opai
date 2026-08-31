@@ -30,6 +30,7 @@ import {
   ejecutarConDedup,
   resolverTrazabilidadMarca,
 } from "@/lib/marcacion-jornada";
+import { addDays, hoyChileDate, resolveVigente } from "@/lib/ops/asignacion-vigencia";
 import { z } from "zod";
 
 // ── GET: Check next tipo (entrada/salida) ──
@@ -153,11 +154,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Find guard's current active assignment to get installation
-    const asignacion = await prisma.opsAsignacionGuardia.findFirst({
+    // Asignación vigente hoy (o ayer si la salida cierra un turno nocturno).
+    const hoy = hoyChileDate();
+    const ayer = addDays(hoy, -1);
+    const asignaciones = await prisma.opsAsignacionGuardia.findMany({
       where: {
+        tenantId,
         guardiaId: guardia.id,
-        isActive: true,
+        startDate: { lte: hoy },
+        OR: [{ endDate: null }, { endDate: { gte: ayer } }],
       },
       include: {
         installation: {
@@ -173,6 +178,20 @@ export async function POST(req: NextRequest) {
         puesto: { select: { shiftStart: true, shiftEnd: true } },
       },
     });
+
+    const hoyVigente = resolveVigente(asignaciones, hoy);
+    const ayerVigente = resolveVigente(asignaciones, ayer);
+    let asignacion = hoyVigente;
+    if (tipo === "salida" && ayerVigente) {
+      const proximoAyer = await resolverProximoTipo(prisma, {
+        guardiaId: guardia.id,
+        tenantId,
+        installationId: ayerVigente.installationId,
+      });
+      if (proximoAyer === "salida") {
+        asignacion = ayerVigente;
+      }
+    }
 
     if (!asignacion?.installation) {
       return NextResponse.json(

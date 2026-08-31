@@ -7,6 +7,13 @@ import { prisma } from "@/lib/prisma";
 import { createOpsAuditLog, parseDateOnly, toISODate } from "@/lib/ops";
 import type { AuthContext } from "@/lib/api-auth";
 import { normalizeNullable } from "@/lib/personas";
+import {
+  addDays,
+  hoyChileDate,
+  notEndedWhere,
+  resolveVigente,
+  vigenteWhere,
+} from "@/lib/ops/asignacion-vigencia";
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -147,10 +154,20 @@ export async function executeAsignar(
     ? parseDateOnly(body.startDate)
     : parseDateOnly(toISODate(new Date()));
 
-  // End date for previous assignment: use endDatePrevious if provided, else startDate
+  // Último día vigente en la asignación anterior (inclusivo). Default = startDate − 1.
   const endDateForPrevious = body.endDatePrevious
     ? parseDateOnly(body.endDatePrevious)
-    : startDate;
+    : addDays(startDate, -1);
+
+  if (endDateForPrevious.getTime() >= startDate.getTime()) {
+    return {
+      success: false,
+      error: "El último día en la instalación anterior debe ser anterior a la fecha de inicio de la nueva asignación",
+      status: 400,
+    };
+  }
+
+  const hoy = hoyChileDate();
 
   // 0. Validate startDate does not overlap with previous assignment on same slot
   const previousSlotAssignment = await prisma.opsAsignacionGuardia.findFirst({
@@ -224,7 +241,7 @@ export async function executeAsignar(
       existingGuardiaAssignment.puestoId,
       existingGuardiaAssignment.slotNumber,
       body.guardiaId,
-      endDateForPrevious,
+      addDays(endDateForPrevious, 1),
       "reasignacion"
     );
 
@@ -251,11 +268,12 @@ export async function executeAsignar(
 
   if (existingSlotAssignment) {
     slotHadPreviousOccupant = true;
+    const displacedEnd = addDays(startDate, -1);
     await prisma.opsAsignacionGuardia.update({
       where: { id: existingSlotAssignment.id },
       data: {
         isActive: false,
-        endDate: startDate,
+        endDate: displacedEnd,
         reason: "Reemplazado por otro guardia",
       },
     });
@@ -364,6 +382,23 @@ export async function executeAsignar(
     });
   }
 
+  // Fantasmas del tramo que este guardia ocupa: el puesto ya no está vacante.
+  await prisma.opsPautaMensual.updateMany({
+    where: {
+      tenantId: ctx.tenantId,
+      puestoId: body.puestoId,
+      slotNumber: body.slotNumber,
+      date: { gte: startDate },
+      plannedGuardiaId: null,
+      previousGuardiaId: { not: null },
+    },
+    data: {
+      previousGuardiaId: null,
+      unassignedAt: null,
+      unassignedReason: null,
+    },
+  });
+
   // Also update the serie to reference the new guard (if any active)
   await prisma.opsSerieAsignacion.updateMany({
     where: {
@@ -392,25 +427,29 @@ export async function executeAsignar(
     },
   });
 
-  // 5. Auto-sync currentInstallationId on guard profile
-  await prisma.opsGuardia.update({
-    where: { id: body.guardiaId },
-    data: { currentInstallationId: puesto.installationId },
-  });
-  void import("@/lib/docs/sync-instalacion-refs").then(({ syncGuardiaInstallationRefs }) =>
-    syncGuardiaInstallationRefs(ctx.tenantId, body.guardiaId, puesto.installationId)
-  );
+  // 5. currentInstallationId: solo si la nueva asignación ya está vigente hoy.
+  if (startDate.getTime() <= hoy.getTime()) {
+    await prisma.opsGuardia.update({
+      where: { id: body.guardiaId },
+      data: { currentInstallationId: puesto.installationId },
+    });
+    void import("@/lib/docs/sync-instalacion-refs").then(({ syncGuardiaInstallationRefs }) =>
+      syncGuardiaInstallationRefs(ctx.tenantId, body.guardiaId, puesto.installationId)
+    );
+  }
 
-  // If the displaced guard has no other active assignments, clear their currentInstallationId
+  // Guardia desplazado: limpiar instalación actual solo si su último día ya pasó
+  // y no tiene otra asignación vigente hoy.
   if (existingSlotAssignment && existingSlotAssignment.guardiaId !== body.guardiaId) {
-    const otherActive = await prisma.opsAsignacionGuardia.findFirst({
+    const displacedEnd = addDays(startDate, -1);
+    const otherVigente = await prisma.opsAsignacionGuardia.findFirst({
       where: {
         guardiaId: existingSlotAssignment.guardiaId,
         tenantId: ctx.tenantId,
-        isActive: true,
+        ...vigenteWhere(hoy),
       },
     });
-    if (!otherActive) {
+    if (!otherVigente && displacedEnd.getTime() < hoy.getTime()) {
       await prisma.opsGuardia.update({
         where: { id: existingSlotAssignment.guardiaId },
         data: { currentInstallationId: null },
@@ -501,23 +540,28 @@ export async function executeDesasignar(
     asignacion.puestoId,
     asignacion.slotNumber,
     asignacion.guardiaId,
-    endDate,
+    addDays(endDate, 1),
     body.reason || "desasignacion_manual"
   );
 
-  // Auto-sync: if guard has no other active assignments, clear currentInstallationId
-  const otherActive = await prisma.opsAsignacionGuardia.findFirst({
-    where: {
-      guardiaId: asignacion.guardiaId,
-      tenantId: ctx.tenantId,
-      isActive: true,
-    },
-  });
-  if (!otherActive) {
-    await prisma.opsGuardia.update({
-      where: { id: asignacion.guardiaId },
-      data: { currentInstallationId: null },
+  const hoy = hoyChileDate();
+  if (endDate.getTime() < hoy.getTime()) {
+    const otherVigente = await prisma.opsAsignacionGuardia.findFirst({
+      where: {
+        guardiaId: asignacion.guardiaId,
+        tenantId: ctx.tenantId,
+        ...vigenteWhere(hoy),
+      },
     });
+    if (!otherVigente) {
+      await prisma.opsGuardia.update({
+        where: { id: asignacion.guardiaId },
+        data: { currentInstallationId: null },
+      });
+      void import("@/lib/docs/sync-instalacion-refs").then(({ syncGuardiaInstallationRefs }) =>
+        syncGuardiaInstallationRefs(ctx.tenantId, asignacion.guardiaId, null)
+      );
+    }
   }
 
   await createOpsAuditLog(ctx, "ops.asignacion.closed", "ops_asignacion", asignacion.id, {
@@ -676,23 +720,21 @@ export async function executeEditDates(
     },
   });
 
-  // ── Sincronizar currentInstallationId del guardia ──
-  if (isActive) {
-    await prisma.opsGuardia.update({
-      where: { id: asignacion.guardiaId },
-      data: { currentInstallationId: asignacion.installationId },
-    });
-  } else {
-    const otherActive = await prisma.opsAsignacionGuardia.findFirst({
-      where: { guardiaId: asignacion.guardiaId, tenantId: ctx.tenantId, isActive: true },
-    });
-    if (!otherActive) {
-      await prisma.opsGuardia.update({
-        where: { id: asignacion.guardiaId },
-        data: { currentInstallationId: null },
-      });
-    }
-  }
+  // ── Sincronizar currentInstallationId = instalación vigente hoy ──
+  const hoy = hoyChileDate();
+  const allAsignaciones = await prisma.opsAsignacionGuardia.findMany({
+    where: { guardiaId: asignacion.guardiaId, tenantId: ctx.tenantId },
+    select: { startDate: true, endDate: true, installationId: true, createdAt: true },
+  });
+  const vigenteHoy = resolveVigente(allAsignaciones, hoy);
+  const nextInstallationId = vigenteHoy?.installationId ?? null;
+  await prisma.opsGuardia.update({
+    where: { id: asignacion.guardiaId },
+    data: { currentInstallationId: nextInstallationId },
+  });
+  void import("@/lib/docs/sync-instalacion-refs").then(({ syncGuardiaInstallationRefs }) =>
+    syncGuardiaInstallationRefs(ctx.tenantId, asignacion.guardiaId, nextInstallationId)
+  );
 
   await createOpsAuditLog(ctx, "ops.asignacion.dates_edited", "ops_asignacion", asignacion.id, {
     guardiaId: asignacion.guardiaId,
@@ -780,13 +822,14 @@ export async function listAsignaciones(
     activeOnly?: boolean;
   },
 ) {
+  const hoy = hoyChileDate();
   return prisma.opsAsignacionGuardia.findMany({
     where: {
       tenantId,
       ...(filters.installationId ? { installationId: filters.installationId } : {}),
       ...(filters.puestoId ? { puestoId: filters.puestoId } : {}),
       ...(filters.guardiaId ? { guardiaId: filters.guardiaId } : {}),
-      ...(filters.activeOnly !== false ? { isActive: true } : {}),
+      ...(filters.activeOnly !== false ? notEndedWhere(hoy) : {}),
     },
     include: {
       guardia: {
@@ -795,6 +838,7 @@ export async function listAsignaciones(
           code: true,
           status: true,
           lifecycleStatus: true,
+          terminatedAt: true,
           persona: {
             select: { firstName: true, lastName: true, rut: true },
           },

@@ -21,6 +21,13 @@ export type PautaItem = {
   replacementGuardiaId: string | null;
   installationId: string;
   shiftCode: string | null;
+  previousGuardiaId?: string | null;
+  unassignedReason?: string | null;
+  unassignedAt?: Date | null;
+  previousGuardia?: {
+    id: string;
+    persona: { firstName: string; lastName: string; rut: string | null };
+  } | null;
   puesto: { shiftStart: string; shiftEnd: string };
 };
 
@@ -54,6 +61,15 @@ export async function loadPautaForDate(params: {
       replacementGuardiaId: true,
       installationId: true,
       shiftCode: true,
+      previousGuardiaId: true,
+      unassignedReason: true,
+      unassignedAt: true,
+      previousGuardia: {
+        select: {
+          id: true,
+          persona: { select: { firstName: true, lastName: true, rut: true } },
+        },
+      },
       puesto: {
         select: {
           shiftStart: true,

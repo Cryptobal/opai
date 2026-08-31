@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess, getMonthDateRange } from "@/lib/ops";
+import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia";
 
 /**
  * GET /api/ops/pauta-mensual/resumen?month=2&year=2026
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
       where: {
         tenantId: ctx.tenantId,
         installationId: { in: installationIds },
-        isActive: true,
+        ...solapaRangoWhere(start, end),
       },
       select: {
         puestoId: true,

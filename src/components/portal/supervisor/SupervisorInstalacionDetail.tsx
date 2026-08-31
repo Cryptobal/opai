@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
+import { todayInChile } from "@/lib/dates-cl";
 
 interface Props {
   installation: SupervisorInstallation;
@@ -64,7 +65,7 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
     async function load() {
       setLoading(true);
       const [guardsRes, findingsRes, visitsRes] = await Promise.allSettled([
-        fetch(`/api/ops/supervision/installation-dotacion/${installation.id}`),
+        fetch(`/api/ops/supervision/installation-dotacion/${installation.id}?date=${todayInChile()}`),
         fetch(`/api/ops/supervision/installation-findings/${installation.id}`),
         fetch(`/api/ops/supervision?installationId=${installation.id}&limit=1`),
       ]);
