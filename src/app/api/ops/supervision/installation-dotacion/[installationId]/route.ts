@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { requireTenantModule } from '@/lib/require-module';
 import { canView } from "@/lib/permissions";
+import { parseDateOnly } from "@/lib/ops";
+import { todayInChile } from "@/lib/dates-cl";
+import { hoyChileDate, vigenteWhere } from "@/lib/ops/asignacion-vigencia";
 
 type Params = { installationId: string };
 
@@ -26,16 +29,22 @@ export async function GET(
 
     const { installationId } = await params;
     const sp = request.nextUrl.searchParams;
-    const dateStr = sp.get("date") ?? new Date().toISOString().slice(0, 10);
+    const dateStr = sp.get("date") ?? todayInChile();
+    let date: Date;
+    try {
+      date = parseDateOnly(dateStr);
+    } catch {
+      date = hoyChileDate();
+    }
     // Optional time filter: only return guards whose shift covers this time (HH:MM)
     const timeStr = sp.get("time") ?? null;
 
-    // 1. Get regular guard assignments (active dotación)
+    // 1. Get regular guard assignments vigente on the requested date
     const asignaciones = await prisma.opsAsignacionGuardia.findMany({
       where: {
         tenantId: ctx.tenantId,
         installationId,
-        isActive: true,
+        ...vigenteWhere(date),
       },
       include: {
         guardia: {
