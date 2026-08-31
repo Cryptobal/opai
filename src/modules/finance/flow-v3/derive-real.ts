@@ -43,6 +43,11 @@ export interface RealLinkInput {
   targetId: string | null;
   amountClp: number;
   accountPlanId: string | null;
+  /**
+   * Fila de planilla elegida al clasificar. Gana sobre el ruteo por
+   * cuenta (Acreedores Varios compartido entre Aporte/Devolución/Retiro).
+   */
+  flowRowId?: string | null;
 }
 
 export interface RealTxInput {
@@ -137,12 +142,20 @@ export function deriveReal(args: RealArgs): RealByRow {
   const costoFactoringRowId = findCostoFactoringRowId(args.rows);
   const candidates = args.accountToRowCandidates;
 
+  const rowIds = new Set(args.rows.map((r) => r.id));
+  const explicitRow = (link: RealLinkInput): string | null => {
+    if (link.flowRowId && rowIds.has(link.flowRowId)) return link.flowRowId;
+    return null;
+  };
+
   const partnerRowFor = (accountPlanId: string | null | undefined, isCredit: boolean): string | null => {
     if (!accountPlanId || !candidates) return null;
     return resolvePartnerSocioRow(candidates.get(accountPlanId), isCredit);
   };
 
   const resolveExpenseLinkRow = (link: RealLinkInput): string => {
+    const chosen = explicitRow(link);
+    if (chosen) return chosen;
     const payrollKeys = payrollLinkKeys(link.targetType);
     if (payrollKeys.length > 0) return matchExpenseRow(idx, { canonicalKeys: payrollKeys });
     if (link.targetType === "DTE_RECEIVED" && link.targetId) {
@@ -179,6 +192,20 @@ export function deriveReal(args: RealArgs): RealByRow {
       if (isCredit) {
         // Anticipo de cesión: la factura ya está en committed/cedida.
         if (link.targetType === "FACTORING_OPERATION") continue;
+
+        const chosenIncome = explicitRow(link);
+        if (
+          chosenIncome &&
+          (link.targetType === "INCOME" || link.targetType === "EXPENSE")
+        ) {
+          pushReal(out, chosenIncome, week, {
+            bankTransactionId: tx.id,
+            label: tx.description,
+            fecha: tx.dateYmd,
+            monto: Math.round(monto),
+          });
+          continue;
+        }
 
         if (link.targetType === "DTE_ISSUED" && link.targetId) {
           const dte = args.dteById.get(link.targetId);

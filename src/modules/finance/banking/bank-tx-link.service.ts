@@ -45,6 +45,7 @@ import {
   isDteEligibleForBankReconcile,
   sortDteCandidatesByAmountMatch,
 } from "./dte-reconcile-match";
+import { healBankTxLinkFromCashflowOccurrence } from "./occurrence-link-heal.service";
 
 // ── Helpers internos ──
 
@@ -1866,7 +1867,8 @@ export async function searchReconcileCandidates(
  * `entityLabel` siempre presente:
  *   - DTE_ISSUED / DTE_RECEIVED  → "Factura 1234 · Cliente XYZ"
  *   - FACTORING_OPERATION        → "Cesión OP-2026-001 · BCI Factoring"
- *   - EXPENSE / INCOME           → "Gasto manual: 5101 Servicios" (cuenta)
+ *   - EXPENSE / INCOME           → fila de flujo si hay, si no "Gasto manual: 5101 …"
+
  *   - PAYROLL_*, TE_LOTE         → fallback genérico con targetId
  */
 export interface EnrichedTransactionLink {
@@ -1902,11 +1904,14 @@ export async function listTransactionLinks(
   tenantId: string,
   bankTxId: string
 ): Promise<EnrichedTransactionLink[]> {
-  const rows = await prisma.financeBankTransactionLink.findMany({
+  const linkInclude = {
+    accountPlan: { select: { id: true, code: true, name: true } },
+    flowRow: { select: { id: true, name: true } },
+  } as const;
+
+  let rows = await prisma.financeBankTransactionLink.findMany({
     where: { tenantId, bankTransactionId: bankTxId },
-    include: {
-      accountPlan: { select: { id: true, code: true, name: true } },
-    },
+    include: linkInclude,
     orderBy: { createdAt: "asc" },
   });
 
@@ -1918,6 +1923,9 @@ export async function listTransactionLinks(
   //      con un paymentRecord (a través del cual llegamos a allocations).
   //   3) Allocations cuyo PaymentRecord NO tiene bankTransactionId pero el
   //      match de período sí lo asocia.
+  //   4) FinanceCashflowOccurrence PAID (asignación v2 a categoría/fila).
+  //      Se intenta persistir el BankTxLink faltante; si no hay cuenta, se
+  //      sintetiza para que el drawer no muestre "conciliación inconsistente".
   //
   // En todos los casos sintetizamos un set de EnrichedTransactionLink para
   // que el drawer muestre modo "view" con tarjetas clickeables al DTE, y
@@ -1992,7 +2000,58 @@ export async function listTransactionLinks(
       );
     }
 
-    if (paymentsById.size === 0) return [];
+    if (paymentsById.size === 0) {
+      try {
+        const healed = await healBankTxLinkFromCashflowOccurrence(
+          tenantId,
+          bankTxId,
+          null,
+        );
+        if (healed.created) {
+          rows = await prisma.financeBankTransactionLink.findMany({
+            where: { tenantId, bankTransactionId: bankTxId },
+            include: linkInclude,
+            orderBy: { createdAt: "asc" },
+          });
+        }
+      } catch (err) {
+        console.warn(
+          "[Finance/Banking/Links] heal occurrence link failed",
+          err,
+        );
+      }
+      if (rows.length > 0) {
+        // Fall through to enrichment below.
+      } else {
+        const occ = await prisma.financeCashflowOccurrence.findFirst({
+          where: { tenantId, bankTransactionId: bankTxId },
+          select: {
+            id: true,
+            amountClp: true,
+            item: { select: { name: true, kind: true } },
+          },
+        });
+        if (!occ?.item) return [];
+        const isIncome = (bankTx?.amount?.toNumber() ?? 0) > 0;
+        const amount =
+          Math.abs(Number(occ.amountClp)) ||
+          Math.abs(bankTx?.amount?.toNumber() ?? 0);
+        return [
+          {
+            id: occ.id,
+            targetType: isIncome ? "INCOME" : "EXPENSE",
+            targetId: null,
+            amount,
+            note: `Asignado a flujo: ${occ.item.name}`,
+            accountPlan: null,
+            entityLabel: occ.item.name,
+            dte: null,
+            factoring: null,
+            allocations: [],
+          },
+        ];
+      }
+    }
 
     const isIncome = (bankTx?.amount?.toNumber() ?? 0) > 0;
     const synthetic: EnrichedTransactionLink[] = [];
@@ -2026,7 +2085,7 @@ export async function listTransactionLinks(
         });
       }
     }
-    return synthetic;
+    if (rows.length === 0) return synthetic;
   }
 
   // Recolectamos los IDs de DTE y factoring para 2 queries batched, en
@@ -2119,9 +2178,16 @@ export async function listTransactionLinks(
       }
     } else if (r.targetType === "EXPENSE" || r.targetType === "INCOME") {
       const kind = r.targetType === "INCOME" ? "Ingreso manual" : "Gasto manual";
-      entityLabel = r.accountPlan
-        ? `${kind}: ${r.accountPlan.code} ${r.accountPlan.name}`
-        : kind;
+      const rowName = r.flowRow?.name;
+      if (rowName) {
+        entityLabel = r.accountPlan
+          ? `${rowName} · ${r.accountPlan.code} ${r.accountPlan.name}`
+          : rowName;
+      } else {
+        entityLabel = r.accountPlan
+          ? `${kind}: ${r.accountPlan.code} ${r.accountPlan.name}`
+          : kind;
+      }
     } else {
       entityLabel = `${r.targetType}${r.targetId ? ` · ${r.targetId.slice(0, 8)}` : ""}`;
     }

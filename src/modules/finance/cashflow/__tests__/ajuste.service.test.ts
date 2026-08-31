@@ -14,6 +14,10 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: vi.fn(async (cb: (tx: typeof txMockFns) => unknown) => cb(txMockFns)),
   },
 }));
+vi.mock("@/modules/finance/banking/occurrence-link-heal.service", () => ({
+  createExpenseIncomeLinkForCategory: vi.fn(async () => ({ flowRowId: "row-ajuste" })),
+  healBankTxLinkFromCashflowOccurrence: vi.fn(),
+}));
 
 import { prisma } from "@/lib/prisma";
 import { createAjusteConciliacion } from "../ajuste.service";

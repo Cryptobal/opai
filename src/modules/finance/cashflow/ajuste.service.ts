@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { createExpenseIncomeLinkForCategory } from "@/modules/finance/banking/occurrence-link-heal.service";
 
 export interface CreateAjusteInput {
   /** Monto del ajuste en CLP. Positivo = ingreso al banco; negativo = egreso. */
@@ -80,7 +81,7 @@ export async function createAjusteConciliacion(
     input.effectiveDate.getUTCDate(),
   );
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const item = await tx.financeCashflowItem.create({
       data: {
         tenantId,
@@ -127,6 +128,24 @@ export async function createAjusteConciliacion(
       categoryCode,
     };
   });
+
+  if (input.bankTransactionId) {
+    try {
+      await createExpenseIncomeLinkForCategory({
+        tenantId,
+        bankTxId: input.bankTransactionId,
+        userId,
+        amountAbs: absAmount,
+        isIncome: kind === "INCOME",
+        categoryId: category.id,
+        itemName: `Ajuste de conciliación ${input.effectiveDate.toISOString().slice(0, 10)}`,
+      });
+    } catch (err) {
+      console.warn("[Cashflow] createAjusteConciliacion: no se pudo crear BankTxLink", err);
+    }
+  }
+
+  return result;
 }
 
 /** Lista los últimos ajustes del tenant — para auditoría / undo. */
