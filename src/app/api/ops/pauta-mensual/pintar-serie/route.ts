@@ -160,7 +160,6 @@ export async function POST(request: NextRequest) {
     // End date for previous series = day before new series starts (avoids gaps/overlaps)
     const prevSeriesEndDate = new Date(startDate);
     prevSeriesEndDate.setUTCDate(prevSeriesEndDate.getUTCDate() - 1);
-    const { start: monthStart, end: monthEnd } = getMonthDateRange(body.year, body.month);
     const paintDates = listDatesBetween(monthStart, monthEnd);
 
     if (body.isRotativo && (!body.rotatePuestoId || !body.rotateSlotNumber || !body.startShift)) {

@@ -266,7 +266,7 @@ export async function GET(request: NextRequest) {
             rut: pautaItem.previousGuardia.persona.rut,
           },
           reason: pautaItem.unassignedReason ?? null,
-          unassignedAt: pautaItem.unassignedAt,
+          unassignedAt: pautaItem.unassignedAt ?? null,
           destination: dest
             ? { installationName: dest.installationName, puestoName: dest.puestoName }
             : null,
