@@ -8,6 +8,9 @@ import {
   buildEffectiveShiftCode,
   loadPautaForDate,
 } from "@/lib/ops/ensure-asistencia-dia-helpers";
+import { vigenteWhere } from "@/lib/ops/asignacion-vigencia";
+import { resolvePautaCellState } from "@/lib/ops/pauta-cell-state";
+import { formatPersonName } from "@/lib/personas";
 
 export async function GET(request: NextRequest) {
   try {
@@ -182,16 +185,98 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const pautaBySlot = new Map(pauta.map((p) => [`${p.puestoId}|${p.slotNumber}`, p]));
+    const ghostIds = [
+      ...new Set(
+        pauta
+          .filter((p) => !p.plannedGuardiaId && p.previousGuardiaId)
+          .map((p) => p.previousGuardiaId as string),
+      ),
+    ];
+    const ghostAsignaciones =
+      ghostIds.length > 0
+        ? await prisma.opsAsignacionGuardia.findMany({
+            where: {
+              tenantId: ctx.tenantId,
+              guardiaId: { in: ghostIds },
+              ...vigenteWhere(date),
+            },
+            select: {
+              guardiaId: true,
+              installationId: true,
+              startDate: true,
+              endDate: true,
+              slotNumber: true,
+              installation: { select: { id: true, name: true } },
+              puesto: { select: { name: true } },
+            },
+          })
+        : [];
+    const ghostAsigsByGuardia = new Map<string, typeof ghostAsignaciones>();
+    for (const a of ghostAsignaciones) {
+      const list = ghostAsigsByGuardia.get(a.guardiaId) ?? [];
+      list.push(a);
+      ghostAsigsByGuardia.set(a.guardiaId, list);
+    }
+
+    const dateKey = toISODate(date);
     const itemsWithMarcaciones = asistencia.map((row) => {
       const guardiaId =
         row.actualGuardiaId ?? row.replacementGuardiaId ?? row.plannedGuardiaId;
       const key = guardiaId ? `${guardiaId}|${row.installationId}` : null;
       const marcacionesRow = key ? marcacionesByKey.get(key) ?? [] : [];
       const absenceCode = absenceBySlot.get(`${row.puestoId}|${row.slotNumber}`) ?? null;
+      const pautaItem = pautaBySlot.get(`${row.puestoId}|${row.slotNumber}`);
+      let vacancy: {
+        code: string;
+        guardia: { id: string; firstName: string; lastName: string; rut: string | null };
+        reason: string | null;
+        unassignedAt: Date | string | null;
+        destination?: { installationName: string; puestoName: string } | null;
+      } | null = null;
+      if (pautaItem && !pautaItem.plannedGuardiaId && pautaItem.previousGuardiaId && pautaItem.previousGuardia) {
+        const ghostAsigs = (ghostAsigsByGuardia.get(pautaItem.previousGuardiaId) ?? []).map((a) => ({
+          startDate: a.startDate,
+          endDate: a.endDate,
+          installationId: a.installationId,
+          installationName: a.installation.name,
+          puestoName: a.puesto.name,
+        }));
+        const state = resolvePautaCellState({
+          dateKey,
+          shiftCode: pautaItem.shiftCode,
+          plannedGuardiaId: null,
+          previousGuardiaId: pautaItem.previousGuardiaId,
+          previousGuardiaName: formatPersonName(
+            pautaItem.previousGuardia.persona.firstName,
+            pautaItem.previousGuardia.persona.lastName,
+          ),
+          unassignedReason: pautaItem.unassignedReason,
+          unassignedAt: pautaItem.unassignedAt,
+          ghostAsignaciones: ghostAsigs,
+          currentInstallationId: pautaItem.installationId,
+        });
+        const dest = ghostAsigs.find((a) => a.installationId !== pautaItem.installationId) ?? ghostAsigs[0];
+        vacancy = {
+          code: state.code,
+          guardia: {
+            id: pautaItem.previousGuardia.id,
+            firstName: pautaItem.previousGuardia.persona.firstName,
+            lastName: pautaItem.previousGuardia.persona.lastName,
+            rut: pautaItem.previousGuardia.persona.rut,
+          },
+          reason: pautaItem.unassignedReason ?? null,
+          unassignedAt: pautaItem.unassignedAt,
+          destination: dest
+            ? { installationName: dest.installationName, puestoName: dest.puestoName }
+            : null,
+        };
+      }
       return {
         ...row,
         marcaciones: marcacionesRow,
         absenceCode,
+        vacancy,
       };
     });
 

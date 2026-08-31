@@ -113,6 +113,13 @@ type AsistenciaItem = {
   }>;
   marcaciones?: MarcacionItem[];
   absenceCode?: string | null;
+  vacancy?: {
+    code: string;
+    guardia: { id: string; firstName: string; lastName: string; rut: string | null };
+    reason: string | null;
+    unassignedAt?: string | null;
+    destination?: { installationName: string; puestoName: string } | null;
+  } | null;
 };
 
 interface OpsPautaDiariaClientProps {
@@ -785,6 +792,24 @@ export function OpsPautaDiariaClient({
                                 TE
                               </span>
                             )}
+                          </span>
+                        ) : item.vacancy ? (
+                          <span className="truncate flex items-center gap-2">
+                            <span className="text-ds-text-3">
+                              {formatPersonName(item.vacancy.guardia.firstName, item.vacancy.guardia.lastName)}
+                            </span>
+                            <span
+                              className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium shrink-0 ${
+                                item.vacancy.code === "F"
+                                  ? "bg-status-danger-soft text-status-danger-fg"
+                                  : item.vacancy.code === "CI" || item.vacancy.code === "CP"
+                                    ? "bg-tint-indigo text-tint-indigo-fg"
+                                    : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {item.vacancy.code}
+                            </span>
+                            <span className="text-ds-text-3 text-xs">PPC</span>
                           </span>
                         ) : (
                           <span className="text-status-warn-fg text-sm">Sin asignar (PPC)</span>
