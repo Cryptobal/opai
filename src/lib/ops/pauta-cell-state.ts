@@ -373,3 +373,13 @@ export function resolveSlotHeader(params: {
     others,
   };
 }
+
+/** Nombre de fila para exports: `Nombre (hasta dd/mm)` cuando aplica. */
+export function slotHeaderExportLabel(header: SlotHeader | null): string {
+  if (!header) return "Sin asignar";
+  const hasta = header.chips.find((c) => c.code === "hasta" || c.code === "F");
+  if (hasta) return `${header.name} (${hasta.label})`;
+  const desde = header.chips.find((c) => c.code === "desde");
+  if (desde) return `${header.name} (${desde.label})`;
+  return header.name;
+}

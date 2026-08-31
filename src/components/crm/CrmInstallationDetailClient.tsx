@@ -60,6 +60,10 @@ import {
 } from "@/components/crm/InstallationRosterBlockers";
 import type { InstallationRosterBlocker } from "@/lib/crm/installation-roster-guard";
 import { formatPersonName } from "@/lib/personas";
+import { todayInChile } from "@/lib/dates-cl";
+import { parseDateOnly, toISODate } from "@/lib/ops";
+import { addDays, resolveVigente } from "@/lib/ops/asignacion-vigencia";
+import { ymdToDdMm } from "@/lib/ops/pauta-cell-state";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { AccessControlConfigTab } from "@/components/access-control/AccessControlConfigTab";
 import { AccessControlListsManager } from "@/components/access-control/AccessControlListsManager";
@@ -451,6 +455,22 @@ function formatDateDDMMYYYY(iso: string): string {
   const [y, m, d] = s.split("-");
   return y && m && d ? `${d}/${m}/${y}` : s;
 }
+function ymdMinusOne(ymd: string): string {
+  try {
+    return toISODate(addDays(parseDateOnly(String(ymd).slice(0, 10)), -1));
+  } catch {
+    return ymd;
+  }
+}
+function asUtcDate(value: string | Date | null | undefined): Date | null {
+  if (value == null) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  try {
+    return parseDateOnly(String(value).slice(0, 10));
+  } catch {
+    return null;
+  }
+}
 
 type GuardiaOption = {
   id: string;
@@ -562,7 +582,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
             startDate: payload.data.assignment.startDate,
           });
           setAssignEndDateSameAsStart(true);
-          setAssignEndDatePrevious(assignDate);
+          setAssignEndDatePrevious("");
         } else {
           setAssignWarning(null);
         }
@@ -789,15 +809,33 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
 
               <div className="space-y-1">
                 {Array.from({ length: puesto.requiredGuards }, (_, i) => i + 1).map((slotNum) => {
-                  const assignment = puestoAssignments.find((a) => a.slotNumber === slotNum);
+                  const slotAsigs = puestoAssignments.filter((a) => a.slotNumber === slotNum);
+                  let hoyDate: Date;
+                  try {
+                    hoyDate = parseDateOnly(todayInChile());
+                  } catch {
+                    hoyDate = parseDateOnly("1970-01-01");
+                  }
+                  const ranged = slotAsigs.map((a) => ({
+                    ...a,
+                    startDate: asUtcDate(a.startDate) ?? parseDateOnly("1970-01-01"),
+                    endDate: asUtcDate(a.endDate ?? null),
+                  }));
+                  const assignment = resolveVigente(ranged, hoyDate);
+                  const proximo = ranged
+                    .filter((a) => a.startDate.getTime() > hoyDate.getTime())
+                    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0];
+                  const endKey = assignment?.endDate ? toISODate(assignment.endDate) : null;
+                  const showHasta = Boolean(endKey);
                   return (
                     <div
                       key={slotNum}
-                      className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs ${assignment
+                      className={`flex flex-col gap-0.5 rounded-md px-3 py-1.5 text-xs ${assignment
                           ? "border border-border/60 bg-card"
                           : "border border-dashed border-status-warn-border bg-status-warn-soft"
                         }`}
                     >
+                      <div className="flex items-center gap-2">
                       <span className="text-muted-foreground font-mono text-[10px] w-10 shrink-0">
                         Slot {slotNum}
                       </span>
@@ -819,6 +857,11 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                           >
                             {LIFECYCLE_LABELS[assignment.guardia.lifecycleStatus] ?? assignment.guardia.lifecycleStatus}
                           </Tag>
+                          {showHasta && endKey && (
+                            <Tag variant="warn" size="sm" className="shrink-0">
+                              hasta {ymdToDdMm(endKey)}
+                            </Tag>
+                          )}
                           {assignment.guardia.persona.rut && (
                             <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:inline">{assignment.guardia.persona.rut}</span>
                           )}
@@ -873,6 +916,12 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                             </button>
                           )}
                         </div>
+                      )}
+                      </div>
+                      {proximo && (
+                        <p className="pl-12 text-[10px] text-status-info-fg">
+                          Próximo: {formatPersonName(proximo.guardia.persona.firstName, proximo.guardia.persona.lastName)} desde {ymdToDdMm(toISODate(proximo.startDate))}
+                        </p>
                       )}
                     </div>
                   );
@@ -936,7 +985,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
               </Label>
               <DatePickerField value={assignDate || null} onChange={(ymd) => {
                   setAssignDate((ymd ?? ""));
-                  if (assignEndDateSameAsStart) setAssignEndDatePrevious((ymd ?? ""));
+                  if (assignEndDateSameAsStart) setAssignEndDatePrevious("");
                 }} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
 
@@ -1010,15 +1059,16 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                       checked={assignEndDateSameAsStart}
                       onChange={(e) => {
                         setAssignEndDateSameAsStart(e.target.checked);
-                        if (e.target.checked) setAssignEndDatePrevious(assignDate);
+                        if (e.target.checked) setAssignEndDatePrevious("");
+                        else setAssignEndDatePrevious(ymdMinusOne(assignDate));
                       }}
                       className="rounded border-status-warn-border"
                     />
-                    Fecha de término anterior = fecha de inicio ({assignDate})
+                    Último día en la instalación anterior = día previo al inicio ({formatDateDDMMYYYY(ymdMinusOne(assignDate))})
                   </label>
                   {!assignEndDateSameAsStart && (
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-status-warn-fg">Fecha de término en la instalación anterior</Label>
+                      <Label className="text-[10px] text-status-warn-fg">Último día trabajado en la instalación anterior</Label>
                       <DatePickerField value={assignEndDatePrevious || null} onChange={(ymd) => setAssignEndDatePrevious((ymd ?? ""))} triggerClassName={"h-8 w-full rounded-md border border-status-warn-border bg-status-warn-soft px-3 text-xs text-status-warn-fg"} />
                     </div>
                   )}
@@ -1053,7 +1103,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label>Fecha de término</Label>
+              <Label>Último día en el puesto</Label>
               <DatePickerField value={unassignDate || null} onChange={(ymd) => setUnassignDate((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
           </div>

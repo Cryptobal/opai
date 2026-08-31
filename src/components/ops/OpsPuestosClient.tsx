@@ -734,9 +734,9 @@ export function OpsPuestosClient({
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label>Fecha efectiva</Label>
+              <Label>Último día en el puesto</Label>
               <DatePickerField value={unassignDate || null} onChange={(ymd) => setUnassignDate((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
-              <p className="text-[10px] text-muted-foreground">Se limpiará la pauta desde esta fecha.</p>
+              <p className="text-[10px] text-muted-foreground">Se limpiará la pauta desde el día siguiente.</p>
             </div>
           </div>
           <DialogFooter>
