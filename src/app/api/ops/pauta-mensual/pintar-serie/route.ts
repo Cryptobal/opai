@@ -11,9 +11,20 @@ import {
   parseDateOnly,
   toISODate,
 } from "@/lib/ops";
+import { ABSENCE_CODES } from "@/lib/ops/ensure-asistencia-dia-helpers";
+import {
+  hoyChileDate,
+  resolveVigente,
+  solapaRangoWhere,
+  type RangoVigencia,
+} from "@/lib/ops/asignacion-vigencia";
+
+type SlotAsignacion = RangoVigencia & { guardiaId: string };
 
 /**
  * Upserts pauta entries for a set of serie entries.
+ * `plannedGuardiaId` se resuelve por vigencia en cada fecha.
+ * No sobrescribe celdas con código de ausencia ligado a un evento.
  */
 async function upsertPautaEntries(
   entries: { date: Date; shiftCode: string }[],
@@ -22,20 +33,54 @@ async function upsertPautaEntries(
   installationId: string,
   tenantId: string,
   userId: string,
-  asignacion: { guardiaId: string; startDate: Date } | null,
+  asignaciones: SlotAsignacion[],
   seriesStartDate: Date
 ): Promise<number> {
+  const relevantDates = entries
+    .map((e) => parseDateOnly(toISODate(e.date)))
+    .filter((d) => d >= seriesStartDate);
+
+  const existing = relevantDates.length
+    ? await prisma.opsPautaMensual.findMany({
+        where: {
+          tenantId,
+          puestoId,
+          slotNumber,
+          date: { in: relevantDates },
+        },
+        select: { date: true, shiftCode: true, guardEventId: true },
+      })
+    : [];
+  const existingByKey = new Map(
+    existing.map((e) => [toISODate(e.date), e]),
+  );
+
   let updated = 0;
   for (const entry of entries) {
     const dateOnly = parseDateOnly(toISODate(entry.date));
-    // No sobrescribir el historial pasado: solo se escriben celdas desde
-    // la fecha de inicio de la serie en adelante. Las celdas anteriores
-    // conservan su turno/asignación previa.
     if (dateOnly < seriesStartDate) continue;
-    let plannedGuardiaId: string | null = null;
-    if (entry.shiftCode === "T" && asignacion && dateOnly >= asignacion.startDate) {
-      plannedGuardiaId = asignacion.guardiaId;
+
+    const vigente = resolveVigente(asignaciones, dateOnly);
+    const plannedGuardiaId =
+      entry.shiftCode === "T" && vigente ? vigente.guardiaId : null;
+
+    const prev = existingByKey.get(toISODate(dateOnly));
+    const preserveAbsence =
+      !!prev?.guardEventId &&
+      !!prev.shiftCode &&
+      ABSENCE_CODES.includes(prev.shiftCode);
+
+    if (preserveAbsence) {
+      await prisma.opsPautaMensual.update({
+        where: {
+          puestoId_slotNumber_date: { puestoId, slotNumber, date: dateOnly },
+        },
+        data: { plannedGuardiaId },
+      });
+      updated++;
+      continue;
     }
+
     await prisma.opsPautaMensual.upsert({
       where: {
         puestoId_slotNumber_date: {
@@ -94,16 +139,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if there's a guard assigned to this slot
-    const asignacion = await prisma.opsAsignacionGuardia.findFirst({
+    const { start: monthStart, end: monthEnd } = getMonthDateRange(body.year, body.month);
+    const slotAsignaciones = await prisma.opsAsignacionGuardia.findMany({
       where: {
         tenantId: ctx.tenantId,
         puestoId: body.puestoId,
         slotNumber: body.slotNumber,
-        isActive: true,
+        ...solapaRangoWhere(monthStart, monthEnd),
       },
-      select: { guardiaId: true, startDate: true },
+      select: { guardiaId: true, startDate: true, endDate: true, createdAt: true },
     });
+    const vigenteSerie = resolveVigente(slotAsignaciones, hoyChileDate())
+      ?? [...slotAsignaciones].sort((a, b) => b.startDate.getTime() - a.startDate.getTime())[0]
+      ?? null;
+    const asignacion = vigenteSerie
+      ? { guardiaId: vigenteSerie.guardiaId, startDate: vigenteSerie.startDate }
+      : null;
 
     const startDate = parseDateOnly(body.startDate);
     // End date for previous series = day before new series starts (avoids gaps/overlaps)
@@ -185,7 +236,7 @@ export async function POST(request: NextRequest) {
       const updated = await upsertPautaEntries(
         serieEntries, body.puestoId, body.slotNumber,
         puesto.installationId, ctx.tenantId, ctx.userId,
-        asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null,
+        slotAsignaciones,
         startDate
       );
 
@@ -258,7 +309,7 @@ export async function POST(request: NextRequest) {
     const updated = await upsertPautaEntries(
       serieEntries, body.puestoId, body.slotNumber,
       puesto.installationId, ctx.tenantId, ctx.userId,
-      asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null,
+      slotAsignaciones,
       startDate
     );
 

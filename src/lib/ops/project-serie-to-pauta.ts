@@ -18,6 +18,7 @@
 import { prisma } from "@/lib/prisma";
 import { generateSerieForMonth } from "@/lib/ops";
 import { installationFilterFor } from "./ensure-asistencia-dia-helpers";
+import { resolveVigente, vigenteWhere } from "@/lib/ops/asignacion-vigencia";
 
 export async function projectActiveSeriesToPauta(params: {
   tenantId: string;
@@ -79,9 +80,13 @@ export async function projectActiveSeriesToPauta(params: {
     await prisma.opsPautaMensual.createMany({ data: missingRows, skipDuplicates: true });
   }
 
-  // Series activas + asignaciones activas (saltando guardias inactivos), idéntico a la UI.
+  // Series vigentes este día (activas o con endDate ≥ date) + asignaciones por vigencia.
   const activeSeries = await prisma.opsSerieAsignacion.findMany({
-    where: { tenantId, puestoId: { in: puestoIds }, isActive: true },
+    where: {
+      tenantId,
+      puestoId: { in: puestoIds },
+      OR: [{ isActive: true }, { endDate: { gte: date } }],
+    },
     select: {
       puestoId: true,
       slotNumber: true,
@@ -90,29 +95,34 @@ export async function projectActiveSeriesToPauta(params: {
       patternOff: true,
       startDate: true,
       startPosition: true,
+      endDate: true,
     },
   });
   if (activeSeries.length === 0) return;
 
-  const activeAsignaciones = await prisma.opsAsignacionGuardia.findMany({
-    where: { tenantId, puestoId: { in: puestoIds }, isActive: true },
+  const dayAsignaciones = await prisma.opsAsignacionGuardia.findMany({
+    where: { tenantId, puestoId: { in: puestoIds }, ...vigenteWhere(date) },
     select: {
       puestoId: true,
       slotNumber: true,
       guardiaId: true,
       startDate: true,
-      guardia: { select: { lifecycleStatus: true } },
+      endDate: true,
+      createdAt: true,
     },
   });
-  const asignacionMap = new Map<string, { guardiaId: string; startDate: Date }>();
-  for (const a of activeAsignaciones) {
-    if (a.guardia?.lifecycleStatus === "inactivo") continue;
-    asignacionMap.set(`${a.puestoId}|${a.slotNumber}`, { guardiaId: a.guardiaId, startDate: a.startDate });
+  const asignacionesBySlot = new Map<string, typeof dayAsignaciones>();
+  for (const a of dayAsignaciones) {
+    const key = `${a.puestoId}|${a.slotNumber}`;
+    const list = asignacionesBySlot.get(key) ?? [];
+    list.push(a);
+    asignacionesBySlot.set(key, list);
   }
 
   // Proyectar cada serie sobre la celda del día, sólo si sigue en shiftCode=null.
   const updates: Promise<unknown>[] = [];
   for (const serie of activeSeries) {
+    if (serie.endDate && date > serie.endDate) continue;
     const entries = generateSerieForMonth(
       serie.startDate,
       serie.startPosition,
@@ -120,11 +130,12 @@ export async function projectActiveSeriesToPauta(params: {
       serie.patternOff,
       [date],
     );
-    const asig = asignacionMap.get(`${serie.puestoId}|${serie.slotNumber}`);
+    const slotAsigs = asignacionesBySlot.get(`${serie.puestoId}|${serie.slotNumber}`) ?? [];
     for (const entry of entries) {
+      const vigente = resolveVigente(slotAsigs, entry.date);
       let plannedGuardiaId: string | null = null;
-      if (entry.shiftCode === "T" && asig && entry.date >= asig.startDate) {
-        plannedGuardiaId = asig.guardiaId;
+      if (entry.shiftCode === "T" && vigente) {
+        plannedGuardiaId = vigente.guardiaId;
       }
       updates.push(
         prisma.opsPautaMensual.updateMany({

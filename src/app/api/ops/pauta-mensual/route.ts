@@ -12,6 +12,10 @@ import {
   parseDateOnly,
   toDateKeyUTC,
 } from "@/lib/ops";
+import {
+  resolveVigente,
+  solapaRangoWhere,
+} from "@/lib/ops/asignacion-vigencia";
 
 export async function GET(request: NextRequest) {
   try {
@@ -222,7 +226,7 @@ export async function GET(request: NextRequest) {
         where: {
           tenantId: ctx.tenantId,
           puestoId: { in: puestoIdsForSeries },
-          isActive: true,
+          OR: [{ isActive: true }, { endDate: { gte: start } }],
         },
         select: {
           puestoId: true,
@@ -232,33 +236,32 @@ export async function GET(request: NextRequest) {
           patternOff: true,
           startDate: true,
           startPosition: true,
+          endDate: true,
         },
       });
 
-      // Fetch active guard assignments to know who works each slot
-      const activeAsignaciones = await prisma.opsAsignacionGuardia.findMany({
+      const monthAsignaciones = await prisma.opsAsignacionGuardia.findMany({
         where: {
           tenantId: ctx.tenantId,
           puestoId: { in: puestoIdsForSeries },
-          isActive: true,
+          ...solapaRangoWhere(start, end),
         },
         select: {
           puestoId: true,
           slotNumber: true,
           guardiaId: true,
           startDate: true,
-          guardia: { select: { lifecycleStatus: true } },
+          endDate: true,
+          createdAt: true,
         },
       });
 
-      // Build lookup: puestoId|slotNumber → asignacion (skip inactive/terminated guards)
-      const asignacionMap = new Map<string, { guardiaId: string; startDate: Date }>();
-      for (const a of activeAsignaciones) {
-        if (a.guardia?.lifecycleStatus === "inactivo") continue;
-        asignacionMap.set(`${a.puestoId}|${a.slotNumber}`, {
-          guardiaId: a.guardiaId,
-          startDate: a.startDate,
-        });
+      const asignacionesBySlot = new Map<string, typeof monthAsignaciones>();
+      for (const a of monthAsignaciones) {
+        const key = `${a.puestoId}|${a.slotNumber}`;
+        const list = asignacionesBySlot.get(key) ?? [];
+        list.push(a);
+        asignacionesBySlot.set(key, list);
       }
 
       // Build set of cells that already have a shiftCode (manual edits or previous painting)
@@ -280,19 +283,21 @@ export async function GET(request: NextRequest) {
           monthDates
         );
 
-        const asig = asignacionMap.get(`${serie.puestoId}|${serie.slotNumber}`);
+        const slotAsigs = asignacionesBySlot.get(`${serie.puestoId}|${serie.slotNumber}`) ?? [];
 
         for (const entry of entries) {
           const dateKey = toDateKeyUTC(entry.date);
           const cellKey = `${serie.puestoId}|${serie.slotNumber}|${dateKey}`;
 
+          if (serie.endDate && entry.date > serie.endDate) continue;
+
           // Only update cells that have no shiftCode (don't overwrite manual edits)
           if (paintedKeys.has(cellKey)) continue;
 
-          // Determine plannedGuardiaId: use asignacion guardia on work days
+          const vigente = resolveVigente(slotAsigs, entry.date);
           let plannedGuardiaId: string | null = null;
-          if (entry.shiftCode === "T" && asig && entry.date >= asig.startDate) {
-            plannedGuardiaId = asig.guardiaId;
+          if (entry.shiftCode === "T" && vigente) {
+            plannedGuardiaId = vigente.guardiaId;
           }
 
           // Use updateMany to avoid errors if row doesn't exist yet
@@ -469,17 +474,22 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    // Also get active guard assignments for this installation
+    // Asignaciones que solapan el mes (no solo isActive)
     const asignaciones = await prisma.opsAsignacionGuardia.findMany({
       where: {
         tenantId: ctx.tenantId,
         installationId,
-        isActive: true,
+        ...solapaRangoWhere(start, end),
       },
       select: {
+        id: true,
         puestoId: true,
         slotNumber: true,
         guardiaId: true,
+        startDate: true,
+        endDate: true,
+        isActive: true,
+        reason: true,
         guardia: {
           select: {
             id: true,
@@ -492,25 +502,81 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Fetch absences (OpsGuardEvent) for planned guardias in this pauta
-    const plannedGuardiaIds = [...new Set(pauta.map((p) => p.plannedGuardiaId).filter((id): id is string => id !== null))];
-    const ausencias = await prisma.opsGuardEvent.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        guardiaId: { in: plannedGuardiaIds },
-        category: "ausencia",
-        status: "approved",
-        startDate: { lte: end },
-        endDate: { gte: start },
-      },
-      select: {
-        id: true,
-        guardiaId: true,
-        subtype: true,
-        startDate: true,
-        endDate: true,
-      },
-    });
+    const ghostGuardiaIds = [...new Set(
+      pauta
+        .filter((p) => p.plannedGuardiaId == null && p.previousGuardiaId)
+        .map((p) => p.previousGuardiaId as string),
+    )];
+    const ghostAsignaciones = ghostGuardiaIds.length
+      ? await prisma.opsAsignacionGuardia.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            guardiaId: { in: ghostGuardiaIds },
+            ...solapaRangoWhere(start, end),
+          },
+          select: {
+            guardiaId: true,
+            installationId: true,
+            puestoId: true,
+            slotNumber: true,
+            startDate: true,
+            endDate: true,
+            installation: { select: { id: true, name: true } },
+            puesto: { select: { name: true } },
+          },
+        })
+      : [];
+    const guardiaAsignacionesByGuardia = ghostAsignaciones.reduce<
+      Record<string, Array<{
+        installationId: string;
+        installationName: string;
+        puestoId: string;
+        puestoName: string;
+        slotNumber: number;
+        startDate: Date;
+        endDate: Date | null;
+      }>>
+    >((acc, a) => {
+      if (!acc[a.guardiaId]) acc[a.guardiaId] = [];
+      acc[a.guardiaId].push({
+        installationId: a.installationId,
+        installationName: a.installation.name,
+        puestoId: a.puestoId,
+        puestoName: a.puesto.name,
+        slotNumber: a.slotNumber,
+        startDate: a.startDate,
+        endDate: a.endDate,
+      });
+      return acc;
+    }, {});
+
+    const plannedGuardiaIds = [
+      ...new Set(pauta.map((p) => p.plannedGuardiaId).filter((id): id is string => id !== null)),
+    ];
+    const absenceGuardiaIds = [...new Set([
+      ...plannedGuardiaIds,
+      ...asignaciones.map((a) => a.guardiaId),
+      ...ghostGuardiaIds,
+    ])];
+    const ausencias = absenceGuardiaIds.length
+      ? await prisma.opsGuardEvent.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            guardiaId: { in: absenceGuardiaIds },
+            category: "ausencia",
+            status: "approved",
+            startDate: { lte: end },
+            endDate: { gte: start },
+          },
+          select: {
+            id: true,
+            guardiaId: true,
+            subtype: true,
+            startDate: true,
+            endDate: true,
+          },
+        })
+      : [];
 
     // Group ausencias by guardiaId for easy client consumption
     const absencesByGuardia = ausencias.reduce<Record<string, { eventId: string; subtype: string; startDate: Date; endDate: Date }[]>>((acc, a) => {
@@ -562,6 +628,7 @@ export async function GET(request: NextRequest) {
         items: pauta,
         series,
         asignaciones,
+        guardiaAsignacionesByGuardia,
         executionByCell,
         allPuestos,
         absencesByGuardia,
