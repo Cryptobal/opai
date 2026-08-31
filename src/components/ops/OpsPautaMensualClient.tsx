@@ -43,7 +43,7 @@ import {
 } from "@/lib/ops/pauta-mensual-day-status";
 import { AsistenciaDiaSheet } from "@/components/ops/asistencia-diaria";
 import type { GuardiaOption } from "@/types/ops-asistencia";
-import { parseDateOnly } from "@/lib/ops";
+import { parseDateOnly } from "@/lib/ops-dates";
 import { resolveVigente } from "@/lib/ops/asignacion-vigencia";
 import {
   resolvePautaCellState,

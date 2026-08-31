@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatPersonName } from "@/lib/personas";
 import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
 import { cleanRut, toSiiRut } from "@/lib/chile-rut";
-import { vigenteWhere } from "@/lib/ops/asignacion-vigencia";
+import { vigenteWhere } from "@/lib/ops/asignacion-vigencia-db";
 
 export type DeviceGuard = {
   id: string;

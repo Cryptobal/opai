@@ -15,7 +15,7 @@ import {
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { formatPersonName } from "@/lib/personas";
 import { todayInChile } from "@/lib/dates-cl";
-import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia";
+import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia-db";
 import {
   resolvePautaCellState,
   resolveSlotHeader,

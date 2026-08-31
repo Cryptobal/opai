@@ -1,16 +1,19 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseDateOnly } from "@/lib/ops";
+import { parseDateOnly } from "@/lib/ops-dates";
 import {
   addDays,
   isNotEndedOn,
   isVigenteOn,
   nextAsignacion,
-  notEndedWhere,
   overlapsRange,
   resolveVigente,
+} from "../asignacion-vigencia";
+import {
+  notEndedWhere,
   solapaRangoWhere,
   vigenteWhere,
-} from "../asignacion-vigencia";
+} from "../asignacion-vigencia-db";
 
 const d = (iso: string) => parseDateOnly(iso);
 
@@ -216,5 +219,14 @@ describe("isVigenciaSyncUtcHour", () => {
     expect(
       shouldRunVigenciaSync(new Date("2026-08-31T03:00:00.000Z"), false),
     ).toBe(false);
+  });
+});
+
+describe("asignacion-vigencia es importable desde client", () => {
+  it("no importa next/server, Prisma runtime ni el barrel @/lib/ops", () => {
+    const src = readFileSync("src/lib/ops/asignacion-vigencia.ts", "utf8");
+    expect(src).not.toMatch(/next\/server/);
+    expect(src).not.toMatch(/@prisma\/client/);
+    expect(src).not.toMatch(/from ["']@\/lib\/ops["']/);
   });
 });

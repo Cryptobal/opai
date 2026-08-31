@@ -31,7 +31,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { formatPersonName } from "@/lib/personas";
-import { parseDateOnly, toISODate } from "@/lib/ops";
+import { parseDateOnly, toISODate } from "@/lib/ops-dates";
 import {
   hoyChileDate,
   isNotEndedOn,

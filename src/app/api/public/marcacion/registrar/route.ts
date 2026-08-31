@@ -27,7 +27,8 @@ import {
   ejecutarConDedup,
   resolverTrazabilidadMarca,
 } from "@/lib/marcacion-jornada";
-import { addDays, hoyChileDate, vigenteWhere } from "@/lib/ops/asignacion-vigencia";
+import { addDays, hoyChileDate } from "@/lib/ops/asignacion-vigencia";
+import { vigenteWhere } from "@/lib/ops/asignacion-vigencia-db";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 

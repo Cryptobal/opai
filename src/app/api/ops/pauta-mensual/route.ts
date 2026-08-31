@@ -12,10 +12,8 @@ import {
   parseDateOnly,
   toDateKeyUTC,
 } from "@/lib/ops";
-import {
-  resolveVigente,
-  solapaRangoWhere,
-} from "@/lib/ops/asignacion-vigencia";
+import { resolveVigente } from "@/lib/ops/asignacion-vigencia";
+import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia-db";
 
 export async function GET(request: NextRequest) {
   try {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess, getMonthDateRange } from "@/lib/ops";
-import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia";
+import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia-db";
 
 /**
  * GET /api/ops/pauta-mensual/resumen?month=2&year=2026
