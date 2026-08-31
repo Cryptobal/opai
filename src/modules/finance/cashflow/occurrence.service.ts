@@ -7,6 +7,7 @@ import type {
   FinanceCashflowOccurrenceStatus,
   Prisma,
 } from "@prisma/client";
+import { createExpenseIncomeLinkForCategory, healBankTxLinkFromCashflowOccurrence } from "@/modules/finance/banking/occurrence-link-heal.service";
 
 export type CollisionResolveStrategy = "replace" | "next_free";
 
@@ -712,7 +713,7 @@ export async function createManualOccurrenceFromBankTx(
   const scheduledDate = toUtcDate(tx.transactionDate);
   const name = (nameOverride ?? tx.description ?? "Movimiento manual").slice(0, 200);
 
-  return prisma.$transaction(async (db) => {
+  const occurrence = await prisma.$transaction(async (db) => {
     const item = await db.financeCashflowItem.create({
       data: {
         tenantId,
@@ -747,6 +748,24 @@ export async function createManualOccurrenceFromBankTx(
     });
     return occ;
   });
+
+  try {
+    await createExpenseIncomeLinkForCategory({
+      tenantId,
+      bankTxId: bankTransactionId,
+      userId,
+      amountAbs: abs,
+      isIncome: kind === "INCOME",
+      categoryId,
+      itemName: name,
+    });
+  } catch (err) {
+    console.warn(
+      "[Cashflow] createManualOccurrenceFromBankTx: no se pudo crear BankTxLink",
+      err,
+    );
+  }
+  return occurrence;
 }
 
 export type MaterializeAndActInput =
@@ -919,10 +938,17 @@ export async function confirmCashflowMatch(
 ): Promise<FinanceCashflowOccurrence> {
   const { occurrenceId, bankTransactionId, rebalanceDate = true, rebalanceAmount = true } = input;
 
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const occ = await tx.financeCashflowOccurrence.findFirst({
       where: { id: occurrenceId, tenantId },
-      select: { id: true, itemId: true, scheduledDate: true, status: true, bankTransactionId: true },
+      select: {
+        id: true,
+        itemId: true,
+        scheduledDate: true,
+        status: true,
+        bankTransactionId: true,
+        item: { select: { categoryId: true, name: true, kind: true } },
+      },
     });
     if (!occ) throw new Error("Occurrence no encontrada");
     if (occ.status === "PAID" && occ.bankTransactionId === bankTransactionId) {
@@ -986,4 +1012,18 @@ export async function confirmCashflowMatch(
 
     return updated;
   });
+
+  try {
+    await healBankTxLinkFromCashflowOccurrence(
+      tenantId,
+      bankTransactionId,
+      userId,
+    );
+  } catch (err) {
+    console.warn(
+      "[Cashflow] confirmCashflowMatch: no se pudo crear BankTxLink",
+      err,
+    );
+  }
+  return updated;
 }

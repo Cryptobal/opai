@@ -303,4 +303,72 @@ describe("deriveReal", () => {
     expect(out.get("row-aporte")?.get("2026-07-13")?.total).toBe(5_000_000);
     expect(out.get("row-devol")).toBeUndefined();
   });
+
+  it("flowRowId RETIRO_SOCIO gana sobre polaridad Acreedores Varios (cargo)", () => {
+    const rows: FlowRowRef[] = [
+      ...ROWS,
+      {
+        id: "row-retiro", name: "Retiro socios", section: "FINANCIAMIENTO",
+        mapping: "MANUAL", crmAccountId: null, installationId: null,
+        categoryId: "cat-retiro", canonicalKey: "RETIRO_SOCIO", supplierId: null,
+      },
+      {
+        id: "row-devol", name: "Devolución a socios", section: "FINANCIAMIENTO",
+        mapping: "MANUAL", crmAccountId: null, installationId: null,
+        categoryId: null, canonicalKey: "DEVOL_PRESTAMO_SOCIO", supplierId: null,
+      },
+    ];
+    const accountToRowCandidates = new Map([
+      ["plan-acre", [
+        { rowId: "row-devol", canonicalKey: "DEVOL_PRESTAMO_SOCIO" },
+      ]],
+    ]);
+    const out = deriveReal({
+      ...base,
+      rows,
+      accountToRowId: new Map([["plan-acre", "row-devol"]]),
+      accountToRowCandidates,
+      txs: [tx({
+        amountClp: -5_000_000,
+        links: [{
+          targetType: "EXPENSE",
+          targetId: null,
+          amountClp: 5_000_000,
+          accountPlanId: "plan-acre",
+          flowRowId: "row-retiro",
+        }],
+      })],
+    });
+    expect(out.get("row-retiro")?.get("2026-07-13")?.total).toBe(-5_000_000);
+    expect(out.get("row-devol")).toBeUndefined();
+    expect(out.get(UNMATCHED_EXPENSE_KEY)).toBeUndefined();
+  });
+
+  it("occurrence fallback: cargo MATCHED sin links aterriza en Retiro socios", () => {
+    const rows: FlowRowRef[] = [
+      ...ROWS,
+      {
+        id: "row-retiro", name: "Retiro socios", section: "FINANCIAMIENTO",
+        mapping: "MANUAL", crmAccountId: null, installationId: null,
+        categoryId: "cat-retiro", canonicalKey: "RETIRO_SOCIO", supplierId: null,
+      },
+    ];
+    const out = deriveReal({
+      ...base,
+      rows,
+      txs: [tx({
+        amountClp: -5_000_000,
+        description: "Transf. Internet",
+        links: [{
+          targetType: "EXPENSE",
+          targetId: null,
+          amountClp: 5_000_000,
+          accountPlanId: null,
+          flowRowId: "row-retiro",
+        }],
+      })],
+    });
+    expect(out.get("row-retiro")?.get("2026-07-13")?.total).toBe(-5_000_000);
+    expect(out.get(UNMATCHED_EXPENSE_KEY)).toBeUndefined();
+  });
 });

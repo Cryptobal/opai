@@ -6,6 +6,7 @@ import {
 } from "./rowAccount.service";
 import { ymdToDate } from "./weeks";
 import { deriveReal, type DteRefInput, type RealTxInput } from "./derive-real";
+import { mergeOccurrenceLinksIntoTxs } from "./occurrence-real-fallback";
 import type { FlowRowRef, RealByRow } from "./types";
 
 /**
@@ -36,7 +37,13 @@ export async function loadReal(
       amount: true,
       description: true,
       links: {
-        select: { targetType: true, targetId: true, amount: true, accountPlanId: true },
+        select: {
+          targetType: true,
+          targetId: true,
+          amount: true,
+          accountPlanId: true,
+          flowRowId: true,
+        },
       },
     },
   });
@@ -116,8 +123,33 @@ export async function loadReal(
       targetId: l.targetId,
       amountClp: Number(l.amount),
       accountPlanId: l.accountPlanId,
+      flowRowId: l.flowRowId,
     })),
   }));
+
+  // Asignación v2 (occurrence PAID + MATCHED) sin BankTxLink: sintetizar
+  // el vínculo para que Retiro socios / categoría aterrice en su fila.
+  const missingLinkIds = txInputs.filter((t) => t.links.length === 0).map((t) => t.id);
+  if (missingLinkIds.length > 0) {
+    const occs = await prisma.financeCashflowOccurrence.findMany({
+      where: { tenantId, bankTransactionId: { in: missingLinkIds } },
+      select: {
+        bankTransactionId: true,
+        item: { select: { categoryId: true, name: true } },
+      },
+    });
+    mergeOccurrenceLinksIntoTxs(
+      txInputs,
+      occs
+        .filter((o): o is typeof o & { bankTransactionId: string } => !!o.bankTransactionId)
+        .map((o) => ({
+          bankTransactionId: o.bankTransactionId,
+          categoryId: o.item.categoryId,
+          itemName: o.item.name,
+        })),
+      rows,
+    );
+  }
 
   return deriveReal({
     rows,

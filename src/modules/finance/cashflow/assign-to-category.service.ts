@@ -9,6 +9,7 @@ import {
   utcCalendarDay,
 } from "./recurrence-engine";
 import { resolveConsumableProjection } from "./assign-projection-resolver";
+import { createExpenseIncomeLinkForCategory } from "@/modules/finance/banking/occurrence-link-heal.service";
 
 /**
  * Motor ÚNICO para asignar un movimiento bancario a una categoría de flujo
@@ -107,7 +108,7 @@ export async function assignBankTxToCategory(
     txDate,
   });
 
-  return prisma.$transaction(async (db) => {
+  const result = await prisma.$transaction(async (db) => {
     if (projected) {
       // ── Rama A: CONSUME el proyectado (no suma). ──
       const proj = projected.projectedGrossClp;
@@ -140,7 +141,7 @@ export async function assignBankTxToCategory(
         data: { reconciliationStatus: "MATCHED" },
       });
       return {
-        mode: "consumed",
+        mode: "consumed" as const,
         occurrenceId: occurrence.id,
         itemId: projected.itemId,
         varianceClp: absAmount - proj,
@@ -189,12 +190,31 @@ export async function assignBankTxToCategory(
       data: { reconciliationStatus: "MATCHED" },
     });
     return {
-      mode: "created",
+      mode: "created" as const,
       occurrenceId: occurrence.id,
       itemId: item.id,
       realClp: absAmount,
     };
   });
+
+  try {
+    await createExpenseIncomeLinkForCategory({
+      tenantId,
+      bankTxId: tx.id,
+      userId,
+      amountAbs: absAmount,
+      isIncome: category.kind === "INCOME",
+      categoryId: category.id,
+      itemName: input.name?.trim() || tx.description,
+    });
+  } catch (err) {
+    console.warn(
+      "[Cashflow] assign-to-category: no se pudo crear BankTxLink",
+      err,
+    );
+  }
+
+  return result;
 }
 
 /**
@@ -235,6 +255,14 @@ export async function revertBankTxCategoryAssignment(
       occ.item.source === "MANUAL" &&
       occ.item.recurrence === "ONCE" &&
       occ.item._count.occurrences === 1;
+
+    await db.financeBankTransactionLink.deleteMany({
+      where: {
+        tenantId,
+        bankTransactionId,
+        targetType: { in: ["EXPENSE", "INCOME"] },
+      },
+    });
 
     if (isCreated) {
       await db.financeCashflowOccurrence.delete({ where: { id: occ.id } });

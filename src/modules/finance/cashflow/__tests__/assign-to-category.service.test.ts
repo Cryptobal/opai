@@ -7,6 +7,10 @@ vi.mock("../config.service", () => ({
 vi.mock("../assign-projection-resolver", () => ({
   resolveConsumableProjection: vi.fn(),
 }));
+vi.mock("@/modules/finance/banking/occurrence-link-heal.service", () => ({
+  createExpenseIncomeLinkForCategory: vi.fn(async () => ({ flowRowId: "row-retiro" })),
+  healBankTxLinkFromCashflowOccurrence: vi.fn(),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeBankTransaction: { findFirst: vi.fn(), update: vi.fn() },
@@ -18,6 +22,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     financeCashflowItem: { create: vi.fn(), delete: vi.fn() },
     financeCashflowCategory: { findFirst: vi.fn() },
+    financeBankTransactionLink: { deleteMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -29,6 +34,7 @@ import {
   assignBankTxToCategory,
   revertBankTxCategoryAssignment,
 } from "../assign-to-category.service";
+import { createExpenseIncomeLinkForCategory } from "@/modules/finance/banking/occurrence-link-heal.service";
 
 type Fn = ReturnType<typeof vi.fn>;
 const TENANT = "tenant-1";
@@ -89,6 +95,15 @@ describe("assignBankTxToCategory — regla anti-suma (Opción A)", () => {
     expect(prisma.financeBankTransaction.update).toHaveBeenCalledWith({
       where: { id: "tx-1" }, data: { reconciliationStatus: "MATCHED" },
     });
+    expect(createExpenseIncomeLinkForCategory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT,
+        bankTxId: "tx-1",
+        categoryId: "cat-te",
+        amountAbs: 4_000_000,
+        isIncome: false,
+      }),
+    );
   });
 
   it("REAL PURO: sin proyectado → crea item + occurrence PAID con el real", async () => {
@@ -152,6 +167,13 @@ describe("revertBankTxCategoryAssignment — undo", () => {
     expect(upd.data.bankTransactionId).toBeNull();
     expect(num(upd.data.amountClp)).toBe(5_000_000);
     expect(prisma.financeCashflowItem.delete).not.toHaveBeenCalled();
+    expect(prisma.financeBankTransactionLink.deleteMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: TENANT,
+        bankTransactionId: "tx-1",
+        targetType: { in: ["EXPENSE", "INCOME"] },
+      },
+    });
     expect(prisma.financeBankTransaction.update).toHaveBeenCalledWith({
       where: { id: "tx-1" }, data: { reconciliationStatus: "UNMATCHED" },
     });
