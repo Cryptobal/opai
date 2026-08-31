@@ -119,7 +119,10 @@ type AsignacionItem = {
   };
 };
 
-type AsignacionRango = AsignacionItem & { startDate: Date; endDate: Date | null };
+type AsignacionRango = Omit<AsignacionItem, "startDate" | "endDate"> & {
+  startDate: Date;
+  endDate: Date | null;
+};
 
 function withVigenciaDates(a: AsignacionItem): AsignacionRango {
   return {
