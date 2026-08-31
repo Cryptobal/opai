@@ -8,6 +8,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {
+  isVigenciaSyncUtcHour,
+  runSyncAsignacionesVigencia,
+} from "@/lib/ops/sync-asignaciones-vigencia";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const secret = req.headers.get("authorization");
@@ -34,5 +41,18 @@ export async function GET(req: NextRequest) {
 
   console.log(`[CRON] consolidar-marcaciones: ${result.count} consolidadas`);
 
-  return NextResponse.json({ success: true, consolidated: result.count });
+  let vigencia: Awaited<ReturnType<typeof runSyncAsignacionesVigencia>> | null = null;
+  if (isVigenciaSyncUtcHour()) {
+    try {
+      vigencia = await runSyncAsignacionesVigencia();
+    } catch (error) {
+      console.error("[OPS][CRON] sync-asignaciones-vigencia failed", error);
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    consolidated: result.count,
+    ...(vigencia ? { vigencia } : {}),
+  });
 }
