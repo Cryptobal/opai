@@ -213,9 +213,15 @@ type GuardiaDetail = {
     type: string;
     status: string;
     fileUrl?: string | null;
+    fileName?: string | null;
+    mimeType?: string | null;
     issuedAt?: string | null;
     expiresAt?: string | null;
     createdAt: string;
+    folderId?: string | null;
+    portalVisible?: boolean;
+    needsAttention?: boolean;
+    folder?: { id: string; name: string; portalVisible?: boolean } | null;
   }>;
   historyEvents: Array<{
     id: string;

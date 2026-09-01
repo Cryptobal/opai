@@ -91,6 +91,18 @@ export const FALLBACK_GUARD_TIPOS: Array<{
   },
 ];
 
+const INVALID_GUARD_DOC_CODES = new Set(["undefined", "null", "tipo_desconocido"]);
+
+/** Código usable en el checklist de ficha (no basura de migración ni sin clasificar). */
+export function isValidGuardDocCode(code: string | null | undefined): boolean {
+  if (!code) return false;
+  const normalized = code.trim().toLowerCase();
+  if (!normalized) return false;
+  if (INVALID_GUARD_DOC_CODES.has(normalized)) return false;
+  if (normalized.startsWith("sin_clasificar")) return false;
+  return /^[a-z0-9_]+$/.test(normalized);
+}
+
 export function personaTypesForOperationalCodigo(codigo: string): string[] {
   return GUARDIA_TIPO_MAP[codigo] ?? [codigo];
 }
@@ -105,11 +117,15 @@ export function personaTypesForOperationalCodigo(codigo: string): string[] {
 export function pickPersonaTypeForSlot(personaTypes: string[]): string | null {
   const allowed = DOCUMENT_TYPES as readonly string[];
   for (const t of personaTypes) {
-    if (allowed.includes(t)) return t;
+    if (allowed.includes(t) && isValidGuardDocCode(t)) return t;
   }
-  return personaTypes[0] ?? null;
+  for (const t of personaTypes) {
+    if (isValidGuardDocCode(t)) return t;
+  }
+  return null;
 }
 
 export function slotIsUploadable(personaTypes: string[]): boolean {
-  return pickPersonaTypeForSlot(personaTypes) !== null;
+  const picked = pickPersonaTypeForSlot(personaTypes);
+  return picked !== null && isValidGuardDocCode(picked);
 }

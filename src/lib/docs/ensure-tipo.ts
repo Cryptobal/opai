@@ -8,13 +8,23 @@ import { resolveLegacyType } from "@/lib/docs/legacy-type-map";
 
 type Db = PrismaClient | Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
+const INVALID_RAW = new Set(["undefined", "null"]);
+
 export async function ensureTipoForLegacyType(
   db: Db,
   tenantId: string,
   rawType: string,
   hasAnyExpiry: boolean
 ): Promise<{ tipoId: string; created: boolean }> {
+  const trimmed = rawType?.trim() ?? "";
+  if (!trimmed || INVALID_RAW.has(trimmed.toLowerCase())) {
+    throw new Error("tipo de documento inválido");
+  }
+
   const resolution = resolveLegacyType(rawType, hasAnyExpiry);
+  if (!resolution) {
+    throw new Error("tipo de documento inválido");
+  }
   const codigo = resolution.codigo;
 
   const existing = await db.tipoDocumento.findUnique({

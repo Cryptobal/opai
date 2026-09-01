@@ -16,6 +16,7 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { getUfValue } from '@/lib/uf';
 import { getTenantCompanyConfig } from '@/lib/tenant-config';
+import { countPendingPersonaDocs } from '@/lib/docs/persona-docs-service';
 import {
   collectLinkedQuoteIds,
   resolveDealActiveQuotationSummary,
@@ -2146,9 +2147,7 @@ export async function getPersonasMetrics(tenantId: string): Promise<PersonasMetr
           lifecycleStatus: { in: ['postulante', 'seleccionado'] },
         },
       }),
-      prisma.opsDocumentoPersona.count({
-        where: { tenantId, status: 'pending' },
-      }),
+      countPendingPersonaDocs(tenantId),
       prisma.opsGuardia.count({
         where: {
           tenantId,

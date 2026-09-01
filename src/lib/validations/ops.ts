@@ -391,6 +391,7 @@ export const createGuardiaDocumentSchema = z.object({
   notes: z.string().trim().max(1000).optional().nullable(),
   folderId: z.string().uuid().optional().nullable(),
   portalVisible: z.boolean().optional(),
+  size: z.number().int().min(0).max(50_000_000).optional().nullable(),
 });
 
 export const updateGuardiaDocumentSchema = createGuardiaDocumentSchema.partial();

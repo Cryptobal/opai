@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
-import { GUARDIA_ALERTING_LIFECYCLE_STATUSES } from "@/lib/personas";
+import { listExpiredGuardiaDocs } from "@/lib/docs/persona-docs-service";
 
 export async function GET() {
   try {
@@ -25,25 +25,7 @@ export async function GET() {
     });
 
     // Persona docs vencidos — solo guardias activos (postulantes/inactivos no alertan)
-    const personaDocsVencidos = await prisma.opsDocumentoPersona.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        status: "vencido",
-        guardia: {
-          status: "active",
-          lifecycleStatus: { in: [...GUARDIA_ALERTING_LIFECYCLE_STATUSES] },
-        },
-      },
-      include: {
-        guardia: {
-          include: {
-            persona: { select: { firstName: true, lastName: true, rut: true } },
-          },
-        },
-      },
-      orderBy: { expiresAt: "asc" },
-      take: 50,
-    });
+    const personaDocsVencidos = await listExpiredGuardiaDocs(ctx.tenantId, { take: 50 });
 
     // Count obligatory tipos without documents (global layer)
     const tiposGlobalObligatorios = await prisma.tipoDocumento.findMany({
@@ -72,7 +54,7 @@ export async function GET() {
         nivel: "vencido",
         documento: d.type,
         capa: "guardia",
-        guardia: `${d.guardia.persona.lastName} ${d.guardia.persona.firstName}`,
+        guardia: d.guardiaName,
         guardiaId: d.guardiaId,
         expiresAt: d.expiresAt?.toISOString().slice(0, 10) ?? null,
         id: d.id,

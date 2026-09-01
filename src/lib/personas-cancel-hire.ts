@@ -8,6 +8,7 @@ import {
   isSignedLaborContractDocument,
   type CancelHireEligibility,
 } from "@/lib/personas-lifecycle";
+import { countUploadedContratoFirmado } from "@/lib/docs/persona-docs-service";
 
 export async function countSignedLaborContracts(
   tenantId: string,
@@ -33,15 +34,7 @@ export async function countSignedLaborContracts(
         },
       },
     }),
-    prisma.opsDocumentoPersona.count({
-      where: {
-        tenantId,
-        guardiaId,
-        type: "contrato_firmado",
-        fileUrl: { not: null },
-        status: { notIn: ["rechazado", "rejected"] },
-      },
-    }),
+    countUploadedContratoFirmado(tenantId, guardiaId),
   ]);
 
   const signedLinked = linkedDocs.filter((row) =>

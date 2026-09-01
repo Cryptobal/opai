@@ -77,6 +77,7 @@ export async function POST(
       fileUrl: body.fileUrl,
       fileName: normalizeNullable(body.fileName),
       mimeType: normalizeNullable(body.mimeType),
+      size: body.size ?? null,
       status: body.status,
       issuedAt: body.issuedAt ? parseDateOnly(body.issuedAt) : null,
       expiresAt: body.expiresAt ? parseDateOnly(body.expiresAt) : null,
@@ -144,18 +145,27 @@ export async function PATCH(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    const updated = await updatePersonaDoc(ctx.tenantId, id, documentId, {
-      type: body.type ?? undefined,
-      fileUrl: body.fileUrl ?? undefined,
-      status: body.status ?? undefined,
-      issuedAt: body.issuedAt !== undefined ? (body.issuedAt ? parseDateOnly(body.issuedAt) : null) : undefined,
-      expiresAt: body.expiresAt !== undefined ? (body.expiresAt ? parseDateOnly(body.expiresAt) : null) : undefined,
-      notes: body.notes !== undefined ? normalizeNullable(body.notes) : undefined,
-      validatedBy: body.status && body.status !== "pendiente" ? ctx.userId : undefined,
-      validatedAt: body.status && body.status !== "pendiente" ? new Date() : undefined,
-      folderId: body.folderId !== undefined ? (body.folderId || null) : undefined,
-      portalVisible: body.portalVisible !== undefined ? body.portalVisible : undefined,
-    });
+    const patch: Record<string, unknown> = {};
+    if (body.type !== undefined) patch.type = body.type;
+    if (body.fileUrl !== undefined) patch.fileUrl = body.fileUrl;
+    if (body.status !== undefined) {
+      patch.status = body.status;
+      if (body.status !== "pendiente") {
+        patch.validatedBy = ctx.userId;
+        patch.validatedAt = new Date();
+      }
+    }
+    if (body.issuedAt !== undefined) {
+      patch.issuedAt = body.issuedAt ? parseDateOnly(body.issuedAt) : null;
+    }
+    if (body.expiresAt !== undefined) {
+      patch.expiresAt = body.expiresAt ? parseDateOnly(body.expiresAt) : null;
+    }
+    if (body.notes !== undefined) patch.notes = normalizeNullable(body.notes);
+    if (body.folderId !== undefined) patch.folderId = body.folderId || null;
+    if (body.portalVisible !== undefined) patch.portalVisible = body.portalVisible;
+
+    const updated = await updatePersonaDoc(ctx.tenantId, id, documentId, patch);
 
     await prisma.opsGuardiaHistory.create({
       data: {

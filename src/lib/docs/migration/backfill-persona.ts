@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { extractStorageKeyFromPublicUrl } from "@/lib/storage";
 import { ensureTipoForLegacyType } from "@/lib/docs/ensure-tipo";
+import { resolveLegacyType } from "@/lib/docs/legacy-type-map";
 import {
   BATCH_SIZE,
   LEGACY_PERSONA,
@@ -50,13 +51,31 @@ export async function backfillPersonaBatch(
       continue;
     }
 
-    const { tipoId, created } = await ensureTipoForLegacyType(
-      prisma,
-      tenantId,
-      row.type,
-      expiryByType.get(row.type) ?? false
-    );
-    if (created) stats.typesCreated.push(row.type);
+    const resolution = resolveLegacyType(row.type, expiryByType.get(row.type) ?? false);
+    let tipoId: string;
+    let created = false;
+    let needsClassification = false;
+    if (!resolution) {
+      const fallback = await ensureTipoForLegacyType(
+        prisma,
+        tenantId,
+        "sin_clasificar_guardia",
+        false
+      );
+      tipoId = fallback.tipoId;
+      created = fallback.created;
+      needsClassification = true;
+    } else {
+      const ensured = await ensureTipoForLegacyType(
+        prisma,
+        tenantId,
+        row.type,
+        expiryByType.get(row.type) ?? false
+      );
+      tipoId = ensured.tipoId;
+      created = ensured.created;
+    }
+    if (created) stats.typesCreated.push(resolution?.codigo ?? "sin_clasificar_guardia");
 
     let storageKey: string | null = null;
     let needsAttention = false;
@@ -98,7 +117,7 @@ export async function backfillPersonaBatch(
           legacySource: LEGACY_PERSONA,
           legacyId: row.id,
           needsAttention,
-          needsClassification: false,
+          needsClassification,
         },
       });
       await tx.documentoEnlace.create({

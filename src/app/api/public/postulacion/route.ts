@@ -23,6 +23,7 @@ import {
   normalizeNullable,
   normalizeRut,
 } from "@/lib/personas";
+import { createPersonaDocsFromUploads } from "@/lib/docs/persona-docs-service";
 import { isValidPostulacionToken } from "@/lib/postulacion-token";
 import { getPostulacionDocumentTypesVisibleOnGuardForm } from "@/lib/postulacion-documentos";
 
@@ -255,18 +256,6 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          if (body.documents.length > 0) {
-            await tx.opsDocumentoPersona.createMany({
-              data: body.documents.map((doc) => ({
-                tenantId,
-                guardiaId: guardia.id,
-                type: doc.type,
-                fileUrl: doc.fileUrl,
-                status: "pendiente",
-              })),
-            });
-          }
-
           if (body.notes && body.notes.trim()) {
             await tx.opsComentarioGuardia.create({
               data: {
@@ -301,6 +290,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (createdGuardia) {
+      if (body.documents.length > 0) {
+        await createPersonaDocsFromUploads(
+          tenantId,
+          createdGuardia.id,
+          body.documents.map((doc) => ({
+            type: doc.type,
+            fileUrl: doc.fileUrl,
+          }))
+        );
+      }
       try {
         const fullName = `${body.firstName} ${body.lastName}`.trim();
         const { notify } = await import("@/lib/notifications/notify");

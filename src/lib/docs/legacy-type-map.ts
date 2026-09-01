@@ -1,7 +1,12 @@
 /**
  * Mapa de tipos legados (OpsDocumentoPersona.type) → código de TipoDocumento.
  * Nunca mapea a sin_clasificar: los desconocidos generan un tipo nuevo.
+ * Códigos vacíos / "undefined" / "null" no son válidos: `resolveLegacyType` devuelve null.
  */
+
+export const UNCLASSIFIED_GUARDIA_TIPO = "sin_clasificar_guardia";
+
+const INVALID_TYPE_CODES = new Set(["undefined", "null", "tipo_desconocido"]);
 
 export type LegacyTypeResolution =
   | { kind: "mapped"; codigo: string }
@@ -46,15 +51,18 @@ const EXPLICIT_MAP: Record<string, string> = {
   curriculum: "curriculum",
 };
 
-export function normalizeLegacyTypeCode(raw: string): string {
-  return raw
+export function normalizeLegacyTypeCode(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const codigo = raw
     .trim()
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
-    .slice(0, 80) || "tipo_desconocido";
+    .slice(0, 80);
+  if (!codigo || INVALID_TYPE_CODES.has(codigo)) return null;
+  return codigo;
 }
 
 export function humanizeTypeCode(codigo: string): string {
@@ -68,12 +76,14 @@ export function humanizeTypeCode(codigo: string): string {
 /**
  * Resuelve un type legado a un código de catálogo o a una creación automática.
  * `hasAnyExpiry` indica si alguna fila con ese type tiene expiresAt no nulo.
+ * Devuelve null si el type es vacío, "undefined", "null" o no produce un código usable.
  */
 export function resolveLegacyType(
-  rawType: string,
+  rawType: string | null | undefined,
   hasAnyExpiry: boolean
-): LegacyTypeResolution {
+): LegacyTypeResolution | null {
   const codigo = normalizeLegacyTypeCode(rawType);
+  if (!codigo) return null;
 
   if (EXPLICIT_MAP[codigo]) {
     return { kind: "mapped", codigo: EXPLICIT_MAP[codigo] };
@@ -92,4 +102,9 @@ export function resolveLegacyType(
     diasAlerta: 30,
     tieneVencimiento: hasAnyExpiry,
   };
+}
+
+/** Código canónico de catálogo, o `sin_clasificar_guardia` si el type es inválido. */
+export function canonicalGuardiaTypeCode(rawType: string | null | undefined): string {
+  return resolveLegacyType(rawType, false)?.codigo ?? UNCLASSIFIED_GUARDIA_TIPO;
 }

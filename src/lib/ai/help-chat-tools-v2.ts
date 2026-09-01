@@ -12,6 +12,7 @@ import {
 } from "@/lib/ai/help-chat-email-search-tools";
 import { getAssignedTeamsForUser } from "@/lib/tickets-team-membership";
 import { todayChileStr } from "@/lib/fx-date";
+import { listPersonaDocs } from "@/lib/docs/persona-docs-service";
 import {
   getGuardiasMetrics,
   getPendingRendicionesForApproval,
@@ -3649,24 +3650,10 @@ async function toolGetGuardiaDetail(tenantId: string, query: string) {
 async function toolListGuardiaDocuments(tenantId: string, query: string, type?: string) {
   const g = await findGuardiaByQuery(tenantId, query);
   if (!g) return { ok: false, error: "No encontré ningún guardia con esa búsqueda." };
-  const where: Prisma.OpsDocumentoPersonaWhereInput = { tenantId, guardiaId: g.id };
-  if (type && type.trim()) {
-    where.type = { contains: type.trim(), mode: "insensitive" };
-  }
-  const docs = await prisma.opsDocumentoPersona.findMany({
-    where,
-    orderBy: [{ updatedAt: "desc" }],
-    take: 30,
-    select: {
-      id: true,
-      type: true,
-      fileUrl: true,
-      fileName: true,
-      status: true,
-      issuedAt: true,
-      expiresAt: true,
-    },
-  });
+  const needle = type?.trim().toLowerCase() ?? "";
+  const docs = (await listPersonaDocs(tenantId, g.id))
+    .filter((d) => !needle || d.type.toLowerCase().includes(needle))
+    .slice(0, 30);
   return {
     ok: true,
     data: {
@@ -3683,7 +3670,6 @@ async function toolListGuardiaDocuments(tenantId: string, query: string, type?: 
         estado: d.status,
         emitido: d.issuedAt,
         vence: d.expiresAt,
-        // Link directo al archivo (R2/storage) y a la pantalla del guardia
         archivoUrl: d.fileUrl,
         verEnApp: `/personas/guardias/${g.id}`,
       })),

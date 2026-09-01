@@ -7,7 +7,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
 import {
   getEffectivePostulacionDocuments,
   getPostulacionDocumentTypes,
@@ -16,6 +15,7 @@ import {
   validatePostulacionDocumentRemoval,
   type PostulacionDocumentItem,
 } from "@/lib/postulacion-documentos";
+import { countPersonaDocsByType } from "@/lib/docs/persona-docs-service";
 import { z } from "zod";
 
 const postBodySchema = z.object({
@@ -37,15 +37,7 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
     const documents = await getPostulacionDocumentTypes(ctx.tenantId);
-    const counts = await prisma.opsDocumentoPersona.groupBy({
-      by: ["type"],
-      where: { tenantId: ctx.tenantId },
-      _count: { _all: true },
-    });
-    const documentCountsByType: Record<string, number> = {};
-    for (const row of counts) {
-      documentCountsByType[row.type] = row._count._all;
-    }
+    const documentCountsByType = await countPersonaDocsByType(ctx.tenantId);
     return NextResponse.json({ success: true, data: documents, documentCountsByType });
   } catch (error) {
     console.error("[OPS] Error fetching postulacion documents:", error);
@@ -84,15 +76,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: removalCheck.error }, { status: 400 });
     }
     const saved = await setPostulacionDocumentTypes(items, ctx.tenantId);
-    const counts = await prisma.opsDocumentoPersona.groupBy({
-      by: ["type"],
-      where: { tenantId: ctx.tenantId },
-      _count: { _all: true },
-    });
-    const documentCountsByType: Record<string, number> = {};
-    for (const row of counts) {
-      documentCountsByType[row.type] = row._count._all;
-    }
+    const documentCountsByType = await countPersonaDocsByType(ctx.tenantId);
     return NextResponse.json({ success: true, data: saved, documentCountsByType });
   } catch (error) {
     console.error("[OPS] Error saving postulacion documents:", error);

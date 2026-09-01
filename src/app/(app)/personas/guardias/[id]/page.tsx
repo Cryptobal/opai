@@ -6,6 +6,7 @@ import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import { getOperationalGuardDocSlots } from "@/lib/operational-guard-doc-slots";
 import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
 import { buildDocLabelMap } from "@/lib/personas";
+import { listPersonaDocs } from "@/lib/docs/persona-docs-service";
 import { GuardiaDetailClient } from "@/components/ops";
 export default async function GuardiaDetailPage({
   params,
@@ -24,7 +25,7 @@ export default async function GuardiaDetailPage({
   const hasInventarioAccess = canView(perms, "ops", "inventario");
 
   const tenantId = session.user.tenantId;
-  const [guardia, asignaciones, adminUsers, guardiaDocConfig, operationalGuardDocSlots, postulacionDocs] = await Promise.all([
+  const [guardia, asignaciones, adminUsers, guardiaDocConfig, operationalGuardDocSlots, postulacionDocs, personaDocs] = await Promise.all([
     prisma.opsGuardia.findFirst({
       where: { id, tenantId },
       include: {
@@ -38,7 +39,6 @@ export default async function GuardiaDetailPage({
         intendedPlanUpdatedBy: { select: { id: true, name: true } },
         bankAccounts: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
         comments: { orderBy: [{ createdAt: "desc" }], take: 100 },
-        documents: { include: { folder: true }, orderBy: [{ createdAt: "desc" }] },
         historyEvents: { orderBy: [{ createdAt: "desc" }], take: 1000 },
       },
     }),
@@ -63,6 +63,7 @@ export default async function GuardiaDetailPage({
     getGuardiaDocumentosConfig(tenantId),
     getOperationalGuardDocSlots(tenantId),
     getPostulacionDocumentTypes(tenantId),
+    listPersonaDocs(tenantId, id),
   ]);
 
   if (!guardia) notFound();
@@ -83,6 +84,7 @@ export default async function GuardiaDetailPage({
   const userMap = new Map(adminUsers.map((u) => [u.id, u.name]));
   const enrichedGuardia = {
     ...guardia,
+    documents: personaDocs,
     persona: {
       ...guardia.persona,
       admin: linkedAdmin
