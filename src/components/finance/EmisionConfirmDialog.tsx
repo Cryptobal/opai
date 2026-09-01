@@ -149,12 +149,13 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
             </ul>
           </div>
 
-          {totals.currency === "UF" && (
+          {totals.currency === "UF" || lines.some((l) => l.unitPriceUf != null) ? (
             <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-xs text-status-info-fg">
-              Conversión UF→CLP usando UF del día (${totals.ufValue?.toLocaleString("es-CL")} CLP por UF).
-              Los montos al SII van en CLP. La UF queda como auditoría interna.
+              {totals.currency === "UF"
+                ? `Conversión UF→CLP usando UF del día (${totals.ufValue?.toLocaleString("es-CL")} CLP por UF). Los montos al SII van en CLP. La UF queda como auditoría interna.`
+                : `Líneas con origen UF: ${totals.ufValue != null ? `valor UF $${totals.ufValue.toLocaleString("es-CL")}` : "ver desglose en el detalle"}. Los montos al SII van en CLP.`}
             </div>
-          )}
+          ) : null}
 
           <div className="flex items-start gap-2">
             <Checkbox

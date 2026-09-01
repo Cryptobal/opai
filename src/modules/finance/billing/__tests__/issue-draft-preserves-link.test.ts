@@ -121,4 +121,40 @@ describe("issueDraftDte — conserva vínculo de programación", () => {
     expect(input.recurringTemplateId).toBeNull();
     expect(input.billingPeriod).toBeNull();
   });
+
+  it("CLP con UF congelada: pasa ufOverride a issueDte para auditoría", async () => {
+    findDraft.mockResolvedValue({
+      id: "draft-3",
+      dteType: 33,
+      date: new Date("2026-08-31T00:00:00.000Z"),
+      receiverRut: "11.111.111-1",
+      receiverName: "Cliente",
+      receiverEmail: null,
+      receiverEmailCc: [],
+      receiverGiro: null,
+      receiverDireccion: null,
+      receiverComuna: null,
+      receiverCiudad: null,
+      crmAccountId: "acc-A",
+      installationId: "inst-1",
+      currency: "CLP",
+      notes: null,
+      accountId: null,
+      ufValueAtIssue: 38_000,
+      recurringTemplateId: "tpl-A",
+      billingPeriod: "2026-08",
+      referenceType: null,
+      referenceFolio: null,
+      referenceDate: null,
+      referenceCode: null,
+      referenceDteId: null,
+      referenceReason: null,
+      additionalReferences: null,
+      lines: [],
+    });
+
+    await issueDraftDte("tenant-1", "draft-3", "user-1");
+    const opts = issueDteMock.mock.calls[0][3] as { ufOverride?: number };
+    expect(opts.ufOverride).toBe(38_000);
+  });
 });
