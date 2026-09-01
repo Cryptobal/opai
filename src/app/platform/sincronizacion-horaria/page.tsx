@@ -26,14 +26,20 @@ export default function PlatformSincronizacionHorariaPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [prevCursors, setPrevCursors] = useState<(string | null)[]>([]);
+  const [exporting, setExporting] = useState(false);
 
-  async function load() {
+  async function load(next: string | null = cursor) {
     setLoading(true);
     setError(null);
     try {
       const p = new URLSearchParams();
       if (from) p.set('from', from);
       if (to) p.set('to', to);
+      if (next) p.set('cursor', next);
       const res = await fetch(`/api/platform/time-sync-logs?${p.toString()}`);
       const json = await res.json();
       if (!res.ok) {
@@ -42,6 +48,8 @@ export default function PlatformSincronizacionHorariaPage() {
         return;
       }
       setRows(json.data ?? []);
+      setTotal(json.total ?? 0);
+      setNextCursor(json.nextCursor ?? null);
     } catch {
       setError('No se pudo cargar la bitácora');
       setRows([]);
@@ -51,23 +59,78 @@ export default function PlatformSincronizacionHorariaPage() {
   }
 
   useEffect(() => {
-    void load();
+    void load(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const exportHref = `/api/platform/time-sync-logs?format=xlsx&from=${from}&to=${to}`;
+  function applyFilter() {
+    setCursor(null);
+    setPrevCursors([]);
+    void load(null);
+  }
+
+  function goNext() {
+    if (!nextCursor) return;
+    setPrevCursors((stack) => [...stack, cursor]);
+    setCursor(nextCursor);
+    void load(nextCursor);
+  }
+
+  function goPrev() {
+    const stack = [...prevCursors];
+    const prev = stack.pop() ?? null;
+    setPrevCursors(stack);
+    setCursor(prev);
+    void load(prev);
+  }
+
+  async function exportExcel() {
+    setExporting(true);
+    setError(null);
+    try {
+      const p = new URLSearchParams({ format: 'xlsx' });
+      if (from) p.set('from', from);
+      if (to) p.set('to', to);
+      const res = await fetch(`/api/platform/time-sync-logs?${p.toString()}`);
+      if (res.status === 413) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error || 'El periodo es demasiado grande. Acota las fechas.');
+        return;
+      }
+      if (!res.ok) {
+        setError('No se pudo exportar el Excel');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sincronizacion-horaria.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('No se pudo exportar el Excel');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const last = rows?.[0] ?? null;
+  const PAGE_SIZE = 200;
+  const pageStart = prevCursors.length * PAGE_SIZE + (rows && rows.length > 0 ? 1 : 0);
+  const pageEnd = prevCursors.length * PAGE_SIZE + (rows?.length ?? 0);
 
   return (
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-xl font-semibold">Sincronización horaria (Art. 11)</h1>
         <p className="mt-1 text-sm text-ds-text-3">
-          Verificación HTTPS contra la Hora Oficial de Chile. Retención 5 años.
+          Verificación HTTPS contra la Hora Oficial de Chile. Retención 5 años. El Excel
+          descarga el periodo filtrado completo.
         </p>
       </div>
 
-      {last && (
+      {last && !cursor && (
         <p className={`text-sm ${statusClass(last.status)}`}>
           Último estado: {last.status} · desfase {last.driftMs ?? 'n/d'} ms · fuente{' '}
           {last.referenceSource}
@@ -88,23 +151,31 @@ export default function PlatformSincronizacionHorariaPage() {
           onChange={(e) => setTo(e.target.value)}
         />
         <button
-          onClick={() => void load()}
+          onClick={applyFilter}
           className="h-10 min-h-11 rounded bg-status-info px-4 text-sm text-white sm:min-h-10"
         >
           Filtrar
         </button>
-        <a
-          href={exportHref}
+        <button
+          type="button"
+          onClick={() => void exportExcel()}
+          disabled={exporting}
           className="flex h-10 min-h-11 items-center rounded border px-4 text-sm sm:min-h-10"
         >
-          Exportar Excel
-        </a>
+          {exporting ? 'Exportando…' : 'Exportar Excel'}
+        </button>
       </div>
 
       {error && <p className="text-sm text-status-danger-fg">{error}</p>}
       {loading && <p className="text-sm text-ds-text-3">Cargando…</p>}
       {!loading && rows && rows.length === 0 && (
         <p className="text-sm text-ds-text-3">Sin verificaciones en el periodo</p>
+      )}
+
+      {rows && rows.length > 0 && (
+        <p className="text-[12px] text-ds-text-3">
+          Mostrando {pageStart}–{pageEnd} de {total.toLocaleString('es-CL')}
+        </p>
       )}
 
       {rows && rows.length > 0 && (
@@ -141,6 +212,27 @@ export default function PlatformSincronizacionHorariaPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {(prevCursors.length > 0 || nextCursor) && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={goPrev}
+            disabled={prevCursors.length === 0 || loading}
+            className="h-10 min-h-11 rounded border px-4 text-sm disabled:opacity-50 sm:min-h-10"
+          >
+            Anterior
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            disabled={!nextCursor || loading}
+            className="h-10 min-h-11 rounded border px-4 text-sm disabled:opacity-50 sm:min-h-10"
+          >
+            Siguiente
+          </button>
         </div>
       )}
     </div>

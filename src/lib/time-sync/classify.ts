@@ -33,3 +33,18 @@ export function driftWithRttCompensation(
 export function shouldDiscardRtt(rttMs: number): boolean {
   return rttMs > TIME_SYNC_RTT_MAX_MS;
 }
+
+/**
+ * Reintenta el correo mientras el incidente de desfase no tenga una entrega
+ * exitosa. Tras recuperarse a `ok`, un nuevo `alert` vuelve a notificar.
+ */
+export function shouldNotifyDriftAlert(input: {
+  status: TimeSyncStatus;
+  lastNotifiedCheckedAt: Date | null;
+  lastOkCheckedAt: Date | null;
+}): boolean {
+  if (input.status !== "alert") return false;
+  if (input.lastNotifiedCheckedAt == null) return true;
+  if (input.lastOkCheckedAt == null) return false;
+  return input.lastNotifiedCheckedAt.getTime() < input.lastOkCheckedAt.getTime();
+}

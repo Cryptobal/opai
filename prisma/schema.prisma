@@ -5508,6 +5508,8 @@ model OpsTimeSyncLog {
   rttMs           Int?      @map("rtt_ms")
   driftMs         Int?      @map("drift_ms")
   status          String // ok | warn | alert
+  /// Marca de entrega del correo de alerta; null = aún no se notificó (reintento).
+  notifiedAt      DateTime? @map("notified_at") @db.Timestamptz(6)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([checkedAt], map: "idx_ops_time_sync_log_checked")
