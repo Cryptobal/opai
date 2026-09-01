@@ -634,9 +634,16 @@ export function executionMeta(cell: FlowMatrixCellDto): ExecutionMeta | null {
   };
 }
 
+/** Etiqueta de cuota YYYY-MM → "cuota 08/2026". */
+export function quotaPeriodLabel(period?: string | null): string | null {
+  if (!period || !/^\d{4}-\d{2}$/.test(period)) return null;
+  const [y, m] = period.split("-");
+  return `cuota ${m}/${y}`;
+}
+
 /** Línea "Emite dd/mm · término N d → cobro est. dd/mm" solo si hay término > 0. */
 export function terminoStatusLine(
-  it: Pick<CommittedItem, "issueYmd" | "fecha" | "terminoDias" | "cobroEstYmd">,
+  it: Pick<CommittedItem, "issueYmd" | "fecha" | "terminoDias" | "cobroEstYmd" | "billingPeriod">,
   fmt: (ymd: string) => string,
 ): string {
   const issue = it.issueYmd ?? it.fecha;
@@ -645,5 +652,7 @@ export function terminoStatusLine(
   if (it.terminoDias != null && it.terminoDias > 0 && it.cobroEstYmd) {
     parts.push(`término ${it.terminoDias} d → cobro est. ${fmt(it.cobroEstYmd)}`);
   }
+  const q = quotaPeriodLabel(it.billingPeriod);
+  if (q) parts.push(q);
   return parts.join(" · ");
 }

@@ -14,7 +14,8 @@
  *     lag de cobro (v4.7), salvo override de visibilidad por cuota
  *     (`FinanceCashflowScheduledDateOverride`). Dedupe period-aware: si existe
  *     un DTE (borrador o emitido) con (recurringTemplateId, billingPeriod) de
- *     la cuota, la cuota no se proyecta.
+ *     la cuota, la cuota no se proyecta. Además, una F° emitida del mismo
+ *     (template, período) reemplaza al borrador: no conviven en la celda.
  */
 import {
   computeNextRunAt,
@@ -69,6 +70,8 @@ export interface IssuedDteInput {
   recurringTemplateId?: string | null;
   /** Destino explícito elegido al emitir. null/undefined = ruteo automático. */
   flowRouting?: "OWN_ROW" | "OTHER_INCOME" | null;
+  /** Período de cuota YYYY-MM. Junto a recurringTemplateId, oculta el borrador hermano. */
+  billingPeriod?: string | null;
   receiverName: string;
   /** Término del contrato origen (template) si la factura viene de uno. */
   templateDiasCobro?: number | null;
@@ -95,6 +98,8 @@ export interface IssuedDteInput {
 export interface ScheduledDraftInput {
   id: string;
   templateId: string;
+  /** Período de cuota YYYY-MM. Si una F° cubre el mismo, este borrador no se proyecta. */
+  billingPeriod?: string | null;
   dateYmd: string;
   totalClp: number;
   receiverName: string;
@@ -192,6 +197,13 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommitte
   const bankOnly = args.bandejaIncomeBankOnly === true;
   // Lag SOLO para vencimiento informativo de emitidas sin dueDate.
   const lagDays = args.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
+  // F° emitida del período reemplaza al borrador (misma programación + cuota).
+  const issuedCoveredPeriods = new Set<string>();
+  for (const d of args.dtes) {
+    if (d.recurringTemplateId && d.billingPeriod) {
+      issuedCoveredPeriods.add(`${d.recurringTemplateId}::${d.billingPeriod}`);
+    }
+  }
 
   for (const d of args.dtes) {
     // Emitida: manda la factura (emisión) o el override manual de cobro.
@@ -268,10 +280,18 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommitte
       termSource: d.termSource,
       isCededRetention: d.isCededRetention === true,
       crmAccountId: d.crmAccountId,
+      billingPeriod: d.billingPeriod ?? undefined,
     });
   }
 
   for (const dr of args.drafts) {
+    if (
+      dr.templateId &&
+      dr.billingPeriod &&
+      issuedCoveredPeriods.has(`${dr.templateId}::${dr.billingPeriod}`)
+    ) {
+      continue;
+    }
     // v4.7: ancla en fecha del documento u override. Sin +diasCobro / lag.
     const hasOverride = !!dr.overrideDateYmd;
     const placementYmd = dr.overrideDateYmd ?? dr.dateYmd;
@@ -295,6 +315,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommitte
       issueYmd: term.issueYmd,
       terminoDias: term.terminoDias,
       cobroEstYmd: term.cobroEstYmd,
+      billingPeriod: dr.billingPeriod ?? undefined,
     });
   }
 

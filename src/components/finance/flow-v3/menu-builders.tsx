@@ -7,7 +7,7 @@ import type { MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
 import { isFallbackBandejaRow } from "@/modules/finance/flow-v3/unmatched-count";
 import { canHaveSubRows } from "@/modules/finance/flow-v3/row-tree";
-import { draftGroupLabel, terminoStatusLine } from "./cell-meta";
+import { draftGroupLabel, terminoStatusLine, quotaPeriodLabel } from "./cell-meta";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import type { MenuItemDesc } from "./menu-render";
 import { isParametricMoveRow } from "./parametric-move";
@@ -323,6 +323,7 @@ type DteMenuItem = {
   crmAccountId?: string | null;
   ceded?: boolean;
   cededPct?: number;
+  billingPeriod?: string;
 };
 
 type DraftMenuItem = {
@@ -333,6 +334,7 @@ type DraftMenuItem = {
   fecha: string;
   terminoDias?: number | null;
   cobroEstYmd?: string | null;
+  billingPeriod?: string;
   sentDocs: { proforma: boolean; estadoPago: boolean };
 };
 
@@ -351,6 +353,7 @@ function cellDteItems(cell: FlowMatrixCellDto): DteMenuItem[] {
       crmAccountId: i.crmAccountId,
       ceded: i.ceded === true || (i.cededPct ?? 0) > 0,
       cededPct: i.cededPct,
+      billingPeriod: i.billingPeriod,
     }));
   return items.sort((a, b) => (b.overdueDays ?? 0) - (a.overdueDays ?? 0));
 }
@@ -372,6 +375,7 @@ function cellDraftItems(cell: FlowMatrixCellDto): DraftMenuItem[] {
       fecha: i.fecha,
       terminoDias: i.terminoDias,
       cobroEstYmd: i.cobroEstYmd,
+      billingPeriod: i.billingPeriod,
       sentDocs: {
         proforma: i.sentDocs?.proforma === true,
         estadoPago: i.sentDocs?.estadoPago === true,
@@ -507,6 +511,8 @@ function folioStatusLine(d: DteMenuItem): string {
   if (d.dueYmd) parts.push(`vence ${fmtShortDate(d.dueYmd)}`);
   const overdue = d.overdueDays && d.overdueDays > 0;
   parts.push(overdue ? `vencida hace ${d.overdueDays} d` : "Pendiente");
+  const q = quotaPeriodLabel(d.billingPeriod);
+  if (q) parts.push(q);
   return parts.join(" · ");
 }
 
@@ -521,6 +527,7 @@ function draftStatusLine(d: DraftMenuItem): string {
       fecha: d.fecha,
       terminoDias: d.terminoDias,
       cobroEstYmd: d.cobroEstYmd,
+      billingPeriod: d.billingPeriod,
     },
     fmtShortDate,
   );

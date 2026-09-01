@@ -20,7 +20,7 @@ export interface CommittedItem {
   sentDocs?: SentDocs;
   dteId?: string;
   templateId?: string;
-  /** Solo kind=scheduled: período de la cuota/hito (YYYY-MM). */
+  /** kind=scheduled: período de la cuota/hito. kind=dte|draft: cuota vinculada (YYYY-MM). */
   billingPeriod?: string;
   /** Solo kind=scheduled de egreso: hito payroll/F29 (quincena, liquido, …). */
   milestoneKey?: string;
