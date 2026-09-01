@@ -11,6 +11,7 @@ import {
   classifyDrift,
   driftWithRttCompensation,
   shouldDiscardRtt,
+  shouldNotifyDriftAlert,
   TIME_SYNC_FETCH_TIMEOUT_MS,
   TIME_SYNC_INCIDENT_PREFIX,
   TIME_SYNC_RETENTION_YEARS,
@@ -159,11 +160,11 @@ async function resolvePlatformAlertEmails(): Promise<string[]> {
   );
 }
 
-async function sendDriftAlert(result: TimeSyncCheckResult): Promise<void> {
+async function sendDriftAlert(result: TimeSyncCheckResult): Promise<boolean> {
   const to = await resolvePlatformAlertEmails();
-  if (to.length === 0) return;
+  if (to.length === 0) return false;
   const driftSec = result.driftMs == null ? "n/d" : `${Math.round(result.driftMs / 1000)} s`;
-  await resend.emails.send({
+  const response = await resend.emails.send({
     from: PLATFORM_DEFAULT_EMAIL_FROM,
     to,
     subject: `Alerta de desfase horario — ${driftSec} (${result.referenceSource})`,
@@ -175,11 +176,15 @@ Hora referencia (UTC): ${result.referenceTime?.toISOString() ?? "n/d"}<br/>
 Versión: ${result.softwareVersion}</p>
 <p>Ver bitácora: /platform/sincronizacion-horaria</p>`,
   });
+  if (response.error) {
+    throw new Error(response.error.message);
+  }
+  return true;
 }
 
 async function maybeOpenIncident(): Promise<void> {
   const last = await prisma.opsTimeSyncLog.findMany({
-    orderBy: { checkedAt: "desc" },
+    orderBy: { createdAt: "desc" },
     take: 3,
     select: { status: true },
   });
@@ -246,12 +251,7 @@ export async function runTimeSyncCheck(): Promise<TimeSyncCheckResult> {
     softwareVersion: getAppVersion(),
   };
 
-  const previous = await prisma.opsTimeSyncLog.findFirst({
-    orderBy: { checkedAt: "desc" },
-    select: { status: true },
-  });
-
-  await prisma.opsTimeSyncLog.create({
+  const created = await prisma.opsTimeSyncLog.create({
     data: {
       checkedAt: result.checkedAt,
       referenceSource: result.referenceSource,
@@ -265,16 +265,40 @@ export async function runTimeSyncCheck(): Promise<TimeSyncCheckResult> {
 
   const cutoff = new Date();
   cutoff.setFullYear(cutoff.getFullYear() - TIME_SYNC_RETENTION_YEARS);
-  await prisma.opsTimeSyncLog.deleteMany({ where: { checkedAt: { lt: cutoff } } });
+  await prisma.opsTimeSyncLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
 
-  if (status === "alert" && previous?.status !== "alert") {
-    try {
-      await sendDriftAlert(result);
-    } catch (err) {
-      console.error("[time-sync] Error enviando alerta", err);
-    }
-  }
   if (status === "alert") {
+    const [lastNotified, lastOk] = await Promise.all([
+      prisma.opsTimeSyncLog.findFirst({
+        where: { notifiedAt: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
+      prisma.opsTimeSyncLog.findFirst({
+        where: { status: "ok" },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
+    ]);
+    if (
+      shouldNotifyDriftAlert({
+        status,
+        lastNotifiedAt: lastNotified?.createdAt ?? null,
+        lastOkAt: lastOk?.createdAt ?? null,
+      })
+    ) {
+      try {
+        const sent = await sendDriftAlert(result);
+        if (sent) {
+          await prisma.opsTimeSyncLog.update({
+            where: { id: created.id },
+            data: { notifiedAt: new Date() },
+          });
+        }
+      } catch (err) {
+        console.error("[time-sync] Error enviando alerta", err);
+      }
+    }
     await maybeOpenIncident();
   } else if (status === "ok") {
     await closeOpenIncident();

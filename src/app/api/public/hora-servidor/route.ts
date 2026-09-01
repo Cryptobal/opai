@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   let last: Awaited<ReturnType<typeof prisma.opsTimeSyncLog.findFirst>> = null;
   try {
     last = await prisma.opsTimeSyncLog.findFirst({
-      orderBy: { checkedAt: "desc" },
+      orderBy: { createdAt: "desc" },
     });
   } catch (err) {
     console.warn("[hora-servidor] No se pudo leer OpsTimeSyncLog", err);

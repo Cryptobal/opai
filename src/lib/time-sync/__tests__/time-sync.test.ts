@@ -3,6 +3,7 @@ import {
   classifyDrift,
   driftWithRttCompensation,
   shouldDiscardRtt,
+  shouldNotifyDriftAlert,
 } from "@/lib/time-sync/classify";
 import { parseCloudflareTraceTs, parseHttpDate } from "@/lib/time-sync/parse";
 import {
@@ -60,6 +61,65 @@ describe("time-sync umbrales", () => {
   it("descarta RTT > 2s", () => {
     expect(shouldDiscardRtt(2001)).toBe(true);
     expect(shouldDiscardRtt(1999)).toBe(false);
+  });
+});
+
+describe("time-sync alerta email", () => {
+  const t1 = new Date("2026-09-01T12:00:00.000Z");
+  const t2 = new Date("2026-09-01T12:10:00.000Z");
+
+  it("reintenta si nunca hubo entrega exitosa", () => {
+    expect(
+      shouldNotifyDriftAlert({
+        status: "alert",
+        lastNotifiedAt: null,
+        lastOkAt: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("no reenvía en el mismo incidente tras una entrega", () => {
+    expect(
+      shouldNotifyDriftAlert({
+        status: "alert",
+        lastNotifiedAt: t1,
+        lastOkAt: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("vuelve a enviar tras recuperarse a ok", () => {
+    expect(
+      shouldNotifyDriftAlert({
+        status: "alert",
+        lastNotifiedAt: t1,
+        lastOkAt: t2,
+      }),
+    ).toBe(true);
+  });
+
+  it("usa el reloj de inserción, no checkedAt sesgado al futuro", () => {
+    const skewedCheck = new Date("2026-09-01T20:00:00.000Z");
+    const createdAlert = new Date("2026-09-01T12:00:00.000Z");
+    const createdOk = new Date("2026-09-01T12:10:00.000Z");
+    expect(skewedCheck.getTime()).toBeGreaterThan(createdOk.getTime());
+    expect(
+      shouldNotifyDriftAlert({
+        status: "alert",
+        lastNotifiedAt: createdAlert,
+        lastOkAt: createdOk,
+      }),
+    ).toBe(true);
+  });
+
+  it("no notifica si el estado no es alert", () => {
+    expect(
+      shouldNotifyDriftAlert({
+        status: "warn",
+        lastNotifiedAt: null,
+        lastOkAt: null,
+      }),
+    ).toBe(false);
   });
 });
 
