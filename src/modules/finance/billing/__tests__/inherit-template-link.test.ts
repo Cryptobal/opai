@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 const findMany = vi.fn();
 const findFirst = vi.fn();
 const count = vi.fn();
+const findDteFirst = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -12,6 +13,9 @@ vi.mock("@/lib/prisma", () => ({
       findMany: (...a: unknown[]) => findMany(...a),
       findFirst: (...a: unknown[]) => findFirst(...a),
       count: (...a: unknown[]) => count(...a),
+    },
+    financeDte: {
+      findFirst: (...a: unknown[]) => findDteFirst(...a),
     },
   },
 }));
@@ -29,6 +33,7 @@ describe("applyTemplateLinkInheritance — destino v4.3/v4.7", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     findFirst.mockResolvedValue(null);
+    findDteFirst.mockResolvedValue(null);
   });
 
   it("con 2+ programaciones y sin vínculo → rechaza con opciones", async () => {
@@ -345,5 +350,70 @@ describe("applyTemplateLinkInheritance — destino v4.3/v4.7", () => {
         issueDateYmd: "2026-08-05",
       }),
     ).rejects.toBeInstanceOf(TemplateLinkRequiredError);
+  });
+
+  it("template inactivo de la misma cuenta se conserva (no hereda la hermana activa)", async () => {
+    findFirst.mockResolvedValue({ id: "tpl-poetas" });
+    const out = await applyTemplateLinkInheritance("t1", {
+      dteType: 33,
+      crmAccountId: "acc-Ametel",
+      installationId: "inst-poetas",
+      issueDateYmd: "2026-09-01",
+      recurringTemplateId: "tpl-poetas",
+      billingPeriod: "2026-09",
+    });
+    expect(out).toEqual({
+      recurringTemplateId: "tpl-poetas",
+      billingPeriod: "2026-09",
+    });
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it("herencia automática no ocupa una cuota ya cubierta por borrador/F°", async () => {
+    findMany.mockResolvedValue([
+      {
+        id: "tpl-only",
+        frequency: "monthly",
+        dayOfMonth: 5,
+        dayOfWeek: null,
+        monthOfYear: null,
+        startDate: new Date("2026-01-01"),
+        endDate: null,
+        lastRunAt: null,
+        facturaTiming: "AL_EMITIR",
+        facturaDay: null,
+        facturaMesRelativo: "MISMO_MES",
+      },
+    ]);
+    findFirst.mockResolvedValue({ id: "tpl-only" });
+    findDteFirst.mockResolvedValue({ id: "draft-ya-existe" });
+
+    const out = await applyTemplateLinkInheritance("t1", {
+      dteType: 33,
+      crmAccountId: "acc-A",
+      issueDateYmd: "2026-08-05",
+    });
+    expect(out).toEqual({
+      recurringTemplateId: null,
+      billingPeriod: null,
+    });
+    expect(findDteFirst).toHaveBeenCalled();
+  });
+
+  it("duplicate-as-draft con período explícito no se desvincula aunque la cuota esté cubierta", async () => {
+    findFirst.mockResolvedValue({ id: "tpl-only" });
+    findDteFirst.mockResolvedValue({ id: "dte-voided-sibling" });
+    const out = await applyTemplateLinkInheritance("t1", {
+      dteType: 33,
+      crmAccountId: "acc-A",
+      issueDateYmd: "2026-08-05",
+      recurringTemplateId: "tpl-only",
+      billingPeriod: "2026-08",
+    });
+    expect(out).toEqual({
+      recurringTemplateId: "tpl-only",
+      billingPeriod: "2026-08",
+    });
+    expect(findDteFirst).not.toHaveBeenCalled();
   });
 });

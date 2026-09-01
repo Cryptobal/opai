@@ -516,6 +516,69 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 });
 
+describe("deriveCommittedIncome — F° reemplaza borrador del mismo período", () => {
+  it("F° emitida oculta el borrador de la misma programación y cuota", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      dtes: [{
+        id: "dte-1808", folio: 1808, dateYmd: "2026-08-01", dueDateYmd: "2026-08-04",
+        pendingClp: 5_545_830, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "Transmat", recurringTemplateId: "tpl-80", billingPeriod: "2026-09",
+      }],
+      drafts: [{
+        id: "draft-80", templateId: "tpl-80", billingPeriod: "2026-09",
+        dateYmd: "2026-08-01", totalClp: 5_545_830,
+        receiverName: "Transmat", crmAccountId: "acc-A", installationId: "inst-1",
+        templateEndDateYmd: null,
+      }],
+    });
+    const cell = out.get("row-a-i1")?.get("2026-07-27");
+    expect(cell?.items.map((i) => i.kind)).toEqual(["dte"]);
+    expect(cell?.items[0]).toMatchObject({ folio: 1808, billingPeriod: "2026-09" });
+    expect(cell?.total).toBe(5_545_830);
+  });
+
+  it("borrador de otro período sigue conviviendo con la F°", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      dtes: [{
+        id: "dte-1808", folio: 1808, dateYmd: "2026-08-01", dueDateYmd: "2026-08-04",
+        pendingClp: 5_545_830, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "Transmat", recurringTemplateId: "tpl-80", billingPeriod: "2026-09",
+      }],
+      drafts: [{
+        id: "draft-aug", templateId: "tpl-80", billingPeriod: "2026-08",
+        dateYmd: "2026-08-01", totalClp: 5_732_510,
+        receiverName: "Transmat", crmAccountId: "acc-A", installationId: "inst-1",
+        templateEndDateYmd: null,
+      }],
+    });
+    const cell = out.get("row-a-i1")?.get("2026-07-27");
+    expect(cell?.items.map((i) => i.kind).sort()).toEqual(["draft", "dte"]);
+    expect(cell?.total).toBe(5_545_830 + 5_732_510);
+  });
+
+  it("borrador extra sin período (no es cuota) no se oculta", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      dtes: [{
+        id: "dte-1808", folio: 1808, dateYmd: "2026-08-01", dueDateYmd: "2026-08-04",
+        pendingClp: 100, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "X", recurringTemplateId: "tpl-80", billingPeriod: "2026-09",
+      }],
+      drafts: [{
+        id: "draft-extra", templateId: "tpl-80", billingPeriod: null,
+        dateYmd: "2026-08-01", totalClp: 50,
+        receiverName: "X", crmAccountId: "acc-A", installationId: "inst-1",
+        templateEndDateYmd: null,
+      }],
+    });
+    const cell = out.get("row-a-i1")?.get("2026-07-27");
+    expect(cell?.items).toHaveLength(2);
+    expect(cell?.total).toBe(150);
+  });
+});
+
 describe("deriveCommittedIncome — facturas cedidas", () => {
   it("DTE cedido sigue en la planilla con flag ceded", () => {
     const { committed: out } = deriveCommittedIncome({

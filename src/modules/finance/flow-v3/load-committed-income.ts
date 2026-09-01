@@ -178,7 +178,8 @@ export async function loadCommittedIncome(
         id: true, folio: true, date: true, dueDate: true,
         totalAmount: true, amountPaid: true, paymentStatus: true,
         crmAccountId: true, installationId: true, receiverName: true,
-        receiverRut: true, recurringTemplateId: true, flowRouting: true,
+        receiverRut: true, recurringTemplateId: true, billingPeriod: true,
+        flowRouting: true,
       },
     }),
     prisma.financeDte.findMany({
@@ -353,6 +354,7 @@ export async function loadCommittedIncome(
       drafts.push({
         id: d.id,
         templateId: d.recurringTemplateId,
+        billingPeriod: d.billingPeriod,
         dateYmd: d.date.toISOString().slice(0, 10),
         totalClp: Number(d.totalAmount),
         receiverName: d.receiverName ?? "",
@@ -398,6 +400,7 @@ export async function loadCommittedIncome(
         crmAccountId: resolveAccount(d.crmAccountId, d.receiverRut),
         installationId: d.installationId,
         recurringTemplateId: d.recurringTemplateId,
+        billingPeriod: d.billingPeriod,
         flowRouting: d.flowRouting,
         receiverName: d.receiverName ?? "",
         templateDiasCobro,

@@ -298,5 +298,17 @@ describe("sentDocs — etiquetas EP vs Proforma", () => {
         (d) => d.slice(8),
       ),
     ).toBe("Emite 20");
+    expect(
+      terminoStatusLine(
+        {
+          issueYmd: "2026-08-20",
+          fecha: "2026-08-20",
+          terminoDias: 0,
+          cobroEstYmd: null,
+          billingPeriod: "2026-08",
+        },
+        (d) => d.slice(8),
+      ),
+    ).toBe("Emite 20 · cuota 08/2026");
   });
 });

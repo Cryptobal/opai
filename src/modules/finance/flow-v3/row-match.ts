@@ -20,6 +20,8 @@ function isAccountInstallationIncome(r: FlowRowRef): boolean {
 /**
  * Matcher de INGRESOS (prioridad):
  *  1. Fila de la programación (`recurringTemplateId`) — 1 fila = 1 template.
+ *     Si la instalación identifica inequívocamente OTRA fila de template
+ *     de la misma cuenta, esa instalación gana (vínculo huérfano).
  *  2. Fila exacta cuenta+instalación (solo filas SIN template).
  *  3. Fila genérica de la cuenta (sin instalación, sin template).
  *  3.5 Match por instalación entre filas de template (1 hit). Nunca
@@ -59,7 +61,21 @@ export function buildIncomeMatcher(
   return (accountId, installationId, templateId) => {
     if (templateId) {
       const hit = byTemplate.get(templateId);
-      if (hit) return hit;
+      if (hit) {
+        // Template apuntando a una fila, pero la instalación identifica
+        // inequívocamente OTRA programación (p.ej. borrador de Los Poetas
+        // re-colgado a Peña Blanca al desactivar el template). La instalación
+        // manda. 20%/80% de la misma instalación son ambiguos → se queda el template.
+        if (accountId && installationId) {
+          const byInst = (byAccount.get(accountId) ?? []).filter(
+            (r) => r.recurringTemplateId && r.installationId === installationId,
+          );
+          if (byInst.length === 1 && byInst[0]!.id !== hit) {
+            return byInst[0]!.id;
+          }
+        }
+        return hit;
+      }
     }
     if (!accountId) return UNMATCHED_INCOME_KEY;
     if (installationId) {

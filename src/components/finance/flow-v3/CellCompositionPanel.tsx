@@ -6,7 +6,7 @@ import type { FlowMatrixCellDto, MatrixColumn } from "@/modules/finance/flow-v3/
 import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import { filterMoveTargetWeeks, resolveNextWeekKey } from "./menu-builders";
-import { committedItemMeta, terminoStatusLine, toneClass } from "./cell-meta";
+import { committedItemMeta, terminoStatusLine, toneClass, quotaPeriodLabel } from "./cell-meta";
 import { isParametricMoveRow } from "./parametric-move";
 
 interface Props {
@@ -177,7 +177,11 @@ export function CellCompositionPanel({
                 <div className="flex items-center justify-between gap-2 pl-1 text-ds-text-4">
                   <span>
                     {it.kind === "dte"
-                      ? `${it.emissionYmd ? fmtShortDate(it.emissionYmd) : fmtShortDate(it.fecha)}${it.dueYmd ? ` · vence ${fmtShortDate(it.dueYmd)}` : ""}`
+                      ? [
+                          it.emissionYmd ? fmtShortDate(it.emissionYmd) : fmtShortDate(it.fecha),
+                          it.dueYmd ? `vence ${fmtShortDate(it.dueYmd)}` : null,
+                          quotaPeriodLabel(it.billingPeriod),
+                        ].filter(Boolean).join(" · ")
                       : terminoStatusLine(it, fmtShortDate) || fmtShortDate(it.fecha)}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
