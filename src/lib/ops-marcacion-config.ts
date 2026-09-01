@@ -12,6 +12,8 @@ export interface MarcacionConfig {
   radioGlobalMarcacionEnabled: boolean;
   radioGlobalMarcacionM: number;
   alertaFaltaMarcacionEnabled: boolean;
+  /** Copias a la empresa. Vacío = solo al trabajador. */
+  alertaFaltaMarcacionEmployerEmails: string[];
   rondasPollingSegundos: number;
   rondasVentanaInicioAntesMin: number;
   rondasVentanaInicioDespuesMin: number;
@@ -37,7 +39,8 @@ export const DEFAULT_MARCACION_CONFIG: MarcacionConfig = {
     'Si transcurridas las 48 horas de recibir esta notificación usted no se hubiera opuesto al nuevo ajuste, ésta será considerada válida para los efectos de cálculo de su jornada.',
   radioGlobalMarcacionEnabled: false,
   radioGlobalMarcacionM: DEFAULT_MARCACION_RADIUS_M,
-  alertaFaltaMarcacionEnabled: true,
+  alertaFaltaMarcacionEnabled: false,
+  alertaFaltaMarcacionEmployerEmails: [],
   rondasPollingSegundos: 30,
   rondasVentanaInicioAntesMin: 60,
   rondasVentanaInicioDespuesMin: 120,
@@ -60,6 +63,16 @@ function stringOrDefault(value: unknown, fallback: string) {
 }
 
 function stringArray(value: unknown) {
+  if (typeof value === "string") {
+    return Array.from(
+      new Set(
+        value
+          .split(/[\s,;]+/)
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    );
+  }
   if (!Array.isArray(value)) return [];
   return Array.from(
     new Set(
@@ -69,6 +82,19 @@ function stringArray(value: unknown) {
         .filter(Boolean),
     ),
   );
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function emailArray(value: unknown) {
+  return stringArray(value)
+    .map((item) => item.toLowerCase())
+    .filter((item) => EMAIL_RE.test(item));
+}
+
+/** Parsea el textarea de casillas empresa (coma, punto y coma o salto de línea). */
+export function parseAlertaEmployerEmailsInput(value: string): string[] {
+  return emailArray(value);
 }
 
 export function normalizeMarcacionConfig(raw: unknown): MarcacionConfig {
@@ -131,6 +157,7 @@ export function normalizeMarcacionConfig(raw: unknown): MarcacionConfig {
       source.alertaFaltaMarcacionEnabled,
       DEFAULT_MARCACION_CONFIG.alertaFaltaMarcacionEnabled,
     ),
+    alertaFaltaMarcacionEmployerEmails: emailArray(source.alertaFaltaMarcacionEmployerEmails),
     rondasPollingSegundos: clampNumber(
       source.rondasPollingSegundos,
       DEFAULT_MARCACION_CONFIG.rondasPollingSegundos,
