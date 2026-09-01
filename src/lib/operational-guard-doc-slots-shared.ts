@@ -5,6 +5,7 @@
 
 import { DOCUMENT_TYPES } from "@/lib/personas";
 import { GUARDIA_TIPO_MAP } from "@/lib/docs-operacionales";
+import { canonicalGuardiaTypeCode } from "@/lib/docs/legacy-type-map";
 
 export type OperationalGuardDocSlot = {
   codigo: string;
@@ -104,7 +105,18 @@ export function isValidGuardDocCode(code: string | null | undefined): boolean {
 }
 
 export function personaTypesForOperationalCodigo(codigo: string): string[] {
-  return GUARDIA_TIPO_MAP[codigo] ?? [codigo];
+  const mapped = GUARDIA_TIPO_MAP[codigo] ?? [codigo];
+  return mapped.includes(codigo) ? mapped : [...mapped, codigo];
+}
+
+/** El doc llena el slot si su type (o el canónico) está en personaTypes del slot. */
+export function guardiaDocMatchesSlot(docType: string, personaTypes: string[]): boolean {
+  const wanted = new Set<string>();
+  for (const t of personaTypes) {
+    wanted.add(t);
+    wanted.add(canonicalGuardiaTypeCode(t));
+  }
+  return wanted.has(docType) || wanted.has(canonicalGuardiaTypeCode(docType));
 }
 
 /** Primer tipo OpsDocumentoPersona válido para subir desde la ficha.

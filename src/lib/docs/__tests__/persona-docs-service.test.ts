@@ -23,6 +23,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     documento: {
       update: vi.fn(),
+      findFirst: vi.fn(),
     },
     documentoEnlace: {
       findFirst: vi.fn(),
@@ -35,7 +36,10 @@ vi.mock("@/lib/prisma", () => ({
 import { prisma } from "@/lib/prisma";
 import {
   getGuardiaDocTypeIndex,
+  listPersonaDocs,
+  mergeLegacyPersonaDocsIntoUnified,
   updatePersonaDoc,
+  type PersonaDocRow,
 } from "@/lib/docs/persona-docs-service";
 
 const unifiedLink = {
@@ -168,12 +172,15 @@ describe("getGuardiaDocTypeIndex", () => {
       { entityId: "g1", file: { tipo: { codigo: "contrato_guardia" } } },
       { entityId: "g2", file: { tipo: null } },
     ] as never);
+    vi.mocked(prisma.opsDocumentoPersona.findMany).mockResolvedValue([
+      { guardiaId: "g2", type: "certificado_os10" },
+    ] as never);
 
     const index = await getGuardiaDocTypeIndex("t1", ["g1", "g2"]);
     expect(index.get("g1")?.has("historial_penal")).toBe(true);
     expect(index.get("g1")?.has("contrato_guardia")).toBe(true);
     expect(index.get("g2")?.has("sin_clasificar_guardia")).toBe(true);
-    expect(index.get("g2")?.has("historial_penal")).toBe(false);
+    expect(index.get("g2")?.has("certificado_os10")).toBe(true);
     expect(prisma.documentoEnlace.findMany).toHaveBeenCalledTimes(1);
   });
 
@@ -181,5 +188,170 @@ describe("getGuardiaDocTypeIndex", () => {
     const index = await getGuardiaDocTypeIndex("t1", []);
     expect(index.size).toBe(0);
     expect(readsUnified).not.toHaveBeenCalled();
+  });
+});
+
+describe("listPersonaDocs", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rama unificada une leftovers de postulacion que no fueron backfilleados", async () => {
+    readsUnified.mockResolvedValue(true);
+    vi.mocked(prisma.documentoEnlace.findMany).mockResolvedValue([
+      {
+        entityId: "g1",
+        folderId: null,
+        folder: null,
+        file: {
+          ...unifiedLink.file,
+          id: "u1",
+          legacyId: "legacy-already",
+          fileUrl: "https://files.example/hp.pdf",
+          tipo: { codigo: "historial_penal" },
+        },
+      },
+    ] as never);
+    vi.mocked(prisma.opsDocumentoPersona.findMany).mockResolvedValue([
+      {
+        id: "legacy-already",
+        tenantId: "t1",
+        guardiaId: "g1",
+        type: "historial_penal",
+        fileUrl: "https://files.example/hp.pdf",
+        fileName: "hp.pdf",
+        mimeType: "application/pdf",
+        status: "pendiente",
+        issuedAt: null,
+        expiresAt: null,
+        notes: null,
+        validatedBy: null,
+        validatedAt: null,
+        folderId: null,
+        portalVisible: false,
+        lastExpiryMilestone: null,
+        lastExpiryMilestoneAt: null,
+        renewalInProgressUntil: null,
+        renewalMarkedBy: null,
+        renewalMarkedAt: null,
+        expiryDismissedAt: null,
+        expiryDismissedBy: null,
+        expiryDismissedReason: null,
+        createdAt: new Date("2026-08-01"),
+        updatedAt: new Date("2026-08-01"),
+        folder: null,
+      },
+      {
+        id: "legacy-postulacion",
+        tenantId: "t1",
+        guardiaId: "g1",
+        type: "certificado_os10",
+        fileUrl: "https://files.example/os10.pdf",
+        fileName: "os10.pdf",
+        mimeType: "application/pdf",
+        status: "pendiente",
+        issuedAt: null,
+        expiresAt: null,
+        notes: null,
+        validatedBy: null,
+        validatedAt: null,
+        folderId: null,
+        portalVisible: false,
+        lastExpiryMilestone: null,
+        lastExpiryMilestoneAt: null,
+        renewalInProgressUntil: null,
+        renewalMarkedBy: null,
+        renewalMarkedAt: null,
+        expiryDismissedAt: null,
+        expiryDismissedBy: null,
+        expiryDismissedReason: null,
+        createdAt: new Date("2026-09-01"),
+        updatedAt: new Date("2026-09-01"),
+        folder: null,
+      },
+    ] as never);
+
+    const docs = await listPersonaDocs("t1", "g1");
+    expect(docs.map((d) => d.id).sort()).toEqual(["legacy-postulacion", "u1"]);
+    expect(docs.find((d) => d.id === "legacy-postulacion")?.type).toBe("certificado_os10");
+  });
+});
+
+function doc(partial: Partial<PersonaDocRow> & { id: string; type: string }): PersonaDocRow {
+  return {
+    tenantId: "t1",
+    guardiaId: "g1",
+    fileUrl: null,
+    fileName: null,
+    mimeType: null,
+    status: "pendiente",
+    issuedAt: null,
+    expiresAt: null,
+    notes: null,
+    validatedBy: null,
+    validatedAt: null,
+    folderId: null,
+    portalVisible: false,
+    lastExpiryMilestone: null,
+    lastExpiryMilestoneAt: null,
+    renewalInProgressUntil: null,
+    renewalMarkedBy: null,
+    renewalMarkedAt: null,
+    expiryDismissedAt: null,
+    expiryDismissedBy: null,
+    expiryDismissedReason: null,
+    createdAt: new Date("2026-09-01"),
+    updatedAt: new Date("2026-09-01"),
+    ...partial,
+  };
+}
+
+describe("mergeLegacyPersonaDocsIntoUnified", () => {
+  it("conserva unificados y agrega leftover de postulación", () => {
+    const unified = [
+      doc({
+        id: "u1",
+        type: "historial_penal",
+        fileUrl: "https://files.example/hp.pdf",
+      }),
+    ];
+    const legacy = [
+      doc({
+        id: "l1",
+        type: "certificado_os10",
+        fileUrl: "https://files.example/os10.pdf",
+      }),
+    ];
+    const merged = mergeLegacyPersonaDocsIntoUnified(unified, legacy, new Set());
+    expect(merged.map((d) => d.id).sort()).toEqual(["l1", "u1"]);
+  });
+
+  it("no duplica filas ya backfilleadas ni el mismo fileUrl", () => {
+    const unified = [
+      doc({
+        id: "u1",
+        type: "certificado_os10",
+        fileUrl: "https://files.example/os10.pdf",
+      }),
+    ];
+    const legacy = [
+      doc({ id: "legacy-backfill", type: "certificado_os10", fileUrl: "https://other/x.pdf" }),
+      doc({
+        id: "legacy-same-url",
+        type: "certificado_os10",
+        fileUrl: "https://files.example/os10.pdf",
+      }),
+      doc({
+        id: "legacy-new",
+        type: "cedula_identidad",
+        fileUrl: "https://files.example/ci.pdf",
+      }),
+    ];
+    const merged = mergeLegacyPersonaDocsIntoUnified(
+      unified,
+      legacy,
+      new Set(["legacy-backfill"])
+    );
+    expect(merged.map((d) => d.id).sort()).toEqual(["legacy-new", "u1"]);
   });
 });

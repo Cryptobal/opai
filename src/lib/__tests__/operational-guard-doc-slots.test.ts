@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { getOperationalGuardDocSlots } from "@/lib/operational-guard-doc-slots";
 import {
   FALLBACK_GUARD_TIPOS,
+  guardiaDocMatchesSlot,
   isValidGuardDocCode,
 } from "@/lib/operational-guard-doc-slots-shared";
 
@@ -28,6 +29,24 @@ describe("isValidGuardDocCode", () => {
     expect(isValidGuardDocCode("sin_clasificar_guardia")).toBe(false);
     expect(isValidGuardDocCode("sin_clasificar")).toBe(false);
     expect(isValidGuardDocCode("Historial Penal")).toBe(false);
+  });
+});
+
+describe("guardiaDocMatchesSlot", () => {
+  it("casa contrato unificado con el slot operativo", () => {
+    expect(
+      guardiaDocMatchesSlot("contrato_guardia", ["contrato", "contrato_firmado"])
+    ).toBe(true);
+    expect(guardiaDocMatchesSlot("contrato", ["contrato_guardia"])).toBe(true);
+  });
+
+  it("casa historial penal custom con el slot canónico", () => {
+    expect(guardiaDocMatchesSlot("custom_historial_penal", ["historial_penal"])).toBe(true);
+    expect(guardiaDocMatchesSlot("historial_penal", ["custom_historial_penal"])).toBe(true);
+  });
+
+  it("no casa tipos distintos", () => {
+    expect(guardiaDocMatchesSlot("certificado_os10", ["historial_penal"])).toBe(false);
   });
 });
 

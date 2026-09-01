@@ -49,6 +49,7 @@ const EXPLICIT_MAP: Record<string, string> = {
   certificado_ensenanza_media: "certificado_ensenanza_media",
   cedula_identidad: "cedula_identidad",
   curriculum: "curriculum",
+  custom_historial_penal: "historial_penal",
 };
 
 export function normalizeLegacyTypeCode(raw: string | null | undefined): string | null {
