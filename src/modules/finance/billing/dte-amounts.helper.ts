@@ -71,8 +71,17 @@ export interface ComputeDteAmountsOptions {
    * UF override: si se pasa, no llama a getUfValue() (útil en preview
    * client-side para reproducir el monto que tendrá el borrador). En
    * la emisión real (issuer) NO se debe pasar — siempre UF del día.
+   *
+   * También se usa en borradores CLP nacidos de programaciones UF: no
+   * reconvierte precios (ya están en pesos) pero persiste `ufValue`
+   * para auditoría en la UI.
    */
   ufOverride?: number;
+  /**
+   * Fecha de la UF aplicada (política de fijación de la programación).
+   * Si no viene, en currency=UF se usa "hoy"; en CLP+override queda null.
+   */
+  ufDateOverride?: Date | null;
   /**
    * Si true, en CLP rechazamos `unitPrice` con decimales. En UF también
    * validamos que el `unitPriceClp` resultante sea entero.
@@ -92,12 +101,17 @@ export async function computeDteAmounts(
 
   if (input.currency === "UF") {
     ufValue = await resolveUfValue(opts);
-    ufDate = new Date();
+    ufDate = opts.ufDateOverride ?? new Date();
     for (const l of input.lines) {
       if (typeof l.unitPriceUf !== "number" || l.unitPriceUf <= 0) {
         throw new Error("En facturación UF cada línea requiere unitPriceUf > 0");
       }
     }
+  } else if (opts.ufOverride && opts.ufOverride > 0) {
+    // Draft CLP con líneas convertidas desde UF (programación). Los
+    // unitPrice ya están en pesos: solo congelamos la UF usada.
+    ufValue = opts.ufOverride;
+    ufDate = opts.ufDateOverride ?? null;
   }
 
   let totalNet = 0;

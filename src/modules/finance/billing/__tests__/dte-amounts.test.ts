@@ -245,6 +245,41 @@ describe("computeDteAmounts — UF con ufOverride (sin red call)", () => {
   });
 });
 
+describe("computeDteAmounts — CLP con ufOverride (auditoría, sin reconvertir)", () => {
+  it("persiste ufValue y no toca unitPrice CLP ya convertido", async () => {
+    const r = await computeDteAmounts(
+      {
+        currency: "CLP",
+        dteType: 33,
+        lines: [
+          {
+            ...baseLine,
+            unitPrice: 1_520_000,
+            unitPriceUf: 40,
+          },
+        ],
+      },
+      { ufOverride: 38_000, ufDateOverride: new Date(Date.UTC(2026, 7, 31)) },
+    );
+    expect(r.ufValue).toBe(38_000);
+    expect(r.ufDate?.toISOString().slice(0, 10)).toBe("2026-08-31");
+    expect(r.lines[0].unitPrice).toBe(1_520_000);
+    expect(r.lines[0].unitPriceUf).toBe(40);
+    expect(r.totalNet).toBe(1_520_000);
+  });
+
+  it("sin ufOverride un draft CLP no inventa ufValue", async () => {
+    const r = await computeDteAmounts({
+      currency: "CLP",
+      dteType: 33,
+      lines: [{ ...baseLine, unitPrice: 1_000_000, unitPriceUf: 40 }],
+    });
+    expect(r.ufValue).toBeNull();
+    expect(r.lines[0].unitPrice).toBe(1_000_000);
+    expect(r.lines[0].unitPriceUf).toBe(40);
+  });
+});
+
 describe("computeDteAmounts — Fórmula IVA correcta", () => {
   it("IVA es siempre 19% sobre net (taxRate retorna 19, no 0.19)", async () => {
     const r = await computeDteAmounts({

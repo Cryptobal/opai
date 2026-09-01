@@ -447,9 +447,8 @@ export async function runTemplate(
     };
 
     // El draft se crea con currency=CLP y cada línea ya convertida a
-    // pesos. Por eso no pasamos `ufOverride` — `computeDteAmounts` ve
-    // currency=CLP y no intenta resolver UF (no hay UF "global" en este
-    // modelo).
+    // pesos. Pasamos ufOverride para congelar en el borrador la UF que
+    // se usó (auditoría en UI / PDF), sin que computeDteAmounts reconvierta.
     const draft = await createDraftDte(
       tenantId,
       template.createdBy,
@@ -458,6 +457,10 @@ export async function runTemplate(
         billingPeriod,
         issueDate,
       }),
+      {
+        ufOverride: ufContextValue ?? undefined,
+        ufDateOverride: ufContextDate ?? undefined,
+      },
     );
 
     // Si el owner ya había movido esa P en el flujo, el borrador nace

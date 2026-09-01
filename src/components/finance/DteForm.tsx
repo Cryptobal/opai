@@ -70,7 +70,7 @@ import {
   type PlaceholderContext,
 } from "@/modules/finance/billing/placeholders";
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
-import { roundUfTo2, ufToClpNet } from "@/lib/uf-utils";
+import { roundUfTo2, ufToClpNet, resolveUfPriceBreakdown, formatUfDateDmy } from "@/lib/uf-utils";
 import { todayChileStr } from "@/lib/fx-date";
 import { normalizeEmailList } from "@/lib/email-address";
 import {
@@ -136,6 +136,11 @@ interface DteLine extends LineDetailValue {
   accountId: string;
   /** ID de la solicitud de refuerzo si la línea proviene de una. */
   refuerzoSolicitudId?: string;
+  /**
+   * Precio original en UF si la línea nació de un monto UF (programación
+   * o one-shot). Independiente del `unitPrice` que el usuario edita.
+   */
+  originUnitPriceUf?: number | null;
 }
 
 interface PendingBillableItem {
@@ -386,6 +391,11 @@ export function DteForm({
   // (ej: la UF que pactó con el cliente). Texto vacío → se usa la del día.
   // Se valida >0 al enviar y se persiste en el draft (`ufValueAtIssue`).
   const [manualUfStr, setManualUfStr] = useState<string>("");
+  // UF congelada del borrador (programación o one-shot). Vive aparte de
+  // `ufValue` (UF del día, solo cuando currency=UF) para mostrar el
+  // desglose en drafts CLP convertidos.
+  const [draftUfAtIssue, setDraftUfAtIssue] = useState<number | null>(null);
+  const [draftUfDateAtIssue, setDraftUfDateAtIssue] = useState<string | null>(null);
   // Modal de confirmación pre-emisión.
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Vista previa PDF (Fase 9): genera un PDF "como se vería al emitir"
@@ -492,11 +502,23 @@ export function DteForm({
           );
         }
         if (d.currency === "UF" || d.currency === "CLP") setCurrency(d.currency);
-        // UF manual: si el draft trae ufValueAtIssue, asumimos que ese fue
-        // el valor "fijado" por el usuario y lo cargamos al input. Si lo
-        // deja igual, se sigue usando esa UF al re-guardar / emitir.
+        // UF congelada: se muestra en el desglose de cada línea UF, tanto
+        // si el draft viaja en UF como si ya se convirtió a CLP.
+        if (d.ufValueAtIssue != null) {
+          setDraftUfAtIssue(Number(d.ufValueAtIssue));
+        } else {
+          setDraftUfAtIssue(null);
+        }
+        setDraftUfDateAtIssue(
+          typeof d.ufDateAtIssue === "string" ? d.ufDateAtIssue : null,
+        );
         if (d.currency === "UF" && d.ufValueAtIssue != null) {
-          setManualUfStr(String(d.ufValueAtIssue));
+          setManualUfStr(
+            Number(d.ufValueAtIssue).toLocaleString("es-CL", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          );
         }
         const draftLines: DteLine[] = (d.lines ?? []).map(
           (l: Record<string, unknown>) => ({
@@ -510,6 +532,10 @@ export function DteForm({
                 ? l.unitPriceUf
                 : (l.unitPrice ?? ""),
             ),
+            originUnitPriceUf:
+              l.unitPriceUf != null && Number(l.unitPriceUf) > 0
+                ? Number(l.unitPriceUf)
+                : null,
             // FinanceDteLine solo guarda discountPct (no kind/amount). Al
             // reabrir un draft volvemos a tratar el descuento como % —
             // la "intención $" se pierde tras cerrar (aceptable en one-shot).
@@ -1113,8 +1139,6 @@ export function DteForm({
   const buildPayload = (
     overrides?: { autoSendEmail?: boolean; sendXmlToBackoffice?: boolean },
   ) => {
-    const ufOverride =
-      currency === "UF" ? parseManualUf(manualUfStr) : undefined;
     const effRut = (customer?.rut || receiverRut).trim();
     const effName = (customer?.name || receiverName).trim();
     const effEmail = (
@@ -1126,6 +1150,15 @@ export function DteForm({
     const validLines = lines.filter(
       (l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0,
     );
+    const hasOriginUf = validLines.some(
+      (l) => l.originUnitPriceUf != null && l.originUnitPriceUf > 0,
+    );
+    const ufOverride =
+      currency === "UF"
+        ? parseManualUf(manualUfStr)
+        : hasOriginUf && draftUfAtIssue != null && draftUfAtIssue > 0
+          ? draftUfAtIssue
+          : undefined;
     // Persistimos CC/BCC tal como armó el usuario (incluso si repite el mail
     // del receptor). Varios contactos CRM comparten email con la cuenta.
     const ccEmails = normalizeEmailList(emailRecipients.cc);
@@ -1202,7 +1235,12 @@ export function DteForm({
           // Si moneda=UF, el precio del input se manda como unitPriceUf.
           // El backend lo convierte a CLP usando getUfValue() del día.
           unitPrice: currency === "UF" ? 0 : priceNum,
-          unitPriceUf: currency === "UF" ? priceNum : undefined,
+          unitPriceUf:
+            currency === "UF"
+              ? priceNum
+              : l.originUnitPriceUf != null && l.originUnitPriceUf > 0
+                ? l.originUnitPriceUf
+                : undefined,
           discountPct: lineDiscountToPct(l),
           isExempt: isExenta || (l.isExempt ?? false),
           accountId: l.accountId || null,
@@ -1237,7 +1275,11 @@ export function DteForm({
           throw new Error(err.error || "Error al guardar borrador antes de emitir");
         }
         const ufOverride =
-          currency === "UF" ? parseManualUf(manualUfStr) : undefined;
+          currency === "UF"
+            ? parseManualUf(manualUfStr)
+            : draftUfAtIssue != null && draftUfAtIssue > 0
+              ? draftUfAtIssue
+              : undefined;
         const result = await issueDraftWithDateGuard(draftIdParam, {
           autoSendEmail: opts.autoSendEmail,
           sendXmlToBackoffice: opts.sendXmlToBackoffice,
@@ -2053,6 +2095,30 @@ export function DteForm({
               currency === "UF"
                 ? formatUFSuffix(subtotal)
                 : formatCLP(Math.round(subtotal));
+            const amountUf =
+              currency === "UF"
+                ? parseFloat(line.unitPrice) || 0
+                : line.originUnitPriceUf ?? 0;
+            const liveUf =
+              currency === "UF"
+                ? parseManualUf(manualUfStr) ?? ufValue
+                : draftUfAtIssue;
+            const breakdown = resolveUfPriceBreakdown({
+              amountUf,
+              ufValue: liveUf,
+              unitPriceClp:
+                currency === "UF"
+                  ? undefined
+                  : parseFloat(line.unitPrice) || 0,
+            });
+            const ufSourceLabel =
+              currency === "UF"
+                ? parseManualUf(manualUfStr)
+                  ? "valor pactado"
+                  : ufValue != null
+                    ? "UF del día"
+                    : null
+                : formatUfDateDmy(draftUfDateAtIssue);
             return (
               <LineDetailSurface
                 key={i}
@@ -2070,6 +2136,11 @@ export function DteForm({
                   multiInstallation && installationLookup.length > 0
                     ? installationLookup
                     : undefined
+                }
+                ufConversion={
+                  breakdown
+                    ? { ...breakdown, ufSourceLabel }
+                    : null
                 }
               />
             );
@@ -2432,7 +2503,10 @@ export function DteForm({
           taxAmount: totals.taxAmount,
           totalAmount: totals.totalAmount,
           currency,
-          ufValue: ufValue ?? undefined,
+          ufValue:
+            (currency === "UF"
+              ? parseManualUf(manualUfStr) ?? ufValue
+              : draftUfAtIssue) ?? undefined,
           totalUf:
             currency === "UF" && ufValue && ufValue > 0
               ? totals.totalAmount / ufValue
@@ -2450,7 +2524,9 @@ export function DteForm({
             unitPriceUf:
               currency === "UF"
                 ? roundUfTo2(parseFloat(l.unitPrice) || 0)
-                : null,
+                : l.originUnitPriceUf != null && l.originUnitPriceUf > 0
+                  ? l.originUnitPriceUf
+                  : null,
           }))}
         defaultBackofficeEmails={tenantBackoffice.emails}
         defaultBackofficeAlwaysSend={tenantBackoffice.alwaysSend}

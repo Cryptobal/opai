@@ -51,6 +51,19 @@ export function formatUFSuffix(value: number): string {
 }
 
 /**
+ * Valor diario de la UF en pesos (siempre 2 decimales).
+ * Ejemplo: 39485.23 → "$39.485,23"
+ */
+export function formatUfRateClp(value: number): string {
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+/**
  * Formatea números con separadores locales (es-CL).
  * Por defecto usa 0 decimales.
  */

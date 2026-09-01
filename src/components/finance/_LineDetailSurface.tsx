@@ -10,6 +10,7 @@
  *   - Descripción (textarea opcional, multi-línea) + picker.
  *     Vista previa cuando el texto contiene tokens.
  *   - Grid: cantidad / unidad / precio / descuento (% o $).
+ *   - Cuadro de origen UF → CLP cuando la línea viene de un monto UF.
  *   - Subtotal a la derecha.
  *
  * Mobile: el grid colapsa en columnas verticales, todos los inputs
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import { PlaceholderPicker } from "./_PlaceholderPicker";
+import { UfPriceBreakdownBox, type UfPriceBreakdownView } from "./_UfPriceBreakdown";
 import {
   hasPlaceholders,
   resolvePlaceholders,
@@ -114,6 +116,11 @@ interface Props {
     commune: string | null;
     costCenterId: string;
   }>;
+  /**
+   * Desglose UF → CLP de esta línea (borradores desde programación o
+   * one-shot en UF). Si es null/undefined, no se muestra el cuadro.
+   */
+  ufConversion?: UfPriceBreakdownView | null;
 }
 
 const fmtClpQuick = new Intl.NumberFormat("es-CL", {
@@ -135,6 +142,7 @@ export function LineDetailSurface({
   showExempt = false,
   subtotalFormatted,
   installationOptions,
+  ufConversion,
 }: Props) {
   // Moneda efectiva de la línea. Cuando el caller habilita
   // `allowPerLineCurrency`, la línea decide (CLP por default). En modo
@@ -483,6 +491,8 @@ export function LineDetailSurface({
           </div>
         </div>
       </div>
+
+      {ufConversion && <UfPriceBreakdownBox {...ufConversion} />}
 
       {/* Instalación por línea (opcional, modo multi). */}
       {installationOptions && installationOptions.length > 0 && (

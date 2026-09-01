@@ -133,6 +133,7 @@ export function DteEditModal({
               }
             >
               <DteForm
+                key={draftId}
                 availableTypes={AVAILABLE_TYPES}
                 accounts={accounts}
                 draftId={draftId}

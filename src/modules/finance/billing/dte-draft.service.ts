@@ -56,6 +56,11 @@ export type DraftDteInput = Omit<IssueDteInput, "receiverRut" | "receiverName"> 
   billingPeriod?: string | null;
 };
 
+export type DraftAmountOpts = {
+  ufOverride?: number;
+  ufDateOverride?: Date | null;
+};
+
 /**
  * Crea un borrador (FinanceDte siiStatus=DRAFT). NO llama al provider,
  * NO reserva folio. Permite receptor parcial — la validación dura se
@@ -65,7 +70,7 @@ export async function createDraftDte(
   tenantId: string,
   createdBy: string,
   input: DraftDteInput,
-  opts?: { ufOverride?: number },
+  opts?: DraftAmountOpts,
 ) {
   if (!isDteTypeValid(input.dteType)) {
     throw new Error(`Tipo de DTE ${input.dteType} no es valido`);
@@ -80,6 +85,7 @@ export async function createDraftDte(
   const calc = await computeDteAmounts(input, {
     strict: false,
     ufOverride: opts?.ufOverride,
+    ufDateOverride: opts?.ufDateOverride,
   });
 
   // Casilla DTE / recibeFacturacion → TO/CC del borrador (misma regla
@@ -332,22 +338,25 @@ export async function cloneDraftDte(
   };
 
   const ufOverride =
-    original.currency === "UF" && original.ufValueAtIssue != null
+    original.ufValueAtIssue != null
       ? Number(original.ufValueAtIssue)
       : undefined;
 
-  return createDraftDte(tenantId, createdBy, input, { ufOverride });
+  return createDraftDte(tenantId, createdBy, input, {
+    ufOverride,
+    ufDateOverride: original.ufDateAtIssue ?? undefined,
+  });
 }
 
 export async function updateDraftDte(
   tenantId: string,
   draftId: string,
   input: DraftDteInput,
-  opts?: { ufOverride?: number },
+  opts?: DraftAmountOpts,
 ) {
   const existing = await prisma.financeDte.findFirst({
     where: { id: draftId, tenantId, siiStatus: "DRAFT" },
-    select: { id: true },
+    select: { id: true, ufValueAtIssue: true, ufDateAtIssue: true },
   });
   if (!existing) throw new Error("Borrador no encontrado o ya emitido");
 
@@ -356,7 +365,18 @@ export async function updateDraftDte(
   const calc = await computeDteAmounts(input, {
     strict: false,
     ufOverride: opts?.ufOverride,
+    ufDateOverride: opts?.ufDateOverride,
   });
+
+  // Si el caller no mandó ufOverride (draft CLP de programación) no
+  // borramos la UF congelada mientras siga habiendo líneas con origen UF.
+  const hasUfLines = calc.lines.some(
+    (l) => l.unitPriceUf != null && Number(l.unitPriceUf) > 0,
+  );
+  const ufValueAtIssue =
+    calc.ufValue ?? (hasUfLines ? existing.ufValueAtIssue : null);
+  const ufDateAtIssue =
+    calc.ufDate ?? (hasUfLines ? existing.ufDateAtIssue : null);
 
   const emissionYmd =
     input.issueDate?.trim() != null && input.issueDate.trim() !== ""
@@ -404,9 +424,9 @@ export async function updateDraftDte(
         crmAccountId: input.crmAccountId ?? null,
         installationId: input.installationId ?? null,
         currency: (input.currency as Prisma.FinanceDteCreateInput["currency"]) ?? "CLP",
-        exchangeRate: calc.ufValue ?? null,
-        ufValueAtIssue: calc.ufValue ?? null,
-        ufDateAtIssue: calc.ufDate ?? null,
+        exchangeRate: calc.ufValue ?? (hasUfLines ? existing.ufValueAtIssue : null),
+        ufValueAtIssue,
+        ufDateAtIssue,
         netAmount: calc.totalNet,
         exemptAmount: calc.totalExempt,
         taxRate: calc.taxRate,
@@ -607,7 +627,7 @@ export async function issueDraftDte(
   // que el usuario "fijó" al guardar (sea por valor manual o por la UF del
   // día en que se creó). Si tampoco hay, el issuer usa la UF del día actual.
   const ufOverride = overrides?.ufOverride
-    ?? (draft.currency === "UF" && draft.ufValueAtIssue
+    ?? (draft.ufValueAtIssue != null
         ? Number(draft.ufValueAtIssue)
         : undefined);
 
@@ -730,6 +750,7 @@ export type DraftDetailItem = DraftListItem & {
   receiverComuna: string | null;
   receiverCiudad: string | null;
   ufValueAtIssue: number | null;
+  ufDateAtIssue: string | null;
   proformaRecipientContactIds: string[];
   estadoPagoRecipientContactIds: string[];
   estadoPagoPeriodoMode: "CURRENT" | "PREVIOUS";
@@ -952,6 +973,7 @@ export async function getDraftDteById(
       receiverComuna: true,
       receiverCiudad: true,
       ufValueAtIssue: true,
+      ufDateAtIssue: true,
       proformaRecipientContactIds: true,
       estadoPagoRecipientContactIds: true,
       estadoPagoPeriodoMode: true,
@@ -1004,6 +1026,7 @@ export async function getDraftDteById(
     receiverComuna: draft.receiverComuna,
     receiverCiudad: draft.receiverCiudad,
     ufValueAtIssue: draft.ufValueAtIssue != null ? Number(draft.ufValueAtIssue) : null,
+    ufDateAtIssue: draft.ufDateAtIssue ? draft.ufDateAtIssue.toISOString() : null,
     proformaRecipientContactIds: draft.proformaRecipientContactIds,
     estadoPagoRecipientContactIds: draft.estadoPagoRecipientContactIds,
     estadoPagoPeriodoMode:

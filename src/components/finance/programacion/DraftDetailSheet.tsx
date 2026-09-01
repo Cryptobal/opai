@@ -38,6 +38,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { fmtCLP } from "@/components/finance/dtes/shared/constants";
+import { formatUFSuffix, formatUfRateClp } from "@/lib/utils";
+import { formatUfDateDmy, resolveUfPriceBreakdown } from "@/lib/uf-utils";
 import { DocumentTag } from "@/components/finance/dtes/DocumentTag";
 import { DteEditModal } from "@/components/finance/DteEditModal";
 import { DocStatusIcon, OcReferenceChip } from "./SendStatusIcons";
@@ -410,8 +412,31 @@ export function DraftDetailSheet({
                 </TabsContent>
 
                 <TabsContent value="lineas" className="px-4 py-4">
+                  {draft.lines.some(
+                    (l) => l.unitPriceUf != null && l.unitPriceUf > 0,
+                  ) && (
+                    <div className="mb-3 rounded-md border border-status-info-border bg-status-info-soft px-3 py-2">
+                      <p className="text-[12px] uppercase tracking-wide text-status-info-fg">
+                        Origen UF
+                      </p>
+                      <p className="text-[13px] text-ds-text-2">
+                        {draft.ufValueAtIssue != null
+                          ? `Valor UF tomado: ${formatUfRateClp(draft.ufValueAtIssue)}`
+                          : "Líneas convertidas desde UF"}
+                        {formatUfDateDmy(draft.ufDateAtIssue)
+                          ? ` · ${formatUfDateDmy(draft.ufDateAtIssue)}`
+                          : ""}
+                      </p>
+                    </div>
+                  )}
                   <ul className="divide-y divide-ds-border-subtle">
-                    {draft.lines.map((l) => (
+                    {draft.lines.map((l) => {
+                      const ufBreak = resolveUfPriceBreakdown({
+                        amountUf: l.unitPriceUf,
+                        ufValue: draft.ufValueAtIssue,
+                        unitPriceClp: l.unitPrice,
+                      });
+                      return (
                       <li
                         key={l.id}
                         className="py-3 flex items-start justify-between gap-3"
@@ -421,12 +446,20 @@ export function DraftDetailSheet({
                           <p className="text-[12px] text-ds-text-3 font-mono tabular-nums">
                             {l.quantity} × {fmtCLP.format(l.unitPrice)}
                           </p>
+                          {ufBreak && (
+                            <p className="text-[12px] text-ds-text-3 font-mono tabular-nums">
+                              {formatUFSuffix(ufBreak.amountUf)} ×{" "}
+                              {formatUfRateClp(ufBreak.ufValue)} ={" "}
+                              {fmtCLP.format(ufBreak.clp)}
+                            </p>
+                          )}
                         </div>
                         <span className="font-mono text-sm tabular-nums text-ds-text-1 shrink-0">
                           {fmtCLP.format(l.lineTotal)}
                         </span>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                   <div className="mt-4 space-y-1 text-sm">
                     <div className="flex justify-between text-ds-text-3">

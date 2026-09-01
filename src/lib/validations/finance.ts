@@ -133,7 +133,8 @@ const dteLineSchema = z.object({
   // Cuando currency=UF (DTE one-shot) o priceCurrency=UF (línea de
   // plantilla recurrente), unitPriceUf trae el precio en UF que el
   // usuario ingresó. El servicio convierte a CLP usando la UF aplicable
-  // y guarda ambos. Para CLP queda undefined.
+  // y guarda ambos. En borradores CLP nacidos de una programación UF
+  // también viaja como auditoría (el SII solo ve unitPrice en pesos).
   unitPriceUf: z.number().positive().optional(),
   // Moneda del precio de la línea. Solo aplica en plantillas
   // recurrentes — permite mezclar líneas CLP y UF en la misma plantilla
