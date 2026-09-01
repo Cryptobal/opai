@@ -42,15 +42,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: "Indique el correo institucional" }, { status: 400 });
   }
 
-  const emailOk = await allowRate(`dt-clave:email:${email}`, 10, getDtClaveEmailRateLimit());
-  const ipOk = await allowRate(`dt-clave:ip:${getClientIp(request)}`, 30, getDtClaveIpRateLimit());
-  if (!emailOk || !ipOk) {
-    return NextResponse.json(
-      { success: false, error: "Límite de solicitudes alcanzado. Intente más tarde." },
-      { status: 429 },
-    );
-  }
-
   if (!isDtGobClEmail(email)) {
     await logDtAccess({
       email,
@@ -65,6 +56,15 @@ export async function POST(request: Request) {
         error: "Solo se aceptan correos institucionales con dominio @dt.gob.cl.",
       },
       { status: 403 },
+    );
+  }
+
+  const emailOk = await allowRate(`dt-clave:email:${email}`, 10, getDtClaveEmailRateLimit());
+  const ipOk = await allowRate(`dt-clave:ip:${getClientIp(request)}`, 30, getDtClaveIpRateLimit());
+  if (!emailOk || !ipOk) {
+    return NextResponse.json(
+      { success: false, error: "Límite de solicitudes alcanzado. Intente más tarde." },
+      { status: 429 },
     );
   }
 
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     success: true,
-    message: "Si el correo es válido, recibirá la clave de acceso.",
+    message: "Clave enviada al correo institucional. Vigencia: 5 días corridos.",
     expiresAt: expiresAt.toISOString(),
   });
 }

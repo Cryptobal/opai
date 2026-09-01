@@ -7,6 +7,7 @@ export type DtAccessAction =
   | "login"
   | "login_failed"
   | "select_employer"
+  | "list_employers"
   | "view_report"
   | "export_report"
   | "view_clientes"

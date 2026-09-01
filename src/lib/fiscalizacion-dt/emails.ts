@@ -96,3 +96,56 @@ export async function sendArt24bNotice(to: string) {
     text: art24bEmailText(),
   });
 }
+
+export function dailyReportEmailHtml(params: {
+  employerName: string;
+  ymd: string;
+  installationName?: string;
+  rows: { trabajador: string; rut: string; entrada: string; salida: string; observaciones: string }[];
+}): string {
+  const rowsHtml =
+    params.rows.length === 0
+      ? "<tr><td colspan=\"5\">No hay trabajadores que coincidan con la selección</td></tr>"
+      : params.rows
+          .map(
+            (r) =>
+              `<tr><td>${r.trabajador}</td><td>${r.rut}</td><td>${r.entrada}</td><td>${r.salida}</td><td>${r.observaciones}</td></tr>`,
+          )
+          .join("");
+  const inst = params.installationName ? ` · ${params.installationName}` : "";
+  return wrapHtml(
+    "Reporte diario de asistencia",
+    `<p>Reporte diario de marcaciones del ${params.ymd} — ${params.employerName}${inst}.</p>
+     <table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-size:12px">
+       <thead><tr><th>Trabajador</th><th>RUT</th><th>Entrada</th><th>Salida</th><th>Observaciones</th></tr></thead>
+       <tbody>${rowsHtml}</tbody>
+     </table>`,
+  );
+}
+
+export function dailyReportEmailText(params: {
+  employerName: string;
+  ymd: string;
+  rows: { trabajador: string; rut: string; entrada: string; salida: string }[];
+}): string {
+  const lines = params.rows.map((r) => `${r.trabajador} | ${r.rut} | ${r.entrada} | ${r.salida}`);
+  return `${PROVIDER_DISPLAY_NAME}\nReporte diario ${params.ymd} — ${params.employerName}\n\n${lines.join("\n") || "No hay trabajadores que coincidan con la selección"}`;
+}
+
+export async function sendDailyReportEmail(
+  to: string,
+  params: {
+    employerName: string;
+    ymd: string;
+    installationName?: string;
+    rows: { trabajador: string; rut: string; entrada: string; salida: string; observaciones: string }[];
+  },
+) {
+  const inst = params.installationName ? ` (${params.installationName})` : "";
+  return sendDtEmail({
+    to,
+    subject: `Reporte diario de asistencia ${params.ymd}${inst}`,
+    html: dailyReportEmailHtml(params),
+    text: dailyReportEmailText(params),
+  });
+}
