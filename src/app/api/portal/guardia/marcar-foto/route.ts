@@ -15,7 +15,9 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
-import { sendMarcacionComprobante, sendNotificacionFueraDeRango } from "@/lib/marcacion-email";
+import { dispatchMarcacionComprobante } from "@/lib/marcacion-comprobante";
+import { buildMarcacionRes38Snapshot } from "@/lib/marcacion-res38-snapshot";
+import { sendNotificacionFueraDeRango, sendNotificacionSinGps } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { formatPersonName } from "@/lib/personas";
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest) {
         isBlacklisted: true,
         code: true,
         dtResolucionJornada: true,
+        dtResolucionVigencia: true,
         personalEmail: true,
         isArticulo22: true,
         faceIdRegistered: true,
@@ -135,9 +138,13 @@ export async function POST(req: NextRequest) {
             id: true,
             name: true,
             address: true,
+            commune: true,
+            city: true,
+            region: true,
             lat: true,
             lng: true,
             geoRadiusM: true,
+            account: { select: { name: true, legalName: true, rut: true } },
           },
         },
         puesto: { select: { shiftStart: true, shiftEnd: true } },
@@ -250,6 +257,14 @@ export async function POST(req: NextRequest) {
     const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
     const tenantCfg = await getTenantCompanyConfig(tenantId);
 
+    const res38 = buildMarcacionRes38Snapshot({
+      employerRut: tenantCfg.rut,
+      employerName: tenantCfg.razonSocial,
+      installation,
+      dtResolucionJornada: guardia.dtResolucionJornada,
+      dtResolucionVigencia: guardia.dtResolucionVigencia,
+    });
+
     // Create marcacion + update daily attendance in transaction
     const outcome = await ejecutarConDedup(
       () => prisma.$transaction(async (tx) => {
@@ -273,11 +288,13 @@ export async function POST(req: NextRequest) {
           userAgent: userAgent ? `portal-guardia ${userAgent}` : "portal-guardia",
           hashIntegridad,
           atrasoMinutos,
-          // Resolucion Exenta N°38 — mandatory fields
-          employerRut: tenantCfg.rut,
-          employerName: tenantCfg.razonSocial,
-          establishmentAddress: installation.address,
-          dtResolutionNumber: guardia.dtResolucionJornada,
+          employerRut: res38.employerRut,
+          employerName: res38.employerName,
+          establishmentAddress: res38.establishmentAddress,
+          dtResolutionNumber: res38.dtResolutionNumber,
+          dtResolutionDate: res38.dtResolutionDate,
+          mandanteRut: res38.mandanteRut,
+          mandanteName: res38.mandanteName,
           gpsStatus,
           distanciaMetros: geoDistanciaM,
           gpsAccuracy: gpsAccuracy ?? null,
@@ -396,30 +413,31 @@ export async function POST(req: NextRequest) {
       )
       .catch((err) => console.error("[portal-guardia/marcar-foto] Error refrescando tablero de relevo:", err));
 
-    // Send receipt email (fire-and-forget, Res. N°38)
-    const guardiaEmail = guardia.personalEmail ?? guardia.persona.personalEmail ?? guardia.persona.email ?? undefined;
-    if (marcacionConfig.emailComprobanteDigitalEnabled && guardiaEmail) {
-      sendMarcacionComprobante({
-        guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
-        guardiaEmail,
-        guardiaRut: guardia.persona.rut ?? "",
-        installationName: installation.name,
-        tipo,
-        timestamp: serverTimestamp,
-        geoValidada,
-        geoDistanciaM,
-        gpsStatus,
-        hashIntegridad,
-        lat: lat ?? null,
-        lng: lng ?? null,
-      }).catch((err) => console.error("[portal-guardia/marcar-foto] Error enviando comprobante:", err));
-    }
+    dispatchMarcacionComprobante({
+      tenantId,
+      installationId: installation.id,
+      installationName: installation.name,
+      guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
+      guardiaRut: guardia.persona.rut ?? "",
+      guardiaEmail: guardia.personalEmail ?? guardia.persona.personalEmail ?? undefined,
+      tipo,
+      timestamp: serverTimestamp,
+      deviceTimestamp: traza.deviceTs,
+      geoValidada,
+      geoDistanciaM,
+      gpsStatus,
+      hashIntegridad,
+      lat: lat ?? null,
+      lng: lng ?? null,
+      snapshot: res38,
+    }).catch((err) => console.error("[portal-guardia/marcar-foto] Error enviando comprobante:", err));
 
     // Alerta fuera de rango: after() evita que el envío se pierda al cerrar el runtime serverless al responder.
-    if (gpsStatus === "fuera_rango") {
+    if (gpsStatus === "fuera_rango" || gpsStatus === "sin_gps") {
       after(async () => {
         try {
-          await sendNotificacionFueraDeRango({
+          const notify = gpsStatus === "sin_gps" ? sendNotificacionSinGps : sendNotificacionFueraDeRango;
+          await notify({
             tenantId,
             installationId: installation.id,
             installationName: installation.name,

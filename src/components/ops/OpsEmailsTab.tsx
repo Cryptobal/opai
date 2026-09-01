@@ -22,9 +22,9 @@ const EMAIL_CATALOG = [
     id: "comprobante_marcacion_digital",
     nombre: "Comprobante de Marcación Digital",
     descripcion:
-      "Se envía al guardia inmediatamente después de marcar entrada o salida vía QR/PIN en el celular.",
+      "Copia opcional al empleador del comprobante Art. 13. El envío al trabajador es siempre obligatorio.",
     trigger: "Al registrar marcación digital (POST /api/public/marcacion/registrar)",
-    destinatario: "Guardia (email personal)",
+    destinatario: "Copia al empleador (email de operaciones / contacto)",
     configKey: "emailComprobanteDigitalEnabled" as const,
     contenido: [
       "Nombre y RUT del guardia",
@@ -34,6 +34,21 @@ const EMAIL_CATALOG = [
       "Hash SHA-256 de integridad",
     ],
     template: "Inline HTML (src/lib/marcacion-email.ts → sendMarcacionComprobante)",
+  },
+  {
+    id: "alerta_falta_marcacion",
+    nombre: "Alerta por falta de marcación (Art. 45.1)",
+    descripcion:
+      "Si no hay marca de entrada o término a los 30 minutos de la hora pactada, se avisa al trabajador con copia al empleador. Habilitada por defecto.",
+    trigger: "Cron /api/cron/marcacion-emails (cada 5 min) → runAlertaFaltaMarcacion",
+    destinatario: "Guardia (email personal) + copia empleador",
+    configKey: "alertaFaltaMarcacionEnabled" as const,
+    contenido: [
+      "Guardia, RUT e instalación",
+      "Tipo (entrada o término)",
+      "Hora pactada y fecha",
+    ],
+    template: "Inline HTML (src/lib/marcacion-email.ts → sendAlertaFaltaMarcacion)",
   },
   {
     id: "alerta_marcacion_fuera_rango",

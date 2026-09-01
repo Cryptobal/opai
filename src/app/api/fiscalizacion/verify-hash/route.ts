@@ -6,27 +6,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import crypto from "crypto";
-
-function computeExpectedHash(marcacion: {
-  guardiaId: string;
-  tipo: string;
-  timestamp: Date;
-  metodoId: string | null;
-  lat: number | null;
-  lng: number | null;
-}): string {
-  const payload = [
-    marcacion.guardiaId,
-    marcacion.tipo,
-    marcacion.timestamp.toISOString(),
-    marcacion.metodoId ?? "",
-    marcacion.lat?.toString() ?? "",
-    marcacion.lng?.toString() ?? "",
-  ].join("|");
-
-  return crypto.createHash("sha256").update(payload).digest("hex");
-}
+import { verifyMarcacionHash } from "@/lib/marcacion";
+import { formatPersonName } from "@/lib/personas";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -49,7 +30,7 @@ export async function GET(request: Request) {
   const marcacion = await prisma.opsMarcacion.findFirst({
     where: {
       id,
-      guardia: { tenantId: session.user.tenantId },
+      tenantId: session.user.tenantId,
     },
     include: {
       guardia: {
@@ -64,14 +45,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Marcación no encontrada" }, { status: 404 });
   }
 
-  const expectedHash = computeExpectedHash(marcacion);
-  const storedHash = marcacion.hashIntegridad;
-  const isValid = storedHash === expectedHash;
+  const { storedHash, expectedHash, isValid } = verifyMarcacionHash({
+    guardiaId: marcacion.guardiaId,
+    installationId: marcacion.installationId,
+    tipo: marcacion.tipo,
+    timestamp: marcacion.timestamp,
+    lat: marcacion.lat,
+    lng: marcacion.lng,
+    metodoId: marcacion.metodoId,
+    tenantId: marcacion.tenantId,
+    hashIntegridad: marcacion.hashIntegridad,
+  });
 
   return NextResponse.json({
     marcacionId: marcacion.id,
     guardiaName: marcacion.guardia?.persona
-      ? `${marcacion.guardia.persona.firstName} ${marcacion.guardia.persona.lastName}`
+      ? formatPersonName(marcacion.guardia.persona.firstName, marcacion.guardia.persona.lastName)
       : null,
     guardiaRut: marcacion.guardia?.persona?.rut,
     timestamp: marcacion.timestamp,

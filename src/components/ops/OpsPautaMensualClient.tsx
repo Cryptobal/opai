@@ -1332,6 +1332,9 @@ export function OpsPautaMensualClient({
           ? `Línea rotativa pintada (${payload.data.updated} celdas actualizadas)`
           : `Serie pintada (${payload.data.updated} días)`
       );
+      if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
+        toast.warning(payload.warnings.map((w: { message: string }) => w.message).join(" "));
+      }
       setSerieModalOpen(false);
       await fetchPauta();
     } catch (error: unknown) {
@@ -1346,7 +1349,7 @@ export function OpsPautaMensualClient({
   // Quick status toggle on cell click (for V, L, P, TE)
   const handleCellStatusChange = async (item: PautaItem, newCode: string) => {
     try {
-      await fetch("/api/ops/pauta-mensual", {
+      const res = await fetch("/api/ops/pauta-mensual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1358,6 +1361,10 @@ export function OpsPautaMensualClient({
           status: "planificado",
         }),
       });
+      const payload = await res.json().catch(() => ({}));
+      if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
+        toast.warning(payload.warnings.map((w: { message: string }) => w.message).join(" "));
+      }
       await fetchPauta();
     } catch {
       toast.error("No se pudo actualizar la celda");
@@ -1380,7 +1387,7 @@ export function OpsPautaMensualClient({
     if (!pintarOpcionesContext) return;
     setPintarSoloDiaSaving(true);
     try {
-      await fetch("/api/ops/pauta-mensual", {
+      const res = await fetch("/api/ops/pauta-mensual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1392,7 +1399,11 @@ export function OpsPautaMensualClient({
           status: "planificado",
         }),
       });
+      const payload = await res.json().catch(() => ({}));
       toast.success(shiftCode === "T" ? "Día marcado como trabajo" : "Día marcado como libre");
+      if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
+        toast.warning(payload.warnings.map((w: { message: string }) => w.message).join(" "));
+      }
       setPintarOpcionesModalOpen(false);
       setPintarOpcionesContext(null);
       await fetchPauta();

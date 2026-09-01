@@ -56,6 +56,44 @@ export function computeMarcacionHash(data: {
   return createHash("sha256").update(payload).digest("hex");
 }
 
+export type MarcacionHashRecord = {
+  guardiaId: string;
+  installationId: string;
+  tipo: string;
+  timestamp: Date;
+  lat: number | null;
+  lng: number | null;
+  metodoId: string | null;
+  tenantId: string;
+  hashIntegridad: string;
+};
+
+/**
+ * Recalcula el hash SHA-256 con el mismo contrato que `computeMarcacionHash`
+ * y lo compara con el valor persistido (Art. 8).
+ */
+export function verifyMarcacionHash(marcacion: MarcacionHashRecord): {
+  storedHash: string;
+  expectedHash: string;
+  isValid: boolean;
+} {
+  const expectedHash = computeMarcacionHash({
+    guardiaId: marcacion.guardiaId,
+    installationId: marcacion.installationId,
+    tipo: marcacion.tipo,
+    timestamp: marcacion.timestamp.toISOString(),
+    lat: marcacion.lat,
+    lng: marcacion.lng,
+    metodoId: marcacion.metodoId ?? "rut_pin",
+    tenantId: marcacion.tenantId,
+  });
+  return {
+    storedHash: marcacion.hashIntegridad,
+    expectedHash,
+    isValid: marcacion.hashIntegridad === expectedHash,
+  };
+}
+
 /**
  * Calcula la distancia en metros entre dos puntos geográficos usando la fórmula de Haversine.
  */

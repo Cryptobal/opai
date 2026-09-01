@@ -14,6 +14,7 @@ import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { computeMarcacionHash } from "@/lib/marcacion";
 import { sendAvisoMarcaManual } from "@/lib/marcacion-email";
 import { formatPersonName } from "@/lib/personas";
+import { assertMarcacionBackOfficeWindow } from "@/lib/marcacion-business-day-rule";
 
 type Params = { id: string };
 
@@ -552,6 +553,22 @@ export async function PATCH(
 
     if (nextStatus === "asistio" && guardiaIdParaMarca) {
       try {
+        const windowCheck = await assertMarcacionBackOfficeWindow({
+          tenantId: ctx.tenantId,
+          markInstant: updatedAsistencia.date,
+        });
+        // Art. 41 c: no crear/agregar la marca en la tabla de marcaciones
+        // el mismo día hábil. La asistencia operativa ya quedó persistida.
+        if (!windowCheck.ok) {
+          console.warn(
+            `[OPS] Marca manual omitida (Art. 41 c) para asistencia ${asistencia.id}: ${windowCheck.error}`,
+          );
+          return NextResponse.json({
+            success: true,
+            data: result,
+            warnings: [{ code: "art_41c", message: windowCheck.error }],
+          });
+        }
         const todayStart = new Date(updatedAsistencia.date);
         todayStart.setHours(0, 0, 0, 0);
         const todayEnd = new Date(todayStart);

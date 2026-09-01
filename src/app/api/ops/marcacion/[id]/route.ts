@@ -10,6 +10,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
 import { sendAvisoModificacionMarcacion } from "@/lib/marcacion-email";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { assertMarcacionBackOfficeWindow } from "@/lib/marcacion-business-day-rule";
 import { z } from "zod";
 
 const deleteSchema = z.object({
@@ -47,6 +48,17 @@ export async function DELETE(
       return NextResponse.json(
         { success: false, error: "Marcación no encontrada" },
         { status: 404 }
+      );
+    }
+
+    const windowCheck = await assertMarcacionBackOfficeWindow({
+      tenantId: ctx.tenantId,
+      markInstant: marcacion.timestamp,
+    });
+    if (!windowCheck.ok) {
+      return NextResponse.json(
+        { success: false, error: windowCheck.error },
+        { status: windowCheck.status },
       );
     }
 
@@ -115,6 +127,29 @@ export async function PATCH(
         { success: false, error: "Marcación no encontrada" },
         { status: 404 }
       );
+    }
+
+    const windowCheck = await assertMarcacionBackOfficeWindow({
+      tenantId: ctx.tenantId,
+      markInstant: marcacion.timestamp,
+    });
+    if (!windowCheck.ok) {
+      return NextResponse.json(
+        { success: false, error: windowCheck.error },
+        { status: windowCheck.status },
+      );
+    }
+    if (parsed.data.timestamp) {
+      const newTsCheck = await assertMarcacionBackOfficeWindow({
+        tenantId: ctx.tenantId,
+        markInstant: new Date(parsed.data.timestamp),
+      });
+      if (!newTsCheck.ok) {
+        return NextResponse.json(
+          { success: false, error: newTsCheck.error },
+          { status: newTsCheck.status },
+        );
+      }
     }
 
     // Generar token de oposición único para esta modificación
