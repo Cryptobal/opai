@@ -32,7 +32,11 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DOCUMENT_TYPES, DEFAULT_POSTULACION_DOCUMENTS, getDocLabel } from "@/lib/personas";
 import { calcDocStatus, DOC_STATUS_LABELS } from "@/lib/docs-operacionales";
 import type { OperationalGuardDocSlot } from "@/lib/operational-guard-doc-slots-shared";
-import { isValidGuardDocCode, pickPersonaTypeForSlot } from "@/lib/operational-guard-doc-slots-shared";
+import {
+  guardiaDocMatchesSlot,
+  isValidGuardDocCode,
+  pickPersonaTypeForSlot,
+} from "@/lib/operational-guard-doc-slots-shared";
 import type { GuardiaDocumentoConfigItem } from "@/lib/guardia-documentos-config";
 import { cn } from "@/lib/utils";
 import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
@@ -72,7 +76,7 @@ interface DocumentosSectionProps {
 }
 
 function pickDocForSlot(docs: GuardiaDocument[], personaTypes: string[]): GuardiaDocument | null {
-  const candidates = docs.filter((d) => personaTypes.includes(d.type));
+  const candidates = docs.filter((d) => guardiaDocMatchesSlot(d.type, personaTypes));
   if (candidates.length === 0) return null;
   const rootFirst = candidates.filter((d) => !d.folderId);
   const pool = rootFirst.length > 0 ? rootFirst : candidates;
@@ -909,11 +913,9 @@ export default function DocumentosSection({
         // Tipos cubiertos por el checklist unificado: cualquier doc de estos tipos
         // pertenece a un slot y NO debe duplicarse en "Otros documentos",
         // aunque existan varios registros del mismo tipo en DB.
-        const claimedTypes = new Set<string>();
-        for (const slot of unifiedSlots) {
-          for (const t of slot.personaTypes) claimedTypes.add(t);
-        }
-        const extraDocs = visibleDocuments.filter((d) => !claimedTypes.has(d.type));
+        const extraDocs = visibleDocuments.filter(
+          (d) => !unifiedSlots.some((slot) => guardiaDocMatchesSlot(d.type, slot.personaTypes))
+        );
         if (extraDocs.length === 0 && folders.length === 0) return null;
 
         const docsByFolder = extraDocs.reduce((acc, d) => {

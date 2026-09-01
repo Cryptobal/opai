@@ -50,6 +50,10 @@ describe("legacy-type-map", () => {
       kind: "mapped",
       codigo: "certificado_ensenanza_media",
     });
+    expect(resolveLegacyType("custom_historial_penal", false)).toMatchObject({
+      kind: "mapped",
+      codigo: "historial_penal",
+    });
   });
 
   it("nunca resuelve a sin_clasificar", () => {
