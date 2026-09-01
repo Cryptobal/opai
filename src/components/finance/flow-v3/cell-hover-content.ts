@@ -7,7 +7,7 @@ import { weekLabel } from "@/modules/finance/flow-v3/weeks";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import {
   committedItemMeta, LAYER_LABEL, pastPendingGhostMeta, terminoStatusLine,
-  quotaPeriodLabel,
+  quotaPeriodLabel, committedOriginLabel,
 } from "./cell-meta";
 import {
   resolveCellColorMeaning,
@@ -112,7 +112,10 @@ function termSourceLabel(
   }
 }
 
-function itemStatus(it: Parameters<typeof committedItemMeta>[0]): string {
+function itemStatus(
+  it: Parameters<typeof committedItemMeta>[0],
+  rowTemplateId?: string | null,
+): string {
   if (it.kind === "dte") {
     const parts: string[] = [];
     if (it.emissionYmd) parts.push(fmtShortDate(it.emissionYmd));
@@ -132,9 +135,11 @@ function itemStatus(it: Parameters<typeof committedItemMeta>[0]): string {
     }
     const q = quotaPeriodLabel(it.billingPeriod);
     if (q) parts.push(q);
+    parts.push(committedOriginLabel(it, rowTemplateId));
     return parts.join(" · ");
   }
-  return terminoStatusLine(it, fmtShortDate) || fmtShortDate(it.fecha);
+  const base = terminoStatusLine(it, fmtShortDate) || fmtShortDate(it.fecha);
+  return [base, committedOriginLabel(it, rowTemplateId)].filter(Boolean).join(" · ");
 }
 
 export function buildHoverCardContent(args: {
@@ -180,7 +185,7 @@ export function buildHoverCardContent(args: {
       items.push({
         tag: meta.tag,
         label: it.label,
-        status: itemStatus(it),
+        status: itemStatus(it, row.recurringTemplateId),
         amount: fmtClp(it.monto),
         dteId: it.dteId,
       });

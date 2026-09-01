@@ -131,6 +131,7 @@ export function CellLayersPopover({
               onMovePlan={onMovePlan}
               onMoveParametric={onMoveParametric}
               rowName={row.name}
+              rowTemplateId={row.recurringTemplateId}
               onClose={onClose}
             />
             <div className="rounded border border-ds-border-subtle bg-ds-surface-2 px-2 py-1.5">
