@@ -71,8 +71,9 @@ describe("migration backfill rules", () => {
 
   it("tipo legado desconocido no usa sin_clasificar", () => {
     const r = resolveLegacyType("permiso_portacion_xyz", true);
-    expect(r.kind).toBe("create");
-    if (r.kind === "create") {
+    expect(r).not.toBeNull();
+    expect(r!.kind).toBe("create");
+    if (r?.kind === "create") {
       expect(r.codigo).not.toContain("sin_clasificar");
       expect(r.normativa).toBeNull();
       expect(r.tieneVencimiento).toBe(true);

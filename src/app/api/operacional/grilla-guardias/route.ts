@@ -5,6 +5,10 @@ import { ensureOpsAccess } from "@/lib/ops";
 import { calcDocStatus } from "@/lib/docs-operacionales";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
+import {
+  listPersonaDocSummaries,
+  personaDocLookupKeys,
+} from "@/lib/docs/persona-docs-service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -138,23 +142,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: { docTypes, rows } });
     }
 
-    // 4. Get guard documents (OpsDocumentoPersona) for these guards
-    const docCodes = filteredConfig.map((c) => c.code);
-    const guardDocs = await prisma.opsDocumentoPersona.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        guardiaId: { in: allGuardiaIds },
-        type: { in: docCodes },
-      },
-      select: {
-        id: true,
-        guardiaId: true,
-        type: true,
-        expiresAt: true,
-        status: true,
-        fileName: true,
-      },
-    });
+    // 4. Get guard documents for these guards (rama legado/unificada)
+    const guardDocs = await listPersonaDocSummaries(ctx.tenantId, allGuardiaIds);
 
     // 5. Get physical verifications for guards (capa: "guardia")
     const guardVerificaciones = await prisma.docVerificacionFisica.findMany({
@@ -195,9 +184,10 @@ export async function GET(request: NextRequest) {
     // Guard docs indexed by "guardiaId|type"
     const guardDocByKey = new Map<string, (typeof guardDocs)[0]>();
     for (const doc of guardDocs) {
-      const key = `${doc.guardiaId}|${doc.type}`;
-      if (!guardDocByKey.has(key)) {
-        guardDocByKey.set(key, doc);
+      for (const key of personaDocLookupKeys(doc.guardiaId, doc.type)) {
+        if (!guardDocByKey.has(key)) {
+          guardDocByKey.set(key, doc);
+        }
       }
     }
 

@@ -21,6 +21,7 @@ import {
   normalizeRut,
 } from "@/lib/personas";
 import { getPostulacionDocumentTypesVisibleOnTeForm } from "@/lib/postulacion-documentos";
+import { createPersonaDocsFromUploads } from "@/lib/docs/persona-docs-service";
 
 const teSchema = z.object({
   firstName: z.string().trim().min(1, "Nombre es requerido").max(100),
@@ -206,20 +207,6 @@ export async function POST(
             },
           });
 
-          if (body.documents.length > 0) {
-            await tx.opsDocumentoPersona.createMany({
-              data: body.documents.map((doc) => ({
-                tenantId,
-                guardiaId: guardia.id,
-                type: doc.type,
-                fileUrl: doc.fileUrl,
-                fileName: doc.fileName ?? null,
-                mimeType: doc.mimeType ?? null,
-                status: "pendiente",
-              })),
-            });
-          }
-
           await tx.opsGuardiaHistory.create({
             data: {
               tenantId,
@@ -243,6 +230,18 @@ export async function POST(
     }
 
     if (createdGuardia) {
+      if (body.documents.length > 0) {
+        await createPersonaDocsFromUploads(
+          tenantId,
+          createdGuardia.id,
+          body.documents.map((doc) => ({
+            type: doc.type,
+            fileUrl: doc.fileUrl,
+            fileName: doc.fileName ?? null,
+            mimeType: doc.mimeType ?? null,
+          }))
+        );
+      }
       try {
         const fullName = `${body.firstName} ${body.lastName}`.trim();
         const { notify } = await import("@/lib/notifications/notify");

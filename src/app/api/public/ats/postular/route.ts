@@ -12,6 +12,7 @@ import {
   normalizeRut,
 } from "@/lib/personas";
 import { getPublicFormConfig } from "@/lib/ats/public-form-config";
+import { createPersonaDocsFromUploads } from "@/lib/docs/persona-docs-service";
 
 /* ------------------------------------------------------------------ */
 /*  Schema — lightweight ATS application (no auth required)           */
@@ -244,23 +245,23 @@ export async function POST(request: NextRequest) {
           },
         });
       }
-      if (body.documentos && body.documentos.length > 0) {
-        await prisma.opsDocumentoPersona.createMany({
-          data: body.documentos.map((doc) => ({
-            tenantId,
-            guardiaId,
-            type: doc.code,
-            fileUrl: doc.fileUrl,
-            fileName: doc.fileName,
-            mimeType: doc.mimeType,
-            status: "pendiente",
-          })),
-        });
-      }
     } else {
       // Create new persona + guardia in transaction
       const result = await createPersonaAndGuardia(tenantId, body);
       guardiaId = result.guardiaId;
+    }
+
+    if (body.documentos && body.documentos.length > 0) {
+      await createPersonaDocsFromUploads(
+        tenantId,
+        guardiaId,
+        body.documentos.map((doc) => ({
+          type: doc.code,
+          fileUrl: doc.fileUrl,
+          fileName: doc.fileName,
+          mimeType: doc.mimeType,
+        }))
+      );
     }
 
     // Calculate match score
@@ -397,20 +398,6 @@ async function createPersonaAndGuardia(
               holderRut: body.rut,
               isDefault: true,
             },
-          });
-        }
-
-        if (body.documentos && body.documentos.length > 0) {
-          await tx.opsDocumentoPersona.createMany({
-            data: body.documentos.map((doc) => ({
-              tenantId,
-              guardiaId: g.id,
-              type: doc.code,
-              fileUrl: doc.fileUrl,
-              fileName: doc.fileName,
-              mimeType: doc.mimeType,
-              status: "pendiente",
-            })),
           });
         }
 
