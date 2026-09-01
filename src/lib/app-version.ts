@@ -23,6 +23,16 @@ export function getAppVersion(): string {
   return version;
 }
 
+export function getProviderRut(): string {
+  return process.env.NEXT_PUBLIC_PROVIDER_RUT?.trim() ?? "";
+}
+
+/** "Opai SpA" o "Opai SpA, RUT …" si la variable está definida. */
+export function getProviderLegalLine(): string {
+  const rut = getProviderRut();
+  return rut ? `${PROVIDER_LEGAL_NAME}, RUT ${rut}` : PROVIDER_LEGAL_NAME;
+}
+
 export function getProviderVersionLine(): string {
   return `${PROVIDER_DISPLAY_NAME} v${getAppVersion()}`;
 }
