@@ -6,6 +6,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyMarcacionHash } from "@/lib/marcacion";
+import { formatPersonName } from "@/lib/personas";
 import { computeLegacyFiscalizacionHash } from "@/lib/fiscalizacion-dt/verify-hash";
 
 export async function GET(request: Request) {
@@ -29,7 +31,7 @@ export async function GET(request: Request) {
   const marcacion = await prisma.opsMarcacion.findFirst({
     where: {
       id,
-      guardia: { tenantId: session.user.tenantId },
+      tenantId: session.user.tenantId,
     },
     include: {
       guardia: {
@@ -44,19 +46,35 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Marcación no encontrada" }, { status: 404 });
   }
 
-  const expectedHash = computeLegacyFiscalizacionHash(marcacion);
-  const storedHash = marcacion.hashIntegridad;
-  const isValid = storedHash === expectedHash;
+  const canonical = verifyMarcacionHash({
+    guardiaId: marcacion.guardiaId,
+    installationId: marcacion.installationId,
+    tipo: marcacion.tipo,
+    timestamp: marcacion.timestamp,
+    lat: marcacion.lat,
+    lng: marcacion.lng,
+    metodoId: marcacion.metodoId,
+    tenantId: marcacion.tenantId,
+    hashIntegridad: marcacion.hashIntegridad,
+  });
+  const legacyExpected = computeLegacyFiscalizacionHash(marcacion);
+  const matchesLegacy = canonical.storedHash === legacyExpected;
+  const isValid = canonical.isValid || matchesLegacy;
+  const expectedHash = canonical.isValid
+    ? canonical.expectedHash
+    : matchesLegacy
+      ? legacyExpected
+      : canonical.expectedHash;
 
   return NextResponse.json({
     marcacionId: marcacion.id,
     guardiaName: marcacion.guardia?.persona
-      ? `${marcacion.guardia.persona.firstName} ${marcacion.guardia.persona.lastName}`
+      ? formatPersonName(marcacion.guardia.persona.firstName, marcacion.guardia.persona.lastName)
       : null,
     guardiaRut: marcacion.guardia?.persona?.rut,
     timestamp: marcacion.timestamp,
     tipo: marcacion.tipo,
-    storedHash,
+    storedHash: canonical.storedHash,
     expectedHash,
     isValid,
     verifiedAt: new Date().toISOString(),

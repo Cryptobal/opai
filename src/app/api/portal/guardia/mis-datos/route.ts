@@ -3,6 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import { logAudit } from "@/lib/audit";
 import { decryptPersonaFields } from "@/lib/persona-encryption";
+import {
+  isPersonalEmailTaken,
+  PERSONAL_EMAIL_TAKEN_ERROR,
+} from "@/lib/marcacion-personal-email";
+import {
+  isValidPersonalEmail,
+  normalizePersonalEmail,
+} from "@/lib/marcacion-format";
+import { sendCambioCorreoPersonal } from "@/lib/marcacion-email";
+import * as bcrypt from "bcryptjs";
+import { z } from "zod";
 
 /**
  * GET /api/portal/guardia/mis-datos?guardiaId=xxx
@@ -109,3 +120,134 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
   }
 }
+
+const patchSchema = z.object({
+  personalEmail: z.string().min(3),
+  currentPin: z.string().min(4).max(6),
+});
+
+/**
+ * PATCH /api/portal/guardia/mis-datos
+ * Autoservicio de correo personal (Art. 7 f / 12 e).
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const parsed = patchSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: "Correo y PIN actual son requeridos" },
+        { status: 400 },
+      );
+    }
+
+    const urlId = new URL(request.url).searchParams.get("guardiaId");
+    const guardiaId = (body as { guardiaId?: string }).guardiaId ?? urlId;
+    const auth = await requirePortalGuardiaAuth(guardiaId);
+    if (!auth) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+
+    const email = normalizePersonalEmail(parsed.data.personalEmail);
+    if (!isValidPersonalEmail(email)) {
+      return NextResponse.json(
+        { success: false, error: "Formato de correo inválido" },
+        { status: 400 },
+      );
+    }
+
+    const guardia = await prisma.opsGuardia.findFirst({
+      where: { id: auth.guardiaId, tenantId: auth.tenantId },
+      select: {
+        id: true,
+        marcacionPin: true,
+        personalEmail: true,
+        personaId: true,
+        persona: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            personalEmail: true,
+          },
+        },
+      },
+    });
+    if (!guardia?.marcacionPin) {
+      return NextResponse.json({ success: false, error: "PIN no configurado" }, { status: 400 });
+    }
+
+    const pinOk = await bcrypt.compare(parsed.data.currentPin, guardia.marcacionPin);
+    if (!pinOk) {
+      return NextResponse.json({ success: false, error: "PIN actual incorrecto" }, { status: 400 });
+    }
+
+    const taken = await isPersonalEmailTaken({
+      tenantId: auth.tenantId,
+      email,
+      excludeGuardiaId: guardia.id,
+      excludePersonaId: guardia.persona.id,
+    });
+    if (taken) {
+      return NextResponse.json(
+        { success: false, error: PERSONAL_EMAIL_TAKEN_ERROR },
+        { status: 409 },
+      );
+    }
+
+    const previous =
+      guardia.personalEmail?.trim() || guardia.persona.personalEmail?.trim() || null;
+    if (previous && normalizePersonalEmail(previous) === email) {
+      return NextResponse.json({ success: true, data: { personalEmail: email } });
+    }
+
+    await prisma.$transaction([
+      prisma.opsGuardia.update({
+        where: { id: guardia.id },
+        data: { personalEmail: email },
+      }),
+      prisma.opsPersona.update({
+        where: { id: guardia.persona.id },
+        data: { personalEmail: email },
+      }),
+    ]);
+
+    const now = new Date();
+    const name = `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim();
+    await logAudit({
+      userId: auth.guardiaId,
+      action: "UPDATE",
+      entity: "OpsPersona",
+      entityId: guardia.persona.id,
+      details: { type: "PERSONAL_EMAIL_SELF_SERVICE", before: previous, after: email },
+      tenantId: auth.tenantId,
+      request,
+    });
+
+    sendCambioCorreoPersonal({
+      to: email,
+      guardiaName: name,
+      previousEmail: previous,
+      newEmail: email,
+      when: now,
+      kind: "confirmacion_nuevo",
+    }).catch((err) => console.error("[portal-guardia/mis-datos] mail nuevo:", err));
+
+    if (previous && normalizePersonalEmail(previous) !== email) {
+      sendCambioCorreoPersonal({
+        to: previous,
+        guardiaName: name,
+        previousEmail: previous,
+        newEmail: email,
+        when: now,
+        kind: "aviso_anterior",
+      }).catch((err) => console.error("[portal-guardia/mis-datos] mail anterior:", err));
+    }
+
+    return NextResponse.json({ success: true, data: { personalEmail: email } });
+  } catch (error) {
+    console.error("[Portal Guardia] PATCH mis-datos:", error);
+    return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
+  }
+}
+

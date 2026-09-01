@@ -14,7 +14,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatPersonName, normalizeRut, isValidChileanRut } from "@/lib/personas";
 import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
-import { sendMarcacionComprobante } from "@/lib/marcacion-email";
+import { dispatchMarcacionComprobante } from "@/lib/marcacion-comprobante";
+import { buildMarcacionRes38Snapshot } from "@/lib/marcacion-res38-snapshot";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { rejectArticulo22Marcacion } from "@/lib/marcacion-art22";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
@@ -62,15 +63,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64, manualFromBackOffice, deviceToken, idempotencyKey } = parsed.data;
-
-    // GPS obligatorio — sin excepción para marcaciones desde portal (manual/import desde back office sí puede omitir)
-    if (!manualFromBackOffice && (lat == null || lng == null)) {
-      return NextResponse.json(
-        { success: false, error: "Ubicación GPS requerida" },
-        { status: 400 }
-      );
-    }
+    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64, deviceToken, idempotencyKey } = parsed.data;
 
     // Validar RUT
     const normalizedRut = normalizeRut(rut);
@@ -89,9 +82,13 @@ export async function POST(req: NextRequest) {
         tenantId: true,
         name: true,
         address: true,
+        commune: true,
+        city: true,
+        region: true,
         lat: true,
         lng: true,
         geoRadiusM: true,
+        account: { select: { name: true, legalName: true, rut: true } },
       },
     });
 
@@ -140,6 +137,7 @@ export async function POST(req: NextRequest) {
             isBlacklisted: true,
             marcacionPin: true,
             dtResolucionJornada: true,
+            dtResolucionVigencia: true,
             personalEmail: true,
             isArticulo22: true,
           },
@@ -310,6 +308,13 @@ export async function POST(req: NextRequest) {
     // Obtener datos del empleador desde configuración del tenant
     const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
     const tenantCfg = await getTenantCompanyConfig(installation.tenantId);
+    const res38 = buildMarcacionRes38Snapshot({
+      employerRut: tenantCfg.rut,
+      employerName: tenantCfg.razonSocial,
+      installation,
+      dtResolucionJornada: guardia.dtResolucionJornada,
+      dtResolucionVigencia: guardia.dtResolucionVigencia,
+    });
 
     // Crear la marcación y actualizar asistencia diaria en una transacción
     const outcome = await ejecutarConDedup(
@@ -335,10 +340,13 @@ export async function POST(req: NextRequest) {
           hashIntegridad,
           atrasoMinutos,
           // Resolución Exenta N°38 — Datos obligatorios
-          employerRut: tenantCfg.rut,
-          employerName: tenantCfg.razonSocial,
-          establishmentAddress: installation.address,
-          dtResolutionNumber: guardia.dtResolucionJornada,
+          employerRut: res38.employerRut,
+          employerName: res38.employerName,
+          establishmentAddress: res38.establishmentAddress,
+          dtResolutionNumber: res38.dtResolutionNumber,
+          dtResolutionDate: res38.dtResolutionDate,
+          mandanteRut: res38.mandanteRut,
+          mandanteName: res38.mandanteName,
           gpsStatus,
           distanciaMetros: geoDistanciaM,
           gpsAccuracy: gpsAccuracy ?? null,
@@ -464,30 +472,28 @@ export async function POST(req: NextRequest) {
 
     // Enviar comprobante por email (fire-and-forget, no bloquea la respuesta)
     // Res. N°38: preferir email personal del guardia; fallback al email corporativo
-    const guardiaEmail = persona.guardia?.personalEmail ?? persona.personalEmail ?? persona.email ?? undefined;
-    if (marcacionConfig.emailComprobanteDigitalEnabled && persona.guardia && persona.firstName) {
-      if (!guardiaEmail) {
-        console.warn(`[marcacion] Guardia ${formatPersonName(persona.firstName, persona.lastName)} sin email personal — comprobante no enviado`);
-      } else {
-        sendMarcacionComprobante({
-          guardiaName: formatPersonName(persona.firstName, persona.lastName),
-          guardiaEmail,
-          guardiaRut: normalizedRut,
-          installationName: installation.name,
-          tipo,
-          timestamp: serverTimestamp,
-          geoValidada,
-          geoDistanciaM,
-          gpsStatus,
-          hashIntegridad,
-          lat: lat ?? null,
-          lng: lng ?? null,
-        }).catch((err) => console.error("[marcacion] Error enviando comprobante:", err));
-      }
-    }
+    const guardiaEmail = persona.guardia?.personalEmail ?? persona.personalEmail ?? undefined;
+    dispatchMarcacionComprobante({
+      tenantId: installation.tenantId,
+      installationId: installation.id,
+      installationName: installation.name,
+      guardiaName: formatPersonName(persona.firstName, persona.lastName),
+      guardiaRut: normalizedRut,
+      guardiaEmail,
+      tipo,
+      timestamp: serverTimestamp,
+      deviceTimestamp: traza.deviceTs,
+      geoValidada,
+      geoDistanciaM,
+      gpsStatus,
+      hashIntegridad,
+      lat: lat ?? null,
+      lng: lng ?? null,
+      snapshot: res38,
+    }).catch((err) => console.error("[marcacion] Error enviando comprobante:", err));
 
     // Notificar supervisor si está fuera de rango (fire-and-forget)
-    if (gpsStatus === "fuera_rango") {
+    if (gpsStatus === "fuera_rango" || gpsStatus === "sin_gps") {
       const deviceDisplay = devicePairingId
         ? await prisma.devicePairing.findUnique({
             where: { id: devicePairingId },
@@ -501,43 +507,42 @@ export async function POST(req: NextRequest) {
           )
         : "Navegador web";
 
-      import("@/lib/marcacion-email").then(({ sendNotificacionFueraDeRango }) =>
-        sendNotificacionFueraDeRango({
-          tenantId: installation.tenantId,
-          installationId: installation.id,
-          installationName: installation.name,
-          installationLat: installation.lat,
-          installationLng: installation.lng,
-          guardiaName: formatPersonName(persona.firstName, persona.lastName),
-          guardiaRut: normalizedRut,
-          tipo,
-          timestamp: serverTimestamp,
-          geoDistanciaM,
-          geoRadiusM: effectiveGeoRadiusM,
-          lat: lat ?? null,
-          lng: lng ?? null,
-          deviceDisplay,
-        }).catch((err) => console.error("[marcacion] Error notificando supervisor fuera de rango:", err))
-      );
+      const notifyPayload = {
+        tenantId: installation.tenantId,
+        installationId: installation.id,
+        installationName: installation.name,
+        installationLat: installation.lat,
+        installationLng: installation.lng,
+        guardiaName: formatPersonName(persona.firstName, persona.lastName),
+        guardiaRut: normalizedRut,
+        tipo,
+        timestamp: serverTimestamp,
+        geoDistanciaM,
+        geoRadiusM: effectiveGeoRadiusM,
+        lat: lat ?? null,
+        lng: lng ?? null,
+        deviceDisplay,
+      };
 
-      // Alerta al canal Slack de la instalación (foto embebida) — en paralelo al
-      // correo, no lo reemplaza. Fire-and-forget.
+      if (gpsStatus === "sin_gps") {
+        import("@/lib/marcacion-email").then(({ sendNotificacionSinGps }) =>
+          sendNotificacionSinGps(notifyPayload).catch((err) =>
+            console.error("[marcacion] Error notificando supervisor sin GPS:", err),
+          ),
+        );
+      } else {
+        import("@/lib/marcacion-email").then(({ sendNotificacionFueraDeRango }) =>
+          sendNotificacionFueraDeRango(notifyPayload).catch((err) =>
+            console.error("[marcacion] Error notificando supervisor fuera de rango:", err),
+          ),
+        );
+      }
+
       import("@/lib/marcacion/notify-fuera-rango").then(({ notifyMarcacionFueraRango }) =>
         notifyMarcacionFueraRango({
-          tenantId: installation.tenantId,
-          installationId: installation.id,
-          installationName: installation.name,
-          guardiaName: formatPersonName(persona.firstName, persona.lastName),
-          guardiaRut: normalizedRut,
-          tipo,
-          timestamp: serverTimestamp,
-          geoDistanciaM,
-          geoRadiusM: effectiveGeoRadiusM,
-          lat: lat ?? null,
-          lng: lng ?? null,
+          ...notifyPayload,
           fotoEvidenciaUrl,
-          deviceDisplay,
-        }).catch((err) => console.error("[marcacion] Error alertando fuera de rango a Slack:", err))
+        }).catch((err) => console.error("[marcacion] Error alertando GPS a Slack:", err)),
       );
     }
 

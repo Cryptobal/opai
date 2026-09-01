@@ -55,26 +55,37 @@ function GpsDeniedModal({
   open,
   message,
   onRetry,
+  onContinueWithoutGps,
 }: {
   open: boolean;
   message: string | null;
   onRetry: () => void;
+  onContinueWithoutGps: () => void;
 }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
-      <div className="max-w-sm rounded-2xl border border-status-danger-border bg-ds-surface-1 p-6 text-center">
+      <div className="max-w-sm rounded-2xl border border-status-warn-border bg-ds-surface-1 p-6 text-center">
         <p className="mb-2 text-lg font-semibold text-ds-text-1">
           No se pudo obtener tu ubicación
         </p>
         <p className="mb-6 text-sm text-ds-text-3">
-          Verifica que la ubicación esté activada en tu dispositivo y que hayas
-          dado permiso a la app.
+          Puedes reintentar o marcar sin ubicación. La marca queda registrada
+          como sin GPS y se notifica al supervisor.
         </p>
         {message && <p className="mb-4 text-[12px] text-status-danger-fg">{message}</p>}
-        <XlButton variant="teal" size="md" onClick={onRetry}>
-          Reintentar
-        </XlButton>
+        <div className="space-y-3">
+          <XlButton variant="teal" size="md" onClick={onRetry}>
+            Reintentar
+          </XlButton>
+          <button
+            type="button"
+            onClick={onContinueWithoutGps}
+            className="inline-flex min-h-11 w-full items-center justify-center text-sm text-ds-text-2 underline"
+          >
+            Marcar sin ubicación
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -152,9 +163,9 @@ type ScreenMode =
 
 type GpsStatus = "idle" | "loading" | "ok" | "error";
 
-const GPS_TIMEOUT_MS = 20000;
+const GPS_TIMEOUT_MS = 60000;
 const GPS_RETRY_DELAY_MS = 2000;
-const GPS_MAX_RETRIES = 3;
+const GPS_MAX_RETRIES = 1;
 
 function normalizeRut(value: string): string {
   return value.replace(/[\s.]/g, "").toLowerCase();
@@ -221,6 +232,7 @@ export function MarcacionScreen({
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>("idle");
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [showGpsModal, setShowGpsModal] = useState(false);
+  const [allowWithoutGps, setAllowWithoutGps] = useState(false);
 
   const rutInputRef = useRef<HTMLInputElement>(null);
 
@@ -387,11 +399,6 @@ export function MarcacionScreen({
   const handleFaceCapture = useCallback(
     async (imageBase64: string) => {
       if (!guardiaInfo) return;
-      // Doble verificación: sin GPS no se envía (el botón debería estar deshabilitado)
-      if (!geoPosition) {
-        setError("Se requiere ubicación GPS para marcar.");
-        return;
-      }
       setMode("processing");
       setError(null);
 
@@ -403,8 +410,8 @@ export function MarcacionScreen({
             image: imageBase64,
             installationId,
             tipo: guardiaInfo.nextTipo,
-            lat: geoPosition.lat,
-            lng: geoPosition.lng,
+            lat: geoPosition?.lat ?? null,
+            lng: geoPosition?.lng ?? null,
             expectedGuardiaId: guardiaInfo.guardiaId,
             deviceToken,
           }),
@@ -444,8 +451,8 @@ export function MarcacionScreen({
             imageBase64,
             installationId,
             tipo: guardiaInfo.nextTipo,
-            lat: geoPosition.lat,
-            lng: geoPosition.lng,
+            lat: geoPosition?.lat ?? null,
+            lng: geoPosition?.lng ?? null,
             deviceTimestamp: new Date().toISOString(),
           });
           setLastMarca({
@@ -471,10 +478,6 @@ export function MarcacionScreen({
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!pin || !guardiaInfo) return;
-      if (!geoPosition) {
-        setError("Se requiere ubicación GPS para marcar.");
-        return;
-      }
 
       setPinLoading(true);
       setError(null);
@@ -498,8 +501,8 @@ export function MarcacionScreen({
             rut: normalizeRut(rutInput),
             pin,
             tipo: guardiaInfo.nextTipo,
-            lat: geoPosition.lat,
-            lng: geoPosition.lng,
+            lat: geoPosition?.lat ?? null,
+            lng: geoPosition?.lng ?? null,
             pinFallbackReason,
             deviceToken,
           }),
@@ -528,8 +531,8 @@ export function MarcacionScreen({
             pin,
             installationId,
             tipo: guardiaInfo.nextTipo,
-            lat: geoPosition.lat,
-            lng: geoPosition.lng,
+            lat: geoPosition?.lat ?? null,
+            lng: geoPosition?.lng ?? null,
             deviceTimestamp: new Date().toISOString(),
           });
           setLastMarca({
@@ -582,6 +585,11 @@ export function MarcacionScreen({
         setShowGpsModal(false);
         setGpsStatus("idle");
         requestGps();
+      }}
+      onContinueWithoutGps={() => {
+        setAllowWithoutGps(true);
+        setShowGpsModal(false);
+        setGpsStatus("error");
       }}
     />
   );
@@ -762,7 +770,7 @@ export function MarcacionScreen({
   // ── Step 2: Face verify (or no face ID registered) ──────────────────────
   if (mode === "face-verify" && guardiaInfo) {
     const tipo = guardiaInfo.nextTipo;
-    const gpsReady = gpsStatus === "ok" && geoPosition != null;
+    const gpsReady = (gpsStatus === "ok" && geoPosition != null) || allowWithoutGps;
 
     return (
       <MarcacionShell {...shellProps}>
@@ -809,11 +817,20 @@ export function MarcacionScreen({
                     ? tipo === "entrada"
                       ? "ENTRADA"
                       : "SALIDA"
-                    : "Obteniendo ubicación..."
+                    : "Buscando ubicación… (hasta 60 s)"
                 }
                 captureVariant={tipo === "entrada" ? "teal" : "dark"}
                 captureDisabled={!gpsReady}
               />
+              {!gpsReady && (
+                <button
+                  type="button"
+                  onClick={() => setAllowWithoutGps(true)}
+                  className="mt-3 inline-flex min-h-11 w-full items-center justify-center text-sm text-ds-text-2 underline"
+                >
+                  Marcar sin ubicación
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-ds-border-default bg-ds-surface-2 p-6 text-center">
@@ -847,7 +864,7 @@ export function MarcacionScreen({
   // ── PIN fallback ────────────────────────────────────────────────────────
   if (mode === "pin-fallback" && guardiaInfo) {
     const tipo = guardiaInfo.nextTipo;
-    const gpsReady = gpsStatus === "ok" && geoPosition != null;
+    const gpsReady = (gpsStatus === "ok" && geoPosition != null) || allowWithoutGps;
 
     return (
       <MarcacionShell {...shellProps}>
@@ -898,12 +915,22 @@ export function MarcacionScreen({
               {pinLoading
                 ? "Registrando..."
                 : !gpsReady
-                  ? "Obteniendo ubicación..."
+                  ? "Buscando ubicación… (hasta 60 s)"
                   : tipo === "entrada"
                     ? "ENTRADA"
                     : "SALIDA"}
             </XlButton>
           </form>
+
+          {!gpsReady && (
+            <button
+              type="button"
+              onClick={() => setAllowWithoutGps(true)}
+              className="mt-3 inline-flex min-h-11 w-full items-center justify-center text-sm text-ds-text-2 underline"
+            >
+              Marcar sin ubicación
+            </button>
+          )}
 
           <button
             type="button"

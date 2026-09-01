@@ -14,6 +14,11 @@ import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
+import {
+  isPersonalEmailTaken,
+  PERSONAL_EMAIL_REQUIRED_ERROR,
+  PERSONAL_EMAIL_TAKEN_ERROR,
+} from "@/lib/marcacion-personal-email";
 
 const schema = z.object({
   guardiaId: z.string().uuid(),
@@ -68,8 +73,9 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         persona: {
-          select: { firstName: true, lastName: true, rut: true },
+          select: { id: true, firstName: true, lastName: true, rut: true, personalEmail: true, email: true },
         },
+        personalEmail: true,
       },
     });
 
@@ -77,6 +83,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Guardia no encontrado" },
         { status: 404 }
+      );
+    }
+
+    const personalEmail =
+      guardia.personalEmail?.trim() ||
+      guardia.persona.personalEmail?.trim() ||
+      null;
+    if (!personalEmail) {
+      return NextResponse.json(
+        { success: false, error: PERSONAL_EMAIL_REQUIRED_ERROR },
+        { status: 422 },
+      );
+    }
+
+    const emailTaken = await isPersonalEmailTaken({
+      tenantId: auth.tenantId,
+      email: personalEmail,
+      excludeGuardiaId: guardia.id,
+      excludePersonaId: guardia.persona.id,
+    });
+    if (emailTaken) {
+      return NextResponse.json(
+        { success: false, error: PERSONAL_EMAIL_TAKEN_ERROR },
+        { status: 409 },
       );
     }
 

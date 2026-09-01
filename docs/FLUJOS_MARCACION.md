@@ -1,6 +1,6 @@
 # Flujos de Marcación
 
-OPAI tiene **dos flujos** de marcación digital. Ambos exigen GPS obligatorio y usan el mismo backend.
+OPAI tiene **dos flujos** de marcación digital. Ambos tratan el GPS como evidencia (nunca bloquean) y usan el mismo backend.
 
 ---
 

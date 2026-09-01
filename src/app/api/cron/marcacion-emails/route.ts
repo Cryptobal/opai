@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendAvisoMarcaManual } from "@/lib/marcacion-email";
+import { runAlertaFaltaMarcacion } from "@/lib/marcacion-alerta-falta";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,8 @@ export async function GET(request: NextRequest) {
   try {
     const now = new Date();
 
+    const alerta = await runAlertaFaltaMarcacion(now);
+
     // Buscar todos los emails pendientes
     const pendingEmails = await prisma.setting.findMany({
       where: {
@@ -41,7 +44,7 @@ export async function GET(request: NextRequest) {
     if (pendingEmails.length === 0) {
       return NextResponse.json({
         success: true,
-        data: { processed: 0, message: "No hay emails pendientes" },
+        data: { processed: 0, message: "No hay emails pendientes", alerta },
       });
     }
 
@@ -119,6 +122,7 @@ export async function GET(request: NextRequest) {
         sent,
         skipped,
         errors,
+        alerta,
       },
     });
   } catch (error) {

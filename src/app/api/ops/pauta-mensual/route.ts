@@ -12,6 +12,7 @@ import {
   parseDateOnly,
   toDateKeyUTC,
 } from "@/lib/ops";
+import { warningsForPautaAssignment } from "@/lib/marcacion-pauta-warnings";
 import { resolveVigente } from "@/lib/ops/asignacion-vigencia";
 import { solapaRangoWhere } from "@/lib/ops/asignacion-vigencia-db";
 
@@ -758,7 +759,15 @@ export async function POST(request: NextRequest) {
       replacementGuardiaId: (body as any).replacementGuardiaId ?? null,
     });
 
-    return NextResponse.json({ success: true, data: pauta });
+    const warnings = await warningsForPautaAssignment({
+      tenantId: ctx.tenantId,
+      puestoId: body.puestoId,
+      plannedGuardiaId: body.plannedGuardiaId,
+      date,
+      shiftCode: body.shiftCode ?? null,
+    });
+
+    return NextResponse.json({ success: true, data: pauta, warnings });
   } catch (error) {
     console.error("[OPS] Error upserting pauta item:", error);
     return NextResponse.json(

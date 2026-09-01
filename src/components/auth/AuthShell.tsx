@@ -7,6 +7,7 @@ import { AuthBackground } from "./AuthBackground";
 import { AuthNavBar } from "./AuthNavBar";
 import type { PortalId } from "./auth-config";
 import { useBranding } from "@/lib/branding/useBranding";
+import { getAppVersion } from "@/lib/app-version";
 
 interface AuthShellProps {
   children: ReactNode;
@@ -258,8 +259,8 @@ export function AuthShell({
 
       {/* Footer */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[50] opacity-50">
-        <span className="text-[11px] text-[#4b5563]">
-          Powered by{" "}
+        <span className="text-[12px] text-[#4b5563]">
+          v{getAppVersion()} · Powered by{" "}
           <a
             href="https://lx3.ai"
             target="_blank"

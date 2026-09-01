@@ -1,6 +1,6 @@
 /**
- * Versión del software exhibida en el portal de fiscalización (Res. Ex. N°38 Art. 17 c).
- * En Vercel: `package.json.version` + SHA corto del commit.
+ * Versión de software visible (Res. Exenta N°38 Art. 17 c).
+ * Preferir NEXT_PUBLIC_APP_VERSION; fallback a package.json y SHA de Vercel.
  */
 
 export const PROVIDER_LEGAL_NAME = "Opai SpA";
@@ -11,10 +11,14 @@ export const FISCALIZACION_DT_PUBLIC_URL = "https://www.opai.cl/fiscalizacion-dt
 
 export function getAppVersion(): string {
   const version =
-    process.env.NEXT_PUBLIC_APP_VERSION ||
-    process.env.npm_package_version ||
+    process.env.NEXT_PUBLIC_APP_VERSION?.trim() ||
+    process.env.npm_package_version?.trim() ||
     "0.1.0";
-  const sha = (process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "").trim();
+  const sha = (
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    ""
+  ).trim();
   if (sha.length >= 7) return `${version} (${sha.slice(0, 7)})`;
   return version;
 }

@@ -12,6 +12,7 @@ import {
   toISODate,
 } from "@/lib/ops";
 import { ABSENCE_CODES } from "@/lib/ops/ensure-asistencia-dia-helpers";
+import { warningsForPautaAssignment } from "@/lib/marcacion-pauta-warnings";
 import {
   hoyChileDate,
   resolveVigente,
@@ -263,6 +264,15 @@ export async function POST(request: NextRequest) {
           rotatePuestoId: body.rotatePuestoId,
           rotateSlotNumber: body.rotateSlotNumber,
         },
+        warnings: asignacion?.guardiaId
+          ? await warningsForPautaAssignment({
+              tenantId: ctx.tenantId,
+              puestoId: body.puestoId,
+              plannedGuardiaId: asignacion.guardiaId,
+              date: startDate,
+              shiftCode: "T",
+            })
+          : [],
       });
     }
 
@@ -331,6 +341,15 @@ export async function POST(request: NextRequest) {
         guardiaId: asignacion?.guardiaId ?? null,
         slotNumber: body.slotNumber,
       },
+      warnings: asignacion?.guardiaId
+        ? await warningsForPautaAssignment({
+            tenantId: ctx.tenantId,
+            puestoId: body.puestoId,
+            plannedGuardiaId: asignacion.guardiaId,
+            date: startDate,
+            shiftCode: "T",
+          })
+        : [],
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo pintar la serie";
