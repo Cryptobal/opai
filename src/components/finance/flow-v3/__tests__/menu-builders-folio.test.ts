@@ -295,6 +295,7 @@ describe("buildCellMenu — por folio en desktop", () => {
     expect(items.find((i) => i.key === "edit")).toBeUndefined();
     expect(items.find((i) => i.key === "move-draft-draft-ep")?.label).toBe("Mover a otra semana");
     expect(items.find((i) => i.key === "view-draft-draft-ep")?.label).toBe("Ver borrador");
+    expect(items.find((i) => i.key === "exclude-draft-draft-ep")?.label).toBe("Excluir del flujo");
     const moveSub = items.find((i) => i.key === "move-draft-draft-ep")?.submenu ?? [];
     const weekKeys = moveSub.filter((i) => i.key.startsWith("mdte-")).map((i) => i.key);
     expect(weekKeys).toEqual([
@@ -303,6 +304,46 @@ describe("buildCellMenu — por folio en desktop", () => {
       "mdte-draft-ep-2026-08-17",
     ]);
     expect(moveSub.find((i) => i.key === "mdte-draft-ep-2026-08-10")?.highlight).toBe("next-week");
+  });
+
+  it("con 2 borradores ofrece excluir cada uno del flujo", () => {
+    const twoDrafts: FlowMatrixCellDto = {
+      weekStart: "2026-08-03",
+      plan: 0,
+      committed: {
+        total: 11_469_086,
+        items: [
+          {
+            kind: "draft",
+            dteId: "draft-ep",
+            label: "ANDALUZA",
+            fecha: "2026-09-01",
+            monto: 5_736_576,
+            sentDocs: { proforma: false, estadoPago: true },
+            templateId: "tpl-pena",
+            billingPeriod: "2026-09",
+          },
+          {
+            kind: "draft",
+            dteId: "draft-b",
+            label: "Ametel",
+            fecha: "2026-09-01",
+            monto: 5_732_510,
+            sentDocs: { proforma: false, estadoPago: false },
+          },
+        ],
+      },
+      real: null,
+      effective: 11_469_086,
+      layer: "committed",
+    };
+    const items = buildCellMenu(row({ name: "Ametel - Peñablanca" }), twoDrafts, ctx, cbs());
+    const exclude = items.find((i) => i.key === "exclude-draft");
+    expect(exclude?.label).toBe("Excluir del flujo");
+    expect(exclude?.submenu?.map((s) => s.key)).toEqual([
+      "exclude-draft-draft-ep",
+      "exclude-draft-draft-b",
+    ]);
   });
 });
 
@@ -335,6 +376,7 @@ describe("buildCellSheetModel — grupos borrador", () => {
     expect(model.folioGroups[0]!.header.statusLine).toContain("Fecha doc");
     expect(model.folioGroups[0]!.header.statusLine).toContain("término 3 d");
     expect(model.folioGroups[0]!.items.some((i) => i.key.startsWith("move-draft-"))).toBe(true);
+    expect(model.folioGroups[0]!.items.some((i) => i.key.startsWith("exclude-draft-"))).toBe(true);
   });
 });
 

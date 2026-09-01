@@ -12,6 +12,9 @@ import {
   rowStateChips,
   secondaryMarks,
   terminoStatusLine,
+  committedOriginKind,
+  committedOriginLabel,
+  moveCommittedItemLabel,
 } from "../cell-meta";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 
@@ -310,5 +313,66 @@ describe("sentDocs — etiquetas EP vs Proforma", () => {
         (d) => d.slice(8),
       ),
     ).toBe("Emite 20 · cuota 08/2026");
+  });
+});
+
+describe("origen programación vs extra", () => {
+  it("cuota de la fila = de la programación; sin período/template = extra", () => {
+    expect(committedOriginKind(
+      { kind: "draft", templateId: "tpl-pena", billingPeriod: "2026-09" },
+      "tpl-pena",
+    )).toBe("schedule");
+    expect(committedOriginLabel(
+      { kind: "draft", templateId: "tpl-pena", billingPeriod: "2026-09" },
+      "tpl-pena",
+    )).toBe("de la programación");
+    expect(committedOriginKind(
+      { kind: "draft", templateId: "tpl-pena", billingPeriod: null },
+      "tpl-pena",
+    )).toBe("extra");
+    expect(committedOriginKind(
+      { kind: "draft", templateId: undefined, billingPeriod: "2026-08" },
+      "tpl-pena",
+    )).toBe("extra");
+    expect(committedOriginKind(
+      { kind: "draft", templateId: "tpl-poetas", billingPeriod: "2026-09" },
+      "tpl-pena",
+    )).toBe("extra");
+    expect(committedOriginKind(
+      { kind: "scheduled", templateId: "tpl-pena", billingPeriod: "2026-10" },
+      "tpl-pena",
+    )).toBe("schedule");
+  });
+
+  it("moveCommittedItemLabel usa EP/B/F°/P", () => {
+    expect(moveCommittedItemLabel({
+      kind: "draft",
+      label: "Ametel",
+      fecha: "2026-09-01",
+      monto: 1,
+      sentDocs: { proforma: false, estadoPago: true },
+    })).toBe("Mover este EP…");
+    expect(moveCommittedItemLabel({
+      kind: "draft",
+      label: "Ametel",
+      fecha: "2026-09-01",
+      monto: 1,
+      sentDocs: { proforma: false, estadoPago: false },
+    })).toBe("Mover este B…");
+    expect(moveCommittedItemLabel({
+      kind: "dte",
+      label: "X",
+      fecha: "2026-09-01",
+      monto: 1,
+      folio: 1808,
+    })).toBe("Mover esta F°…");
+    expect(moveCommittedItemLabel({
+      kind: "scheduled",
+      label: "X",
+      fecha: "2026-09-01",
+      monto: 1,
+      templateId: "t",
+      billingPeriod: "2026-09",
+    })).toBe("Mover esta P…");
   });
 });

@@ -641,6 +641,38 @@ export function quotaPeriodLabel(period?: string | null): string | null {
   return `cuota ${m}/${y}`;
 }
 
+/**
+ * ¿El ítem es la cuota de la programación de esta fila?
+ * Extra = sin vínculo, sin período, o template de otra fila.
+ */
+export function committedOriginKind(
+  it: Pick<CommittedItem, "kind" | "templateId" | "billingPeriod">,
+  rowTemplateId?: string | null,
+): "schedule" | "extra" {
+  if (it.kind === "scheduled") return "schedule";
+  if (!it.templateId || !it.billingPeriod) return "extra";
+  if (rowTemplateId && it.templateId !== rowTemplateId) return "extra";
+  return "schedule";
+}
+
+export function committedOriginLabel(
+  it: Pick<CommittedItem, "kind" | "templateId" | "billingPeriod">,
+  rowTemplateId?: string | null,
+): string {
+  return committedOriginKind(it, rowTemplateId) === "schedule"
+    ? "de la programación"
+    : "extra";
+}
+
+export function moveCommittedItemLabel(it: CommittedItem): string {
+  if (it.kind === "scheduled") return "Mover esta P…";
+  if (it.kind === "draft") {
+    const { tag } = draftTag(draftSentDocs(it));
+    return `Mover este ${tag}…`;
+  }
+  return "Mover esta F°…";
+}
+
 /** Línea "Emite dd/mm · término N d → cobro est. dd/mm" solo si hay término > 0. */
 export function terminoStatusLine(
   it: Pick<CommittedItem, "issueYmd" | "fecha" | "terminoDias" | "cobroEstYmd" | "billingPeriod">,

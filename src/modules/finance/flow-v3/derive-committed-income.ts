@@ -280,6 +280,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommitte
       termSource: d.termSource,
       isCededRetention: d.isCededRetention === true,
       crmAccountId: d.crmAccountId,
+      templateId: d.recurringTemplateId ?? undefined,
       billingPeriod: d.billingPeriod ?? undefined,
     });
   }

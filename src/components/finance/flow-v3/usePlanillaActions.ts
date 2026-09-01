@@ -263,7 +263,7 @@ export function usePlanillaActions(refetch: () => void) {
             method: "POST",
             body: JSON.stringify({ dteId, reason }),
           }),
-        "Factura excluida del flujo",
+        "Excluido del flujo",
       ),
     [run],
   );
@@ -277,7 +277,7 @@ export function usePlanillaActions(refetch: () => void) {
             method: "DELETE",
             body: JSON.stringify({ dteId }),
           }),
-        "Factura restaurada al flujo",
+        "Restaurado al flujo",
       ),
     [run],
   );

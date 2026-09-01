@@ -7,7 +7,7 @@ import type { MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
 import { isFallbackBandejaRow } from "@/modules/finance/flow-v3/unmatched-count";
 import { canHaveSubRows } from "@/modules/finance/flow-v3/row-tree";
-import { draftGroupLabel, terminoStatusLine, quotaPeriodLabel } from "./cell-meta";
+import { draftGroupLabel, terminoStatusLine, quotaPeriodLabel, committedOriginLabel } from "./cell-meta";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import type { MenuItemDesc } from "./menu-render";
 import { isParametricMoveRow } from "./parametric-move";
@@ -324,6 +324,7 @@ type DteMenuItem = {
   ceded?: boolean;
   cededPct?: number;
   billingPeriod?: string;
+  templateId?: string;
 };
 
 type DraftMenuItem = {
@@ -335,6 +336,7 @@ type DraftMenuItem = {
   terminoDias?: number | null;
   cobroEstYmd?: string | null;
   billingPeriod?: string;
+  templateId?: string;
   sentDocs: { proforma: boolean; estadoPago: boolean };
 };
 
@@ -354,6 +356,7 @@ function cellDteItems(cell: FlowMatrixCellDto): DteMenuItem[] {
       ceded: i.ceded === true || (i.cededPct ?? 0) > 0,
       cededPct: i.cededPct,
       billingPeriod: i.billingPeriod,
+      templateId: i.templateId,
     }));
   return items.sort((a, b) => (b.overdueDays ?? 0) - (a.overdueDays ?? 0));
 }
@@ -376,6 +379,7 @@ function cellDraftItems(cell: FlowMatrixCellDto): DraftMenuItem[] {
       terminoDias: i.terminoDias,
       cobroEstYmd: i.cobroEstYmd,
       billingPeriod: i.billingPeriod,
+      templateId: i.templateId,
       sentDocs: {
         proforma: i.sentDocs?.proforma === true,
         estadoPago: i.sentDocs?.estadoPago === true,
@@ -505,7 +509,7 @@ function weekSubmenu(
   return out;
 }
 
-function folioStatusLine(d: DteMenuItem): string {
+function folioStatusLine(d: DteMenuItem, rowTemplateId?: string | null): string {
   const parts: string[] = [];
   if (d.emissionYmd) parts.push(`Emitida ${fmtShortDate(d.emissionYmd)}`);
   if (d.dueYmd) parts.push(`vence ${fmtShortDate(d.dueYmd)}`);
@@ -513,6 +517,10 @@ function folioStatusLine(d: DteMenuItem): string {
   parts.push(overdue ? `vencida hace ${d.overdueDays} d` : "Pendiente");
   const q = quotaPeriodLabel(d.billingPeriod);
   if (q) parts.push(q);
+  parts.push(committedOriginLabel(
+    { kind: "dte", templateId: d.templateId, billingPeriod: d.billingPeriod },
+    rowTemplateId,
+  ));
   return parts.join(" · ");
 }
 
@@ -520,7 +528,7 @@ function folioTitleLine(d: DteMenuItem, rowName: string): string {
   return `${folioLabel(d)} · ${rowName} · ${fmtClp(d.monto)}`;
 }
 
-function draftStatusLine(d: DraftMenuItem): string {
+function draftStatusLine(d: DraftMenuItem, rowTemplateId?: string | null): string {
   const base = terminoStatusLine(
     {
       issueYmd: d.issueYmd,
@@ -531,10 +539,18 @@ function draftStatusLine(d: DraftMenuItem): string {
     },
     fmtShortDate,
   );
-  if (base) return base.startsWith("Emite")
-    ? base.replace(/^Emite/, "Fecha doc")
+  const dateLine = base
+    ? (base.startsWith("Emite")
+      ? base.replace(/^Emite/, "Fecha doc")
+      : `Fecha doc ${fmtShortDate(d.issueYmd ?? d.fecha)}`)
     : `Fecha doc ${fmtShortDate(d.issueYmd ?? d.fecha)}`;
-  return `Fecha doc ${fmtShortDate(d.issueYmd ?? d.fecha)}`;
+  return [
+    dateLine,
+    committedOriginLabel(
+      { kind: "draft", templateId: d.templateId, billingPeriod: d.billingPeriod },
+      rowTemplateId,
+    ),
+  ].join(" · ");
 }
 
 function draftTitleLine(d: DraftMenuItem): string {
@@ -567,6 +583,14 @@ function draftActions(
     label: "Ver borrador",
     onSelect: () => cb.onViewDte(d.dteId),
   });
+  if (ctx.canManage && cb.onExcludeDte) {
+    out.push({
+      key: `exclude-draft-${d.dteId}`,
+      label: "Excluir del flujo",
+      danger: true,
+      onSelect: () => cb.onExcludeDte!(d.dteId),
+    });
+  }
   return out;
 }
 
@@ -1038,6 +1062,19 @@ export function buildCellMenu(
         onSelect: () => cb.onViewDte(d.dteId),
       })),
     });
+    if (ctx.canManage && cb.onExcludeDte) {
+      items.push({
+        key: "exclude-draft",
+        label: "Excluir del flujo",
+        danger: true,
+        submenu: draftItems.map((d) => ({
+          key: `exclude-draft-${d.dteId}`,
+          label: draftGroupLabel(d.sentDocs, d.label),
+          danger: true,
+          onSelect: () => cb.onExcludeDte!(d.dteId),
+        })),
+      });
+    }
   }
 
   items.push({
@@ -1090,7 +1127,7 @@ export function buildCellSheetModel(
       key: d.dteId,
       header: {
         titleLine: folioTitleLine(d, rowName),
-        statusLine: folioStatusLine(d),
+        statusLine: folioStatusLine(d, row.recurringTemplateId),
       },
       items: folioActions(d, row, ctx, cb),
     })),
@@ -1098,7 +1135,7 @@ export function buildCellSheetModel(
       key: d.dteId,
       header: {
         titleLine: draftTitleLine(d),
-        statusLine: draftStatusLine(d),
+        statusLine: draftStatusLine(d, row.recurringTemplateId),
       },
       items: draftActions(d, ctx, cb),
     })),

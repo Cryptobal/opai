@@ -6,7 +6,14 @@ import type { FlowMatrixCellDto, MatrixColumn } from "@/modules/finance/flow-v3/
 import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import { filterMoveTargetWeeks, resolveNextWeekKey } from "./menu-builders";
-import { committedItemMeta, terminoStatusLine, toneClass, quotaPeriodLabel } from "./cell-meta";
+import {
+  committedItemMeta,
+  committedOriginLabel,
+  moveCommittedItemLabel,
+  terminoStatusLine,
+  toneClass,
+  quotaPeriodLabel,
+} from "./cell-meta";
 import { isParametricMoveRow } from "./parametric-move";
 
 interface Props {
@@ -23,7 +30,7 @@ interface Props {
   onSettleReopen?: () => void;
   onMatchPlanToReal?: () => void;
   onMoveResidual?: () => void;
-  /** Semanas abiertas para mover F° o P desde la composición. */
+  /** Semanas abiertas para mover F°, EP, B o P desde la composición. */
   moveWeeks?: MatrixColumn[];
   onMoveDte?: (dteId: string, targetWeek: string) => void;
   onMoveScheduled?: (templateId: string, billingPeriod: string, targetWeek: string) => void;
@@ -33,6 +40,8 @@ interface Props {
   /** Mueve una P paramétrica (Retiro socios, etc.) sin template/hito. */
   onMoveParametric?: (targetWeek: string) => void;
   rowName?: string;
+  /** Programación de la fila: distingue cuota vs extra. */
+  rowTemplateId?: string | null;
   onClose: () => void;
 }
 
@@ -54,7 +63,7 @@ export function CellCompositionPanel({
   onViewDte, onExcludeDte, onRestoreDte,
   onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual,
   moveWeeks = [], onMoveDte, onMoveScheduled, onMoveMilestone,
-  onMovePlan, onMoveParametric, rowName, onClose,
+  onMovePlan, onMoveParametric, rowName, rowTemplateId, onClose,
 }: Props) {
   const [movingKey, setMovingKey] = useState<string | null>(null);
   const [excludingId, setExcludingId] = useState<string | null>(null);
@@ -137,18 +146,26 @@ export function CellCompositionPanel({
       ))}
 
       {hasCommitted && layerBlock("Comprometido", cell.layer === "committed", (
-        <ul className="max-h-40 space-y-1 overflow-y-auto">
+        <ul className="max-h-56 space-y-1 overflow-y-auto">
           {committedItems.map((it, i) => {
             const meta = committedItemMeta(it);
-            const canExclude = canManage && it.kind === "dte" && !!it.dteId && !!onExcludeDte;
-            const clickable = it.kind === "dte" && !!it.dteId && !!onViewDte;
+            const canExclude =
+              canManage &&
+              (it.kind === "dte" || it.kind === "draft") &&
+              !!it.dteId &&
+              !!onExcludeDte;
+            const clickable =
+              (it.kind === "dte" || it.kind === "draft") && !!it.dteId && !!onViewDte;
             const schedKey =
               it.kind === "scheduled" && it.templateId && it.billingPeriod
                 ? `sched:${it.templateId}::${it.billingPeriod}`
                 : it.kind === "scheduled" && it.milestoneKey && it.billingPeriod
                   ? `ms:${it.milestoneKey}::${it.billingPeriod}`
                   : null;
-            const dteKey = it.kind === "dte" && it.dteId ? `dte:${it.dteId}` : null;
+            const dteKey =
+              (it.kind === "dte" || it.kind === "draft") && it.dteId
+                ? `dte:${it.dteId}`
+                : null;
             const parametricKey =
               it.kind === "scheduled" &&
               !schedKey &&
@@ -176,19 +193,22 @@ export function CellCompositionPanel({
                 </button>
                 <div className="flex items-center justify-between gap-2 pl-1 text-ds-text-4">
                   <span>
-                    {it.kind === "dte"
-                      ? [
-                          it.emissionYmd ? fmtShortDate(it.emissionYmd) : fmtShortDate(it.fecha),
-                          it.dueYmd ? `vence ${fmtShortDate(it.dueYmd)}` : null,
-                          quotaPeriodLabel(it.billingPeriod),
-                        ].filter(Boolean).join(" · ")
-                      : terminoStatusLine(it, fmtShortDate) || fmtShortDate(it.fecha)}
+                    {[
+                      it.kind === "dte"
+                        ? [
+                            it.emissionYmd ? fmtShortDate(it.emissionYmd) : fmtShortDate(it.fecha),
+                            it.dueYmd ? `vence ${fmtShortDate(it.dueYmd)}` : null,
+                            quotaPeriodLabel(it.billingPeriod),
+                          ].filter(Boolean).join(" · ")
+                        : terminoStatusLine(it, fmtShortDate) || fmtShortDate(it.fecha),
+                      committedOriginLabel(it, rowTemplateId),
+                    ].filter(Boolean).join(" · ")}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
                     {canMoveItem && itemKey && movingKey !== itemKey && (
                       <button type="button" className="min-h-11 text-[12px] text-status-info-fg underline-offset-2 hover:underline sm:min-h-0"
                         onClick={() => setMovingKey(itemKey)}>
-                        {it.kind === "scheduled" ? "Mover esta P…" : "Mover esta F°…"}
+                        {moveCommittedItemLabel(it)}
                       </button>
                     )}
                     {canExclude && excludingId !== it.dteId && (
@@ -214,7 +234,13 @@ export function CellCompositionPanel({
                                 : "text-ds-text-1 hover:bg-ds-surface-2"
                           }`}
                           onClick={() => {
-                            if (it.kind === "dte" && it.dteId && onMoveDte) onMoveDte(it.dteId, w.key);
+                            if (
+                              (it.kind === "dte" || it.kind === "draft") &&
+                              it.dteId &&
+                              onMoveDte
+                            ) {
+                              onMoveDte(it.dteId, w.key);
+                            }
                             if (
                               it.kind === "scheduled" &&
                               it.templateId &&
@@ -257,7 +283,7 @@ export function CellCompositionPanel({
                     <label className="block space-y-0.5">
                       <span className="text-[12px] text-status-warn-fg">Motivo (mín. 5 caracteres)</span>
                       <input autoFocus className="h-10 w-full rounded border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9"
-                        value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ej: cobrada por otra vía" maxLength={300}
+                        value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ej: ya cobrada por factoring" maxLength={300}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submitExclude(); } }} />
                     </label>
                     {reasonError && <p className="text-[12px] text-status-danger-fg">{reasonError}</p>}
