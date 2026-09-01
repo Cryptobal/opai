@@ -19,6 +19,7 @@ import { Resend } from 'resend';
 import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import { buildEmailUrl } from '@/lib/emails/site-url';
 import { assertAdminLimit, planLimitErrorMessage } from '@/lib/plan-limits';
+import { logAudit } from '@/lib/audit';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -291,16 +292,14 @@ export async function changeUserRole(userId: string, roleTemplateId: string) {
     },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      userEmail: session.user.email,
-      action: 'user.role_changed',
-      entity: 'user',
-      entityId: userId,
-      details: { oldRole, newRole: slug, roleTemplateId: roleTemplateIdToSet },
-    },
+  await logAudit({
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: 'PERMISSION_CHANGE',
+    entity: 'Admin',
+    entityId: userId,
+    details: { type: 'ROLE_CHANGE', before: { role: oldRole, roleTemplateId: user.roleTemplateId }, after: { role: slug, roleTemplateId: roleTemplateIdToSet } },
+    tenantId: session.user.tenantId,
   });
 
   return { success: true };

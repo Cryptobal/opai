@@ -89,6 +89,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/postulacion/')) return true;
   if (pathname.startsWith('/ingreso-te')) return true;
   if (pathname.startsWith('/marcar/')) return true; // Marcación de asistencia (pública)
+  if (pathname.startsWith('/verificar/')) return true; // Verificación pública de comprobante (Art. 8)
   if (pathname.startsWith('/marcacion/oposicion/')) return true; // Página pública de oposición
   if (pathname.startsWith('/api/marcacion/oposicion/')) return true; // API pública de oposición
   if (pathname.startsWith('/ronda/')) return true; // Rondas de seguridad (pública)

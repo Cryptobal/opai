@@ -2517,6 +2517,7 @@ model CrmInstallation {
   address                 String?
   city                    String?
   commune                 String?
+  region                  String?
   lat                     Float?
   lng                     Float?
   status                  CrmInstallationStatus @default(prospect)
@@ -5417,6 +5418,7 @@ model OpsMarcacion {
   employerName         String?   @map("employer_name") // Razón social del empleador
   establishmentAddress String?   @map("establishment_address") // Dirección de la instalación al momento de la marca
   dtResolutionNumber   String?   @map("dt_resolution_number") // N° resolución jornada excepcional DT (si aplica)
+  dtResolutionDate     DateTime? @map("dt_resolution_date") @db.Date // Fecha/vigencia de la resolución DT (si aplica)
   mandanteRut          String?   @map("mandante_rut") // RUT del mandante si es subcontrato
   mandanteName         String?   @map("mandante_name") // Nombre del mandante
   gpsStatus            String    @default("sin_gps") @map("gps_status") // dentro_rango | fuera_rango | sin_gps
@@ -5450,7 +5452,49 @@ model OpsMarcacion {
   @@index([installationId, timestamp], map: "idx_ops_marcaciones_inst_ts")
   @@index([timestamp], map: "idx_ops_marcaciones_timestamp")
   @@index([deletedAt], map: "idx_ops_marcaciones_deleted_at")
+  @@index([hashIntegridad], map: "idx_ops_marcaciones_hash")
   @@map("marcaciones")
+  @@schema("ops")
+}
+
+/// Idempotencia de alertas Art. 45.1 (falta de marcación a los 30 min).
+model OpsMarcacionAlertaEnvio {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  guardiaId    String   @map("guardia_id") @db.Uuid
+  asistenciaId String?  @map("asistencia_id") @db.Uuid
+  fecha        DateTime @db.Date
+  turnoKey     String   @map("turno_key")
+  tipo         String // "entrada" | "salida"
+  status       String // sent | skipped_disabled | no_email | error
+  sentAt       DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, guardiaId, fecha, turnoKey, tipo], map: "uq_ops_marcacion_alerta_envio")
+  @@index([tenantId], map: "idx_ops_marcacion_alerta_envio_tenant")
+  @@map("marcacion_alerta_envios")
+  @@schema("ops")
+}
+
+/// Manifiesto de respaldo mensual de marcaciones (Art. 14 b / 20 e).
+model OpsMarcacionRespaldo {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  periodYear     Int      @map("period_year")
+  periodMonth    Int      @map("period_month")
+  storageKey     String   @map("storage_key")
+  manifestKey    String   @map("manifest_key")
+  fileSha256     String   @map("file_sha256")
+  manifestSha256 String   @map("manifest_sha256")
+  recordCount    Int      @map("record_count")
+  byteSize       Int      @map("byte_size")
+  dateFrom       DateTime @map("date_from") @db.Date
+  dateTo         DateTime @map("date_to") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, periodYear, periodMonth], map: "uq_ops_marcacion_respaldo_period")
+  @@index([tenantId], map: "idx_ops_marcacion_respaldo_tenant")
+  @@map("marcacion_respaldos")
   @@schema("ops")
 }
 

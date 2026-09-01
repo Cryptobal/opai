@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { upsertPautaItemSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess, parseDateOnly } from "@/lib/ops";
+import { warningsForPautaAssignment } from "@/lib/marcacion-pauta-warnings";
 
 const bulkSaveSchema = z.object({
   items: z.array(upsertPautaItemSchema).min(1, "Debes enviar al menos 1 registro"),
@@ -80,11 +81,26 @@ export async function POST(request: NextRequest) {
       total: results.length,
     });
 
+    const warnings = (
+      await Promise.all(
+        body.items.map((item) =>
+          warningsForPautaAssignment({
+            tenantId: ctx.tenantId,
+            puestoId: item.puestoId,
+            plannedGuardiaId: item.plannedGuardiaId,
+            date: parseDateOnly(item.date),
+            shiftCode: item.shiftCode ?? null,
+          }),
+        ),
+      )
+    ).flat();
+
     return NextResponse.json({
       success: true,
       data: {
         count: results.length,
       },
+      warnings,
     });
   } catch (error) {
     console.error("[OPS] Error saving pauta bulk:", error);

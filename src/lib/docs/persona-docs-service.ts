@@ -12,6 +12,7 @@ import {
 } from "@/lib/docs/legacy-type-map";
 import { personaTypesForOperationalCodigo } from "@/lib/operational-guard-doc-slots-shared";
 import { GUARDIA_ALERTING_LIFECYCLE_STATUSES } from "@/lib/personas";
+import { LEGACY_PERSONA } from "@/lib/docs/migration/types";
 
 const FOLDER_SELECT = { id: true, name: true, portalVisible: true } as const;
 
@@ -103,7 +104,9 @@ function mapUnified(
     id: doc.id,
     tenantId: doc.tenantId,
     guardiaId: link.entityId,
-    type: doc.tipo?.codigo ?? UNCLASSIFIED_GUARDIA_TIPO,
+    type: doc.tipo?.codigo
+      ? canonicalGuardiaTypeCode(doc.tipo.codigo)
+      : UNCLASSIFIED_GUARDIA_TIPO,
     fileUrl: doc.fileUrl,
     fileName: doc.fileName,
     mimeType: doc.mimeType,
@@ -128,6 +131,72 @@ function mapUnified(
     needsAttention: doc.needsAttention,
     folder: link.folder,
   };
+}
+
+function mapLegacyRow(row: {
+  id: string;
+  tenantId: string;
+  guardiaId: string;
+  type: string;
+  fileUrl: string | null;
+  fileName: string | null;
+  mimeType: string | null;
+  status: string;
+  issuedAt: Date | null;
+  expiresAt: Date | null;
+  notes: string | null;
+  validatedBy: string | null;
+  validatedAt: Date | null;
+  folderId: string | null;
+  portalVisible: boolean;
+  lastExpiryMilestone: number | null;
+  lastExpiryMilestoneAt: Date | null;
+  renewalInProgressUntil: Date | null;
+  renewalMarkedBy: string | null;
+  renewalMarkedAt: Date | null;
+  expiryDismissedAt: Date | null;
+  expiryDismissedBy: string | null;
+  expiryDismissedReason: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  folder?: { id: string; name: string; portalVisible?: boolean } | null;
+}): PersonaDocRow {
+  return {
+    ...row,
+    type: canonicalGuardiaTypeCode(row.type),
+    needsAttention: false,
+    folder: row.folder ?? null,
+  };
+}
+
+function sortPersonaDocs(rows: PersonaDocRow[]): PersonaDocRow[] {
+  return [...rows].sort((a, b) => {
+    const ae = a.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const be = b.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    if (ae !== be) return ae - be;
+    return b.createdAt.getTime() - a.createdAt.getTime();
+  });
+}
+
+/**
+ * Une docs unificados con filas legacy que nunca se backfillearon
+ * (p. ej. postulaciones posteriores al corte de migración).
+ * Dedup por legacyId y por fileUrl.
+ */
+export function mergeLegacyPersonaDocsIntoUnified(
+  unified: PersonaDocRow[],
+  legacy: PersonaDocRow[],
+  backfilledLegacyIds: Set<string>
+): PersonaDocRow[] {
+  const unifiedUrls = new Set(
+    unified.map((d) => d.fileUrl).filter((u): u is string => Boolean(u))
+  );
+  const extra = legacy.filter((row) => {
+    if (backfilledLegacyIds.has(row.id)) return false;
+    if (row.fileUrl && unifiedUrls.has(row.fileUrl)) return false;
+    return true;
+  });
+  return sortPersonaDocs([...unified, ...extra]);
 }
 
 export async function listPersonaDocs(
@@ -159,36 +228,43 @@ export async function listPersonaDocs(
     orderBy: { createdAt: "desc" },
   });
 
-  return links
-    .map((l) =>
-      mapUnified({
-        ...l.file,
-        links: [{ entityId: l.entityId, folderId: l.folderId, folder: l.folder }],
-      })
-    )
-    .sort((a, b) => {
-      const ae = a.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const be = b.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      return ae - be;
-    });
+  const unified = links.map((l) =>
+    mapUnified({
+      ...l.file,
+      links: [{ entityId: l.entityId, folderId: l.folderId, folder: l.folder }],
+    })
+  );
+
+  if (opts?.needsAttentionOnly) {
+    return sortPersonaDocs(unified);
+  }
+
+  const legacyRows = await prisma.opsDocumentoPersona.findMany({
+    where: { tenantId, guardiaId },
+    include: { folder: { select: FOLDER_SELECT } },
+  });
+  const backfilledLegacyIds = new Set(
+    links
+      .map((l) => l.file.legacyId)
+      .filter((id): id is string => Boolean(id))
+  );
+
+  return mergeLegacyPersonaDocsIntoUnified(
+    unified,
+    legacyRows.map(mapLegacyRow),
+    backfilledLegacyIds
+  );
 }
 
-export async function getPersonaDoc(
+async function loadUnifiedOwnerDoc(
   tenantId: string,
   guardiaId: string,
-  documentId: string
+  fileId: string
 ): Promise<PersonaDocRow | null> {
-  if (!(await readsUnified(tenantId))) {
-    const row = await prisma.opsDocumentoPersona.findFirst({
-      where: { id: documentId, guardiaId, tenantId },
-      include: { folder: { select: FOLDER_SELECT } },
-    });
-    return row as PersonaDocRow | null;
-  }
   const link = await prisma.documentoEnlace.findFirst({
     where: {
       tenantId,
-      fileId: documentId,
+      fileId,
       entityType: "guardia",
       entityId: guardiaId,
       role: "owner",
@@ -203,6 +279,45 @@ export async function getPersonaDoc(
     ...link.file,
     links: [{ entityId: link.entityId, folderId: link.folderId, folder: link.folder }],
   });
+}
+
+async function loadLegacyPersonaDoc(
+  tenantId: string,
+  guardiaId: string,
+  documentId: string
+): Promise<PersonaDocRow | null> {
+  const row = await prisma.opsDocumentoPersona.findFirst({
+    where: { id: documentId, guardiaId, tenantId },
+    include: { folder: { select: FOLDER_SELECT } },
+  });
+  return row ? mapLegacyRow(row) : null;
+}
+
+export async function getPersonaDoc(
+  tenantId: string,
+  guardiaId: string,
+  documentId: string
+): Promise<PersonaDocRow | null> {
+  if (!(await readsUnified(tenantId))) {
+    return loadLegacyPersonaDoc(tenantId, guardiaId, documentId);
+  }
+  const unified = await loadUnifiedOwnerDoc(tenantId, guardiaId, documentId);
+  if (unified) return unified;
+
+  const backfilled = await prisma.documento.findFirst({
+    where: {
+      tenantId,
+      legacySource: LEGACY_PERSONA,
+      legacyId: documentId,
+    },
+    select: { id: true },
+  });
+  if (backfilled) {
+    const mapped = await loadUnifiedOwnerDoc(tenantId, guardiaId, backfilled.id);
+    if (mapped) return mapped;
+  }
+
+  return loadLegacyPersonaDoc(tenantId, guardiaId, documentId);
 }
 
 export async function createPersonaDoc(
@@ -340,6 +455,26 @@ export async function updatePersonaDoc(
   const existing = await getPersonaDoc(tenantId, guardiaId, documentId);
   if (!existing) return null;
 
+  const unifiedRow = await loadUnifiedOwnerDoc(tenantId, guardiaId, existing.id);
+  if (!unifiedRow) {
+    const legacyData: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (v === undefined) continue;
+      if (k === "type" && typeof v === "string") {
+        legacyData[k] = canonicalGuardiaTypeCode(v);
+      } else {
+        legacyData[k] = v;
+      }
+    }
+    if (Object.keys(legacyData).length) {
+      await prisma.opsDocumentoPersona.update({
+        where: { id: existing.id },
+        data: legacyData,
+      });
+    }
+    return getPersonaDoc(tenantId, guardiaId, existing.id);
+  }
+
   const fileData: Record<string, unknown> = {};
   const linkData: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(data)) {
@@ -359,15 +494,15 @@ export async function updatePersonaDoc(
     }
   }
   if (Object.keys(fileData).length) {
-    await prisma.documento.update({ where: { id: documentId }, data: fileData });
+    await prisma.documento.update({ where: { id: existing.id }, data: fileData });
   }
   if (Object.keys(linkData).length) {
     await prisma.documentoEnlace.updateMany({
-      where: { tenantId, fileId: documentId, role: "owner" },
+      where: { tenantId, fileId: existing.id, role: "owner" },
       data: linkData,
     });
   }
-  return getPersonaDoc(tenantId, guardiaId, documentId);
+  return getPersonaDoc(tenantId, guardiaId, existing.id);
 }
 
 export async function deletePersonaDoc(
@@ -385,10 +520,14 @@ export async function deletePersonaDoc(
   }
   const existing = await getPersonaDoc(tenantId, guardiaId, documentId);
   if (!existing) return false;
-  // Conservación: solo quitar enlace owner; el Documento permanece.
-  await prisma.documentoEnlace.deleteMany({
-    where: { tenantId, fileId: documentId, role: "owner" },
-  });
+  const unifiedRow = await loadUnifiedOwnerDoc(tenantId, guardiaId, existing.id);
+  if (unifiedRow) {
+    await prisma.documentoEnlace.deleteMany({
+      where: { tenantId, fileId: existing.id, role: "owner" },
+    });
+    return true;
+  }
+  await prisma.opsDocumentoPersona.delete({ where: { id: existing.id } });
   return true;
 }
 
@@ -442,6 +581,17 @@ export async function getGuardiaDocTypeIndex(
   });
   for (const link of links) {
     add(link.entityId, link.file.tipo?.codigo ?? UNCLASSIFIED_GUARDIA_TIPO);
+  }
+
+  const leftover = await prisma.opsDocumentoPersona.findMany({
+    where: {
+      tenantId,
+      ...(idsFilter ? { guardiaId: idsFilter } : {}),
+    },
+    select: { guardiaId: true, type: true },
+  });
+  for (const row of leftover) {
+    add(row.guardiaId, canonicalGuardiaTypeCode(row.type));
   }
   return index;
 }
@@ -501,13 +651,14 @@ export async function listPersonaDocSummaries(
           expiresAt: true,
           issuedAt: true,
           portalVisible: true,
+          legacyId: true,
           tipo: { select: { codigo: true } },
         },
       },
     },
   });
 
-  return links.map((l) => ({
+  const unified: PersonaDocSummary[] = links.map((l) => ({
     id: l.file.id,
     guardiaId: l.entityId,
     type: l.file.tipo?.codigo ?? UNCLASSIFIED_GUARDIA_TIPO,
@@ -519,6 +670,48 @@ export async function listPersonaDocSummaries(
     portalVisible: l.file.portalVisible,
     folderPortalVisible: l.folder?.portalVisible ?? null,
   }));
+
+  const leftover = await prisma.opsDocumentoPersona.findMany({
+    where: { tenantId, guardiaId: { in: guardiaIds } },
+    select: {
+      id: true,
+      guardiaId: true,
+      type: true,
+      status: true,
+      fileName: true,
+      fileUrl: true,
+      expiresAt: true,
+      issuedAt: true,
+      portalVisible: true,
+      folder: { select: { portalVisible: true } },
+    },
+  });
+  const backfilledLegacyIds = new Set(
+    links.map((l) => l.file.legacyId).filter((id): id is string => Boolean(id))
+  );
+  const unifiedUrls = new Set(
+    unified.map((d) => d.fileUrl).filter((u): u is string => Boolean(u))
+  );
+  const extra: PersonaDocSummary[] = leftover
+    .filter((row) => {
+      if (backfilledLegacyIds.has(row.id)) return false;
+      if (row.fileUrl && unifiedUrls.has(row.fileUrl)) return false;
+      return true;
+    })
+    .map((row) => ({
+      id: row.id,
+      guardiaId: row.guardiaId,
+      type: canonicalGuardiaTypeCode(row.type),
+      status: row.status,
+      fileName: row.fileName,
+      fileUrl: row.fileUrl,
+      expiresAt: row.expiresAt,
+      issuedAt: row.issuedAt,
+      portalVisible: row.portalVisible,
+      folderPortalVisible: row.folder?.portalVisible ?? null,
+    }));
+
+  return [...unified, ...extra];
 }
 
 /** Claves `guardiaId|type` incluyendo alias (contrato → contrato_guardia). */

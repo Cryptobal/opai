@@ -11,6 +11,7 @@ export interface MarcacionConfig {
   clausulaLegal: string;
   radioGlobalMarcacionEnabled: boolean;
   radioGlobalMarcacionM: number;
+  alertaFaltaMarcacionEnabled: boolean;
   rondasPollingSegundos: number;
   rondasVentanaInicioAntesMin: number;
   rondasVentanaInicioDespuesMin: number;
@@ -36,6 +37,7 @@ export const DEFAULT_MARCACION_CONFIG: MarcacionConfig = {
     'Si transcurridas las 48 horas de recibir esta notificación usted no se hubiera opuesto al nuevo ajuste, ésta será considerada válida para los efectos de cálculo de su jornada.',
   radioGlobalMarcacionEnabled: false,
   radioGlobalMarcacionM: DEFAULT_MARCACION_RADIUS_M,
+  alertaFaltaMarcacionEnabled: true,
   rondasPollingSegundos: 30,
   rondasVentanaInicioAntesMin: 60,
   rondasVentanaInicioDespuesMin: 120,
@@ -124,6 +126,10 @@ export function normalizeMarcacionConfig(raw: unknown): MarcacionConfig {
       DEFAULT_MARCACION_CONFIG.radioGlobalMarcacionM,
       MIN_MARCACION_RADIUS_M,
       MAX_MARCACION_RADIUS_M,
+    ),
+    alertaFaltaMarcacionEnabled: booleanOrDefault(
+      source.alertaFaltaMarcacionEnabled,
+      DEFAULT_MARCACION_CONFIG.alertaFaltaMarcacionEnabled,
     ),
     rondasPollingSegundos: clampNumber(
       source.rondasPollingSegundos,

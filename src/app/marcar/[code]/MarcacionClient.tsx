@@ -116,14 +116,15 @@ export function MarcacionClient({ code }: { code: string }) {
     }
   }, [code, rut, pin]);
 
-  // ─── Estado de geolocalización (GPS obligatorio — sin ubicación no hay marcación) ───
+  // ─── Estado de geolocalización (GPS evidencia, no bloqueo — Art. 38/53) ───
   const [geoStatus, setGeoStatus] = useState<"pending" | "granted" | "denied" | "error">("pending");
   const [geoCoords, setGeoCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [showGpsModal, setShowGpsModal] = useState(false);
+  const [allowWithoutGps, setAllowWithoutGps] = useState(false);
 
-  const GPS_TIMEOUT_MS = 20000;
+  const GPS_TIMEOUT_MS = 60000;
   const GPS_RETRY_DELAY_MS = 2000;
-  const GPS_MAX_RETRIES = 3;
+  const GPS_MAX_RETRIES = 1;
 
   const getGpsErrorMessage = (code: number) => {
     switch (code) {
@@ -142,7 +143,7 @@ export function MarcacionClient({ code }: { code: string }) {
   const requestGeo = useCallback(() => {
     if (!navigator.geolocation) {
       setGeoStatus("error");
-      setError("Tu navegador no soporta geolocalización. No puedes marcar asistencia.");
+      setShowGpsModal(true);
       return;
     }
     if (typeof window !== "undefined" && !window.isSecureContext) {
@@ -229,8 +230,8 @@ export function MarcacionClient({ code }: { code: string }) {
   // ─── Registrar marcación (GPS obligatorio) ───
   const handleMarcar = useCallback(
     async (tipo: "entrada" | "salida") => {
-      if (!geoCoords) {
-        setError("Se requiere ubicación GPS para marcar.");
+      if (!geoCoords && !allowWithoutGps) {
+        setError("Espera la ubicación o confirma “Marcar sin ubicación”.");
         return;
       }
       setError(null);
@@ -250,8 +251,8 @@ export function MarcacionClient({ code }: { code: string }) {
             rut,
             pin,
             tipo,
-            lat: geoCoords.lat,
-            lng: geoCoords.lng,
+            lat: geoCoords?.lat ?? null,
+            lng: geoCoords?.lng ?? null,
             fotoBase64: foto || undefined,
           }),
         });
@@ -272,7 +273,7 @@ export function MarcacionClient({ code }: { code: string }) {
         setLoading(false);
       }
     },
-    [code, rut, pin, geoCoords, fotoBase64, cameraActive, capturePhoto, stopCamera]
+    [code, rut, pin, geoCoords, allowWithoutGps, fotoBase64, cameraActive, capturePhoto, stopCamera]
   );
 
   // ─── Cargar historial ───
@@ -320,24 +321,28 @@ export function MarcacionClient({ code }: { code: string }) {
                 No se pudo obtener tu ubicación
               </p>
               <p className="text-slate-600 text-sm mb-6">
-                Verifica que la ubicación esté activada en tu dispositivo y que
-                hayas dado permiso a la app.
+                Puedes reintentar o marcar sin ubicación. La marca queda registrada
+                como sin GPS y se notifica al supervisor.
               </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowGpsModal(false)}
-                  className="flex-1 py-2.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
-                >
-                  Cerrar
-                </button>
+              <div className="flex flex-col gap-3">
                 <button
                   onClick={() => {
                     setShowGpsModal(false);
                     requestGeo();
                   }}
-                  className="flex-1 py-2.5 text-sm font-bold text-white bg-status-info rounded-lg hover:brightness-110"
+                  className="w-full min-h-11 py-2.5 text-sm font-bold text-white bg-status-info rounded-lg hover:brightness-110"
                 >
                   Reintentar
+                </button>
+                <button
+                  onClick={() => {
+                    setAllowWithoutGps(true);
+                    setShowGpsModal(false);
+                    setGeoStatus("error");
+                  }}
+                  className="w-full min-h-11 py-2.5 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50"
+                >
+                  Marcar sin ubicación
                 </button>
               </div>
             </div>
@@ -376,11 +381,13 @@ export function MarcacionClient({ code }: { code: string }) {
               error={error}
               geoStatus={geoStatus}
               geoCoords={geoCoords}
+              allowWithoutGps={allowWithoutGps}
               cameraActive={cameraActive}
               fotoBase64={fotoBase64}
               videoRef={videoRef}
               canvasRef={canvasRef}
               onRequestGeo={requestGeo}
+              onAllowWithoutGps={() => setAllowWithoutGps(true)}
               onStartCamera={startCamera}
               onCapturePhoto={capturePhoto}
               onMarcar={handleMarcar}
@@ -392,6 +399,7 @@ export function MarcacionClient({ code }: { code: string }) {
                 setValidacion(null);
                 setGeoStatus("pending");
                 setGeoCoords(null);
+                setAllowWithoutGps(false);
                 setShowGpsModal(false);
               }}
             />
@@ -517,11 +525,13 @@ function MarcarScreen({
   error,
   geoStatus,
   geoCoords,
+  allowWithoutGps,
   cameraActive,
   fotoBase64,
   videoRef,
   canvasRef,
   onRequestGeo,
+  onAllowWithoutGps,
   onStartCamera,
   onCapturePhoto,
   onMarcar,
@@ -533,11 +543,13 @@ function MarcarScreen({
   error: string | null;
   geoStatus: "pending" | "granted" | "denied" | "error";
   geoCoords: { lat: number; lng: number } | null;
+  allowWithoutGps: boolean;
   cameraActive: boolean;
   fotoBase64: string | null;
   videoRef: React.RefObject<HTMLVideoElement | null>;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   onRequestGeo: () => void;
+  onAllowWithoutGps: () => void;
   onStartCamera: () => void;
   onCapturePhoto: () => void;
   onMarcar: (tipo: "entrada" | "salida") => void;
@@ -562,8 +574,7 @@ function MarcarScreen({
   });
 
   const geoReady = geoStatus === "granted" && geoCoords != null;
-  // GPS obligatorio — sin ubicación no hay marcación
-  const canMark = !loading && geoReady;
+  const canMark = !loading && (geoReady || allowWithoutGps);
 
   return (
     <div className="p-6">
@@ -610,22 +621,36 @@ function MarcarScreen({
         ) : geoStatus === "pending" ? (
           <>
             <Loader2 className="w-4 h-4 text-status-warn-fg animate-spin shrink-0" />
-            <p className="text-sm text-status-warn-fg">Obteniendo ubicación...</p>
+            <p className="text-sm text-status-warn-fg">Buscando ubicación… (hasta 60 s)</p>
           </>
         ) : (
           <>
             <MapPinOff className="w-4 h-4 text-status-warn-fg shrink-0" />
             <div className="flex-1">
-              <p className="text-sm text-status-warn-fg font-medium">Sin ubicación GPS</p>
-              <p className="text-xs text-status-warn-fg mt-0.5">
-                Sin ubicación no hay marcación. Activa el GPS y reintenta.
+              <p className="text-sm text-status-warn-fg font-medium">
+                {allowWithoutGps ? "Marcarás sin ubicación GPS" : "Sin ubicación GPS"}
               </p>
-              <button
-                onClick={onRequestGeo}
-                className="mt-2 text-xs font-medium text-status-danger-fg underline hover:brightness-110"
-              >
-                Reintentar
-              </button>
+              <p className="text-xs text-status-warn-fg mt-0.5">
+                {allowWithoutGps
+                  ? "La marca quedará como sin GPS y se avisará al supervisor."
+                  : "Puedes reintentar o continuar sin ubicación."}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  onClick={onRequestGeo}
+                  className="min-h-11 px-3 text-xs font-medium text-status-danger-fg underline hover:brightness-110"
+                >
+                  Reintentar
+                </button>
+                {!allowWithoutGps && (
+                  <button
+                    onClick={onAllowWithoutGps}
+                    className="min-h-11 px-3 text-xs font-medium text-ds-text-2 underline"
+                  >
+                    Marcar sin ubicación
+                  </button>
+                )}
+              </div>
             </div>
           </>
         )}
@@ -724,9 +749,9 @@ function MarcarScreen({
           </button>
         )}
 
-        {!geoReady && (
-          <p className="text-center text-xs text-status-danger-fg">
-            Debes activar tu ubicación para poder marcar
+        {!geoReady && !allowWithoutGps && (
+          <p className="text-center text-xs text-status-warn-fg">
+            Esperando ubicación o confirma “Marcar sin ubicación”
           </p>
         )}
       </div>

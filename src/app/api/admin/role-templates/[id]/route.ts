@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { validatePermissions } from "@/lib/permissions";
 import { invalidateTemplateCache } from "@/lib/permissions-server";
+import { logAudit } from "@/lib/audit";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -135,6 +136,21 @@ export async function PUT(request: Request, ctx: RouteContext) {
     data: updateData,
   });
 
+  await logAudit({
+    userId: authCtx.userId,
+    userEmail: authCtx.userEmail,
+    action: "PERMISSION_CHANGE",
+    entity: "RoleTemplate",
+    entityId: id,
+    details: {
+      type: "UPDATE",
+      before: { name: template.name, description: template.description, permissions: template.permissions },
+      after: { name: updated.name, description: updated.description, permissions: updated.permissions },
+    },
+    tenantId: authCtx.tenantId,
+    request,
+  });
+
   // Invalidar cache para que los cambios sean efectivos
   invalidateTemplateCache(id);
 
@@ -185,6 +201,17 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
 
   await prisma.roleTemplate.delete({ where: { id } });
   invalidateTemplateCache(id);
+
+  await logAudit({
+    userId: authCtx.userId,
+    userEmail: authCtx.userEmail,
+    action: "PERMISSION_CHANGE",
+    entity: "RoleTemplate",
+    entityId: id,
+    details: { type: "DELETE", before: { name: template.name, slug: template.slug }, after: null },
+    tenantId: authCtx.tenantId,
+    request: _request,
+  });
 
   return NextResponse.json({ success: true });
 }

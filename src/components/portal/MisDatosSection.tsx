@@ -97,6 +97,12 @@ export function MisDatosSection({ session }: Props) {
   const [valorCorrecto, setValorCorrecto] = useState("");
   const [motivo, setMotivo] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [emailPin, setEmailPin] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [savingPin, setSavingPin] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -108,6 +114,7 @@ export function MisDatosSection({ session }: Props) {
       if (!json.success) throw new Error(json.error || "Error");
       setData(json.data);
       setInfo(json.infoTratamiento);
+      setEmailDraft(json.data.emailPersonal ?? "");
     } catch (e) {
       toast.error("No se pudieron cargar tus datos");
     } finally {
@@ -219,6 +226,120 @@ export function MisDatosSection({ session }: Props) {
           { label: "Teléfono móvil", value: fmt(data.telefonoMovil) },
         ]}
       />
+
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground">Actualizar correo personal</h3>
+          <p className="text-[13px] text-ds-text-3">
+            Recibirás un correo de confirmación en la cuenta nueva y un aviso en la anterior.
+          </p>
+          <Input
+            type="email"
+            value={emailDraft}
+            onChange={(e) => setEmailDraft(e.target.value)}
+            placeholder="correo@personal.cl"
+            className="h-11 sm:h-9"
+            autoComplete="email"
+          />
+          <Input
+            type="password"
+            inputMode="numeric"
+            value={emailPin}
+            onChange={(e) => setEmailPin(e.target.value)}
+            placeholder="PIN actual"
+            className="h-11 sm:h-9"
+            autoComplete="off"
+          />
+          <Button
+            className="min-h-11 w-full sm:w-auto"
+            disabled={savingEmail || !emailDraft.trim() || !emailPin}
+            onClick={async () => {
+              setSavingEmail(true);
+              try {
+                const res = await fetch(
+                  `/api/portal/guardia/mis-datos?guardiaId=${session.guardiaId}`,
+                  {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      guardiaId: session.guardiaId,
+                      personalEmail: emailDraft,
+                      currentPin: emailPin,
+                    }),
+                  },
+                );
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error || "Error");
+                toast.success("Correo personal actualizado");
+                setEmailPin("");
+                await fetchData();
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "No se pudo actualizar el correo");
+              } finally {
+                setSavingEmail(false);
+              }
+            }}
+          >
+            {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar correo"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground">Cambiar PIN de marcación</h3>
+          <p className="text-[13px] text-ds-text-3">
+            El PIN debe tener entre 4 y 6 dígitos. Recibirás un correo con fecha y hora del cambio.
+          </p>
+          <Input
+            type="password"
+            inputMode="numeric"
+            value={currentPin}
+            onChange={(e) => setCurrentPin(e.target.value)}
+            placeholder="PIN actual"
+            className="h-11 sm:h-9"
+            autoComplete="off"
+          />
+          <Input
+            type="password"
+            inputMode="numeric"
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value)}
+            placeholder="PIN nuevo (4 a 6 dígitos)"
+            className="h-11 sm:h-9"
+            autoComplete="off"
+          />
+          <Button
+            className="min-h-11 w-full sm:w-auto"
+            disabled={savingPin || !currentPin || !newPin}
+            onClick={async () => {
+              setSavingPin(true);
+              try {
+                const res = await fetch("/api/portal/guardia/change-pin", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    guardiaId: session.guardiaId,
+                    currentPin,
+                    newPin,
+                  }),
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error || "Error");
+                toast.success("PIN actualizado");
+                setCurrentPin("");
+                setNewPin("");
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "No se pudo cambiar el PIN");
+              } finally {
+                setSavingPin(false);
+              }
+            }}
+          >
+            {savingPin ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cambiar PIN"}
+          </Button>
+        </CardContent>
+      </Card>
 
       <DataCard
         title="Dirección"

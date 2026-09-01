@@ -14,6 +14,7 @@ import { ensureOpsCapability } from "@/lib/ops";
 import { generatePin } from "@/lib/marcacion";
 import * as bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/audit";
+import { PERSONAL_EMAIL_REQUIRED_ERROR } from "@/lib/marcacion-personal-email";
 
 export async function POST() {
   try {
@@ -34,7 +35,8 @@ export async function POST() {
       },
       select: {
         id: true,
-        persona: { select: { firstName: true, lastName: true, rut: true } },
+        personalEmail: true,
+        persona: { select: { firstName: true, lastName: true, rut: true, personalEmail: true } },
       },
     });
 
@@ -45,7 +47,13 @@ export async function POST() {
       pin: string;
     }> = [];
 
+    let skippedNoEmail = 0;
     for (const g of guardias) {
+      const hasEmail = Boolean(g.personalEmail?.trim() || g.persona.personalEmail?.trim());
+      if (!hasEmail) {
+        skippedNoEmail++;
+        continue;
+      }
       const plainPin = generatePin();
       const hashedPin = await bcrypt.hash(plainPin, 10);
       // Ley 21.719: solo persistimos el hash del PIN. El texto plano se
@@ -69,14 +77,16 @@ export async function POST() {
       userEmail: auth.userEmail,
       action: "UPDATE",
       entity: "OpsGuardia",
-      details: { type: "PIN_BULK_REGENERATED", updated },
+      details: { type: "PIN_BULK_REGENERATED", updated, skippedNoEmail },
       tenantId: auth.tenantId,
     });
 
     return NextResponse.json({
       success: true,
-      data: { updated, total: guardias.length, generated },
-      message: `Se generaron PINs para ${updated} guardia${updated !== 1 ? "s" : ""}. Estos PINs solo se muestran una vez.`,
+      data: { updated, total: guardias.length, skippedNoEmail, generated },
+      message: skippedNoEmail
+        ? `Se generaron PINs para ${updated} guardia${updated !== 1 ? "s" : ""}. ${skippedNoEmail} omitido(s): ${PERSONAL_EMAIL_REQUIRED_ERROR}`
+        : `Se generaron PINs para ${updated} guardia${updated !== 1 ? "s" : ""}. Estos PINs solo se muestran una vez.`,
     });
   } catch (error) {
     console.error("[ops/marcacion/pin/bulk] Error:", error);

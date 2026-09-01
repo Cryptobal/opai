@@ -14,6 +14,7 @@ import {
   getDefaultPermissions,
   mergeRolePermissions,
 } from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(request: Request) {
   const ctx = await requireAuth();
@@ -181,6 +182,17 @@ export async function POST(request: Request) {
       isSystem: false,
       permissions: validation.permissions as object,
     },
+  });
+
+  await logAudit({
+    userId: ctx.userId,
+    userEmail: ctx.userEmail,
+    action: "PERMISSION_CHANGE",
+    entity: "RoleTemplate",
+    entityId: template.id,
+    details: { type: "CREATE", before: null, after: { name: template.name, slug: template.slug, permissions: template.permissions } },
+    tenantId: ctx.tenantId,
+    request,
   });
 
   return NextResponse.json({ success: true, data: template }, { status: 201 });
