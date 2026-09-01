@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MonitoreoMap } from "@/components/ops/rondas/monitoreo-map";
 import { MonitoreoTurnoHeader } from "@/components/ops/rondas/MonitoreoTurnoHeader";
 import { MonitoreoSidePanel } from "@/components/ops/rondas/MonitoreoSidePanel";
-import { CerrarTurnoModal } from "@/components/ops/rondas/CerrarTurnoModal";
+import { CerrarTurnoModal, type OpsReportEmailsClient } from "@/components/ops/rondas/CerrarTurnoModal";
 import MonitoreoGrid from "@/components/ops/rondas/MonitoreoGrid";
 import type { CellModalData, CNInstalacion } from "@/components/ops/rondas/MonitoreoGrid";
 import { MonitoreoGridCellModal } from "@/components/ops/rondas/MonitoreoGridCellModal";
@@ -93,6 +93,7 @@ export function RondasMonitoreoClient({
   const [sidePanelTab, setSidePanelTab] = useState<"rondas" | "alertas" | "instalaciones">("rondas");
   const [controlNocturno, setControlNocturno] = useState<any>(null);
   const [activeTurno, setActiveTurno] = useState<{ id: string; operatorId: string; operatorName: string | null; startedAt?: string } | null>(null);
+  const [opsEmails, setOpsEmails] = useState<OpsReportEmailsClient>({ coberturaSnapshot: true, reporteTurno: true });
   const [cellModal, setCellModal] = useState<CellModalData | null>(null);
   const [guardPanel, setGuardPanel] = useState<{ instalacion: CNInstalacion; turno: "nocturno" | "diurno" } | null>(null);
   const [splitPct, setSplitPct] = useState(45);
@@ -143,6 +144,12 @@ export function RondasMonitoreoClient({
         setCompletedData(monJson.recentlyCompleted ?? []);
         setControlNocturno(monJson.controlNocturno ?? null);
         setActiveTurno(monJson.activeTurno ?? null);
+        if (monJson.opsEmails) {
+          setOpsEmails({
+            coberturaSnapshot: monJson.opsEmails.coberturaSnapshot !== false,
+            reporteTurno: monJson.opsEmails.reporteTurno !== false,
+          });
+        }
       }
     } catch { /* ignore polling errors */ }
   }, []);
@@ -278,7 +285,7 @@ export function RondasMonitoreoClient({
   const [showNocturnaReminder, setShowNocturnaReminder] = useState(false);
   const isCurrentOperator = activeTurno?.operatorId === userId;
   useEffect(() => {
-    if (!activeTurno || !isCurrentOperator) return;
+    if (!activeTurno || !isCurrentOperator || !opsEmails.coberturaSnapshot) return;
     const check = () => {
       const now = new Date();
       if (now.getHours() >= 22) {
@@ -300,7 +307,7 @@ export function RondasMonitoreoClient({
     check();
     const interval = setInterval(check, 60000); // check every minute
     return () => clearInterval(interval);
-  }, [activeTurno, isCurrentOperator]);
+  }, [activeTurno, isCurrentOperator, opsEmails.coberturaSnapshot]);
 
   // Show all rows — selectedInstallationId is for highlighting, not filtering
   const filtered = rows;
@@ -507,7 +514,11 @@ export function RondasMonitoreoClient({
       });
       const json = await res.json();
       if (json.success) {
-        toast.success(`Cobertura ${label} enviada a operaciones y al chat`);
+        toast.success(
+          json.emailSkipped
+            ? `Cobertura ${label} publicada en el chat (email desactivado)`
+            : `Cobertura ${label} enviada a operaciones y al chat`,
+        );
       } else if (json.alreadySent) {
         toast(`La cobertura ${label} ya fue enviada`, {
           description: "¿Deseas reenviarla con datos actualizados?",
@@ -1006,6 +1017,7 @@ export function RondasMonitoreoClient({
         onClosed={() => { setCloseTurnoId(null); refreshMonitoreo(); }}
         onSendCobertura={handleSendCoberturaEmail}
         userRole={userRole}
+        opsEmails={opsEmails}
       />
 
       {/* 22:00 nocturna reminder modal */}

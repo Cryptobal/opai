@@ -12,6 +12,16 @@ interface CoberturaStatus {
   coberturaDiurnaSentAt?: string | null;
 }
 
+export type OpsReportEmailsClient = {
+  coberturaSnapshot: boolean;
+  reporteTurno: boolean;
+};
+
+const DEFAULT_OPS_EMAILS: OpsReportEmailsClient = {
+  coberturaSnapshot: true,
+  reporteTurno: true,
+};
+
 interface Props {
   turnoId: string;
   open: boolean;
@@ -19,9 +29,10 @@ interface Props {
   onClosed: () => void;
   onSendCobertura?: (turnoFilter: "nocturno" | "diurno") => void;
   userRole?: string;
+  opsEmails?: OpsReportEmailsClient;
 }
 
-export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCobertura, userRole }: Props) {
+export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCobertura, userRole, opsEmails: opsEmailsProp }: Props) {
   const [comments, setComments] = useState("");
   const [emails, setEmails] = useState<string[]>([]);
   const [emailInput, setEmailInput] = useState("");
@@ -31,10 +42,15 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
   const [summary, setSummary] = useState<string | null>(null);
   const [coberturaStatus, setCoberturaStatus] = useState<CoberturaStatus>({});
   const [loadingCobertura, setLoadingCobertura] = useState(false);
+  const [opsEmails, setOpsEmails] = useState<OpsReportEmailsClient>(opsEmailsProp ?? DEFAULT_OPS_EMAILS);
   const isAdmin = userRole === "owner" || userRole === "admin";
 
   const [unresolvedPanicCount, setUnresolvedPanicCount] = useState(0);
   const [loadingPanics, setLoadingPanics] = useState(false);
+
+  useEffect(() => {
+    if (opsEmailsProp) setOpsEmails(opsEmailsProp);
+  }, [opsEmailsProp]);
 
   // Fetch cobertura status and unresolved panic alerts when modal opens
   // Try /turno/active first (works for operator), fall back to /monitoreo (works for admin)
@@ -45,6 +61,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
     fetch("/api/ops/rondas/monitoreo/turno/active")
       .then((r) => r.json())
       .then((json) => {
+        if (json.opsEmails) setOpsEmails(json.opsEmails as OpsReportEmailsClient);
         if (json.success && json.data?.emailSentTo) {
           setCoberturaStatus(json.data.emailSentTo as CoberturaStatus);
           return;
@@ -53,6 +70,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
         return fetch("/api/ops/rondas/monitoreo")
           .then((r2) => r2.json())
           .then((json2) => {
+            if (json2.opsEmails) setOpsEmails(json2.opsEmails as OpsReportEmailsClient);
             if (json2.activeTurno?.emailSentTo) {
               setCoberturaStatus(json2.activeTurno.emailSentTo as CoberturaStatus);
             }
@@ -76,6 +94,8 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
   const nocturnaEnviada = !!coberturaStatus.coberturaNocturnaSentAt;
   const diurnaEnviada = !!coberturaStatus.coberturaDiurnaSentAt;
   const ambasCoberturas = nocturnaEnviada && diurnaEnviada;
+  const coberturaRequired = opsEmails.coberturaSnapshot;
+  const reporteTurnoEnabled = opsEmails.reporteTurno;
 
   const addEmail = () => {
     const trimmed = emailInput.trim();
@@ -106,7 +126,11 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
         return;
       }
       setSummary(json.data.aiSummary);
-      toast.success(`Turno cerrado${emails.length ? `. Reporte enviado a ${emails.length} destinatario(s).` : "."}`);
+      toast.success(
+        reporteTurnoEnabled && emails.length
+          ? `Turno cerrado. Reporte enviado a ${emails.length} destinatario(s).`
+          : "Turno cerrado",
+      );
       onClosed();
     } finally {
       setSaving(false);
@@ -145,8 +169,8 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Cobertura enforcement */}
-          {!loadingCobertura && !ambasCoberturas && (
+          {/* Cobertura enforcement — solo si el tenant tiene el email de cobertura activo */}
+          {coberturaRequired && !loadingCobertura && !ambasCoberturas && (
             <div className="rounded-lg border-2 border-status-warn-border bg-status-warn-soft p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-status-warn-fg" />
@@ -208,7 +232,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
           )}
 
           {/* Coberturas OK badge */}
-          {!loadingCobertura && ambasCoberturas && (
+          {coberturaRequired && !loadingCobertura && ambasCoberturas && (
             <div className="rounded-lg border border-status-ok-border bg-status-ok-soft p-2.5 flex items-center gap-2">
               <span className="text-status-ok-fg text-xs font-medium">Coberturas enviadas</span>
               <span className="text-[10px] text-status-ok-fg/60 ml-auto">
@@ -239,18 +263,19 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
             />
           </div>
 
+          {reporteTurnoEnabled ? (
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Enviar reporte a</label>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 mb-2">
+            <label className="text-xs text-ds-text-3 mb-1 block">Enviar reporte a</label>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-ds-surface-2 border border-ds-border-subtle mb-2">
               <span className="text-xs text-status-info-fg">&#9993;</span>
-              <span className="text-sm text-slate-200">Operaciones (configurado en empresa)</span>
-              <span className="text-[9px] text-slate-500 ml-auto">Siempre se envía</span>
+              <span className="text-sm text-ds-text-1">Operaciones (configurado en empresa)</span>
+              <span className="text-[12px] text-ds-text-4 ml-auto">Siempre se envía</span>
             </div>
             <div className="flex gap-1.5 mb-2 flex-wrap">
               {emails.map((email) => (
-                <span key={email} className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[11px]">
+                <span key={email} className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[12px]">
                   {email}
-                  <button onClick={() => removeEmail(email)} className="text-muted-foreground hover:text-foreground">
+                  <button type="button" onClick={() => removeEmail(email)} className="text-ds-text-3 hover:text-ds-text-1 min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center">
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -258,17 +283,22 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
             </div>
             <div className="flex gap-1.5">
               <Input
-                className="h-8 text-xs flex-1"
+                className="h-10 sm:h-8 text-xs flex-1"
                 placeholder="email@ejemplo.cl"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addEmail(); } }}
               />
-              <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={addEmail}>
+              <Button type="button" size="sm" variant="outline" className="h-10 sm:h-8 text-xs" onClick={addEmail}>
                 + Agregar
               </Button>
             </div>
           </div>
+          ) : (
+            <p className="text-[12px] text-ds-text-3">
+              El reporte por email está desactivado en Configuración → Correos automáticos.
+            </p>
+          )}
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -314,12 +344,12 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
           </div>
           <Button
             onClick={handleClose}
-            disabled={saving || deleting || (!ambasCoberturas && !loadingCobertura) || (!loadingPanics && unresolvedPanicCount > 0)}
+            disabled={saving || deleting || (coberturaRequired && !ambasCoberturas && !loadingCobertura) || (!loadingPanics && unresolvedPanicCount > 0)}
             className="gap-1"
-            title={unresolvedPanicCount > 0 ? "Resuelve las alertas de pánico primero" : !ambasCoberturas ? "Envía ambas coberturas primero" : undefined}
+            title={unresolvedPanicCount > 0 ? "Resuelve las alertas de pánico primero" : coberturaRequired && !ambasCoberturas ? "Envía ambas coberturas primero" : undefined}
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {saving ? "Cerrando..." : "Cerrar turno y enviar"}
+            {saving ? "Cerrando..." : reporteTurnoEnabled ? "Cerrar turno y enviar" : "Cerrar turno"}
           </Button>
         </DialogFooter>
       </DialogContent>

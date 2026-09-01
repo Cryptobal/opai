@@ -12,6 +12,7 @@ import {
 import { getOpsChannelId, sendSystemChatMessage } from "@/lib/chat-system-message";
 import { requireTenantModule } from '@/lib/require-module';
 import { getEmailBaseUrl } from "@/lib/emails/site-url";
+import { getOpsReportEmailFlags } from "@/lib/notifications/email-flags";
 
 /* ── Simple rate limit: 1 email per 2 min per tenant+turnoFilter ── */
 const lastSentMap = new Map<string, number>();
@@ -185,43 +186,53 @@ export async function POST(request: Request) {
       );
     }
 
-    const cfg = await getTenantCompanyConfig(ctx.tenantId);
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: ctx.tenantId },
-      select: { slug: true },
-    });
-    const tenantSlug = tenant?.slug ?? null;
-    const baseUrl = getEmailBaseUrl(request.headers.get("origin"), tenantSlug);
+    const opsEmails = await getOpsReportEmailFlags(ctx.tenantId);
+    let emailSkipped = false;
 
-    const html = buildCoberturaEmailHtml(snapshot, {
-      operatorName: activeTurno.operatorName ?? "Operador",
-      turnoStartedAt: activeTurno.startedAt,
-      baseUrl,
-      tenantSlug,
-    });
+    if (opsEmails.coberturaSnapshot) {
+      const cfg = await getTenantCompanyConfig(ctx.tenantId);
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+        select: { slug: true },
+      });
+      const tenantSlug = tenant?.slug ?? null;
+      const baseUrl = getEmailBaseUrl(request.headers.get("origin"), tenantSlug);
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("es-CL", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "America/Santiago",
-    });
-    const turnoLabel = turnoFilter === "nocturno" ? "Nocturna" : "Diurna";
+      const html = buildCoberturaEmailHtml(snapshot, {
+        operatorName: activeTurno.operatorName ?? "Operador",
+        turnoStartedAt: activeTurno.startedAt,
+        baseUrl,
+        tenantSlug,
+      });
 
-    const response = await resend.emails.send({
-      from: cfg.emailFrom,
-      to: cfg.emailOps,
-      replyTo: cfg.emailReplyTo,
-      subject: `Cobertura ${turnoLabel} ${timeStr} - Monitoreo`,
-      html,
-      tags: [{ name: "type", value: "cobertura_snapshot" }],
-    });
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("es-CL", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "America/Santiago",
+      });
+      const turnoLabel = turnoFilter === "nocturno" ? "Nocturna" : "Diurna";
 
-    if (response.error) {
-      console.error("[COBERTURA_EMAIL] Resend error:", response.error);
-      return NextResponse.json(
-        { success: false, error: "Error enviando email" },
-        { status: 500 },
+      const response = await resend.emails.send({
+        from: cfg.emailFrom,
+        to: cfg.emailOps,
+        replyTo: cfg.emailReplyTo,
+        subject: `Cobertura ${turnoLabel} ${timeStr} - Monitoreo`,
+        html,
+        tags: [{ name: "type", value: "cobertura_snapshot" }],
+      });
+
+      if (response.error) {
+        console.error("[COBERTURA_EMAIL] Resend error:", response.error);
+        return NextResponse.json(
+          { success: false, error: "Error enviando email" },
+          { status: 500 },
+        );
+      }
+    } else {
+      emailSkipped = true;
+      console.info(
+        `[COBERTURA_EMAIL] tenant=${ctx.tenantId} skipped: cobertura_alert disabled`,
       );
     }
 
@@ -262,7 +273,7 @@ export async function POST(request: Request) {
       }
     })();
 
-    return NextResponse.json({ success: true, turnoFilter });
+    return NextResponse.json({ success: true, turnoFilter, emailSkipped });
   } catch (error) {
     console.error("[COBERTURA_EMAIL] Error:", error);
     return NextResponse.json(
