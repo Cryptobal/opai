@@ -1274,7 +1274,9 @@ export function pathToPermission(
   if (pathname === "/hub" || pathname.startsWith("/hub/")) return { module: "hub" };
 
   // Fiscalización DT
-  if (pathname.startsWith("/fiscalizacion")) return { module: "fiscalizacion" };
+  if (pathname === "/fiscalizacion" || pathname.startsWith("/fiscalizacion/")) {
+    return { module: "fiscalizacion" };
+  }
 
   return null;
 }

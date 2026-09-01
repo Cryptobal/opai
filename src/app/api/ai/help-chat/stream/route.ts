@@ -133,7 +133,7 @@ function describeModule(pathname: string): string {
   if (p.startsWith("/chat")) return "Chat interno";
   if (p.startsWith("/portales")) return "Portales externos";
   if (p.startsWith("/reportes")) return "Reportes y analítica";
-  if (p.startsWith("/fiscalizacion")) return "Fiscalización";
+  if (p === "/fiscalizacion" || p.startsWith("/fiscalizacion/")) return "Fiscalización";
   if (p.startsWith("/ops/turnos-extra")) return "Turnos extra";
   return `ruta ${pathname}`;
 }

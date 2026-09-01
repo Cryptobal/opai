@@ -153,3 +153,22 @@ export function getPublicReporteTokenHourRateLimit(): Ratelimit | null {
   }
   return _publicReporteTokenHourLimiter;
 }
+
+let _dtClaveEmailLimiter: Ratelimit | null | undefined;
+let _dtClaveIpLimiter: Ratelimit | null | undefined;
+
+/** 10 solicitudes de clave DT / correo / hora. */
+export function getDtClaveEmailRateLimit(): Ratelimit | null {
+  if (_dtClaveEmailLimiter === undefined) {
+    _dtClaveEmailLimiter = makeLimiter(10, "1 h", "ratelimit:dt-clave-email");
+  }
+  return _dtClaveEmailLimiter;
+}
+
+/** 30 solicitudes de clave DT / IP / hora. */
+export function getDtClaveIpRateLimit(): Ratelimit | null {
+  if (_dtClaveIpLimiter === undefined) {
+    _dtClaveIpLimiter = makeLimiter(30, "1 h", "ratelimit:dt-clave-ip");
+  }
+  return _dtClaveIpLimiter;
+}
