@@ -1,19 +1,28 @@
 /**
  * Versión de software visible (Res. Exenta N°38 Art. 17 c).
- * Preferir NEXT_PUBLIC_APP_VERSION (inyectada en el build);
- * fallback al SHA corto de Vercel o a package.json.
+ * Preferir NEXT_PUBLIC_APP_VERSION; fallback a package.json y SHA de Vercel.
  */
 
-const PACKAGE_VERSION = "0.1.0";
+export const PROVIDER_LEGAL_NAME = "Opai SpA";
+export const PROVIDER_SOFTWARE_NAME = "OPAI";
+export const PROVIDER_DISPLAY_NAME = "Opai SpA — OPAI";
+export const FISCALIZACION_DT_PATH = "/fiscalizacion-dt";
+export const FISCALIZACION_DT_PUBLIC_URL = "https://www.opai.cl/fiscalizacion-dt";
 
 export function getAppVersion(): string {
-  const explicit = process.env.NEXT_PUBLIC_APP_VERSION?.trim();
-  if (explicit) return explicit;
+  const version =
+    process.env.NEXT_PUBLIC_APP_VERSION?.trim() ||
+    process.env.npm_package_version?.trim() ||
+    "0.1.0";
+  const sha = (
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    ""
+  ).trim();
+  if (sha.length >= 7) return `${version} (${sha.slice(0, 7)})`;
+  return version;
+}
 
-  const sha =
-    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.trim() ||
-    process.env.VERCEL_GIT_COMMIT_SHA?.trim();
-  if (sha && sha.length >= 7) return `${PACKAGE_VERSION}+${sha.slice(0, 7)}`;
-
-  return PACKAGE_VERSION;
+export function getProviderVersionLine(): string {
+  return `${PROVIDER_DISPLAY_NAME} v${getAppVersion()}`;
 }

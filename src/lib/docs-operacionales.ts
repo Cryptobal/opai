@@ -28,13 +28,13 @@ export function calcDocStatus(
  * - Credencial OS-10 (Tarjeta): tarjeta física que emite la empresa al guardia (D.S. 93 Art.18, vigencia 3 años).
  */
 export const GUARDIA_TIPO_MAP: Record<string, string[]> = {
-  contrato_guardia: ["contrato", "contrato_firmado"],
+  contrato_guardia: ["contrato", "contrato_firmado", "contrato_guardia"],
   credencial_os10: ["credencial_os10"],
   certificado_os10: ["certificado_os10"],
   certificado_antecedentes: ["certificado_antecedentes"],
   examen_psicologico: ["examen_psicologico"],
   registro_capacitacion: ["registro_capacitacion"],
-  historial_penal: ["historial_penal"],
+  historial_penal: ["historial_penal", "custom_historial_penal"],
 };
 
 /** Labels legibles para status */

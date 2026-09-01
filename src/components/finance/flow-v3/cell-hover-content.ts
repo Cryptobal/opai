@@ -7,6 +7,7 @@ import { weekLabel } from "@/modules/finance/flow-v3/weeks";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import {
   committedItemMeta, LAYER_LABEL, pastPendingGhostMeta, terminoStatusLine,
+  quotaPeriodLabel,
 } from "./cell-meta";
 import {
   resolveCellColorMeaning,
@@ -129,6 +130,8 @@ function itemStatus(it: Parameters<typeof committedItemMeta>[0]): string {
     } else if ((it.overdueDays ?? 0) > 0) {
       parts.push(`mora ${it.overdueDays} d`);
     }
+    const q = quotaPeriodLabel(it.billingPeriod);
+    if (q) parts.push(q);
     return parts.join(" · ");
   }
   return terminoStatusLine(it, fmtShortDate) || fmtShortDate(it.fecha);

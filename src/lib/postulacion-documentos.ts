@@ -6,6 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_POSTULACION_DOCUMENTS } from "@/lib/personas";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
+import { countPersonaDocsByType } from "@/lib/docs/persona-docs-service";
 
 export type PostulacionDocumentItem = {
   code: string;
@@ -82,9 +83,7 @@ export async function validatePostulacionDocumentRemoval(
   const nextCodes = new Set(nextItems.map((i) => i.code));
   for (const prev of previousEffective) {
     if (nextCodes.has(prev.code)) continue;
-    const n = await prisma.opsDocumentoPersona.count({
-      where: { tenantId, type: prev.code },
-    });
+    const n = (await countPersonaDocsByType(tenantId))[prev.code] ?? 0;
     if (n > 0) {
       return {
         ok: false,

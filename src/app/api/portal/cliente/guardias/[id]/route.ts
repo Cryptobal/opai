@@ -23,6 +23,7 @@ import {
   computeOs10Estado,
   type DocEstado,
 } from "@/lib/portal-cliente-guardia-doc-estado";
+import { listPersonaDocs } from "@/lib/docs/persona-docs-service";
 
 export const dynamic = "force-dynamic";
 
@@ -121,21 +122,13 @@ export async function GET(
 
     const [documents, exams, psych, supervisions, gamification] =
       await Promise.all([
-        prisma.opsDocumentoPersona.findMany({
-          where: {
-            guardiaId: guardia.id,
-            portalVisible: true,
-            OR: [{ folderId: null }, { folder: { portalVisible: true } }],
-          },
-          select: {
-            type: true,
-            status: true,
-            expiresAt: true,
-            issuedAt: true,
-            fileUrl: true,
-          },
-          orderBy: { createdAt: "desc" },
-        }),
+        listPersonaDocs(session.tenantId, guardia.id).then((docs) =>
+          docs.filter(
+            (d) =>
+              d.portalVisible &&
+              (!d.folderId || d.folder?.portalVisible)
+          )
+        ),
         prisma.examAssignment.findMany({
           where: { guardId: guardia.id, portalVisible: true },
           select: {

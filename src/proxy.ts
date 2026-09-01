@@ -103,6 +103,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/portal/personas')) return true; // Hub Opai Personas (login unificado RUT+PIN / Google / cookie)
   if (pathname.startsWith('/registro-demo')) return true; // Auto-registro prospecto demo
   if (pathname.startsWith('/descargar')) return true; // PWA download landing pages
+  // Portal público de fiscalización DT (Res. Ex. N°38 Art. 17) — auth propia por clave.
+  if (pathname === '/fiscalizacion-dt' || pathname.startsWith('/fiscalizacion-dt/')) return true;
+  if (pathname.startsWith('/api/fiscalizacion-dt')) return true;
   if (pathname === '/welcome') return true;
   if (pathname.startsWith('/api/branding')) return true;
 
@@ -365,7 +368,8 @@ export default auth(async (req) => {
       pathname.startsWith('/ops') ||
       pathname.startsWith('/te') ||
       pathname.startsWith('/portales') ||
-      pathname.startsWith('/fiscalizacion') ||
+      pathname === '/fiscalizacion' ||
+      pathname.startsWith('/fiscalizacion/') ||
       pathname.startsWith('/inventario')
     ) {
       if (sessionPortal && sessionPortal !== 'opai') {

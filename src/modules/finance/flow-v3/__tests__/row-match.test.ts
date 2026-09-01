@@ -119,7 +119,45 @@ describe("buildIncomeMatcher — sin fallback de cuenta única", () => {
     ];
     const match = buildIncomeMatcher(rows);
     expect(match("acc-A", "i1", "tpl-a")).toBe("r-a");
-    expect(match("acc-A", "i1", "tpl-b")).toBe("r-b");
+    // Template de otra cuenta + instalación que identifica inequívocamente
+    // la fila de acc-A → la instalación gana (vínculo huérfano).
+    expect(match("acc-A", "i1", "tpl-b")).toBe("r-a");
+  });
+
+  it("instalación inequívoca de otra programación gana al templateId huérfano", () => {
+    const rows: FlowRowRef[] = [
+      {
+        id: "r-poetas", name: "Ametel - Los Poetas", crmAccountId: "acc-A",
+        installationId: "inst-poetas", recurringTemplateId: "tpl-poetas", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+      {
+        id: "r-pena", name: "Ametel - Peñablanca", crmAccountId: "acc-A",
+        installationId: "inst-pena", recurringTemplateId: "tpl-pena", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+    ];
+    const match = buildIncomeMatcher(rows);
+    expect(match("acc-A", "inst-poetas", "tpl-pena")).toBe("r-poetas");
+    expect(match("acc-A", "inst-pena", "tpl-pena")).toBe("r-pena");
+  });
+
+  it("20%/80% misma instalación: el templateId manda (no es inequívoco)", () => {
+    const rows: FlowRowRef[] = [
+      {
+        id: "r-20", name: "Transmat 20%", crmAccountId: "acc-T", installationId: "i1",
+        recurringTemplateId: "tpl-20", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+      {
+        id: "r-80", name: "Transmat 80%", crmAccountId: "acc-T", installationId: "i1",
+        recurringTemplateId: "tpl-80", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+    ];
+    const match = buildIncomeMatcher(rows);
+    expect(match("acc-T", "i1", "tpl-80")).toBe("r-80");
+    expect(match("acc-T", "i1", "tpl-20")).toBe("r-20");
   });
 
   it("fila MANUAL de ingreso no cuenta para el fallback de cuenta", () => {

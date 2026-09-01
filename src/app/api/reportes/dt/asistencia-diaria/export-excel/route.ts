@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
+import { queryAsistenciaExportRows } from "@/modules/reportes-dt/legacy";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,35 +15,7 @@ export async function POST(request: NextRequest) {
 
     const { from, to, installationId } = await request.json();
 
-    const [fy, fm, fd] = from.split("-").map(Number);
-    const [ty, tm, td] = to.split("-").map(Number);
-    const startDate = new Date(Date.UTC(fy, fm - 1, fd));
-    const endDate = new Date(Date.UTC(ty, tm - 1, td, 23, 59, 59));
-
-    const where: Record<string, unknown> = {
-      tenantId: ctx.tenantId,
-      date: { gte: startDate, lte: endDate },
-      deletedAt: null,
-    };
-    if (installationId) where.installationId = installationId;
-
-    const records = await prisma.opsAsistenciaDiaria.findMany({
-      where,
-      select: {
-        date: true,
-        attendanceStatus: true,
-        checkInAt: true,
-        checkOutAt: true,
-        workedMinutes: true,
-        overtimeMinutes: true,
-        plannedGuardia: { select: { persona: { select: { firstName: true, lastName: true, rut: true } } } },
-        installation: { select: { name: true } },
-        puesto: { select: { name: true } },
-        marcacionEntrada: { select: { timestamp: true, isModified: true, atrasoMinutos: true } },
-        marcacionSalida: { select: { timestamp: true, isModified: true } },
-      },
-      orderBy: [{ date: "asc" }],
-    });
+    const records = await queryAsistenciaExportRows(ctx.tenantId, from, to, installationId);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "OPAI";

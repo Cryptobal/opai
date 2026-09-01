@@ -6,6 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import {
   FALLBACK_GUARD_TIPOS,
+  isValidGuardDocCode,
   type OperationalGuardDocSlot,
   personaTypesForOperationalCodigo,
   slotIsUploadable,
@@ -23,6 +24,7 @@ export async function getOperationalGuardDocSlots(tenantId: string): Promise<Ope
   const slots: OperationalGuardDocSlot[] = [];
 
   for (const t of dbTipos) {
+    if (!isValidGuardDocCode(t.codigo)) continue;
     const personaTypes = personaTypesForOperationalCodigo(t.codigo);
     if (!slotIsUploadable(personaTypes)) continue;
     slots.push({

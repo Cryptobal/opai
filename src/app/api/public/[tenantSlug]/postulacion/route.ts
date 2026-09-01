@@ -36,6 +36,7 @@ import {
 } from "@/lib/personas";
 import { isValidPostulacionToken } from "@/lib/postulacion-token";
 import { getPostulacionDocumentTypesVisibleOnGuardForm } from "@/lib/postulacion-documentos";
+import { createPersonaDocsFromUploads } from "@/lib/docs/persona-docs-service";
 
 const postulacionSchema = z.object({
   token: z.string().trim().min(8, "Token inválido"),
@@ -280,20 +281,6 @@ export async function POST(
             },
           });
 
-          if (body.documents.length > 0) {
-            await tx.opsDocumentoPersona.createMany({
-              data: body.documents.map((doc) => ({
-                tenantId,
-                guardiaId: guardia.id,
-                type: doc.type,
-                fileUrl: doc.fileUrl,
-                fileName: doc.fileName ?? null,
-                mimeType: doc.mimeType ?? null,
-                status: "pendiente",
-              })),
-            });
-          }
-
           if (body.notes && body.notes.trim()) {
             await tx.opsComentarioGuardia.create({
               data: {
@@ -325,6 +312,19 @@ export async function POST(
           error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
         if (!duplicateCodeError || attempt === 3) throw error;
       }
+    }
+
+    if (createdGuardia && body.documents.length > 0) {
+      await createPersonaDocsFromUploads(
+        tenantId,
+        createdGuardia.id,
+        body.documents.map((doc) => ({
+          type: doc.type,
+          fileUrl: doc.fileUrl,
+          fileName: doc.fileName ?? null,
+          mimeType: doc.mimeType ?? null,
+        }))
+      );
     }
 
     // Link Google OAuth data if this came from a Google sign-in flow

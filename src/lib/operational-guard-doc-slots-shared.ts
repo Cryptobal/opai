@@ -5,6 +5,7 @@
 
 import { DOCUMENT_TYPES } from "@/lib/personas";
 import { GUARDIA_TIPO_MAP } from "@/lib/docs-operacionales";
+import { canonicalGuardiaTypeCode } from "@/lib/docs/legacy-type-map";
 
 export type OperationalGuardDocSlot = {
   codigo: string;
@@ -91,8 +92,31 @@ export const FALLBACK_GUARD_TIPOS: Array<{
   },
 ];
 
+const INVALID_GUARD_DOC_CODES = new Set(["undefined", "null", "tipo_desconocido"]);
+
+/** Código usable en el checklist de ficha (no basura de migración ni sin clasificar). */
+export function isValidGuardDocCode(code: string | null | undefined): boolean {
+  if (!code) return false;
+  const normalized = code.trim().toLowerCase();
+  if (!normalized) return false;
+  if (INVALID_GUARD_DOC_CODES.has(normalized)) return false;
+  if (normalized.startsWith("sin_clasificar")) return false;
+  return /^[a-z0-9_]+$/.test(normalized);
+}
+
 export function personaTypesForOperationalCodigo(codigo: string): string[] {
-  return GUARDIA_TIPO_MAP[codigo] ?? [codigo];
+  const mapped = GUARDIA_TIPO_MAP[codigo] ?? [codigo];
+  return mapped.includes(codigo) ? mapped : [...mapped, codigo];
+}
+
+/** El doc llena el slot si su type (o el canónico) está en personaTypes del slot. */
+export function guardiaDocMatchesSlot(docType: string, personaTypes: string[]): boolean {
+  const wanted = new Set<string>();
+  for (const t of personaTypes) {
+    wanted.add(t);
+    wanted.add(canonicalGuardiaTypeCode(t));
+  }
+  return wanted.has(docType) || wanted.has(canonicalGuardiaTypeCode(docType));
 }
 
 /** Primer tipo OpsDocumentoPersona válido para subir desde la ficha.
@@ -105,11 +129,15 @@ export function personaTypesForOperationalCodigo(codigo: string): string[] {
 export function pickPersonaTypeForSlot(personaTypes: string[]): string | null {
   const allowed = DOCUMENT_TYPES as readonly string[];
   for (const t of personaTypes) {
-    if (allowed.includes(t)) return t;
+    if (allowed.includes(t) && isValidGuardDocCode(t)) return t;
   }
-  return personaTypes[0] ?? null;
+  for (const t of personaTypes) {
+    if (isValidGuardDocCode(t)) return t;
+  }
+  return null;
 }
 
 export function slotIsUploadable(personaTypes: string[]): boolean {
-  return pickPersonaTypeForSlot(personaTypes) !== null;
+  const picked = pickPersonaTypeForSlot(personaTypes);
+  return picked !== null && isValidGuardDocCode(picked);
 }

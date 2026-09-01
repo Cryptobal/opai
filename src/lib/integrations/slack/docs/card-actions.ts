@@ -23,6 +23,8 @@ import { packMetadata } from "../modals/views";
 import { modalTitle } from "../modals/title";
 import type { ModalDef, ModalSubmitContext, SlackView } from "../modals/types";
 import { describeDue, calcDaysRemaining, todayUtc, type ExpiryDocKind } from "@/lib/documents/expiry-engine";
+import { readsUnified } from "@/lib/docs/migration";
+import { UNCLASSIFIED_GUARDIA_TIPO } from "@/lib/docs/legacy-type-map";
 
 const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75) });
 
@@ -87,6 +89,25 @@ export async function loadDocByRef(
       label: doc.tipo.nombre,
       contextLabel: doc.installation?.name ?? "Global",
       expiresAt: doc.expiresAt,
+    };
+  }
+  if (await readsUnified(tenantId)) {
+    const link = await prisma.documentoEnlace.findFirst({
+      where: { tenantId, fileId: ref.id, entityType: "guardia", role: "owner" },
+      include: { file: { include: { tipo: { select: { codigo: true, nombre: true } } } } },
+    });
+    if (!link) return null;
+    const guardia = await prisma.opsGuardia.findFirst({
+      where: { id: link.entityId, tenantId },
+      include: { persona: { select: { firstName: true, lastName: true } } },
+    });
+    if (!guardia) return null;
+    return {
+      kind: "guardia",
+      id: link.file.id,
+      label: link.file.tipo?.nombre ?? link.file.tipo?.codigo ?? UNCLASSIFIED_GUARDIA_TIPO,
+      contextLabel: `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim(),
+      expiresAt: link.file.expiresAt,
     };
   }
   const doc = await prisma.opsDocumentoPersona.findFirst({

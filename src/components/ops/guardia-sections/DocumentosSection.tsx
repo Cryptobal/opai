@@ -29,10 +29,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { DOCUMENT_TYPES, getDocLabel } from "@/lib/personas";
+import { DOCUMENT_TYPES, DEFAULT_POSTULACION_DOCUMENTS, getDocLabel } from "@/lib/personas";
 import { calcDocStatus, DOC_STATUS_LABELS } from "@/lib/docs-operacionales";
 import type { OperationalGuardDocSlot } from "@/lib/operational-guard-doc-slots-shared";
-import { pickPersonaTypeForSlot } from "@/lib/operational-guard-doc-slots-shared";
+import {
+  guardiaDocMatchesSlot,
+  isValidGuardDocCode,
+  pickPersonaTypeForSlot,
+} from "@/lib/operational-guard-doc-slots-shared";
 import type { GuardiaDocumentoConfigItem } from "@/lib/guardia-documentos-config";
 import { cn } from "@/lib/utils";
 import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
@@ -54,7 +58,7 @@ type GuardiaDocument = {
   folderId?: string | null;
   portalVisible?: boolean;
   needsAttention?: boolean;
-  folder?: { id: string; name: string; portalVisible: boolean } | null;
+  folder?: { id: string; name: string; portalVisible?: boolean } | null;
 };
 
 type GuardiaDocConfigItem = GuardiaDocumentoConfigItem;
@@ -72,7 +76,7 @@ interface DocumentosSectionProps {
 }
 
 function pickDocForSlot(docs: GuardiaDocument[], personaTypes: string[]): GuardiaDocument | null {
-  const candidates = docs.filter((d) => personaTypes.includes(d.type));
+  const candidates = docs.filter((d) => guardiaDocMatchesSlot(d.type, personaTypes));
   if (candidates.length === 0) return null;
   const rootFirst = candidates.filter((d) => !d.folderId);
   const pool = rootFirst.length > 0 ? rootFirst : candidates;
@@ -130,13 +134,24 @@ export default function DocumentosSection({
   const [extraUploadFolderId, setExtraUploadFolderId] = useState<string | null>(null);
   const [extraExpiresAt, setExtraExpiresAt] = useState("");
   const [extraFileUrl, setExtraFileUrl] = useState("");
+  const [extraFileMeta, setExtraFileMeta] = useState<{
+    fileName: string;
+    mimeType: string;
+    size: number;
+  } | null>(null);
   const [creatingDoc, setCreatingDoc] = useState(false);
   const extraFileInputRef = useRef<HTMLInputElement | null>(null);
   const extraExpiresAtRef = useRef<HTMLInputElement | null>(null);
 
-  /** Resolver label: usa docLabels configurados, luego fallback a getDocLabel. */
+  /** Resolver label: config → catálogo postulación → nombre operacional → código. */
   const label = useCallback(
-    (code: string) => getDocLabel(code, docLabels),
+    (code: string, catalogNombre?: string) => {
+      if (docLabels[code]) return docLabels[code];
+      const postulacion = DEFAULT_POSTULACION_DOCUMENTS.find((d) => d.code === code);
+      if (postulacion) return postulacion.label;
+      if (catalogNombre?.trim()) return catalogNombre;
+      return getDocLabel(code, docLabels);
+    },
     [docLabels],
   );
 
@@ -152,6 +167,7 @@ export default function DocumentosSection({
     const out: string[] = [];
     const seen = new Set<string>();
     for (const c of guardiaDocConfig) {
+      if (!isValidGuardDocCode(c.code)) continue;
       if (seen.has(c.code)) continue;
       seen.add(c.code);
       out.push(c.code);
@@ -185,6 +201,7 @@ export default function DocumentosSection({
 
     const operationalByPersonaType = new Map<string, OperationalGuardDocSlot>();
     for (const op of operationalSlots) {
+      if (!isValidGuardDocCode(op.codigo)) continue;
       for (const pt of op.personaTypes) {
         if (!operationalByPersonaType.has(pt)) operationalByPersonaType.set(pt, op);
       }
@@ -195,14 +212,15 @@ export default function DocumentosSection({
     const seenCodes = new Set<string>();
 
     const pushOperational = (op: OperationalGuardDocSlot) => {
+      if (!isValidGuardDocCode(op.codigo)) return;
       slots.push({
         code: op.codigo,
-        label: label(op.personaTypes[0] ?? op.codigo),
+        label: label(op.codigo, op.nombre),
         normativa: op.normativa,
         obligatorio: op.obligatorio,
         tieneVencimiento: op.tieneVencimiento,
         diasAlerta: op.diasAlerta,
-        personaTypes: op.personaTypes,
+        personaTypes: [...new Set([op.codigo, ...op.personaTypes])],
         isOperational: true,
       });
       seenCodes.add(op.codigo);
@@ -211,6 +229,7 @@ export default function DocumentosSection({
 
     // 1. Orden definido por el usuario en config
     for (const cfg of guardiaDocConfig) {
+      if (!isValidGuardDocCode(cfg.code)) continue;
       if (seenCodes.has(cfg.code)) continue;
       const op = operationalByPersonaType.get(cfg.code);
       if (op) {
@@ -298,10 +317,24 @@ export default function DocumentosSection({
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo subir el archivo");
       const fileUrl = payload.data.url as string;
+      const fileName = (payload.data.fileName as string | undefined) || file.name;
+      const mimeType = (payload.data.mimeType as string | undefined) || file.type || null;
+      const size = typeof payload.data.size === "number" ? payload.data.size : file.size;
       const resDoc = await fetch(`/api/personas/guardias/${guardiaId}/documents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, status: "pendiente", fileUrl, issuedAt: null, expiresAt: null, folderId: null, portalVisible: false }),
+        body: JSON.stringify({
+          type,
+          status: "pendiente",
+          fileUrl,
+          fileName,
+          mimeType,
+          size,
+          issuedAt: null,
+          expiresAt: null,
+          folderId: null,
+          portalVisible: false,
+        }),
       });
       const docPayload = await resDoc.json();
       if (!resDoc.ok || !docPayload.success) throw new Error(docPayload.error || "No se pudo registrar el documento");
@@ -325,6 +358,11 @@ export default function DocumentosSection({
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo subir el archivo");
       setExtraFileUrl(payload.data.url);
+      setExtraFileMeta({
+        fileName: (payload.data.fileName as string | undefined) || file.name,
+        mimeType: (payload.data.mimeType as string | undefined) || file.type || "application/octet-stream",
+        size: typeof payload.data.size === "number" ? payload.data.size : file.size,
+      });
       toast.success("Archivo subido");
     } catch (error) {
       console.error(error);
@@ -345,6 +383,9 @@ export default function DocumentosSection({
           type: extraUploadType,
           status: "pendiente",
           fileUrl: extraFileUrl,
+          fileName: extraFileMeta?.fileName ?? null,
+          mimeType: extraFileMeta?.mimeType ?? null,
+          size: extraFileMeta?.size ?? null,
           issuedAt: null,
           expiresAt: hasExpirationByType.get(extraUploadType) ? (extraExpiresAt || null) : null,
           folderId: extraUploadFolderId || null,
@@ -357,6 +398,7 @@ export default function DocumentosSection({
       setExtraUploadType(DOCUMENT_TYPES[0]);
       setExtraExpiresAt("");
       setExtraFileUrl("");
+      setExtraFileMeta(null);
       setExtraUploadFolderId(null);
       toast.success("Documento agregado");
     } catch (error) {
@@ -871,11 +913,9 @@ export default function DocumentosSection({
         // Tipos cubiertos por el checklist unificado: cualquier doc de estos tipos
         // pertenece a un slot y NO debe duplicarse en "Otros documentos",
         // aunque existan varios registros del mismo tipo en DB.
-        const claimedTypes = new Set<string>();
-        for (const slot of unifiedSlots) {
-          for (const t of slot.personaTypes) claimedTypes.add(t);
-        }
-        const extraDocs = visibleDocuments.filter((d) => !claimedTypes.has(d.type));
+        const extraDocs = visibleDocuments.filter(
+          (d) => !unifiedSlots.some((slot) => guardiaDocMatchesSlot(d.type, slot.personaTypes))
+        );
         if (extraDocs.length === 0 && folders.length === 0) return null;
 
         const docsByFolder = extraDocs.reduce((acc, d) => {

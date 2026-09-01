@@ -160,13 +160,14 @@ export async function applyTemplateLinkInheritance(
 
   // v4.7: template de otra cuenta (p.ej. tras duplicar y cambiar receptor)
   // se trata como ausente → fuerza selector si hay 2+.
+  // Un template INACTIVO de la misma cuenta se conserva: no reescribir a la
+  // hermana activa (Ametel Los Poetas → Peña Blanca al desactivar el contrato).
   if (tplId && opts.crmAccountId && isSalesInvoice) {
     const owned = await prisma.financeDteRecurringTemplate.findFirst({
       where: {
         id: tplId,
         tenantId,
         crmAccountId: opts.crmAccountId,
-        isActive: true,
         dteType: { in: [33, 34] },
       },
       select: { id: true },
@@ -208,8 +209,56 @@ export async function applyTemplateLinkInheritance(
     }
   }
 
+  // Cuota ya cubierta: un borrador/F° extra no debe heredar (y duplicar) el
+  // período. Solo aplica cuando el período lo rellenó la herencia, no cuando
+  // el caller lo declaró (cron, duplicate-as-draft, selector).
+  const callerPeriod =
+    opts.billingPeriod != null && opts.billingPeriod !== ""
+      ? opts.billingPeriod
+      : null;
+  if (
+    isSalesInvoice &&
+    resolvedTpl &&
+    resolvedPeriod &&
+    !callerPeriod
+  ) {
+    const occupied = await isBillingPeriodCovered(
+      tenantId,
+      resolvedTpl,
+      resolvedPeriod,
+    );
+    if (occupied) {
+      const callerChoseTemplate =
+        opts.recurringTemplateId != null && opts.recurringTemplateId !== "";
+      if (callerChoseTemplate) {
+        resolvedPeriod = null;
+      } else {
+        resolvedTpl = null;
+        resolvedPeriod = null;
+      }
+    }
+  }
+
   return {
     recurringTemplateId: resolvedTpl,
     billingPeriod: resolvedPeriod,
   };
+}
+
+async function isBillingPeriodCovered(
+  tenantId: string,
+  templateId: string,
+  billingPeriod: string,
+): Promise<boolean> {
+  const existing = await prisma.financeDte.findFirst({
+    where: {
+      tenantId,
+      recurringTemplateId: templateId,
+      billingPeriod,
+      siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
+      voidedByCreditNoteId: null,
+    },
+    select: { id: true },
+  });
+  return existing != null;
 }

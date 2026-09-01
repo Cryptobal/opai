@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyMarcacionHash } from "@/lib/marcacion";
 import { formatPersonName } from "@/lib/personas";
+import { computeLegacyFiscalizacionHash } from "@/lib/fiscalizacion-dt/verify-hash";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Marcación no encontrada" }, { status: 404 });
   }
 
-  const { storedHash, expectedHash, isValid } = verifyMarcacionHash({
+  const canonical = verifyMarcacionHash({
     guardiaId: marcacion.guardiaId,
     installationId: marcacion.installationId,
     tipo: marcacion.tipo,
@@ -56,6 +57,14 @@ export async function GET(request: Request) {
     tenantId: marcacion.tenantId,
     hashIntegridad: marcacion.hashIntegridad,
   });
+  const legacyExpected = computeLegacyFiscalizacionHash(marcacion);
+  const matchesLegacy = canonical.storedHash === legacyExpected;
+  const isValid = canonical.isValid || matchesLegacy;
+  const expectedHash = canonical.isValid
+    ? canonical.expectedHash
+    : matchesLegacy
+      ? legacyExpected
+      : canonical.expectedHash;
 
   return NextResponse.json({
     marcacionId: marcacion.id,
@@ -65,7 +74,7 @@ export async function GET(request: Request) {
     guardiaRut: marcacion.guardia?.persona?.rut,
     timestamp: marcacion.timestamp,
     tipo: marcacion.tipo,
-    storedHash,
+    storedHash: canonical.storedHash,
     expectedHash,
     isValid,
     verifiedAt: new Date().toISOString(),

@@ -46,11 +46,26 @@ export async function GET(request: NextRequest) {
         entityId,
       },
       include: {
-        file: true,
+        file: { include: { tipo: { select: { capa: true, codigo: true } } } },
         folder: true,
       },
       orderBy: { createdAt: "desc" },
     });
+
+    const visibleLinks =
+      entityType === "guardia"
+        ? links.filter((link) => {
+            // Checklist de ficha (capa guardia, tipados) no se duplican en
+            // "Documentos adicionales". Adjuntos de FileAttachments no tienen
+            // tipo (tipoId null) o quedan en sin_clasificar_*.
+            const tipo = link.file.tipo;
+            if (!tipo) return true;
+            if (tipo.capa === "guardia" && !tipo.codigo.startsWith("sin_clasificar")) {
+              return false;
+            }
+            return true;
+          })
+        : links;
 
     let publicUrlBase: string | null = null;
     try {
@@ -59,7 +74,7 @@ export async function GET(request: NextRequest) {
       // R2_PUBLIC_URL no configurado
     }
 
-    const data = links.map((link) => ({
+    const data = visibleLinks.map((link) => ({
       id: link.file.id,
       linkId: link.id,
       fileName: link.file.fileName,

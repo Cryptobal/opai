@@ -55,6 +55,15 @@ export async function GET(
       createdAt: tenant.createdAt.toISOString(),
       billingEmail: tenant.billingEmail, supportEmail: tenant.supportEmail,
       notes: tenant.notes,
+      legalName: tenant.legalName,
+      companyRut: tenant.companyRut,
+      fantasyName: tenant.fantasyName,
+      hqAddress: tenant.hqAddress,
+      dtServiceType: tenant.dtServiceType,
+      dtContractStart: tenant.dtContractStart?.toISOString().slice(0, 10) || null,
+      dtContractEnd: tenant.dtContractEnd?.toISOString().slice(0, 10) || null,
+      dtNoticeEmail: tenant.dtNoticeEmail,
+      dtDailyReportEmail: tenant.dtDailyReportEmail,
       suspendedAt: tenant.suspendedAt?.toISOString() || null,
       suspendedReason: tenant.suspendedReason,
       onboardedBy: tenant.onboardedBy,
@@ -89,10 +98,20 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
 
-  const allowedFields = ['name', 'billingEmail', 'supportEmail', 'notes', 'active'];
+  const allowedFields = [
+    'name', 'billingEmail', 'supportEmail', 'notes', 'active',
+    'legalName', 'companyRut', 'fantasyName', 'hqAddress', 'dtServiceType',
+    'dtContractStart', 'dtContractEnd', 'dtNoticeEmail', 'dtDailyReportEmail',
+  ];
   const data: Record<string, unknown> = {};
   for (const field of allowedFields) {
-    if (field in body) data[field] = body[field];
+    if (field in body) {
+      if (field === 'dtContractStart' || field === 'dtContractEnd') {
+        data[field] = body[field] ? new Date(body[field]) : null;
+      } else {
+        data[field] = body[field];
+      }
+    }
   }
 
   if (Object.keys(data).length === 0) {
