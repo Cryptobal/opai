@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { TrialBanner } from "@/components/marketing/TrialBanner";
+import { getProviderLegalLine } from "@/lib/app-version";
 
 export const metadata: Metadata = {
   title: "Contrato de Encargado de Tratamiento (DPA) | OPAI",
@@ -55,7 +56,7 @@ export default function DpaPage() {
         prospectos y contactos.
       </p>
       <p style={paragraph}>
-        <strong>Encargado del tratamiento:</strong> Opai SpA, RUT 77.xxx.xxx-x, con
+        <strong>Encargado del tratamiento:</strong> {getProviderLegalLine()}, con
         domicilio en Santiago, Chile, quien trata los datos por cuenta y siguiendo las
         instrucciones del Responsable.
       </p>

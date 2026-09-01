@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { TrialBanner } from '@/components/marketing/TrialBanner'
+import { getProviderLegalLine } from '@/lib/app-version'
 
 export const metadata: Metadata = {
   title: 'Política de Privacidad | OPAI',
@@ -89,8 +90,9 @@ export default function PrivacidadPage() {
             <p style={paragraph}>
               El responsable del tratamiento de los datos personales recopilados a
               través de la plataforma OPAI (<strong>www.opai.cl</strong>) es{' '}
-              <strong>LX3.ai</strong>, sociedad constituida conforme a las leyes de
-              la República de Chile, con domicilio en Santiago de Chile.
+              <strong>{getProviderLegalLine()}</strong>, sociedad constituida
+              conforme a las leyes de la República de Chile, con domicilio en
+              Santiago de Chile.
             </p>
             <p style={paragraph}>
               Para cualquier consulta relacionada con el tratamiento de datos

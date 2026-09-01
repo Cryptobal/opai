@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { GuardiaDocumentoConfigItem as GuardiaDocConfigItem } from "@/lib/guardia-documentos-config";
+import { parseAlertaEmployerEmailsInput } from "@/lib/ops-marcacion-config";
 import {
   Mail,
   Clock,
@@ -36,6 +37,7 @@ interface MarcacionConfig {
   emailAvisoMarcaManualEnabled: boolean;
   emailAlertaFueraRangoEnabled?: boolean;
   alertaFaltaMarcacionEnabled?: boolean;
+  alertaFaltaMarcacionEmployerEmails?: string[];
   emailDelayManualMinutos: number;
   clausulaLegal: string;
   rondasPollingSegundos: number;
@@ -72,9 +74,9 @@ const EMAIL_CATALOG = [
     id: "alerta_falta_marcacion",
     nombre: "Alerta por falta de marcación (Art. 45.1)",
     descripcion:
-      "Si no hay marca de entrada o término a los 30 minutos de la hora pactada, se avisa al trabajador con copia al empleador. Habilitada por defecto.",
+      "Si no hay marca de entrada o término a los 30 minutos de la hora pactada, se avisa al trabajador. Apagada por defecto: actívala cuando quieras y elige las casillas de la empresa que reciben copia.",
     trigger: "Cron /api/cron/marcacion-emails (cada 5 min) → runAlertaFaltaMarcacion",
-    destinatario: "Guardia (email personal) + copia empleador",
+    destinatario: "Guardia (email personal). Copia a las casillas de empresa que configures.",
     configKey: "alertaFaltaMarcacionEnabled" as const,
     contenido: [
       "Guardia, RUT e instalación",
@@ -916,9 +918,36 @@ export function OpsConfigClient() {
                     </ul>
                   </div>
 
-                  <div className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  <div className="text-[12px] text-ds-text-3 bg-ds-surface-2 rounded px-2 py-1.5">
                     <span className="font-medium">Plantilla:</span> {email.template}
                   </div>
+                  {email.id === "alerta_falta_marcacion" && (
+                    <div className="space-y-1.5">
+                      <p className="text-[13px] font-medium text-ds-text-2">
+                        Casillas de la empresa (copia)
+                      </p>
+                      <textarea
+                        defaultValue={(config.alertaFaltaMarcacionEmployerEmails ?? []).join("\n")}
+                        onBlur={(e) =>
+                          setConfig(
+                            (c) =>
+                              c && {
+                                ...c,
+                                alertaFaltaMarcacionEmployerEmails: parseAlertaEmployerEmailsInput(
+                                  e.target.value,
+                                ),
+                              },
+                          )
+                        }
+                        rows={3}
+                        placeholder={"operaciones@empresa.cl\ncentral@empresa.cl"}
+                        className="w-full min-h-11 rounded-md border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px] text-ds-text-1"
+                      />
+                      <p className="text-[12px] text-ds-text-3">
+                        Una dirección por línea. Vacío = solo al trabajador.
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}

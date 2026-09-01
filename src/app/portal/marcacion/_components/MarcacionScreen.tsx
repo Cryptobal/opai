@@ -94,23 +94,60 @@ function GpsDeniedModal({
 /** Reloj en componente hijo: el tick no remonta el formulario de RUT. */
 function LiveClock() {
   const [now, setNow] = useState(() => new Date());
+  const [offsetMs, setOffsetMs] = useState<number | null>(null);
+  const [timezone, setTimezone] = useState("America/Santiago");
+
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      try {
+        const res = await fetch("/api/public/hora-servidor", { cache: "no-store" });
+        const json = (await res.json()) as {
+          success?: boolean;
+          serverTimeUtc?: string;
+          timezone?: string;
+        };
+        if (!res.ok || !json.success || !json.serverTimeUtc) return;
+        const serverMs = Date.parse(json.serverTimeUtc);
+        if (!cancelled && Number.isFinite(serverMs)) {
+          setOffsetMs(serverMs - Date.now());
+          if (json.timezone) setTimezone(json.timezone);
+        }
+      } catch {
+        /* se muestra hora local hasta reintento */
+      }
+    };
+    void sync();
+    const refresh = setInterval(() => void sync(), 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(refresh);
+    };
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
+  const display = offsetMs == null ? now : new Date(now.getTime() + offsetMs);
   const clockParts = new Intl.DateTimeFormat("es-CL", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
-  }).formatToParts(now);
+    timeZone: timezone,
+  }).formatToParts(display);
   const hour = clockParts.find((p) => p.type === "hour")?.value ?? "00";
   const minute = clockParts.find((p) => p.type === "minute")?.value ?? "00";
   const second = clockParts.find((p) => p.type === "second")?.value ?? "00";
-  const dateStr = now
-    .toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })
+  const dateStr = display
+    .toLocaleDateString("es-CL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      timeZone: timezone,
+    })
     .toUpperCase();
 
   return (
@@ -124,6 +161,11 @@ function LiveClock() {
       >
         {hour}:{minute}
         <span className="text-ds-text-3">:{second}</span>
+      </p>
+      <p className="mt-2 text-center font-mono text-[12px] text-ds-text-3">
+        {offsetMs == null
+          ? "Sincronizando hora del servidor…"
+          : `Hora del servidor: ${hour}:${minute}:${second} (${timezone})`}
       </p>
     </>
   );

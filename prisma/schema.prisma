@@ -5498,6 +5498,23 @@ model OpsMarcacionRespaldo {
   @@schema("ops")
 }
 
+/// Verificación periódica de desfase vs Hora Oficial de Chile (Res. Ex. N°38 Art. 11).
+model OpsTimeSyncLog {
+  id              String    @id @default(cuid())
+  checkedAt       DateTime  @map("checked_at") @db.Timestamptz(6)
+  referenceSource String    @map("reference_source") // shoa | cloudflare | none
+  referenceTime   DateTime? @map("reference_time") @db.Timestamptz(6)
+  serverTime      DateTime  @map("server_time") @db.Timestamptz(6)
+  rttMs           Int?      @map("rtt_ms")
+  driftMs         Int?      @map("drift_ms")
+  status          String // ok | warn | alert
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([checkedAt], map: "idx_ops_time_sync_log_checked")
+  @@map("time_sync_logs")
+  @@schema("ops")
+}
+
 // ============================================
 // OPS — CONTROL DE RONDAS DE SEGURIDAD
 // ============================================

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { MarcacionConfig } from "@/lib/ops-marcacion-config";
+import { parseAlertaEmployerEmailsInput } from "@/lib/ops-marcacion-config";
 import {
   Mail,
   Save,
@@ -39,9 +40,9 @@ const EMAIL_CATALOG = [
     id: "alerta_falta_marcacion",
     nombre: "Alerta por falta de marcación (Art. 45.1)",
     descripcion:
-      "Si no hay marca de entrada o término a los 30 minutos de la hora pactada, se avisa al trabajador con copia al empleador. Habilitada por defecto.",
+      "Si no hay marca de entrada o término a los 30 minutos de la hora pactada, se avisa al trabajador. Apagada por defecto: actívala cuando quieras y elige las casillas de la empresa que reciben copia.",
     trigger: "Cron /api/cron/marcacion-emails (cada 5 min) → runAlertaFaltaMarcacion",
-    destinatario: "Guardia (email personal) + copia empleador",
+    destinatario: "Guardia (email personal). Copia a las casillas de empresa que configures.",
     configKey: "alertaFaltaMarcacionEnabled" as const,
     contenido: [
       "Guardia, RUT e instalación",
@@ -90,6 +91,36 @@ const EMAIL_CATALOG = [
     template: "Inline HTML (src/lib/marcacion-email.ts → sendAvisoMarcaManual)",
   },
 ];
+
+function AlertaEmployerEmailsField({
+  emails,
+  onChange,
+}: {
+  emails: string[];
+  onChange: (emails: string[]) => void;
+}) {
+  const [draft, setDraft] = useState(emails.join("\n"));
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[13px] font-medium text-ds-text-2">Casillas de la empresa (copia)</p>
+      <textarea
+        value={draft}
+        onChange={(e) => {
+          const next = e.target.value;
+          setDraft(next);
+          onChange(parseAlertaEmployerEmailsInput(next));
+        }}
+        rows={3}
+        placeholder={"operaciones@empresa.cl\ncentral@empresa.cl"}
+        className="w-full min-h-11 rounded-md border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px] text-ds-text-1"
+      />
+      <p className="text-[12px] text-ds-text-3">
+        Una dirección por línea o separadas por coma. Vacío = solo al trabajador, sin copia a la
+        empresa.
+      </p>
+    </div>
+  );
+}
 
 interface OpsEmailsTabProps {
   config: MarcacionConfig;
@@ -211,9 +242,18 @@ export function OpsEmailsTab({ config, setConfig, saving, onSave }: OpsEmailsTab
                     </ul>
                   </div>
 
-                  <div className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  <div className="text-[12px] text-ds-text-3 bg-ds-surface-2 rounded px-2 py-1.5">
                     <span className="font-medium">Plantilla:</span> {email.template}
                   </div>
+
+                  {email.id === "alerta_falta_marcacion" && (
+                    <AlertaEmployerEmailsField
+                      emails={config.alertaFaltaMarcacionEmployerEmails}
+                      onChange={(emails) =>
+                        setConfig((c) => c && { ...c, alertaFaltaMarcacionEmployerEmails: emails })
+                      }
+                    />
+                  )}
                 </div>
               );
             })}

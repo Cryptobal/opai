@@ -1,18 +1,23 @@
 /**
  * Alerta Art. 45.1: falta de marcación a los 30 minutos del inicio/término pactado.
+ *
+ * Apagada por defecto. Al activarla no se hace backfill histórico: solo se envía
+ * si la ventana de 30 min venció en las últimas 2 horas (el cron corre cada 5 min).
  */
 
 import { fromZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/prisma";
 import { CHILE_TZ, todayInChile, ymdInChile, addDaysChile, startOfDayChile } from "@/lib/dates-cl";
 import { parseMarcacionConfigValue } from "@/lib/ops-marcacion-config";
-import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { sendAlertaFaltaMarcacion } from "@/lib/marcacion-email";
 import { formatPersonName } from "@/lib/personas";
 import { resolvePersonalEmail } from "@/lib/marcacion-personal-email";
 import { formatFechaComprobante } from "@/lib/marcacion-format";
+import { isFaltaAlertDue } from "@/lib/marcacion-alerta-falta-window";
 
-const GRACE_MS = 30 * 60 * 1000;
+export { FALTA_ALERT_SEND_WINDOW_MS, isFaltaAlertDue } from "@/lib/marcacion-alerta-falta-window";
+
+export const FALTA_ALERT_GRACE_MS = 30 * 60 * 1000;
 const SKIP_STATUS = new Set(["ppc", "no_asistio"]);
 
 function chileDateTime(ymd: string, hhmm: string): Date {
@@ -52,7 +57,10 @@ export async function runAlertaFaltaMarcacion(now: Date = new Date()): Promise<{
       select: { value: true },
     });
     const config = parseMarcacionConfigValue(setting?.value);
-    const enabled = config.alertaFaltaMarcacionEnabled;
+    if (!config.alertaFaltaMarcacionEnabled) {
+      skippedDisabled++;
+      continue;
+    }
 
     const rows = await prisma.opsAsistenciaDiaria.findMany({
       where: {
@@ -103,10 +111,7 @@ export async function runAlertaFaltaMarcacion(now: Date = new Date()): Promise<{
       },
     });
 
-    const tenantCfg = enabled ? await getTenantCompanyConfig(tenant.id) : null;
-    const employerEmails = tenantCfg
-      ? [tenantCfg.emailOps, tenantCfg.email, tenantCfg.emailContact].filter((e) => Boolean(e?.trim()))
-      : [];
+    const employerEmails = config.alertaFaltaMarcacionEmployerEmails;
 
     for (const row of rows) {
       if (SKIP_STATUS.has(row.attendanceStatus)) continue;
@@ -130,20 +135,20 @@ export async function runAlertaFaltaMarcacion(now: Date = new Date()): Promise<{
       const cases: Array<{ tipo: "entrada" | "salida"; dueAt: Date; missing: boolean; horaPactada: string }> = [
         {
           tipo: "entrada",
-          dueAt: new Date(startAt.getTime() + GRACE_MS),
+          dueAt: new Date(startAt.getTime() + FALTA_ALERT_GRACE_MS),
           missing: !row.checkInAt && !row.marcacionEntradaId,
           horaPactada: startStr,
         },
         {
           tipo: "salida",
-          dueAt: new Date(endAt.getTime() + GRACE_MS),
+          dueAt: new Date(endAt.getTime() + FALTA_ALERT_GRACE_MS),
           missing: !row.checkOutAt && !row.marcacionSalidaId,
           horaPactada: endStr,
         },
       ];
 
       for (const c of cases) {
-        if (!c.missing || now.getTime() < c.dueAt.getTime()) continue;
+        if (!c.missing || !isFaltaAlertDue(now, c.dueAt)) continue;
         examined++;
         const turnoKey = row.id;
         const fecha = row.date;
@@ -163,22 +168,6 @@ export async function runAlertaFaltaMarcacion(now: Date = new Date()): Promise<{
           });
           if (existing) {
             skippedAlready++;
-            continue;
-          }
-
-          if (!enabled) {
-            await prisma.opsMarcacionAlertaEnvio.create({
-              data: {
-                tenantId: tenant.id,
-                guardiaId: guardia.id,
-                asistenciaId: row.id,
-                fecha,
-                turnoKey,
-                tipo: c.tipo,
-                status: "skipped_disabled",
-              },
-            });
-            skippedDisabled++;
             continue;
           }
 

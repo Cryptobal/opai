@@ -16,6 +16,7 @@ import {
   Camera,
   MapPinOff,
 } from "lucide-react";
+import { ServerTimeClock } from "@/components/marcacion/ServerTimeClock";
 
 // ─────────────────────────────────────────────
 // Tipos
@@ -456,6 +457,9 @@ function LoginScreen({
   return (
     <div className="p-6">
       <h2 className="text-lg font-semibold text-slate-900 mb-4">Identificación</h2>
+      <div className="mb-4">
+        <ServerTimeClock compact />
+      </div>
 
       {error && (
         <div className="flex items-start gap-2 p-3 bg-status-danger-soft border border-status-danger-border rounded-lg mb-4">
@@ -562,17 +566,6 @@ function MarcarScreen({
     }
   }, [geoStatus, onRequestGeo]);
 
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString("es-CL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const dateStr = now.toLocaleDateString("es-CL", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-
   const geoReady = geoStatus === "granted" && geoCoords != null;
   const canMark = !loading && (geoReady || allowWithoutGps);
 
@@ -597,13 +590,8 @@ function MarcarScreen({
         </button>
       </div>
 
-      {/* Hora actual */}
-      <div className="text-center py-6 bg-slate-50 rounded-xl mb-4">
-        <p className="text-4xl font-bold text-slate-900 tabular-nums">
-          {timeStr}
-        </p>
-        <p className="text-sm text-slate-500 mt-1 capitalize">{dateStr}</p>
-      </div>
+      {/* Hora del servidor (evidencia Art. 11) */}
+      <ServerTimeClock />
 
       {/* ── ESTADO DE GEOLOCALIZACIÓN (evidencia, no restricción — Res. N°38 Art. 19) ── */}
       <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${

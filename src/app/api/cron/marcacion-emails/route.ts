@@ -4,16 +4,18 @@
  * Procesa emails de marca manual que fueron diferidos (delay configurado).
  * Se ejecuta cada 5 minutos (o bajo demanda).
  *
- * Busca Settings con category="pending_email" cuyo `sendAfter` ya pasó.
- * Envía el email y elimina el registro.
+ * También corre la verificación horaria Art. 11 (piggyback: Vercel ya está
+ * en el tope de crons; no se agrega una entrada extra en vercel.json).
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendAvisoMarcaManual } from "@/lib/marcacion-email";
 import { runAlertaFaltaMarcacion } from "@/lib/marcacion-alerta-falta";
+import { runTimeSyncCheck } from "@/lib/time-sync/check";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -31,6 +33,13 @@ export async function GET(request: NextRequest) {
   try {
     const now = new Date();
 
+    let timeSync: Awaited<ReturnType<typeof runTimeSyncCheck>> | null = null;
+    try {
+      timeSync = await runTimeSyncCheck();
+    } catch (err) {
+      console.error("[CRON] time-sync-check falló:", err);
+    }
+
     const alerta = await runAlertaFaltaMarcacion(now);
 
     // Buscar todos los emails pendientes
@@ -44,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (pendingEmails.length === 0) {
       return NextResponse.json({
         success: true,
-        data: { processed: 0, message: "No hay emails pendientes", alerta },
+        data: { processed: 0, message: "No hay emails pendientes", alerta, timeSync },
       });
     }
 
@@ -123,6 +132,7 @@ export async function GET(request: NextRequest) {
         skipped,
         errors,
         alerta,
+        timeSync,
       },
     });
   } catch (error) {

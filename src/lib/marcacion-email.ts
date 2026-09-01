@@ -746,7 +746,14 @@ export async function sendAlertaFaltaMarcacion(data: {
     </div>
   `;
   const to = data.guardiaEmail?.trim();
-  const cc = data.employerEmails.map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const toNorm = to?.toLowerCase() ?? "";
+  const cc = Array.from(
+    new Set(
+      data.employerEmails
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e && e !== toNorm),
+    ),
+  );
   if (to) {
     await resend.emails.send({
       from: PLATFORM_DEFAULT_EMAIL_FROM,
