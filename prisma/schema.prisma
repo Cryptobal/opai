@@ -30,6 +30,18 @@ model Tenant {
   // ── Datos comerciales y operativos top-level (vs Settings key-value) ──
   legalName                      String?                         @map("legal_name")
   companyRut                     String?                         @map("company_rut")
+  /// Res. Ex. N°38 Art. 26 — nombre de fantasía
+  fantasyName                    String?                         @map("fantasy_name")
+  /// Res. Ex. N°38 Art. 26 — domicilio de la casa matriz
+  hqAddress                      String?                         @map("hq_address")
+  /// Res. Ex. N°38 Art. 26 — cloud | onpremise
+  dtServiceType                  String                          @default("cloud") @map("dt_service_type")
+  dtContractStart                DateTime?                       @map("dt_contract_start") @db.Date
+  dtContractEnd                  DateTime?                       @map("dt_contract_end") @db.Date
+  /// Correo no nominativo para aviso Art. 24 b
+  dtNoticeEmail                  String?                         @map("dt_notice_email")
+  /// Destinatario del reporte diario Art. 27 e (no desactivable)
+  dtDailyReportEmail             String?                         @map("dt_daily_report_email")
   industry                       String?
   estimatedGuards                String?                         @map("estimated_guards")
   // ── Onboarding / signup tracking ──
@@ -102,6 +114,8 @@ model Tenant {
   vraReports                     VraReport[]
   aiActionLogs                   AiActionLog[]
   pendingSignups                 PendingSignup[]
+  dtFiscalizacionAccessLogs      DtFiscalizacionAccessLog[]
+  dtIncidentesTecnicos           DtIncidenteTecnico[]
 
   @@index([slug])
   @@index([active])
@@ -11458,6 +11472,66 @@ model SystemIncident {
 
   @@index([tenantId, startedAt], map: "idx_system_incident_tenant_date")
   @@map("system_incidents")
+  @@schema("dt")
+}
+
+/// Clave de acceso al portal público de fiscalización (Res. Ex. N°38 Art. 23).
+/// Varias claves pueden estar vigentes a la vez para el mismo correo.
+model DtFiscalizacionAccessCode {
+  id        String    @id @default(cuid())
+  email     String
+  codeHash  String    @map("code_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  requestIp String?   @map("request_ip")
+
+  @@index([email, expiresAt], map: "idx_dt_access_code_email_exp")
+  @@index([codeHash], map: "idx_dt_access_code_hash")
+  @@map("fiscalizacion_access_codes")
+  @@schema("dt")
+}
+
+/// Bitácora de conexiones de funcionarios DT (Res. Ex. N°38 Art. 22.5).
+model DtFiscalizacionAccessLog {
+  id        String   @id @default(cuid())
+  at        DateTime @default(now()) @db.Timestamptz(6)
+  email     String
+  action    String
+  tenantId  String?  @map("tenant_id")
+  tenantRut String?  @map("tenant_rut")
+  ip        String?
+  userAgent String?  @map("user_agent")
+  meta      Json?    @db.JsonB
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([at], map: "idx_dt_access_log_at")
+  @@index([email, at], map: "idx_dt_access_log_email_at")
+  @@index([tenantId, at], map: "idx_dt_access_log_tenant_at")
+  @@map("fiscalizacion_access_logs")
+  @@schema("dt")
+}
+
+/// Incidentes técnicos del prestador (Res. Ex. N°38 Art. 27 f).
+/// tenantId nulo = incidente global de la plataforma.
+model DtIncidenteTecnico {
+  id          String    @id @default(cuid())
+  tenantId    String?   @map("tenant_id")
+  startedAt   DateTime  @map("started_at") @db.Timestamptz(6)
+  endedAt     DateTime? @map("ended_at") @db.Timestamptz(6)
+  description String
+  /// total | parcial
+  severity    String
+  createdBy   String    @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([startedAt], map: "idx_dt_incidente_started")
+  @@index([tenantId, startedAt], map: "idx_dt_incidente_tenant_started")
+  @@map("incidentes_tecnicos")
   @@schema("dt")
 }
 
