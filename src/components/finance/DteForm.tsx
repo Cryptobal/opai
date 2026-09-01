@@ -513,7 +513,12 @@ export function DteForm({
           typeof d.ufDateAtIssue === "string" ? d.ufDateAtIssue : null,
         );
         if (d.currency === "UF" && d.ufValueAtIssue != null) {
-          setManualUfStr(String(d.ufValueAtIssue));
+          setManualUfStr(
+            Number(d.ufValueAtIssue).toLocaleString("es-CL", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          );
         }
         const draftLines: DteLine[] = (d.lines ?? []).map(
           (l: Record<string, unknown>) => ({
