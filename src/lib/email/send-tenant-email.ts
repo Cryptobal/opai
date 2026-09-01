@@ -5,6 +5,7 @@ import {
   buildDeliverabilityHeaders,
   type EmailModule,
 } from "@/lib/resend";
+import { isTransactionalKindEnabled } from "@/lib/email/is-kind-enabled";
 
 export interface SendTenantEmailInput {
   /** Tenant que envía. Obligatorio para resolver from/replyTo/bcc. */
@@ -80,34 +81,18 @@ export async function sendTenantEmail(
     throw new Error("sendTenantEmail: debes pasar `html` o `text`.");
   }
 
-  // Consultar toggle del tenant para este kind. Kinds marcados `required`
-  // en el catálogo no se pueden desactivar — el toggle se ignora si existe.
-  const kindDef = (await import("./transactional-catalog")).getTransactionalKind(
-    input.kind,
-  );
-  if (kindDef && !kindDef.required) {
-    try {
-      const { prisma } = await import("@/lib/prisma");
-      const toggle = await prisma.tenantTransactionalEmailConfig.findUnique({
-        where: { tenantId_kind: { tenantId: input.tenantId, kind: input.kind } },
-      });
-      if (toggle && toggle.enabled === false) {
-        console.info(
-          `[sendTenantEmail] tenant=${input.tenantId} kind=${input.kind} skipped: toggle disabled`,
-        );
-        return {
-          resendId: null,
-          effectiveTo: [],
-          effectiveCc: [],
-          effectiveBcc: [],
-          effectiveFrom: "",
-          effectiveReplyTo: "",
-        };
-      }
-    } catch (toggleErr) {
-      // Si la consulta del toggle falla, no bloqueamos el envío.
-      console.error("[sendTenantEmail] toggle lookup failed:", toggleErr);
-    }
+  if (!(await isTransactionalKindEnabled(input.tenantId, input.kind))) {
+    console.info(
+      `[sendTenantEmail] tenant=${input.tenantId} kind=${input.kind} skipped: toggle disabled`,
+    );
+    return {
+      resendId: null,
+      effectiveTo: [],
+      effectiveCc: [],
+      effectiveBcc: [],
+      effectiveFrom: "",
+      effectiveReplyTo: "",
+    };
   }
 
   const routing = await getTenantEmailRouting(input.tenantId);

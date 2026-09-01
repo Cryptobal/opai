@@ -124,6 +124,15 @@ export const CONFIG_SEARCH_INDEX: ConfigSearchItem[] = [
   },
   {
     type: "section",
+    id: "correos-automaticos",
+    label: "Correos automáticos",
+    group: "Correos y Documentos",
+    description: "Activa o desactiva los correos que OPAI envía desde tu empresa",
+    keywords:
+      "correo automatico transaccional desactivar reporte turno cobertura diurna nocturna monitoreo rondas control nocturno email operaciones",
+  },
+  {
+    type: "section",
     id: "categorias-plantillas",
     label: "Categorías de plantillas",
     group: "Correos y Documentos",
@@ -393,6 +402,7 @@ const SECTION_HREFS: Record<string, string> = {
   "inteligencia-artificial": "/opai/configuracion/inteligencia-artificial",
   auditoria: "/opai/configuracion/auditoria",
   firmas: "/opai/configuracion/firmas",
+  "correos-automaticos": "/opai/configuracion/correos-automaticos",
   "categorias-plantillas": "/opai/configuracion/categorias-plantillas",
   crm: "/opai/configuracion/crm",
   cpq: "/opai/configuracion/cpq",
@@ -416,6 +426,7 @@ const SECTION_LABELS: Record<string, string> = {
   "inteligencia-artificial": "Proveedores de IA",
   auditoria: "Auditoría",
   firmas: "Firmas",
+  "correos-automaticos": "Correos automáticos",
   "categorias-plantillas": "Categorías de plantillas",
   crm: "CRM",
   cpq: "Cotizaciones (CPQ)",

@@ -4,6 +4,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { generateGridSlots } from "@/lib/rondas/generate-grid";
 import { requireTenantModule } from '@/lib/require-module';
+import { getOpsReportEmailFlags } from "@/lib/notifications/email-flags";
 
 export async function GET() {
   const modCheck = await requireTenantModule('ops_rondas');
@@ -281,12 +282,15 @@ export async function GET() {
       }
     }
 
+    const opsEmails = await getOpsReportEmailFlags(ctx.tenantId);
+
     return NextResponse.json({
       success: true,
       data: active,
       recentlyCompleted,
       controlNocturno,
       activeTurno: activeTurno ? { id: activeTurno.id, operatorId: activeTurno.operatorId, operatorName: activeTurno.operatorName, startedAt: activeTurno.startedAt, emailSentTo: activeTurno.emailSentTo } : null,
+      opsEmails,
     });
   } catch (error) {
     console.error("[RONDAS] monitoreo", error);

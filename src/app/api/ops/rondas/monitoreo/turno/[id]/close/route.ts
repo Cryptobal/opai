@@ -6,7 +6,7 @@ import { monitoreoTurnoCloseSchema } from "@/lib/validations/rondas";
 import { sendMonitorTurnoEmail } from "@/lib/rondas/monitor-email";
 import { getEmailBaseUrl } from "@/lib/emails/site-url";
 import { buildTurnoReportData } from "@/lib/rondas/monitor-turno-report-data";
-import { isTenantEmailEnabled } from "@/lib/notifications/email-flags";
+import { getOpsReportEmailFlags } from "@/lib/notifications/email-flags";
 import { requireTenantModule } from '@/lib/require-module';
 
 // PDF generation with Chromium needs more memory and time
@@ -213,7 +213,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }).catch((err) => console.error("[RONDAS] CN auto-submit failed:", err));
     }
 
-    // Always send email — ops email is always included by sendMonitorTurnoEmail
+    // Email de cierre: se envía si Correos automáticos + Setting lo permiten.
+    // sendMonitorTurnoEmail siempre incluye el email de operaciones.
     const noRealizadas = roundsData.filter(r => r.status === "no_realizada").length;
     const tenant = await prisma.tenant.findUnique({
       where: { id: ctx.tenantId },
@@ -239,11 +240,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.error("[RONDAS] buildTurnoReportData failed:", err instanceof Error ? err.message : err);
     }
 
-    // Apagado de correo por tenant (flag, default true). Solo se gatea el
-    // correo; la tarjeta Slack de cierre se publica siempre.
-    const reporteTurnoEmailEnabled = await isTenantEmailEnabled(ctx.tenantId, "reporteTurnoEmailEnabled");
+    // Apagado de correo por tenant (Correos automáticos + Setting BLOQUE 9).
+    // Solo se gatea el correo; la tarjeta Slack de cierre se publica siempre.
+    const opsEmails = await getOpsReportEmailFlags(ctx.tenantId);
     // MUST await: Vercel serverless kills fire-and-forget on return
-    if (reporteTurnoEmailEnabled) try {
+    if (opsEmails.reporteTurno) try {
       const emailResult = await sendMonitorTurnoEmail(
         {
           turnoId: id,

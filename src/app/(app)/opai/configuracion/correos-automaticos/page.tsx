@@ -17,7 +17,7 @@ export default async function CorreosAutomaticosPage() {
   return (
     <ConfigPageLayout
       title="Correos automáticos"
-      description="Activa o desactiva los correos transaccionales que OPAI envía desde tu empresa. Los marcados como críticos no se pueden desactivar."
+      description="Activa o desactiva los correos transaccionales que OPAI envía desde tu empresa. Incluye cobertura diurna/nocturna y el reporte de cierre de turno de monitoreo. Los marcados como críticos no se pueden desactivar."
       icon={<Mail className="h-[18px] w-[18px]" />}
     >
       <TransactionalEmailMatrixClient />

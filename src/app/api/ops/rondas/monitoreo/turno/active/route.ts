@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { requireTenantModule } from '@/lib/require-module';
+import { getOpsReportEmailFlags } from "@/lib/notifications/email-flags";
 
 export async function GET() {
   const modCheck = await requireTenantModule('ops_rondas');
@@ -23,18 +24,21 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Sin turno activo" }, { status: 404 });
     }
 
-    const roundsCount = await prisma.opsRondaEjecucion.count({
-      where: {
-        tenantId: ctx.tenantId,
-        completedAt: { gte: turno.startedAt },
-      },
-    });
-    const alertsCount = await prisma.opsAlertaRonda.count({
-      where: {
-        tenantId: ctx.tenantId,
-        createdAt: { gte: turno.startedAt },
-      },
-    });
+    const [roundsCount, alertsCount, opsEmails] = await Promise.all([
+      prisma.opsRondaEjecucion.count({
+        where: {
+          tenantId: ctx.tenantId,
+          completedAt: { gte: turno.startedAt },
+        },
+      }),
+      prisma.opsAlertaRonda.count({
+        where: {
+          tenantId: ctx.tenantId,
+          createdAt: { gte: turno.startedAt },
+        },
+      }),
+      getOpsReportEmailFlags(ctx.tenantId),
+    ]);
 
     return NextResponse.json({
       success: true,
@@ -42,6 +46,7 @@ export async function GET() {
         ...turno,
         liveStats: { roundsCompleted: roundsCount, alertsGenerated: alertsCount },
       },
+      opsEmails,
     });
   } catch (error) {
     console.error("[RONDAS] GET monitoreo turno active", error);
