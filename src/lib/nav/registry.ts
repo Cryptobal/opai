@@ -915,6 +915,7 @@ export const NAV_MODULES: NavNode[] = [
       { key: "config-empresa", href: "/opai/configuracion/empresa", label: "Empresa", icon: Building2, module: "config", submodule: "empresa", category: "general", description: "Razón social, RUT, dirección, representante legal" },
       { key: "config-mi-plan", href: "/opai/configuracion/mi-plan", label: "Mi Plan", icon: Sparkles, module: "config", submodule: "mi_plan", category: "general", description: "Plan actual, módulos, add-ons y solicitar upgrade" },
       { key: "config-cumplimiento", href: "/opai/configuracion/cumplimiento", label: "Cumplimiento", icon: Shield, module: "config", submodule: "cumplimiento", category: "general", description: "Contacto del DPO y estado del DPA" },
+      { key: "config-fiscalizacion-dt", href: "/opai/configuracion/fiscalizacion-dt", label: "Fiscalización DT", shortLabel: "Fiscaliz. DT", icon: ShieldCheck, module: "config", submodule: "fiscalizacion_dt", category: "general", adminOnly: true, description: "Correo de aviso al inspector y destinatario del reporte diario de asistencia" },
       { key: "config-auditoria", href: "/opai/configuracion/auditoria", label: "Auditoría", icon: FileBarChart, module: "config", submodule: "auditoria", category: "general", description: "Registro de acciones y cambios por usuario" },
       // ── Permisos ──
       { key: "config-usuarios", href: "/opai/configuracion/usuarios", label: "Usuarios", icon: Users, module: "config", submodule: "usuarios", category: "permisos", description: "Gestión de usuarios y asignación de roles" },

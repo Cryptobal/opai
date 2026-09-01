@@ -19,6 +19,8 @@ import {
   ChevronRight,
   Plus,
   Settings,
+  Shield,
+  ShieldAlert,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { usePlatformTheme } from './PlatformThemeForcer';
@@ -43,6 +45,8 @@ const navItems: NavItem[] = [
     matches: ['/platform/dashboard', '/platform/tenants'],
   },
   { href: '/platform/tenants/new', label: 'Nuevo Tenant', icon: Plus },
+  { href: '/platform/fiscalizacion-dt', label: 'Fiscalización DT', icon: Shield },
+  { href: '/platform/incidentes-tecnicos', label: 'Incidentes DT', icon: ShieldAlert },
   { href: '/platform/pricing', label: 'Planes & Add-ons', icon: Tag },
   { href: '/platform/billing', label: 'Facturación', icon: Receipt },
   { href: '/platform/knowledge', label: 'Base de Conocimiento', icon: BookOpen },

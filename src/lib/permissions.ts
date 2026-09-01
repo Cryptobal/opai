@@ -96,6 +96,7 @@ export const SUBMODULE_KEYS = {
     "documentos_operacionales",
     "mi_plan",
     "cumplimiento",
+    "fiscalizacion_dt",
     // Resto de General
     "grupos",
     "integraciones",
@@ -335,6 +336,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.documentos_operacionales", module: "config", submodule: "documentos_operacionales", label: "Documentos Operacionales", href: "/opai/configuracion/documentos-operacionales" },
   { key: "config.mi_plan", module: "config", submodule: "mi_plan", label: "Mi Plan", href: "/opai/configuracion/mi-plan" },
   { key: "config.cumplimiento", module: "config", submodule: "cumplimiento", label: "Cumplimiento", href: "/opai/configuracion/cumplimiento" },
+  { key: "config.fiscalizacion_dt", module: "config", submodule: "fiscalizacion_dt", label: "Fiscalización DT", href: "/opai/configuracion/fiscalizacion-dt" },
   { key: "config.asistente_ia", module: "config", submodule: "asistente_ia", label: "Asistente IA", href: "/opai/configuracion/asistente-ia" },
   { key: "config.informes_vulnerabilidad", module: "config", submodule: "informes_vulnerabilidad", label: "Informes de Vulnerabilidad", href: "/opai/configuracion/informes-vulnerabilidad" },
   { key: "config.gamificacion", module: "config", submodule: "gamificacion", label: "Gamificación", href: "/opai/configuracion/gamificacion" },
@@ -552,6 +554,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "config.roles": "none",
       "config.auditoria": "none",
       "config.cumplimiento": "none",
+      "config.fiscalizacion_dt": "none",
       "config.documentos_operacionales": "none",
       "config.mi_plan": "none",
       "config.gamificacion": "none",
@@ -1247,6 +1250,7 @@ export function pathToPermission(
   if (pathname.startsWith("/opai/configuracion/documentos-operacionales")) return { module: "config", submodule: "documentos_operacionales" };
   if (pathname.startsWith("/opai/configuracion/mi-plan")) return { module: "config", submodule: "mi_plan" };
   if (pathname.startsWith("/opai/configuracion/cumplimiento")) return { module: "config", submodule: "cumplimiento" };
+  if (pathname.startsWith("/opai/configuracion/fiscalizacion-dt")) return { module: "config", submodule: "fiscalizacion_dt" };
   if (pathname.startsWith("/opai/configuracion/asistente-ia")) return { module: "config", submodule: "asistente_ia" };
   if (pathname.startsWith("/opai/configuracion/gamificacion")) return { module: "config", submodule: "gamificacion" };
   if (pathname.startsWith("/opai/configuracion/alertas-cobertura")) return { module: "config", submodule: "alertas_cobertura" };
