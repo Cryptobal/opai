@@ -25,6 +25,8 @@ export default function PlatformSincronizacionHorariaPage() {
   const [error, setError] = useState<string | null>(null);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [appliedFrom, setAppliedFrom] = useState('');
+  const [appliedTo, setAppliedTo] = useState('');
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -32,13 +34,16 @@ export default function PlatformSincronizacionHorariaPage() {
   const [prevCursors, setPrevCursors] = useState<(string | null)[]>([]);
   const [exporting, setExporting] = useState(false);
 
-  async function load(next: string | null = cursor) {
+  async function load(
+    next: string | null,
+    filters: { from: string; to: string } = { from: appliedFrom, to: appliedTo },
+  ) {
     setLoading(true);
     setError(null);
     try {
       const p = new URLSearchParams();
-      if (from) p.set('from', from);
-      if (to) p.set('to', to);
+      if (filters.from) p.set('from', filters.from);
+      if (filters.to) p.set('to', filters.to);
       if (next) p.set('cursor', next);
       const res = await fetch(`/api/platform/time-sync-logs?${p.toString()}`);
       const json = await res.json();
@@ -59,21 +64,23 @@ export default function PlatformSincronizacionHorariaPage() {
   }
 
   useEffect(() => {
-    void load(null);
+    void load(null, { from: '', to: '' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function applyFilter() {
+    setAppliedFrom(from);
+    setAppliedTo(to);
     setCursor(null);
     setPrevCursors([]);
-    void load(null);
+    void load(null, { from, to });
   }
 
   function goNext() {
     if (!nextCursor) return;
     setPrevCursors((stack) => [...stack, cursor]);
     setCursor(nextCursor);
-    void load(nextCursor);
+    void load(nextCursor, { from: appliedFrom, to: appliedTo });
   }
 
   function goPrev() {
@@ -81,7 +88,7 @@ export default function PlatformSincronizacionHorariaPage() {
     const prev = stack.pop() ?? null;
     setPrevCursors(stack);
     setCursor(prev);
-    void load(prev);
+    void load(prev, { from: appliedFrom, to: appliedTo });
   }
 
   async function exportExcel() {
@@ -89,8 +96,8 @@ export default function PlatformSincronizacionHorariaPage() {
     setError(null);
     try {
       const p = new URLSearchParams({ format: 'xlsx' });
-      if (from) p.set('from', from);
-      if (to) p.set('to', to);
+      if (appliedFrom) p.set('from', appliedFrom);
+      if (appliedTo) p.set('to', appliedTo);
       const res = await fetch(`/api/platform/time-sync-logs?${p.toString()}`);
       if (res.status === 413) {
         const json = await res.json().catch(() => null);

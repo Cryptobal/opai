@@ -47,14 +47,14 @@ function mapRow(r: {
 }
 
 function buildWhere(from: string | null, to: string | null) {
-  const where: { checkedAt?: { gte?: Date; lte?: Date } } = {};
+  const where: { createdAt?: { gte?: Date; lte?: Date } } = {};
   if (from || to) {
-    where.checkedAt = {};
+    where.createdAt = {};
     if (from && YMD.test(from)) {
-      where.checkedAt.gte = fromZonedTime(`${from}T00:00:00`, CHILE_TZ);
+      where.createdAt.gte = fromZonedTime(`${from}T00:00:00`, CHILE_TZ);
     }
     if (to && YMD.test(to)) {
-      where.checkedAt.lte = fromZonedTime(`${to}T23:59:59.999`, CHILE_TZ);
+      where.createdAt.lte = fromZonedTime(`${to}T23:59:59.999`, CHILE_TZ);
     }
   }
   return where;
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
   const format = (sp.get("format") || "json").toLowerCase();
   const cursor = sp.get("cursor");
   const where = buildWhere(from, to);
-  const orderBy = [{ checkedAt: "desc" as const }, { id: "desc" as const }];
+  const orderBy = [{ createdAt: "desc" as const }, { id: "desc" as const }];
 
   if (format === "xlsx") {
     const data: ReturnType<typeof mapRow>[] = [];

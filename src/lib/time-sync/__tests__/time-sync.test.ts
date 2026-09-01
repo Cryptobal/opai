@@ -72,8 +72,8 @@ describe("time-sync alerta email", () => {
     expect(
       shouldNotifyDriftAlert({
         status: "alert",
-        lastNotifiedCheckedAt: null,
-        lastOkCheckedAt: null,
+        lastNotifiedAt: null,
+        lastOkAt: null,
       }),
     ).toBe(true);
   });
@@ -82,8 +82,8 @@ describe("time-sync alerta email", () => {
     expect(
       shouldNotifyDriftAlert({
         status: "alert",
-        lastNotifiedCheckedAt: t1,
-        lastOkCheckedAt: null,
+        lastNotifiedAt: t1,
+        lastOkAt: null,
       }),
     ).toBe(false);
   });
@@ -92,8 +92,22 @@ describe("time-sync alerta email", () => {
     expect(
       shouldNotifyDriftAlert({
         status: "alert",
-        lastNotifiedCheckedAt: t1,
-        lastOkCheckedAt: t2,
+        lastNotifiedAt: t1,
+        lastOkAt: t2,
+      }),
+    ).toBe(true);
+  });
+
+  it("usa el reloj de inserción, no checkedAt sesgado al futuro", () => {
+    const skewedCheck = new Date("2026-09-01T20:00:00.000Z");
+    const createdAlert = new Date("2026-09-01T12:00:00.000Z");
+    const createdOk = new Date("2026-09-01T12:10:00.000Z");
+    expect(skewedCheck.getTime()).toBeGreaterThan(createdOk.getTime());
+    expect(
+      shouldNotifyDriftAlert({
+        status: "alert",
+        lastNotifiedAt: createdAlert,
+        lastOkAt: createdOk,
       }),
     ).toBe(true);
   });
@@ -102,8 +116,8 @@ describe("time-sync alerta email", () => {
     expect(
       shouldNotifyDriftAlert({
         status: "warn",
-        lastNotifiedCheckedAt: null,
-        lastOkCheckedAt: null,
+        lastNotifiedAt: null,
+        lastOkAt: null,
       }),
     ).toBe(false);
   });

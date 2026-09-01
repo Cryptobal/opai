@@ -5513,6 +5513,7 @@ model OpsTimeSyncLog {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([checkedAt], map: "idx_ops_time_sync_log_checked")
+  @@index([createdAt], map: "idx_ops_time_sync_log_created")
   @@map("time_sync_logs")
   @@schema("ops")
 }

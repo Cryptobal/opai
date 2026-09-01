@@ -40,11 +40,12 @@ export function shouldDiscardRtt(rttMs: number): boolean {
  */
 export function shouldNotifyDriftAlert(input: {
   status: TimeSyncStatus;
-  lastNotifiedCheckedAt: Date | null;
-  lastOkCheckedAt: Date | null;
+  /** Instante de BD (`createdAt` / `notifiedAt`), nunca el `checkedAt` medido. */
+  lastNotifiedAt: Date | null;
+  lastOkAt: Date | null;
 }): boolean {
   if (input.status !== "alert") return false;
-  if (input.lastNotifiedCheckedAt == null) return true;
-  if (input.lastOkCheckedAt == null) return false;
-  return input.lastNotifiedCheckedAt.getTime() < input.lastOkCheckedAt.getTime();
+  if (input.lastNotifiedAt == null) return true;
+  if (input.lastOkAt == null) return false;
+  return input.lastNotifiedAt.getTime() < input.lastOkAt.getTime();
 }

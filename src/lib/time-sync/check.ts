@@ -184,7 +184,7 @@ Versión: ${result.softwareVersion}</p>
 
 async function maybeOpenIncident(): Promise<void> {
   const last = await prisma.opsTimeSyncLog.findMany({
-    orderBy: { checkedAt: "desc" },
+    orderBy: { createdAt: "desc" },
     take: 3,
     select: { status: true },
   });
@@ -265,26 +265,26 @@ export async function runTimeSyncCheck(): Promise<TimeSyncCheckResult> {
 
   const cutoff = new Date();
   cutoff.setFullYear(cutoff.getFullYear() - TIME_SYNC_RETENTION_YEARS);
-  await prisma.opsTimeSyncLog.deleteMany({ where: { checkedAt: { lt: cutoff } } });
+  await prisma.opsTimeSyncLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
 
   if (status === "alert") {
     const [lastNotified, lastOk] = await Promise.all([
       prisma.opsTimeSyncLog.findFirst({
         where: { notifiedAt: { not: null } },
-        orderBy: { checkedAt: "desc" },
-        select: { checkedAt: true },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
       }),
       prisma.opsTimeSyncLog.findFirst({
         where: { status: "ok" },
-        orderBy: { checkedAt: "desc" },
-        select: { checkedAt: true },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
       }),
     ]);
     if (
       shouldNotifyDriftAlert({
         status,
-        lastNotifiedCheckedAt: lastNotified?.checkedAt ?? null,
-        lastOkCheckedAt: lastOk?.checkedAt ?? null,
+        lastNotifiedAt: lastNotified?.createdAt ?? null,
+        lastOkAt: lastOk?.createdAt ?? null,
       })
     ) {
       try {
