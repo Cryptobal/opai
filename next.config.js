@@ -9,8 +9,18 @@ const sharpTraceGlobs = [
   "node_modules/@img/sharp-linuxmusl-x64/**/*",
 ];
 
+const pkg = require("./package.json");
+const shortSha = process.env.VERCEL_GIT_COMMIT_SHA
+  ? String(process.env.VERCEL_GIT_COMMIT_SHA).slice(0, 7)
+  : "";
+const appVersion = shortSha ? `${pkg.version}+${shortSha}` : pkg.version;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION || appVersion,
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA || "",
+  },
   outputFileTracingRoot: __dirname,
   outputFileTracingIncludes: {
     '/api/cpq/quotes/\\[id\\]/export-pdf': ['./public/fonts/**/*'],

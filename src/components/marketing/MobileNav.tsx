@@ -9,6 +9,7 @@ const navLinks = [
   { href: '/blog', label: 'Blog' },
   { href: '/nosotros', label: 'Nosotros' },
   { href: '/contacto', label: 'Contacto' },
+  { href: '/fiscalizacion-dt', label: 'Fiscalización DT' },
 ]
 
 const funcSubItems = [

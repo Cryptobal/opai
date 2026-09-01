@@ -5,6 +5,7 @@ import { MobileNav } from '@/components/marketing/MobileNav'
 import { MarketingThemeToggle } from '@/components/marketing/ThemeToggle'
 import { FuncionalidadesMegaMenu } from '@/components/marketing/FuncionalidadesMegaMenu'
 import { MarketingChatWidget } from '@/components/marketing/MarketingChatWidget'
+import { getAppVersion, PROVIDER_LEGAL_NAME } from '@/lib/app-version'
 import './marketing.css'
 
 /**
@@ -85,6 +86,7 @@ const navLinks = [
   { href: '/planes', label: 'Planes' },
   { href: '/blog', label: 'Blog' },
   { href: '/nosotros', label: 'Nosotros' },
+  { href: '/fiscalizacion-dt', label: 'Fiscalización DT' },
 ]
 
 const orgJsonLd = JSON.stringify({
@@ -250,6 +252,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 { href: '/nosotros', label: 'Nosotros' },
                 { href: '/registrarse', label: 'Comenzar gratis' },
                 { href: '/contacto', label: 'Contacto' },
+                { href: '/fiscalizacion-dt', label: 'Portal de Fiscalización DT' },
               ].map(l => (
                 <Link key={l.href} href={l.href} style={{ display: 'block', color: 'var(--mk-muted)', textDecoration: 'none', fontSize: '0.88rem', marginBottom: '10px', transition: 'color 0.2s' }}>
                   {l.label}
@@ -259,7 +262,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
           <div style={{ borderTop: '1px solid var(--mk-border)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
             <p style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', fontFamily: 'var(--mk-font-m)' }}>
-              © {new Date().getFullYear()} OPAI — Todos los derechos reservados
+              © {new Date().getFullYear()} {PROVIDER_LEGAL_NAME} · OPAI v{getAppVersion()} — Todos los derechos reservados
             </p>
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
               <a

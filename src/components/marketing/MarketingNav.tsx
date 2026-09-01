@@ -60,6 +60,12 @@ export default function MarketingNav() {
           {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-3">
             <Link
+              href="/fiscalizacion-dt"
+              className="text-sm text-[#94A3B8] hover:text-white transition-colors"
+            >
+              Fiscalización DT
+            </Link>
+            <Link
               href="#login"
               className="text-sm text-[#94A3B8] hover:text-white transition-colors px-4 py-2"
             >

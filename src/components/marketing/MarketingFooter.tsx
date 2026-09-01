@@ -17,6 +17,7 @@ const FOOTER_LINKS = {
     { label: "Nosotros", href: "#" },
     { label: "Contacto", href: "mailto:hola@opai.cl" },
     { label: "Partners", href: "#" },
+    { label: "Portal de Fiscalización DT", href: "/fiscalizacion-dt" },
   ],
 };
 
@@ -63,7 +64,7 @@ export default function MarketingFooter() {
         {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-white/[0.07] flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-[#94A3B8]">
-            &copy; {new Date().getFullYear()} OPAI. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} Opai SpA · OPAI. Todos los derechos reservados.
           </p>
           <div className="flex items-center gap-6 text-xs text-[#94A3B8]">
             <a href="/terminos" className="text-[#64748B] hover:text-white transition-colors">Términos</a>

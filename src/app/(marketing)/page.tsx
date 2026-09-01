@@ -227,6 +227,21 @@ export default function MarketingPage() {
         dangerouslySetInnerHTML={{ __html: JSON_LD_CONTENT }}
       />
 
+      <div
+        style={{
+          background: 'var(--mk-teal)',
+          color: 'var(--mk-bg)',
+          textAlign: 'center',
+          padding: '10px 16px',
+          fontSize: '0.9rem',
+          fontWeight: 600,
+        }}
+      >
+        <Link href="/fiscalizacion-dt" style={{ color: 'inherit', textDecoration: 'underline' }}>
+          Portal de Fiscalización — Dirección del Trabajo
+        </Link>
+      </div>
+
       {/* ====== 1. HERO ====== */}
       <section
         className="mk-section"

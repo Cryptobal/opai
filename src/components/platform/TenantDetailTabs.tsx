@@ -15,6 +15,15 @@ interface TenantInfo {
   billingEmail: string | null;
   supportEmail: string | null;
   notes: string | null;
+  legalName: string | null;
+  companyRut: string | null;
+  fantasyName: string | null;
+  hqAddress: string | null;
+  dtServiceType: string | null;
+  dtContractStart: string | null;
+  dtContractEnd: string | null;
+  dtNoticeEmail: string | null;
+  dtDailyReportEmail: string | null;
   suspendedAt: string | null;
   suspendedReason: string | null;
   onboardedBy: string | null;
@@ -540,6 +549,21 @@ function InfoTab({
               multiline
             />
           </div>
+        </dl>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Fiscalización DT (Art. 26)</h3>
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <EditableField label="Razón social" value={tenant.legalName || ''} onSave={(v) => onPatch({ legalName: v })} />
+          <EditableField label="Nombre de fantasía" value={tenant.fantasyName || ''} onSave={(v) => onPatch({ fantasyName: v })} />
+          <EditableField label="RUT" value={tenant.companyRut || ''} onSave={(v) => onPatch({ companyRut: v })} />
+          <EditableField label="Domicilio casa matriz" value={tenant.hqAddress || ''} onSave={(v) => onPatch({ hqAddress: v })} />
+          <EditableField label="Tipo de servicio" value={tenant.dtServiceType || 'cloud'} onSave={(v) => onPatch({ dtServiceType: v })} />
+          <EditableField label="Vigencia desde" value={tenant.dtContractStart || ''} onSave={(v) => onPatch({ dtContractStart: v || null })} />
+          <EditableField label="Fecha de término" value={tenant.dtContractEnd || ''} onSave={(v) => onPatch({ dtContractEnd: v || null })} />
+          <EditableField label="Correo aviso fiscalización" value={tenant.dtNoticeEmail || ''} onSave={(v) => onPatch({ dtNoticeEmail: v })} />
+          <EditableField label="Correo reporte diario" value={tenant.dtDailyReportEmail || ''} onSave={(v) => onPatch({ dtDailyReportEmail: v })} />
         </dl>
       </div>
 

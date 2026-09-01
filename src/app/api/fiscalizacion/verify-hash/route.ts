@@ -6,27 +6,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import crypto from "crypto";
-
-function computeExpectedHash(marcacion: {
-  guardiaId: string;
-  tipo: string;
-  timestamp: Date;
-  metodoId: string | null;
-  lat: number | null;
-  lng: number | null;
-}): string {
-  const payload = [
-    marcacion.guardiaId,
-    marcacion.tipo,
-    marcacion.timestamp.toISOString(),
-    marcacion.metodoId ?? "",
-    marcacion.lat?.toString() ?? "",
-    marcacion.lng?.toString() ?? "",
-  ].join("|");
-
-  return crypto.createHash("sha256").update(payload).digest("hex");
-}
+import { computeLegacyFiscalizacionHash } from "@/lib/fiscalizacion-dt/verify-hash";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -64,7 +44,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Marcación no encontrada" }, { status: 404 });
   }
 
-  const expectedHash = computeExpectedHash(marcacion);
+  const expectedHash = computeLegacyFiscalizacionHash(marcacion);
   const storedHash = marcacion.hashIntegridad;
   const isValid = storedHash === expectedHash;
 
