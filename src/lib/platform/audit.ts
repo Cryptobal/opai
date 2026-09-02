@@ -5,6 +5,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import type { PlatformAuthContext } from "@/lib/platform-api-auth";
 
 const SENSITIVE_KEY = /^(password|apiKey|secret|token|pin)/i;
 
@@ -55,6 +56,14 @@ export function extractRequestMeta(request?: Request | null): {
     undefined;
   const userAgent = request.headers.get("user-agent") || undefined;
   return { ip, userAgent };
+}
+
+export function platformActor(ctx: PlatformAuthContext) {
+  return {
+    actorType: "platform_admin" as const,
+    actorId: ctx.platformAdminId,
+    actorEmail: ctx.email,
+  };
 }
 
 export async function logPlatformAction(

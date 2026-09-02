@@ -3,6 +3,8 @@ import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-au
 import { prisma } from '@/lib/prisma';
 import { PLAN_MODULES } from '@/lib/tenant-modules';
 import { clearTenantModuleCache } from '@/lib/tenant-modules';
+import { isBillingStatus, normalizeBillingStatus } from '@/lib/platform/tenant-lifecycle';
+import { logPlatformAction, platformActor } from '@/lib/platform/audit';
 
 export async function PATCH(
   request: NextRequest,
@@ -20,6 +22,23 @@ export async function PATCH(
 
   if (!existingPlan) {
     return NextResponse.json({ error: 'Plan no encontrado' }, { status: 404 });
+  }
+
+  if (body.billingStatus != null) {
+    const normalized = normalizeBillingStatus(String(body.billingStatus));
+    if (!normalized || (!isBillingStatus(String(body.billingStatus)) && String(body.billingStatus) !== 'trial')) {
+      return NextResponse.json(
+        { error: 'billingStatus inválido', allowed: ['trialing', 'trial_expired', 'active', 'past_due', 'suspended', 'cancelled'] },
+        { status: 400 },
+      );
+    }
+    body.billingStatus = normalized;
+  }
+
+  for (const field of ['maxGuards', 'maxAdmins'] as const) {
+    if (field in body && (typeof body[field] !== 'number' || body[field] < 1)) {
+      return NextResponse.json({ error: `${field} debe ser ≥ 1` }, { status: 400 });
+    }
   }
 
   const data: Record<string, unknown> = {};
@@ -127,6 +146,17 @@ export async function PATCH(
       where: { tenantId: id },
     });
 
+    await logPlatformAction({
+      ...platformActor(ctx),
+      action: 'plan.change',
+      tenantId: id,
+      targetType: 'TenantPlan',
+      targetId: updated.id,
+      before: { plan: existingPlan.plan, billingStatus: existingPlan.billingStatus },
+      after: { plan: updated.plan, billingStatus: updated.billingStatus },
+      request,
+    });
+
     return NextResponse.json({
       success: true,
       plan: {
@@ -144,6 +174,27 @@ export async function PATCH(
   const updated = await prisma.tenantPlan.update({
     where: { tenantId: id },
     data,
+  });
+
+  const priceTouched = [
+    'customPricePerGuard', 'customBaseMinimum', 'pricePerGuard', 'basePrice',
+  ].some((f) => f in body);
+
+  await logPlatformAction({
+    ...platformActor(ctx),
+    action: priceTouched ? 'plan.price_override' : 'plan.change',
+    tenantId: id,
+    targetType: 'TenantPlan',
+    targetId: updated.id,
+    before: {
+      plan: existingPlan.plan,
+      billingStatus: existingPlan.billingStatus,
+      customBaseMinimum: existingPlan.customBaseMinimum
+        ? Number(existingPlan.customBaseMinimum)
+        : null,
+    },
+    after: data as Record<string, unknown>,
+    request,
   });
 
   return NextResponse.json({

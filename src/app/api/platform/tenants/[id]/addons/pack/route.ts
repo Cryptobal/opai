@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 import { clearTenantModuleCache } from '@/lib/tenant-modules';
+import { logPlatformAction, platformActor } from '@/lib/platform/audit';
 
 export async function POST(
   request: NextRequest,
@@ -55,6 +56,16 @@ export async function POST(
   }
 
   clearTenantModuleCache(id);
+
+  await logPlatformAction({
+    ...platformActor(ctx),
+    action: 'pack.apply',
+    tenantId: id,
+    targetType: 'PackCatalog',
+    targetId: pack.id,
+    after: { packSlug, activatedAddons },
+    request,
+  });
 
   return NextResponse.json({ success: true, activatedAddons });
 }

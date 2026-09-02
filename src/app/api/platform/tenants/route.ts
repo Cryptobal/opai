@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   if (status === 'suspended') where.active = false;
   if (status === 'trial') {
     where.active = true;
-    where.plan = { billingStatus: 'trial' };
+    where.plan = { billingStatus: { in: ['trial', 'trialing', 'trial_expired'] } };
   }
 
   const [tenants, total] = await Promise.all([
@@ -96,6 +96,17 @@ export async function POST(request: NextRequest) {
     await prisma.tenant.update({
       where: { id: result.tenant.id },
       data: { onboardedBy: ctx.email },
+    });
+
+    const { logPlatformAction, platformActor } = await import('@/lib/platform/audit');
+    await logPlatformAction({
+      ...platformActor(ctx),
+      action: 'tenant.create',
+      tenantId: result.tenant.id,
+      targetType: 'Tenant',
+      targetId: result.tenant.id,
+      after: { slug, plan, name },
+      request,
     });
 
     return NextResponse.json(result, { status: 201 });

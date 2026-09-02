@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
+import { logPlatformAction, platformActor } from '@/lib/platform/audit';
 
 export async function PATCH(
   request: NextRequest,
@@ -23,6 +24,15 @@ export async function PATCH(
   }
 
   const updated = await prisma.planCatalog.update({ where: { id }, data });
+
+  await logPlatformAction({
+    ...platformActor(ctx),
+    action: 'catalog.plan.upsert',
+    targetType: 'PlanCatalog',
+    targetId: id,
+    after: data as Record<string, unknown>,
+    request,
+  });
 
   return NextResponse.json({
     success: true,
