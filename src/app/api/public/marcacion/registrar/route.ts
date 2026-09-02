@@ -475,6 +475,7 @@ export async function POST(req: NextRequest) {
     const guardiaEmail = persona.guardia?.personalEmail ?? persona.personalEmail ?? undefined;
     dispatchMarcacionComprobante({
       tenantId: installation.tenantId,
+      guardiaId: guardia.id,
       installationId: installation.id,
       installationName: installation.name,
       guardiaName: formatPersonName(persona.firstName, persona.lastName),

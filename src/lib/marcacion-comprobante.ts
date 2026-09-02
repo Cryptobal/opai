@@ -8,14 +8,13 @@ import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { parseMarcacionConfigValue } from "@/lib/ops-marcacion-config";
 import { prisma } from "@/lib/prisma";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
-import {
-  sendAlertaGuardiaSinCorreoPersonal,
-  sendMarcacionComprobante,
-} from "@/lib/marcacion-email";
+import { sendMarcacionComprobante } from "@/lib/marcacion-email";
+import { notifyMarcacionSinCorreoPersonal } from "@/lib/marcacion/notify-sin-correo-personal";
 import type { MarcacionRes38Snapshot } from "@/lib/marcacion-res38-snapshot";
 
 export interface DispatchComprobanteInput {
   tenantId: string;
+  guardiaId: string;
   installationId: string;
   installationName: string;
   guardiaName: string;
@@ -54,8 +53,9 @@ export async function dispatchMarcacionComprobante(
     console.warn(
       `[marcacion] Guardia ${input.guardiaName} sin email personal — comprobante no enviado; alerta al empleador`,
     );
-    await sendAlertaGuardiaSinCorreoPersonal({
+    await notifyMarcacionSinCorreoPersonal({
       tenantId: input.tenantId,
+      guardiaId: input.guardiaId,
       installationId: input.installationId,
       installationName: input.installationName,
       guardiaName: input.guardiaName,
@@ -63,7 +63,7 @@ export async function dispatchMarcacionComprobante(
       tipo: input.tipo,
       timestamp: input.timestamp,
       hashIntegridad: input.hashIntegridad,
-      employerEmails,
+      marcacionConfig,
     });
     return;
   }

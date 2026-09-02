@@ -128,6 +128,8 @@ describe("alerta 45.1 config", () => {
     const cfg = parseMarcacionConfigValue(JSON.stringify({ toleranciaAtrasoMinutos: 10 }));
     expect(cfg.alertaFaltaMarcacionEnabled).toBe(false);
     expect(cfg.alertaFaltaMarcacionEmployerEmails).toEqual([]);
+    expect(cfg.alertaSinCorreoPersonalEnabled).toBe(false);
+    expect(cfg.alertaSinCorreoPersonalEmployerEmails).toEqual([]);
   });
 
   it("parsea casillas de empresa", () => {

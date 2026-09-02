@@ -14,6 +14,10 @@ export interface MarcacionConfig {
   alertaFaltaMarcacionEnabled: boolean;
   /** Copias a la empresa. Vacío = solo al trabajador. */
   alertaFaltaMarcacionEmployerEmails: string[];
+  /** Correo Resend opt-in cuando un guardia marca sin correo personal. Default OFF. */
+  alertaSinCorreoPersonalEnabled: boolean;
+  /** Casillas explícitas del empleador. Vacío = sin correo Resend (campana sí). */
+  alertaSinCorreoPersonalEmployerEmails: string[];
   rondasPollingSegundos: number;
   rondasVentanaInicioAntesMin: number;
   rondasVentanaInicioDespuesMin: number;
@@ -41,6 +45,8 @@ export const DEFAULT_MARCACION_CONFIG: MarcacionConfig = {
   radioGlobalMarcacionM: DEFAULT_MARCACION_RADIUS_M,
   alertaFaltaMarcacionEnabled: false,
   alertaFaltaMarcacionEmployerEmails: [],
+  alertaSinCorreoPersonalEnabled: false,
+  alertaSinCorreoPersonalEmployerEmails: [],
   rondasPollingSegundos: 30,
   rondasVentanaInicioAntesMin: 60,
   rondasVentanaInicioDespuesMin: 120,
@@ -87,9 +93,13 @@ function stringArray(value: unknown) {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function emailArray(value: unknown) {
-  return stringArray(value)
-    .map((item) => item.toLowerCase())
-    .filter((item) => EMAIL_RE.test(item));
+  return Array.from(
+    new Set(
+      stringArray(value)
+        .map((item) => item.toLowerCase())
+        .filter((item) => EMAIL_RE.test(item)),
+    ),
+  );
 }
 
 /** Parsea el textarea de casillas empresa (coma, punto y coma o salto de línea). */
@@ -158,6 +168,13 @@ export function normalizeMarcacionConfig(raw: unknown): MarcacionConfig {
       DEFAULT_MARCACION_CONFIG.alertaFaltaMarcacionEnabled,
     ),
     alertaFaltaMarcacionEmployerEmails: emailArray(source.alertaFaltaMarcacionEmployerEmails),
+    alertaSinCorreoPersonalEnabled: booleanOrDefault(
+      source.alertaSinCorreoPersonalEnabled,
+      DEFAULT_MARCACION_CONFIG.alertaSinCorreoPersonalEnabled,
+    ),
+    alertaSinCorreoPersonalEmployerEmails: emailArray(
+      source.alertaSinCorreoPersonalEmployerEmails,
+    ),
     rondasPollingSegundos: clampNumber(
       source.rondasPollingSegundos,
       DEFAULT_MARCACION_CONFIG.rondasPollingSegundos,

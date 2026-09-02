@@ -52,6 +52,24 @@ const EMAIL_CATALOG = [
     template: "Inline HTML (src/lib/marcacion-email.ts → sendAlertaFaltaMarcacion)",
   },
   {
+    id: "alerta_sin_correo_personal",
+    nombre: "Alerta: guardia sin correo personal",
+    descripcion:
+      "Un guardia marcó sin correo personal: no se le pudo enviar el comprobante Art. 13 (queda en el portal). Se avisa una vez por guardia y día. El correo a la empresa es opt-in.",
+    trigger: "Al registrar marca de un guardia sin correo personal",
+    destinatario:
+      "Campana/Slack según preferencias. Copia por correo solo a las casillas configuradas.",
+    configKey: "alertaSinCorreoPersonalEnabled" as const,
+    contenido: [
+      "Guardia, RUT e instalación",
+      "Tipo de marca y hora",
+      "Hash SHA-256 de integridad",
+      "Aviso de que el comprobante quedó en el portal",
+    ],
+    template:
+      "Campana unificada + Inline HTML (src/lib/marcacion-email.ts → sendAlertaGuardiaSinCorreoPersonal)",
+  },
+  {
     id: "alerta_marcacion_fuera_rango",
     nombre: "Alerta de Marcación Fuera de Rango",
     descripcion:
@@ -95,9 +113,11 @@ const EMAIL_CATALOG = [
 function AlertaEmployerEmailsField({
   emails,
   onChange,
+  hint,
 }: {
   emails: string[];
   onChange: (emails: string[]) => void;
+  hint?: string;
 }) {
   const [draft, setDraft] = useState(emails.join("\n"));
   return (
@@ -115,8 +135,8 @@ function AlertaEmployerEmailsField({
         className="w-full min-h-11 rounded-md border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px] text-ds-text-1"
       />
       <p className="text-[12px] text-ds-text-3">
-        Una dirección por línea o separadas por coma. Vacío = solo al trabajador, sin copia a la
-        empresa.
+        {hint ??
+          "Una dirección por línea o separadas por coma. Vacío = solo al trabajador, sin copia a la empresa."}
       </p>
     </div>
   );
@@ -252,6 +272,17 @@ export function OpsEmailsTab({ config, setConfig, saving, onSave }: OpsEmailsTab
                       onChange={(emails) =>
                         setConfig((c) => c && { ...c, alertaFaltaMarcacionEmployerEmails: emails })
                       }
+                    />
+                  )}
+                  {email.id === "alerta_sin_correo_personal" && (
+                    <AlertaEmployerEmailsField
+                      emails={config.alertaSinCorreoPersonalEmployerEmails}
+                      onChange={(emails) =>
+                        setConfig(
+                          (c) => c && { ...c, alertaSinCorreoPersonalEmployerEmails: emails },
+                        )
+                      }
+                      hint="Una dirección por línea o separadas por coma. Vacío = sin correo Resend (la campana sigue avisando)."
                     />
                   )}
                 </div>
