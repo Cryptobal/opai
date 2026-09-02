@@ -33,6 +33,7 @@ import {
 } from '@/lib/surface';
 import { pathToTenantModule } from '@/lib/tenant-module-routes';
 import { TENANT_MODULES_ALL_SENTINEL } from '@/lib/tenant-modules';
+import { isTenantReadOnlyWriteAllowed } from '@/lib/platform/read-only-gate';
 
 type TenantModuleEnforcementMode = 'off' | 'log' | 'on';
 
@@ -413,6 +414,24 @@ export default auth(async (req) => {
     const loginUrl = new URL('/opai/login', req.nextUrl.origin);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return Response.redirect(loginUrl);
+  }
+
+  // Ciclo de vida: modo solo lectura (JWT.accessMode). Sin consultas a BD.
+  // Tokens pre-despliegue (sin accessMode) pasan. GET/HEAD/OPTIONS siempre.
+  const accessMode = (req.auth as { accessMode?: string } | null)?.accessMode;
+  if (accessMode === 'read_only') {
+    const method = req.method;
+    const isWrite = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
+    if (isWrite && pathname.startsWith('/api/') && !isTenantReadOnlyWriteAllowed(pathname)) {
+      return Response.json(
+        {
+          success: false,
+          error: 'Tu empresa está en modo solo lectura. Solicita la activación del plan para operar.',
+          code: 'TENANT_READ_ONLY',
+        },
+        { status: 403 },
+      );
+    }
   }
 
   // Entitlement de plan (TenantModule): tras auth + isPublicPath, antes del RBAC.

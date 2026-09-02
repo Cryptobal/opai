@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { resolveTenantAccess } from "@/lib/platform/tenant-lifecycle";
 
 export interface PortalGuardiaAuthResult {
   guardiaId: string;
@@ -14,7 +15,8 @@ export interface PortalGuardiaAuthResult {
 
 /**
  * Resolves and validates a guardiaId, returning the DB-verified tenantId.
- * Returns null if the guard doesn't exist or is inactive.
+ * Returns null if the guard doesn't exist or the tenant is blocked without
+ * marcación grace.
  */
 export async function requirePortalGuardiaAuth(
   guardiaId: string | null | undefined,
@@ -27,6 +29,15 @@ export async function requirePortalGuardiaAuth(
   });
 
   if (!guardia) return null;
+
+  try {
+    const access = await resolveTenantAccess(guardia.tenantId);
+    if (access.mode === "blocked" && !access.marcacionAllowed) {
+      return null;
+    }
+  } catch (error) {
+    console.warn("[portal-guardia-auth] resolveTenantAccess failed:", error);
+  }
 
   return {
     guardiaId: guardia.id,

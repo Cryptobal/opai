@@ -12,10 +12,9 @@ describe("erpLoginErrorMessage", () => {
     );
   });
 
-  it("mantiene el copy de Google no registrado", () => {
-    expect(erpLoginErrorMessage("google_not_registered")).toBe(
-      "Tu cuenta de Google aún no está registrada en Opai.",
-    );
+  it("mapea tenant suspendido y cancelado", () => {
+    expect(erpLoginErrorMessage("tenant_suspended")).toContain("suspendido");
+    expect(erpLoginErrorMessage("tenant_cancelled")).toContain("cancelada");
   });
 
   it("mapea fallos OAuth de Auth.js", () => {
