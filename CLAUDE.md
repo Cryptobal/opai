@@ -15,7 +15,7 @@ Módulos verificados (rutas en `src/app/(app)` y `src/app/portal`):
 | Hub | `/hub` | Dashboard ejecutivo, KPIs |
 | CRM | `/crm/*` | Leads, cuentas, contactos, negocios, cotizaciones, instalaciones, correo Gmail |
 | CPQ | `/cpq/*` | Cotizaciones con cálculo de costo empleador |
-| Operaciones | `/ops/*` | Puestos, pauta mensual/diaria, asistencia, PPC, turnos extra, rondas, tickets, supervisión, inventario, ATS |
+| Operaciones | `/ops/*` | Puestos, pauta mensual/diaria, asistencia, PPC, turnos extra, rondas, tickets, supervisión, inventario, ATS, cámaras IP |
 | Marcación | `/marcar/[code]` | Marcación RUT+PIN+geolocalización (cumplimiento DT) |
 | Personas | `/personas/*` | Guardias 360, documentos, lista negra, conocimiento |
 | Payroll | `/payroll/*` | Liquidaciones Chile (parcial) |
@@ -129,6 +129,7 @@ AGENTS.md                Ley de navegación (Cluster Nav v4) y design system —
 - **Navegación**: registry único `src/lib/nav/registry.ts` (N1–N4); NUNCA hardcodear items de nav — ver `AGENTS.md` y `docs/NAVIGATION_GUIDE.md`.
 - **Despliegue**: Vercel; `DATABASE_URL` de prod necesita `connection_limit=5&pool_timeout=20`; Sentry opcional vía `NEXT_PUBLIC_SENTRY_DSN`.
 - **Caché**: `No identificado en el repositorio` un caché de aplicación general (Upstash Redis se usa para rate limiting).
+- **Cámaras / relay**: add-on `ops_camaras` (plan enterprise). OPAI no transporta video. Configura streams en go2rtc (`MEDIA_RELAY_URL` + `X-Relay-Admin`) y emite JWT HS256 (`MEDIA_RELAY_JWT_SECRET`, 10 min, claims `tid`/`s`/`uid`). El navegador abre WHEP/MSE en `NEXT_PUBLIC_MEDIA_RELAY_URL` (p.ej. `media.opai.cl`); Caddy valida con `GET /api/ops/camaras/relay/verify` (ruta pública). Credenciales de cámara se cifran con `CAMERA_CREDENTIALS_SECRET`. PTZ es SOAP ONVIF mínimo (sin paquete `onvif`). Código en `src/lib/camaras/`.
 
 ## 7. Sources of truth
 
@@ -142,6 +143,7 @@ AGENTS.md                Ley de navegación (Cluster Nav v4) y design system —
 | Turnos y pautas | Schema `ops` (puestos, pauta mensual/diaria, turnos extra) | `src/lib/ops.ts`, `src/lib/ops-*.ts` |
 | Marcaciones/asistencia | Schema `ops` + `dt` (cumplimiento DT) | `src/lib/marcacion*.ts`, `src/lib/ops-attendance.ts`, `src/lib/dt/` |
 | Rondas | Schema `ops` | `src/lib/rondas/`, `src/app/api/cron/rondas/*` |
+| Cámaras IP | Schema `ops` (`OpsCamara`, `OpsCamaraLayout`) + relay go2rtc | `src/lib/camaras/`, `/ops/camaras`, add-on `ops_camaras` |
 | Incidencias/tickets | Schema `ops` | `src/app/(app)/ops/tickets`, `src/lib/` (SLA crons) |
 | Documentos y firmas | Schema `docs` | `src/lib/docs/`, `src/lib/documents/` |
 | Remuneraciones | Schema `payroll` | `src/lib/payroll/`, `src/modules/payroll/` |
@@ -343,7 +345,7 @@ No declarar una tarea completa sin validación ejecutada y reportada con resulta
 
 ## 27. External services and MCP tools
 
-Integraciones verificadas: Resend (email + webhooks), Google Workspace (Gmail sync/push, Drive, Calendar — tokens OAuth cifrados), Slack (events, commands, interactivity, outbox), SII Chile (DTE, RCV, cesiones), Twilio, Pusher, OpenAI, Cloudflare R2, Upstash Redis, Sentry, Google Maps/Leaflet, Apollo (prospección), web-push. El repo expone además un endpoint MCP propio (`src/app/api/mcp/`).
+Integraciones verificadas: Resend (email + webhooks), Google Workspace (Gmail sync/push, Drive, Calendar — tokens OAuth cifrados), Slack (events, commands, interactivity, outbox), SII Chile (DTE, RCV, cesiones), Twilio, Pusher, OpenAI, Cloudflare R2, Upstash Redis, Sentry, Google Maps/Leaflet, Apollo (prospección), web-push, go2rtc/Caddy (`media.opai.cl`) para cámaras IP. El repo expone además un endpoint MCP propio (`src/app/api/mcp/`).
 
 Usarlas solo cuando la tarea lo requiera; en desarrollo, la mayoría degrada a no-op si faltan las env vars — no inventar credenciales ni activar flags de producción.
 
@@ -406,7 +408,7 @@ Impactos posibles, deuda dejada, seguimiento sugerido.
 | Testing | Vitest 3 (jsdom + node project) + Testing Library; sin E2E | `vitest.config.ts` |
 | Deploy | Vercel; build aplica migraciones; Sentry + Vercel Analytics | `package.json` (`build`), `vercel.json`, `src/instrumentation.ts` |
 | Dev local | `dev:watch` + Docker `pgvector/pgvector:pg16` + `db push` + seed | `AGENTS.md` |
-| Integraciones | Resend, Google Workspace, Slack, SII (DTE/RCV), Twilio, Pusher, OpenAI, Upstash, Apollo, Maps | `src/lib/`, `src/app/api/integrations/` |
+| Integraciones | Resend, Google Workspace, Slack, SII (DTE/RCV), Twilio, Pusher, OpenAI, Upstash, Apollo, Maps, go2rtc (cámaras) | `src/lib/`, `src/app/api/integrations/`, `src/lib/camaras/` |
 | Compliance | Res. Exenta N°38 DT (marcación, inspector_dt), Ley 21.719 (PII, DPA/DPO) | `src/proxy.ts`, `prisma/schema.prisma`, `docs/01-architecture/pii-protection.md` |
 
 No identificado en el repositorio: script npm de formato (Prettier), suite E2E, caché de aplicación general, comando de contenedores para la app (solo Postgres en `docker-compose.dev.yml`).

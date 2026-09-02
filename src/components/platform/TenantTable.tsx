@@ -304,7 +304,7 @@ export function TenantTable({ tenants, onImpersonate, onDelete }: TenantTablePro
                 {/* Módulos */}
                 <td className="px-4 py-3">
                   <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
-                    {t.enabledModules}/37
+                    {t.enabledModules}/38
                   </span>
                 </td>
                 {/* Último login */}

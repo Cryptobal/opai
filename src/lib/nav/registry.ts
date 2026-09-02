@@ -61,6 +61,7 @@ import {
   Smartphone,
   Phone,
   Settings2,
+  Video,
   // Personas
   User,
   GraduationCap,
@@ -804,6 +805,15 @@ export const NAV_MODULES: NavNode[] = [
           { key: "inv-lineas", href: "/ops/inventario/lineas", label: "Líneas", icon: Phone, module: "ops", submodule: "inventario" },
           { key: "inv-config", href: "/ops/inventario/configuracion", label: "Configuración", icon: Settings2, module: "ops", submodule: "inventario", hideInBottomNav: true },
         ],
+      },
+      {
+        key: "ops-camaras",
+        href: "/ops/camaras",
+        label: "Cámaras",
+        icon: Video,
+        module: "ops",
+        submodule: "camaras",
+        tenantModule: "ops_camaras",
       },
     ],
   },

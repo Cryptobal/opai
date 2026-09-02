@@ -81,6 +81,7 @@ const MODULE_LABELS: Record<string, string> = {
   alertas_cobertura: 'Alertas Cobertura', chat: 'Chat', gamificacion: 'Gamificacion',
   protocolos_ia: 'Protocolos IA', reportes_dt: 'Reportes DT', crm: 'CRM',
   cpq: 'CPQ', ops_rondas: 'Rondas', ops_inventario: 'Inventario',
+  ops_camaras: 'Cámaras IP',
   portal_cliente: 'Portal Cliente', payroll: 'Payroll', finanzas: 'Finanzas',
   ats: 'ATS / Reclutamiento', face_id: 'Face ID', ia_operacional: 'IA Operacional',
   control_acceso: 'Control Acceso', fiscalizacion: 'Fiscalizacion',

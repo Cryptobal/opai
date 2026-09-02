@@ -70,6 +70,8 @@ describe("tenant-module-routes", () => {
     expect(pathToTenantModule("/ops/rondas/monitoreo")).toBe("ops_rondas");
     expect(pathToTenantModule("/api/ops/rondas/alertas")).toBe("ops_rondas");
     expect(pathToTenantModule("/ops/inventario/productos")).toBe("ops_inventario");
+    expect(pathToTenantModule("/ops/camaras")).toBe("ops_camaras");
+    expect(pathToTenantModule("/api/ops/camaras")).toBe("ops_camaras");
     expect(pathToTenantModule("/ops/supervision/hallazgos")).toBe("ops_supervision");
     expect(pathToTenantModule("/ops/alertas-cobertura")).toBe("alertas_cobertura");
     expect(pathToTenantModule("/ops/ats")).toBe("ats");

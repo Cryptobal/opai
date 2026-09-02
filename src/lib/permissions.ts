@@ -68,6 +68,7 @@ export const SUBMODULE_KEYS = {
     "tickets",
     "supervision",
     "inventario",
+    "camaras",
     "eventos_laborales",
     "gamificacion",
     "installations",
@@ -152,6 +153,7 @@ export const CAPABILITY_KEYS = [
   "te_pay",
   "manage_settings",
   "rondas_configure",
+  "camaras_configure",
   "rondas_resolve_alerts",
   "monitoreo_cerrar_turno",
   "control_nocturno_approve",
@@ -295,6 +297,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.tickets", module: "ops", submodule: "tickets", label: "Tickets", href: "/ops/tickets" },
   { key: "ops.supervision", module: "ops", submodule: "supervision", label: "Supervisión", href: "/ops/supervision" },
   { key: "ops.inventario", module: "ops", submodule: "inventario", label: "Inventario", href: "/ops/inventario" },
+  { key: "ops.camaras", module: "ops", submodule: "camaras", label: "Cámaras", href: "/ops/camaras" },
   { key: "ops.eventos_laborales", module: "ops", submodule: "eventos_laborales", label: "Eventos laborales", href: "/personas/guardias" },
   { key: "ops.gamificacion", module: "ops", submodule: "gamificacion", label: "Gamificación", href: "/ops/gamificacion" },
   { key: "ops.installations", module: "ops", submodule: "installations", label: "Instalaciones", href: "/crm/installations" },
@@ -373,6 +376,7 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "te_pay", label: "Generar pagos TE", description: "Puede crear lotes de pago de turnos extra", moduleKey: "ops" },
   { key: "manage_settings", label: "Configuración global", description: "Puede modificar configuración general del sistema", moduleKey: "config" },
   { key: "rondas_configure", label: "Configurar rondas", description: "Puede crear/editar checkpoints, plantillas y programación de rondas", moduleKey: "ops", submoduleKey: "rondas" },
+  { key: "camaras_configure", label: "Configurar cámaras", description: "Puede dar de alta, editar credenciales y dar de baja cámaras IP", moduleKey: "ops", submoduleKey: "camaras" },
   { key: "rondas_resolve_alerts", label: "Resolver alertas rondas", description: "Puede marcar como resueltas las alertas de rondas", moduleKey: "ops", submoduleKey: "rondas" },
   { key: "monitoreo_cerrar_turno", label: "Cerrar turno de otro operador", description: "Puede cerrar turnos de monitoreo iniciados por otros usuarios", moduleKey: "ops", submoduleKey: "rondas" },
   { key: "control_nocturno_approve", label: "Aprobar control nocturno", description: "Puede aprobar o rechazar reportes de control nocturno", moduleKey: "ops", submoduleKey: "control_nocturno" },
@@ -589,6 +593,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     capabilities: {
       te_approve: true,
       rondas_configure: true,
+      camaras_configure: true,
       rondas_resolve_alerts: true,
       control_nocturno_approve: true,
       ticket_approve: true,
@@ -622,6 +627,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     capabilities: {
       te_approve: true,
       rondas_configure: true,
+      camaras_configure: true,
       rondas_resolve_alerts: true,
       monitoreo_cerrar_turno: true,
       control_nocturno_approve: true,
@@ -644,6 +650,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "productividad.agenda": "view",
       "productividad.tareas": "view",
       "ops.rondas": "edit",
+      "ops.camaras": "view",
       "ops.supervision": "view",
       "ops.control_nocturno": "view",
       "ops.alertas_cobertura": "edit",
@@ -676,6 +683,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "ops.rondas": "edit",
       "ops.alertas_cobertura": "edit",
       "ops.inventario": "edit",
+      "ops.camaras": "view",
       "finance.rendiciones": "edit",
     },
     capabilities: {
@@ -1183,6 +1191,7 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/incidentes-terreno") || pathname.startsWith("/ops/tickets")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/ops/inventario")) return { module: "ops", submodule: "inventario" };
+  if (pathname.startsWith("/ops/camaras")) return { module: "ops", submodule: "camaras" };
   if (pathname.startsWith("/ops/gamificacion")) return { module: "ops", submodule: "gamificacion" };
   if (pathname.startsWith("/personas/equipo"))
     return { module: "ops", submodule: "guardias" };
@@ -1317,6 +1326,7 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/ops/tickets") || pathname.startsWith("/api/ops/ticket-categories") || pathname.startsWith("/api/ops/report-qrs")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/api/ops/supervision")) return { module: "ops", submodule: "supervision" };
   if (pathname.startsWith("/api/ops/inventario")) return { module: "ops", submodule: "inventario" };
+  if (pathname.startsWith("/api/ops/camaras")) return { module: "ops", submodule: "camaras" };
   if (pathname.startsWith("/api/ops/gamificacion") || pathname.startsWith("/api/gamification")) return { module: "ops", submodule: "gamificacion" };
   if (pathname.startsWith("/api/te/")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/ops/refuerzos")) return { module: "ops", submodule: "turnos_extra" };

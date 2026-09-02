@@ -8,6 +8,7 @@ const ALL_ENABLED = new Set([
   "ops_rondas",
   "ops_supervision",
   "ops_inventario",
+  "ops_camaras",
   "ops_onboarding",
   "alertas_cobertura",
   "ats",
@@ -46,6 +47,7 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/ops/rondas");
     expect(hrefs).toContain("/ops/alertas-cobertura");
     expect(hrefs).toContain("/ops/inventario");
+    expect(hrefs).toContain("/ops/camaras");
     expect(hrefs).toContain("/crm/installations");
     expect(hrefs).toContain("/ops/incidentes-terreno");
     expect(hrefs).toContain("/ops/incidentes-terreno/qr");

@@ -43,6 +43,9 @@ const RESET = "\x1b[0m";
 const MIGRATED_PATHS = [
   "src/components/inventario/",
   "src/app/(app)/ops/inventario/",
+  "src/components/ops/camaras/",
+  "src/app/(app)/ops/camaras/",
+  "src/components/crm/InstalacionCamarasTab.tsx",
   "src/components/opai-ds/",
   // Conocimiento — fase A: page + componentes hojas. _primitives.tsx
   // sigue intacto porque Portal Cliente lo consume; se elimina en fase B.
