@@ -220,6 +220,40 @@ describe("marcarCheckpoint — validación QR y geocerca", () => {
     );
   });
 
+  it("QR/checkpoint ya marcado en la ronda → already_marked", async () => {
+    mocks.findFirstCheckpoint.mockResolvedValue(baseCheckpoint);
+    mocks.transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
+      const tx = {
+        opsMarcacionCheckpoint: {
+          findFirst: vi.fn().mockResolvedValue({ id: "mark-prev", status: "COMPLETED" }),
+          create: vi.fn(),
+          update: vi.fn(),
+          count: vi.fn(),
+          findMany: vi.fn(),
+        },
+        opsRondaCheckpoint: { count: vi.fn() },
+        opsRondaEjecucion: { update: vi.fn() },
+        opsCheckpointTaskResponse: { createMany: vi.fn() },
+        opsAlertaRonda: { findMany: vi.fn(), create: vi.fn() },
+      };
+      return fn(tx);
+    });
+
+    await expect(
+      marcarCheckpoint({
+        ejecucionId: "ej-1",
+        checkpointId: "cp-1",
+        checkpointQrCode: "QR-ABC123",
+        lat: -33.45,
+        lng: -70.66,
+        guardiaId: "guard-1",
+      }),
+    ).rejects.toMatchObject({
+      code: "already_marked",
+      message: "Checkpoint ya marcado en esta ronda",
+    });
+  });
+
   it("punto GEOFENCE fuera de radio → GEO_NO_VERIFICADA", async () => {
     mocks.findFirstCheckpoint.mockResolvedValue({
       ...baseCheckpoint,
