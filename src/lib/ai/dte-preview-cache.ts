@@ -12,7 +12,8 @@ export type DtePreviewToolName =
   | "create_debit_note_draft"
   | "create_recurring_invoice"
   | "update_invoice_draft_refs"
-  | "update_recurring_invoice_refs";
+  | "update_recurring_invoice_refs"
+  | "emit_invoice_draft";
 
 export type CpqPersistToolName =
   | "update_quote_position"

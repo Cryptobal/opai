@@ -1,17 +1,32 @@
 /**
  * Tools del help-chat para borradores de facturación en Programación
- * (FinanceDte DRAFT) y plantillas recurrentes: buscar y actualizar
- * referencias adicionales (HES / OC / etc.).
+ * (FinanceDte DRAFT) y plantillas recurrentes: buscar, actualizar
+ * referencias adicionales (HES / OC / etc.) y emitir al SII.
+ *
+ * Emitir reutiliza `issueDraftDte` (el mismo path que
+ * POST /api/finance/billing/drafts/[id]/issue): timbre SII + email
+ * automático PDF+XML al receptor. No hay un camino paralelo.
  */
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { storePreview, consumePreview } from "@/lib/ai/dte-preview-cache";
+import { formatDateOnlyUtcYmd, todayChileStr } from "@/lib/fx-date";
 import {
+  hasCapability,
   hasFacturacionCapability,
   type RolePermissions,
 } from "@/lib/permissions";
-import type { DraftAdditionalReference } from "@/modules/finance/billing/dte-draft.service";
+import {
+  issueDraftDte,
+  type DraftAdditionalReference,
+} from "@/modules/finance/billing/dte-draft.service";
+import {
+  AnchoredIssueDateError,
+  FutureIssueDateError,
+} from "@/modules/finance/billing/dte-issuer.service";
+import { isTemplateLinkRequiredError } from "@/modules/finance/billing/template-link-error-response";
+import { enrichDteEmailRecipientsFromCrm } from "@/modules/finance/billing/dte-xml-compliance";
 
 export type BillingRefInput = {
   tipoDocRef: string;
@@ -183,7 +198,7 @@ export function billingDraftReadToolDefinitions() {
       function: {
         name: "search_invoice_drafts",
         description:
-          "Busca BORRADORES de factura pendientes en Finanzas → Facturación → Programación (siiStatus=DRAFT). Úsala cuando el usuario diga 'borrador programado', 'borrador pendiente', 'programación', 'Polpaico del bosque', etc. NO confundir con cotizaciones CPQ (search_quotes). Busca por cliente, instalación, nombre de plantilla recurrente, RUT o monto. Devuelve id, cliente, instalación, plantilla, montos y referencias HES/OC actuales.",
+          "Busca BORRADORES de factura pendientes en Finanzas → Facturación → Programación (siiStatus=DRAFT). Úsala cuando el usuario diga 'borrador programado', 'borrador pendiente', 'programación', 'Polpaico del bosque', etc. NO confundir con cotizaciones CPQ (search_quotes). Busca por cliente, instalación, nombre de plantilla recurrente, RUT o monto. Devuelve id, cliente, instalación, plantilla, montos y referencias HES/OC actuales. Para TIMBRAR/EMITIR al SII usá preview_emit_invoice_draft → emit_invoice_draft (no abras /emitir en el browser).",
         parameters: {
           type: "object",
           properties: {
@@ -323,6 +338,69 @@ export function billingDraftWriteToolDefinitions() {
             },
             mode: { type: "string", enum: ["merge", "replace"] },
           },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_emit_invoice_draft",
+        description:
+          "PASO 1. Previsualiza la EMISIÓN al SII de un BORRADOR ya existente de Programación (mismo path que Finanzas → Facturación → Emitir con draftId). NO timbra, NO persiste, NO envía mail. Devuelve receptor, instalación, montos, refs OC/HES, tipo DTE, período, a quién se enviará el email (PDF+XML) y previewToken (5 min). Después de mostrar el resumen y que el usuario confirme, llamá emit_invoice_draft.",
+        parameters: {
+          type: "object",
+          properties: {
+            draftId: {
+              type: "string",
+              description: "UUID del borrador (de search_invoice_drafts).",
+            },
+            forceIssueDateToToday: {
+              type: "boolean",
+              description:
+                "Si la fecha del borrador es futura o de semana sellada/pasada: emitir con hoy (recomendado, igual que el diálogo de la UI).",
+            },
+            allowFutureDate: {
+              type: "boolean",
+              description: "Mantener fecha futura del borrador (confirmación explícita).",
+            },
+            allowAnchoredDate: {
+              type: "boolean",
+              description:
+                "Mantener fecha en semana sellada/pasada del flujo (confirmación explícita).",
+            },
+          },
+          required: ["draftId"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "emit_invoice_draft",
+        description:
+          "PASO 2 (tras preview_emit_invoice_draft Y confirmación del usuario). Emite el borrador al SII (timbre DTE) y envía al cliente el email con PDF+XML, igual que el botón Emitir de la UI (POST /api/finance/billing/drafts/[id]/issue → issueDraftDte). REQUIERE confirm=true y previewToken. NUNCA llamar sin preview. Pasa los mismos args del preview (draftId y flags de fecha si aplica).",
+        parameters: {
+          type: "object",
+          properties: {
+            previewToken: {
+              type: "string",
+              description: "Token de preview_emit_invoice_draft (obligatorio, 5 min).",
+            },
+            confirm: {
+              type: "boolean",
+              description: "Debe ser true. Sin esto no se emite.",
+            },
+            draftId: {
+              type: "string",
+              description: "UUID del mismo borrador del preview.",
+            },
+            forceIssueDateToToday: { type: "boolean" },
+            allowFutureDate: { type: "boolean" },
+            allowAnchoredDate: { type: "boolean" },
+          },
+          required: ["confirm", "previewToken", "draftId"],
           additionalProperties: false,
         },
       },
@@ -1261,5 +1339,487 @@ export async function toolUpdateRecurringInvoiceRefs(
       startedAt: t0,
     });
     return { ok: false, error: `No pude actualizar la plantilla: ${msg}` };
+  }
+}
+
+// ── Emitir borrador (mismo path que la UI) ─────────────────────────────────
+
+/** Mismo gate que POST /api/finance/billing/drafts/[id]/issue. */
+function canIssueDraftLikeUi(perms: RolePermissions): boolean {
+  return (
+    hasFacturacionCapability(perms, "facturacion_issue") ||
+    hasFacturacionCapability(perms, "facturacion_credit_note")
+  );
+}
+
+function parseDateGuardFlags(args: Record<string, unknown>) {
+  return {
+    forceIssueDateToToday: args.forceIssueDateToToday === true,
+    allowFutureDate: args.allowFutureDate === true,
+    allowAnchoredDate: args.allowAnchoredDate === true,
+  };
+}
+
+const DRAFT_EMIT_SELECT = {
+  id: true,
+  date: true,
+  dueDate: true,
+  dteType: true,
+  receiverName: true,
+  receiverRut: true,
+  receiverEmail: true,
+  receiverEmailCc: true,
+  netAmount: true,
+  taxAmount: true,
+  totalAmount: true,
+  currency: true,
+  additionalReferences: true,
+  crmAccountId: true,
+  installationId: true,
+  recurringTemplateId: true,
+  billingPeriod: true,
+} as const;
+
+type DraftForEmit = {
+  id: string;
+  date: Date;
+  dueDate: Date | null;
+  dteType: number;
+  receiverName: string | null;
+  receiverRut: string | null;
+  receiverEmail: string | null;
+  receiverEmailCc: string[];
+  netAmount: { toNumber?: () => number } | number;
+  taxAmount: { toNumber?: () => number } | number;
+  totalAmount: { toNumber?: () => number } | number;
+  currency: string;
+  additionalReferences: unknown;
+  crmAccountId: string | null;
+  installationId: string | null;
+  recurringTemplateId: string | null;
+  billingPeriod: string | null;
+};
+
+function money(v: { toNumber?: () => number } | number | null | undefined): number {
+  if (v == null) return 0;
+  if (typeof v === "number") return v;
+  if (typeof v.toNumber === "function") return v.toNumber();
+  return Number(v);
+}
+
+async function loadDraftForEmit(tenantId: string, draftId: string) {
+  return prisma.financeDte.findFirst({
+    where: { id: draftId, tenantId, siiStatus: "DRAFT" },
+    select: DRAFT_EMIT_SELECT,
+  });
+}
+
+async function resolveAutoSendEmail(
+  tenantId: string,
+  draftId: string,
+): Promise<boolean | undefined> {
+  const lastRun = await prisma.financeDteRecurringRun.findFirst({
+    where: { tenantId, dteId: draftId, status: "success" },
+    orderBy: { ranAt: "desc" },
+    select: { template: { select: { autoSendEmail: true } } },
+  });
+  return lastRun?.template?.autoSendEmail;
+}
+
+async function decorateDraftContext(
+  tenantId: string,
+  draft: DraftForEmit,
+) {
+  const refs = Array.isArray(draft.additionalReferences)
+    ? (draft.additionalReferences as DraftAdditionalReference[])
+    : [];
+  const [tpl, inst, acc, routed] = await Promise.all([
+    draft.recurringTemplateId
+      ? prisma.financeDteRecurringTemplate.findFirst({
+          where: { id: draft.recurringTemplateId, tenantId },
+          select: { name: true },
+        })
+      : null,
+    draft.installationId
+      ? prisma.crmInstallation.findFirst({
+          where: { id: draft.installationId, tenantId },
+          select: { name: true },
+        })
+      : null,
+    draft.crmAccountId
+      ? prisma.crmAccount.findFirst({
+          where: { id: draft.crmAccountId, tenantId },
+          select: { name: true },
+        })
+      : null,
+    enrichDteEmailRecipientsFromCrm({
+      tenantId,
+      crmAccountId: draft.crmAccountId,
+      currentTo: draft.receiverEmail,
+      currentCc: draft.receiverEmailCc,
+    }),
+  ]);
+  const displayName =
+    tpl?.name ||
+    [acc?.name, inst?.name].filter(Boolean).join(" — ") ||
+    draft.receiverName ||
+    "Borrador";
+  return {
+    refs,
+    refsLabel: formatRefsLabel(
+      refs.map((r) => ({
+        tipoDocRef: String(r.tipoDocRef),
+        folioRef: String(r.folioRef ?? ""),
+        fchRef: String(r.fchRef ?? ""),
+        razonRef: String(r.razonRef ?? ""),
+      })),
+    ),
+    templateName: tpl?.name ?? null,
+    installationName: inst?.name ?? null,
+    accountName: acc?.name ?? null,
+    displayName,
+    emailTo: routed.to ?? null,
+    emailCc: routed.cc,
+  };
+}
+
+export async function toolPreviewEmitInvoiceDraft(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canIssueDraftLikeUi(perms)) {
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "preview_emit_invoice_draft",
+      args,
+      status: "denied",
+      errorMessage: "Sin permiso facturacion_issue",
+      startedAt: t0,
+    });
+    return { ok: false, error: "No tienes permiso para emitir DTE." };
+  }
+
+  const draftId = typeof args.draftId === "string" ? args.draftId.trim() : "";
+  if (!draftId) return { ok: false, error: "Falta draftId." };
+
+  const draft = (await loadDraftForEmit(tenantId, draftId)) as DraftForEmit | null;
+  if (!draft) {
+    return {
+      ok: false,
+      error: "Borrador no encontrado o ya emitido. Usa search_invoice_drafts para obtener el id correcto.",
+    };
+  }
+
+  const dateFlags = parseDateGuardFlags(args);
+  const ctx = await decorateDraftContext(tenantId, draft);
+  const autoSendEmail = await resolveAutoSendEmail(tenantId, draft.id);
+  const willAutoSend = autoSendEmail !== false;
+  const hasRecipient =
+    !!ctx.emailTo?.trim() || ctx.emailCc.some((e) => typeof e === "string" && e.trim());
+  const emailWillSend = willAutoSend && hasRecipient;
+  let emailSkipReason: string | null = null;
+  if (!willAutoSend) {
+    emailSkipReason = "Auto-envío de email desactivado en la plantilla recurrente.";
+  } else if (!hasRecipient) {
+    emailSkipReason =
+      "El receptor no tiene email: el DTE se emitiría igual, pero no se enviaría PDF+XML.";
+  }
+
+  const issueDate = formatDateOnlyUtcYmd(draft.date);
+  const todayYmdCl = todayChileStr();
+  const dateConflict =
+    issueDate > todayYmdCl
+      ? {
+          code: "FUTURE_ISSUE_DATE" as const,
+          issueDate,
+          todayYmd: todayYmdCl,
+          recommended: "forceIssueDateToToday" as const,
+          resolved: dateFlags.forceIssueDateToToday || dateFlags.allowFutureDate,
+        }
+      : null;
+
+  const previewToken = storePreview({
+    tenantId,
+    userId,
+    toolName: "emit_invoice_draft",
+    args: { draftId: draft.id, ...dateFlags },
+    computed: {
+      displayName: ctx.displayName,
+      receiverName: draft.receiverName,
+      totalAmount: money(draft.totalAmount),
+      emailWillSend,
+    },
+  });
+
+  await logAiAction({
+    tenantId,
+    userId,
+    toolName: "preview_emit_invoice_draft",
+    args,
+    status: "success",
+    resultEntityId: draft.id,
+    resultEntityType: "finance_dte_draft",
+    startedAt: t0,
+  });
+
+  return {
+    ok: true,
+    data: {
+      previewToken,
+      requiresConfirmation: true,
+      draftId: draft.id,
+      displayName: ctx.displayName,
+      dteType: draft.dteType,
+      dteTypeLabel: dteTypeLabel(draft.dteType),
+      issueDate,
+      dueDate: draft.dueDate ? formatDateOnlyUtcYmd(draft.dueDate) : null,
+      billingPeriod: draft.billingPeriod,
+      receiverName: draft.receiverName,
+      receiverRut: draft.receiverRut,
+      accountName: ctx.accountName,
+      installationName: ctx.installationName,
+      templateName: ctx.templateName,
+      netAmount: money(draft.netAmount),
+      taxAmount: money(draft.taxAmount),
+      totalAmount: money(draft.totalAmount),
+      currency: draft.currency,
+      additionalReferences: ctx.refs,
+      refsLabel: ctx.refsLabel,
+      emailWillSend,
+      emailSkipReason,
+      emailTo: ctx.emailTo,
+      emailCc: ctx.emailCc,
+      emailAttachments: ["PDF", "XML"],
+      dateConflict,
+      forceIssueDateToToday: dateFlags.forceIssueDateToToday,
+      allowFutureDate: dateFlags.allowFutureDate,
+      allowAnchoredDate: dateFlags.allowAnchoredDate,
+      validUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      url: `/finanzas/facturacion/emitir?draftId=${draft.id}`,
+      instruction:
+        "Mostrá card violeta 'Pendiente confirmación' con receptor, montos, refs y a quién se envía el mail (PDF+XML). " +
+        "Si hay dateConflict sin resolved, advertí la fecha y pedí si emitir con hoy (forceIssueDateToToday) o mantenerla. " +
+        "Tras OK del usuario llamá emit_invoice_draft con confirm=true, previewToken y los mismos args. " +
+        "Esto timbra en el SII — no lo hagas sin confirmación explícita.",
+    },
+  };
+}
+
+export async function toolEmitInvoiceDraft(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canIssueDraftLikeUi(perms)) {
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "emit_invoice_draft",
+      args,
+      status: "denied",
+      errorMessage: "Sin permiso facturacion_issue",
+      startedAt: t0,
+    });
+    return { ok: false, error: "No tienes permiso para emitir DTE." };
+  }
+
+  if (args.confirm !== true) {
+    return {
+      ok: false,
+      error:
+        "Esta acción requiere confirmación. Llama primero preview_emit_invoice_draft, " +
+        "muestra el resumen al usuario y, solo si confirma, vuelve a llamar emit_invoice_draft " +
+        "con confirm=true y el previewToken.",
+    };
+  }
+
+  const token = typeof args.previewToken === "string" ? args.previewToken.trim() : "";
+  if (!token) {
+    return {
+      ok: false,
+      error: "Falta previewToken. Llama primero preview_emit_invoice_draft.",
+    };
+  }
+
+  const cached = consumePreview(token, tenantId, userId, "emit_invoice_draft");
+  if (!cached) {
+    return {
+      ok: false,
+      error:
+        "El previewToken no existe o expiró (5 min). Vuelve a llamar preview_emit_invoice_draft.",
+    };
+  }
+
+  const cachedDraftId =
+    typeof cached.args.draftId === "string" ? cached.args.draftId.trim() : "";
+  const argDraftId = typeof args.draftId === "string" ? args.draftId.trim() : "";
+  if (argDraftId && cachedDraftId && argDraftId !== cachedDraftId) {
+    return {
+      ok: false,
+      error:
+        "draftId no coincide con el preview. Vuelve a llamar preview_emit_invoice_draft para ese borrador.",
+    };
+  }
+  const draftId = cachedDraftId || argDraftId;
+  if (!draftId) {
+    return { ok: false, error: "Falta draftId." };
+  }
+
+  const dateFlags = {
+    ...parseDateGuardFlags(cached.args),
+    ...Object.fromEntries(
+      Object.entries(parseDateGuardFlags(args)).filter(([, v]) => v),
+    ),
+  };
+
+  try {
+    const issued = (await issueDraftDte(tenantId, draftId, userId, {
+      forceIssueDateToToday: dateFlags.forceIssueDateToToday,
+      allowFutureDate: dateFlags.allowFutureDate,
+      allowAnchoredDate: dateFlags.allowAnchoredDate,
+      canExcludeFromFlow: hasCapability(perms, "cashflow_manage"),
+    })) as {
+      id: string;
+      folio: number | null;
+      dteType: number;
+      receiverName: string;
+      receiverRut: string;
+      totalAmount: unknown;
+      netAmount: unknown;
+      currency: string;
+      emailStatus?: "sent" | "failed" | "no_receiver" | "skipped";
+      emailError?: string | null;
+      needsTemplateLink?: boolean;
+    };
+
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "emit_invoice_draft",
+      args,
+      status: "success",
+      resultEntityId: issued.id,
+      resultEntityType: "finance_dte",
+      startedAt: t0,
+    });
+
+    const folio = issued.folio ?? null;
+    const emailStatus = issued.emailStatus ?? null;
+    const emailError = issued.emailError ?? null;
+
+    return {
+      ok: true,
+      data: {
+        id: issued.id,
+        folio,
+        dteType: issued.dteType,
+        receiverName: issued.receiverName,
+        receiverRut: issued.receiverRut,
+        totalAmount: money(issued.totalAmount as { toNumber?: () => number } | number),
+        netAmount: money(issued.netAmount as { toNumber?: () => number } | number),
+        currency: issued.currency,
+        emailStatus,
+        emailError,
+        needsTemplateLink: issued.needsTemplateLink ?? false,
+        url: `/finanzas/facturacion/dtes?focus=${issued.id}`,
+        card: {
+          title: folio != null ? `F°${folio}` : issued.receiverName,
+          subtitle: `${issued.receiverName} · ${issued.receiverRut}`,
+          meta:
+            emailStatus === "sent"
+              ? "Emitida y enviada por email (PDF+XML)"
+              : emailStatus === "skipped"
+                ? "Emitida — auto-envío desactivado"
+                : emailStatus === "no_receiver"
+                  ? "Emitida — receptor sin email"
+                  : emailStatus === "failed"
+                    ? `Emitida — falló el email: ${emailError ?? "error"}`
+                    : "Emitida al SII",
+          badge: "Emitida",
+          badgeColor: "green",
+          action: {
+            type: "navigate",
+            url: `/finanzas/facturacion/dtes?focus=${issued.id}`,
+          },
+        },
+      },
+    };
+  } catch (e) {
+    if (e instanceof FutureIssueDateError) {
+      await logAiAction({
+        tenantId,
+        userId,
+        toolName: "emit_invoice_draft",
+        args,
+        status: "validation_error",
+        errorMessage: e.message,
+        startedAt: t0,
+      });
+      return {
+        ok: false,
+        error: e.message,
+        code: e.code,
+        issueDate: e.issueDate,
+        todayYmd: e.todayYmd,
+        instruction:
+          "No se emitió (el SII no recibió nada). Volvé a preview_emit_invoice_draft y luego emit_invoice_draft con confirm=true, previewToken y forceIssueDateToToday=true (recomendado) o allowFutureDate=true.",
+      };
+    }
+    if (e instanceof AnchoredIssueDateError) {
+      await logAiAction({
+        tenantId,
+        userId,
+        toolName: "emit_invoice_draft",
+        args,
+        status: "validation_error",
+        errorMessage: e.message,
+        startedAt: t0,
+      });
+      return {
+        ok: false,
+        error: e.message,
+        code: e.code,
+        issueDate: e.issueDate,
+        todayYmd: e.todayYmd,
+        weekLabel: e.weekLabel,
+        reason: e.reason,
+        instruction:
+          "No se emitió. Volvé a preview_emit_invoice_draft y luego emit_invoice_draft con confirm=true, previewToken y forceIssueDateToToday=true (recomendado) o allowAnchoredDate=true.",
+      };
+    }
+    if (isTemplateLinkRequiredError(e)) {
+      await logAiAction({
+        tenantId,
+        userId,
+        toolName: "emit_invoice_draft",
+        args,
+        status: "validation_error",
+        errorMessage: e.message,
+        startedAt: t0,
+      });
+      return {
+        ok: false,
+        error: e.message,
+        code: e.code,
+        options: e.options,
+      };
+    }
+    const msg = e instanceof Error ? e.message : "Error interno";
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "emit_invoice_draft",
+      args,
+      status: "internal_error",
+      errorMessage: msg,
+      startedAt: t0,
+    });
+    return { ok: false, error: `No pude emitir el borrador: ${msg}` };
   }
 }

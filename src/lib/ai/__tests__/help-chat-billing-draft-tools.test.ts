@@ -86,6 +86,11 @@ describe("tool wiring", () => {
     expect(names.has("update_invoice_draft_refs")).toBe(true);
     expect(names.has("preview_update_recurring_invoice_refs")).toBe(true);
     expect(names.has("update_recurring_invoice_refs")).toBe(true);
+    expect(names.has("preview_emit_invoice_draft")).toBe(true);
+    expect(names.has("emit_invoice_draft")).toBe(true);
+    expect(getToolDefinitionsV2(true, false).some((d) => d.function.name === "emit_invoice_draft")).toBe(
+      false,
+    );
   });
 
   it("mapea preview → confirm y marca writes", () => {
@@ -95,9 +100,14 @@ describe("tool wiring", () => {
     expect(PREVIEW_TO_CONFIRM.preview_update_recurring_invoice_refs?.confirmToolName).toBe(
       "update_recurring_invoice_refs",
     );
+    expect(PREVIEW_TO_CONFIRM.preview_emit_invoice_draft?.confirmToolName).toBe(
+      "emit_invoice_draft",
+    );
     expect(WRITE_TOOL_NAMES.has("update_invoice_draft_refs")).toBe(true);
     expect(WRITE_TOOL_NAMES.has("update_recurring_invoice_refs")).toBe(true);
+    expect(WRITE_TOOL_NAMES.has("emit_invoice_draft")).toBe(true);
     expect(WRITE_TOOL_NAMES.has("preview_update_invoice_draft_refs")).toBe(false);
+    expect(WRITE_TOOL_NAMES.has("preview_emit_invoice_draft")).toBe(false);
     expect(WRITE_TOOL_NAMES.has("search_invoice_drafts")).toBe(false);
   });
 
@@ -111,6 +121,8 @@ describe("tool wiring", () => {
       "update_invoice_draft_refs",
       "preview_update_recurring_invoice_refs",
       "update_recurring_invoice_refs",
+      "preview_emit_invoice_draft",
+      "emit_invoice_draft",
     ]);
   });
 });

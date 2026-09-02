@@ -26,7 +26,7 @@ Cada tenant genera **API keys** desde el panel anterior. La key resuelve el **te
 | Scope efectivo | Tools en `tools/list` |
 | --- | --- |
 | `READ` | **60** (solo lectura; incluye `search_leads` / `get_lead`) |
-| `READ_WRITE` + `allowWrites` | **141** (60 lectura + 81 escritura; incluye deletes comerciales y approve/reject lead) |
+| `READ_WRITE` + `allowWrites` | **143** (60 lectura + 83 escritura; incluye emitir borrador DTE y deletes comerciales) |
 
 ## Autenticación
 
@@ -240,13 +240,14 @@ Leyenda: **R** = lectura (scope READ), **W** = escritura (requiere READ_WRITE + 
 
 **Gap factoring 1 depósito→N facturas:** no hay endpoint dedicado MCP; existe link `FACTORING_OPERATION` vía UI/API de links y `bulk-reconcile-dte(s)` para DTEs. Cesión masiva sigue en UI Factoring. **Gap RCV / conciliación de período:** sin tools MCP.
 
-### Finanzas — facturación / DTE borradores (2 R, 14 W)
+### Finanzas — facturación / DTE borradores (2 R, 16 W)
 
 | Tool | R/W | Guard |
 | --- | --- | --- |
 | `search_invoice_drafts`, `search_recurring_invoices` | R | `hasFacturacionCapability` |
 | `preview_*` / `create_invoice_draft`, NC, ND, recurrente | W | Facturación + preview tokens |
 | `preview_update_invoice_draft_refs`, `update_invoice_draft_refs`, refs recurrente | W | HES/OC en programación |
+| `preview_emit_invoice_draft` → `emit_invoice_draft` | W | `facturacion_issue` o `facturacion_credit_note` — timbra SII + email PDF/XML (mismo path que la UI; exige previewToken + `confirm=true`) |
 | `create_factoring_company` | W | `facturacion_configure` |
 
 **Gap Cesiones:** lectura de operaciones de factoring en `get_dte_detail`; no hay tools de cesión DTE ni listado "solo no cedidos".

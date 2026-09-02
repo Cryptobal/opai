@@ -63,6 +63,20 @@ describe("denyFinancialToolIfUnauthorized", () => {
     expect(FINANCIAL_TOOL_PREFIXES.some((p) => p === "get_finance")).toBe(true);
   });
 
+  it("emit_invoice_draft exige capability de emisión y no queda unregistered", () => {
+    expect(FINANCIAL_TOOL_GUARDS.preview_emit_invoice_draft).toEqual([
+      "facturacion_issue",
+      "facturacion_credit_note",
+    ]);
+    expect(FINANCIAL_TOOL_GUARDS.emit_invoice_draft).toEqual([
+      "facturacion_issue",
+      "facturacion_credit_note",
+    ]);
+    expect(denyFinancialToolIfUnauthorized("emit_invoice_draft", SUPERVISOR)).not.toBeNull();
+    expect(denyFinancialToolIfUnauthorized("preview_emit_invoice_draft", ADMIN)).toBeNull();
+    expect(denyFinancialToolIfUnauthorized("emit_invoice_draft", ADMIN)).toBeNull();
+  });
+
   it("admin sintético sin purchases_view no pasa el gate (capa extra al lock)", () => {
     const stripped: RolePermissions = {
       ...ADMIN,
