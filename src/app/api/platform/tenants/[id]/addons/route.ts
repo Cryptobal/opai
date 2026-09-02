@@ -3,6 +3,7 @@ import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 import { clearTenantModuleCache, getCatalogIncludedModules } from '@/lib/tenant-modules';
 import { logPlatformAction, platformActor } from '@/lib/platform/audit';
+import { isTenantModuleKey } from '@/lib/modules/registry';
 
 export async function GET(
   _request: NextRequest,
@@ -174,9 +175,9 @@ export async function DELETE(
       ? await getCatalogIncludedModules(tenantPlan.plan)
       : [];
 
-    if (planModules.includes(addon.moduleKey)) {
+    if (isTenantModuleKey(addon.moduleKey) && planModules.includes(addon.moduleKey)) {
       moduleKept = true;
-    } else {
+    } else if (isTenantModuleKey(addon.moduleKey)) {
       const tenantModule = await prisma.tenantModule.findUnique({
         where: { tenantId_module: { tenantId: id, module: addon.moduleKey } },
       });

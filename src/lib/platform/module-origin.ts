@@ -1,4 +1,4 @@
-import { MODULE_REGISTRY, getModuleDef, type TenantModuleKey } from "@/lib/modules/registry";
+import { MODULE_REGISTRY, getModuleDef, moduleIsBeta, type TenantModuleKey } from "@/lib/modules/registry";
 
 export type ModuleOrigin = "plan" | "addon" | "manual";
 
@@ -33,7 +33,7 @@ export function buildTenantModuleRows(input: {
       key: def.key,
       label: def.label,
       category: def.category,
-      beta: Boolean(def.beta),
+      beta: moduleIsBeta(def),
       enabled: on,
       origin,
       manualOverride: on !== expectedOn,
@@ -49,7 +49,7 @@ export function originLabel(origin: ModuleOrigin): string {
 
 export function isBetaBlockedForPlan(moduleKey: string, planSlug: string): boolean {
   const def = getModuleDef(moduleKey);
-  if (!def?.beta) return false;
+  if (!moduleIsBeta(def)) return false;
   const slug = planSlug.toLowerCase();
   return slug === "starter" || slug === "profesional" || slug === "free";
 }

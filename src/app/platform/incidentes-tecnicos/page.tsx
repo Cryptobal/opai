@@ -54,16 +54,16 @@ export default function PlatformIncidentesPage() {
   return (
     <div className="space-y-6 p-6">
       <h1 className="text-xl font-semibold">Incidentes técnicos (Art. 27 f)</h1>
-      <div className="grid gap-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-lg border border-ds-border-default bg-ds-surface-1 p-4 sm:grid-cols-2">
         <textarea
-          className="min-h-24 rounded border border-gray-300 p-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+          className="min-h-24 rounded border border-ds-border-default p-2 text-sm border-ds-border-default bg-ds-surface-2"
           placeholder="Descripción"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
         <div className="space-y-2">
           <select
-            className="h-10 w-full rounded border border-gray-300 px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+            className="h-10 w-full rounded border border-ds-border-default px-2 text-sm border-ds-border-default bg-ds-surface-2"
             value={severity}
             onChange={(e) => setSeverity(e.target.value)}
           >
@@ -77,7 +77,7 @@ export default function PlatformIncidentesPage() {
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="overflow-x-auto rounded-lg border border-ds-border-default bg-ds-surface-1">
         <table className="w-full text-left text-sm">
           <thead>
             <tr>
@@ -88,7 +88,7 @@ export default function PlatformIncidentesPage() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t border-gray-100 dark:border-gray-800">
+              <tr key={r.id} className="border-t border-ds-border-subtle border-ds-border-subtle">
                 <td className="px-3 py-2">{r.startedAt}</td>
                 <td className="px-3 py-2">{r.endedAt || '—'}</td>
                 <td className="px-3 py-2">{r.severity}</td>

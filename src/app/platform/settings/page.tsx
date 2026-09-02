@@ -22,10 +22,10 @@ export default function PlatformSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+        <h1 className="font-display text-2xl text-ds-text-1">
           Configuración Plataforma
         </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-ds-text-3">
           Ajustes globales de OPAI que afectan a toda la plataforma.
         </p>
       </div>
@@ -36,13 +36,13 @@ export default function PlatformSettingsPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-gray-400 dark:hover:border-gray-600 transition-colors"
+              className="rounded-xl border border-ds-border-default bg-ds-surface-1 p-5 transition-colors hover:border-ds-border-strong"
             >
-              <Icon className="h-5 w-5 text-gray-500 mb-3" />
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <Icon className="h-5 w-5 text-ds-text-3 mb-3" />
+              <h3 className="text-sm font-semibold text-ds-text-1">
                 {item.title}
               </h3>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-ds-text-3">
                 {item.description}
               </p>
             </Link>

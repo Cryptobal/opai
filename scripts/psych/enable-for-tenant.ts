@@ -2,7 +2,7 @@
  * Habilita el módulo `psych` para un tenant específico.
  *
  * También hace upsert del addon en AddonCatalog para que aparezca en
- * `TenantAddonsSection` (UI de /platform/tenants/[id]).
+ * la ficha de tenant (`/platform/tenants/[id]?tab=plan`).
  *
  * Uso:
  *   TENANT_ID=clgard00000000000000001 npx tsx scripts/psych/enable-for-tenant.ts

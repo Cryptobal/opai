@@ -111,6 +111,12 @@ export function getModuleDef(key: string): (typeof MODULE_REGISTRY)[number] | un
   return BY_KEY.get(key);
 }
 
+export function moduleIsBeta(
+  def: { beta?: boolean } | (typeof MODULE_REGISTRY)[number] | undefined,
+): boolean {
+  return Boolean(def && "beta" in def && def.beta);
+}
+
 export function isTenantModuleKey(key: string): key is TenantModuleKey {
   return BY_KEY.has(key);
 }

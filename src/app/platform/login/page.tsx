@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { usePlatform } from '@/lib/capacitor/usePlatform';
 
 export default function PlatformLoginPage() {
-  const router = useRouter();
   const { isIOS, isNative } = usePlatform();
   // App Store guideline 4.8: no third-party login without Sign in with Apple.
   const showGoogle = !(isIOS && isNative);
@@ -65,7 +63,7 @@ export default function PlatformLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a1628]">
+    <div className="flex min-h-dvh items-center justify-center bg-ds-surface-0">
       <div className="w-full max-w-sm px-4">
         {/* Logo */}
         <div className="mb-8 text-center">
@@ -80,8 +78,7 @@ export default function PlatformLoginPage() {
           <p className="text-sm text-status-info-fg">Platform Admin</p>
         </div>
 
-        {/* Form card — always light regardless of theme */}
-        <div className="rounded-xl bg-white p-6 shadow-lg">
+        <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-6">
           {showGoogle ? (
             <>
               {/* Google Login Button — hidden on iOS native (App Store 4.8) */}
@@ -89,7 +86,7 @@ export default function PlatformLoginPage() {
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={googleLoading}
-                className="mb-4 flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                className="mb-4 flex w-full items-center justify-center gap-3 rounded-lg border border-ds-border-default bg-ds-surface-2 px-4 py-2.5 text-sm font-medium text-ds-text-1 transition-colors hover:bg-ds-surface-3 disabled:opacity-50"
               >
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                   <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -102,10 +99,10 @@ export default function PlatformLoginPage() {
 
               <div className="relative mb-4">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200" />
+                  <div className="w-full border-t border-ds-border-subtle" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="bg-white px-2 text-gray-500">o</span>
+                  <span className="bg-ds-surface-1 px-2 text-ds-text-4">o</span>
                 </div>
               </div>
             </>
@@ -114,7 +111,7 @@ export default function PlatformLoginPage() {
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div>
-                <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="mb-1 block text-sm font-medium text-ds-text-2">
                   Email
                 </label>
                 <input
@@ -122,13 +119,13 @@ export default function PlatformLoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-status-info-border focus:ring-1 focus:ring-status-info"
+                  className="w-full rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 outline-none focus:border-status-info-border focus:ring-1 focus:ring-status-info"
                   placeholder="admin@opai.cl"
                   required
                 />
               </div>
               <div>
-                <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
+                <label htmlFor="password" className="mb-1 block text-sm font-medium text-ds-text-2">
                   Contraseña
                 </label>
                 <input
@@ -136,7 +133,7 @@ export default function PlatformLoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-status-info-border focus:ring-1 focus:ring-status-info"
+                  className="w-full rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-sm text-ds-text-1 outline-none focus:border-status-info-border focus:ring-1 focus:ring-status-info"
                   required
                 />
               </div>
@@ -151,7 +148,7 @@ export default function PlatformLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-6 w-full rounded-lg bg-status-info px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-status-info disabled:opacity-50"
+              className="mt-6 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:opacity-50"
             >
               {loading ? 'Ingresando...' : 'Ingresar'}
             </button>

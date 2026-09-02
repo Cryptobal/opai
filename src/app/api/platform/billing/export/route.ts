@@ -11,12 +11,18 @@ import { logPlatformAction, platformActor } from "@/lib/platform/audit";
 
 function parseMonth(raw: string | null): { year: number; month: number; label: string } {
   const now = new Date();
-  if (raw && /^\d{4}-\d{2}$/.test(raw)) {
-    const [y, m] = raw.split("-").map(Number);
-    return { year: y, month: m, label: raw };
+  let y = now.getFullYear();
+  let m = now.getMonth() + 1;
+  if (raw === "prev") {
+    m -= 1;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+  } else if (raw && /^\d{4}-\d{2}$/.test(raw)) {
+    const [yy, mm] = raw.split("-").map(Number);
+    return { year: yy, month: mm, label: raw };
   }
-  const y = now.getFullYear();
-  const m = now.getMonth() + 1;
   return { year: y, month: m, label: `${y}-${String(m).padStart(2, "0")}` };
 }
 

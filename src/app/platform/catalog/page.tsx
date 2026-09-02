@@ -1,11 +1,11 @@
 import { Suspense } from "react";
-import { TenantsClient } from "@/components/platform/tenants/TenantsClient";
+import { CatalogClient } from "@/components/platform/catalog/CatalogClient";
 import { Skeleton } from "@/components/opai-ds";
 
-export default function PlatformTenantsPage() {
+export default function CatalogPage() {
   return (
     <Suspense fallback={<Skeleton className="h-40 w-full" />}>
-      <TenantsClient />
+      <CatalogClient />
     </Suspense>
   );
 }

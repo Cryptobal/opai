@@ -4,6 +4,7 @@ import {
   MODULES_WITHOUT_DEDICATED_ROUTE,
   getModuleDef,
   isTenantModuleKey,
+  moduleIsBeta,
   type TenantModuleKey,
 } from "@/lib/modules/registry";
 import { ALL_MODULES } from "@/lib/tenant-modules";
@@ -26,6 +27,11 @@ describe("MODULE_REGISTRY", () => {
     }
     expect(getModuleDef("no_existe")).toBeUndefined();
     expect(isTenantModuleKey("no_existe")).toBe(false);
+  });
+
+  it("ops_camaras es beta y el resto no", () => {
+    expect(moduleIsBeta(getModuleDef("ops_camaras"))).toBe(true);
+    expect(moduleIsBeta(getModuleDef("hub"))).toBe(false);
   });
 
   it("cada key tiene ≥1 prefijo o está en la allowlist de módulos sin ruta", () => {

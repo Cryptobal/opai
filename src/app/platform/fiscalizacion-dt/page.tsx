@@ -55,7 +55,7 @@ export default function PlatformDtAccessLogsPage() {
           Excel
         </a>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="overflow-x-auto rounded-lg border border-ds-border-default bg-ds-surface-1">
         <table className="w-full text-left text-sm">
           <thead>
             <tr>
@@ -66,7 +66,7 @@ export default function PlatformDtAccessLogsPage() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t border-gray-100 dark:border-gray-800">
+              <tr key={r.id} className="border-t border-ds-border-subtle border-ds-border-subtle">
                 <td className="px-3 py-2 whitespace-nowrap">{r.at}</td>
                 <td className="px-3 py-2">{r.email}</td>
                 <td className="px-3 py-2">{r.action}</td>

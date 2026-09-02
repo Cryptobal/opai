@@ -1384,6 +1384,31 @@ const MIGRATED_PATHS = [
   "src/app/portal/rondas/layout.tsx",
   "src/app/portal/acceso/layout.tsx",
   "src/app/global-error.tsx",
+  // Platform F2 — UI DS v3 (6 pantallas + shell). Herramientas internas
+  // no se agregan: solo wrapper/paleta mecánica, sin rediseño.
+  "src/app/platform/page.tsx",
+  "src/app/platform/layout.tsx",
+  "src/app/platform/tenants/",
+  "src/app/platform/catalog/",
+  "src/app/platform/billing/page.tsx",
+  "src/app/platform/audit/",
+  "src/app/platform/dashboard/page.tsx",
+  "src/app/platform/pricing/page.tsx",
+  "src/components/platform/overview/",
+  "src/components/platform/tenants/",
+  "src/components/platform/tenant-detail/",
+  "src/components/platform/catalog/",
+  "src/components/platform/billing/",
+  "src/components/platform/audit/",
+  "src/components/platform/StatusTag.tsx",
+  "src/components/platform/PlatformError.tsx",
+  "src/components/platform/PlatformSidebar.tsx",
+  "src/components/platform/PlatformUiProvider.tsx",
+  "src/components/platform/PlatformDarkLock.tsx",
+  "src/components/platform/RoleGuard.tsx",
+  "src/components/platform/CreateTenantSheet.tsx",
+  "src/components/platform/DeleteTenantModal.tsx",
+  "src/components/platform/ImpersonateBanner.tsx",
 ];
 
 // ───────────────────────────────────────────────────────────────────
