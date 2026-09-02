@@ -61,9 +61,10 @@ export async function provisionTenant(
     ownerName,
     ownerEmail,
     ownerPassword,
-    plan = settings.signupDefaultPlan as CreateTenantInput["plan"],
+    plan: planInput,
     trialDays = settings.trialDefaultDays,
   } = input;
+  const plan = planInput ?? (settings.signupDefaultPlan as NonNullable<CreateTenantInput["plan"]>);
 
   // Normalize legacy plan names
   const planSlug =
