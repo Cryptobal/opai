@@ -53,6 +53,10 @@ export const MODULE_ROUTE_PREFIXES: ReadonlyArray<ModuleRoutePrefix> = [
   { prefix: "/ops/inventario", module: "ops_inventario" },
   { prefix: "/api/ops/inventario", module: "ops_inventario" },
 
+  // ── Cámaras ──
+  { prefix: "/ops/camaras", module: "ops_camaras" },
+  { prefix: "/api/ops/camaras", module: "ops_camaras" },
+
   // ── Supervisión ──
   { prefix: "/ops/supervision", module: "ops_supervision" },
   { prefix: "/api/ops/supervision", module: "ops_supervision" },

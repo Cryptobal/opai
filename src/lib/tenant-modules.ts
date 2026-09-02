@@ -47,6 +47,7 @@ export const ALL_MODULES = [
   "cpq",
   "ops_rondas",
   "ops_inventario",
+  "ops_camaras",
   "portal_cliente",
   "payroll",
   "finanzas",

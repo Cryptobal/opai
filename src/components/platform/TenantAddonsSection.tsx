@@ -133,6 +133,7 @@ const MODULE_LABELS: Record<string, { name: string; category: string }> = {
   cpq: { name: 'CPQ (Cotizador)', category: 'Add-ons' },
   ops_rondas: { name: 'Rondas GPS', category: 'Add-ons' },
   ops_inventario: { name: 'Inventario', category: 'Add-ons' },
+  ops_camaras: { name: 'Cámaras IP', category: 'Add-ons' },
   portal_cliente: { name: 'Portal Cliente', category: 'Add-ons' },
   payroll: { name: 'Payroll / Nómina', category: 'Add-ons' },
   finanzas: { name: 'Finanzas + DTE', category: 'Add-ons' },

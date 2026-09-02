@@ -2607,6 +2607,7 @@ model CrmInstallation {
   vraReports                          VraReport[]
   bankLinkAllocations                 FinanceBankLinkAllocation[] @relation("BankLinkAllocationInstallation")
   reportQrs                           OpsReportQr[]               @relation("ops_report_qr_installation")
+  opsCamaras                          OpsCamara[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -6155,6 +6156,56 @@ model OpsReportQrEvent {
   @@index([qrId], map: "idx_ops_report_qr_events_qr")
   @@index([tenantId], map: "idx_ops_report_qr_events_tenant")
   @@map("report_qr_events")
+  @@schema("ops")
+}
+
+model OpsCamara {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  installationId String    @map("installation_id") @db.Uuid
+  name           String
+  sourceType     String    @default("nvr") @map("source_type")
+  brand          String    @default("generic")
+  host           String
+  rtspPort       Int       @default(554) @map("rtsp_port")
+  onvifPort      Int?      @map("onvif_port")
+  channel        Int       @default(1)
+  streamQuality  String    @default("sub") @map("stream_quality")
+  customPath     String?   @map("custom_path")
+  username       String
+  passwordEnc    String    @map("password_enc")
+  ptzCapable     Boolean   @default(false) @map("ptz_capable")
+  streamName     String    @unique @map("stream_name")
+  status         String    @default("untested")
+  lastSeenAt     DateTime? @map("last_seen_at") @db.Timestamptz(6)
+  lastError      String?   @map("last_error")
+  isActive       Boolean   @default(true) @map("is_active")
+  sortOrder      Int       @default(0) @map("sort_order")
+  notes          String?
+  createdBy      String?   @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  installation   CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_camara_tenant")
+  @@index([installationId, isActive], map: "idx_ops_camara_inst_active")
+  @@map("camaras")
+  @@schema("ops")
+}
+
+model OpsCamaraLayout {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  name      String
+  gridSize  Int      @default(4) @map("grid_size")
+  cameraIds Json     @default("[]") @map("camera_ids") @db.JsonB
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, userId], map: "idx_ops_camara_layout_tenant_user")
+  @@map("camaras_layouts")
   @@schema("ops")
 }
 
