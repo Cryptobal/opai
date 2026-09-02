@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
+import { auditFamily } from '@/lib/platform/audit-family';
 
 export async function GET(
   request: NextRequest,
@@ -51,6 +52,7 @@ export async function GET(
       id: a.id,
       createdAt: a.createdAt.toISOString(),
       action: a.action,
+      family: auditFamily(a.action),
       actorType: a.actorType,
       actorEmail: a.actorEmail,
       targetType: a.targetType,
@@ -63,6 +65,7 @@ export async function GET(
       id: l.id,
       createdAt: l.createdAt.toISOString(),
       action: 'plan.change',
+      family: auditFamily('plan.change'),
       actorType: 'platform_admin',
       actorEmail: l.changedBy,
       targetType: 'TenantPlan',

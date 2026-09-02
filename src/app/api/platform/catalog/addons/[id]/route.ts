@@ -23,6 +23,12 @@ export async function PATCH(
     if (f in body) data[f] = body[f];
   }
 
+  if (typeof data.moduleKey === 'string') {
+    const { validateModuleKey } = await import('@/lib/platform/catalog-validate');
+    const err = validateModuleKey(data.moduleKey);
+    if (err) return NextResponse.json({ error: err }, { status: 400 });
+  }
+
   const updated = await prisma.addonCatalog.update({ where: { id }, data });
 
   await logPlatformAction({
