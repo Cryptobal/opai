@@ -8,7 +8,7 @@
 
 import { prisma } from "@/lib/prisma";
 import * as bcrypt from "bcryptjs";
-import { PLAN_MODULES, type TenantModuleKey } from "@/lib/tenant-modules";
+import { filterKnownModuleKeys, type TenantModuleKey } from "@/lib/tenant-modules";
 import { PLATFORM_DEFAULT_EMAIL_FROM_ADDRESS } from "@/lib/platform-email";
 import { getLifecycleSettings } from "@/lib/platform/settings";
 
@@ -105,10 +105,15 @@ export async function provisionTenant(
   const hashedPassword =
     input.ownerPasswordHash ?? (await bcrypt.hash(ownerPassword!, 12));
 
-  // ── Read plan catalog (if available) ──
+  // ── Read plan catalog (required) ──
   const catalogPlan = await prisma.planCatalog.findUnique({
     where: { slug: planSlug },
   });
+  if (!catalogPlan) {
+    throw new Error(
+      `El plan "${planSlug}" no existe en el catálogo. Créalo en Platform → Catálogo antes de provisionar.`,
+    );
+  }
 
   // ── Crear en transacción ──
   const result = await prisma.$transaction(async (tx) => {
@@ -143,24 +148,10 @@ export async function provisionTenant(
       },
     });
 
-    // 3. Plan — use catalog values when available, fallback to hardcoded
-    const maxGuards = catalogPlan?.maxGuards ?? (
-      planSlug === "enterprise" ? 9999
-        : planSlug === "profesional" ? 500
-        : planSlug === "starter" ? 200
-        : 50
-    );
-    const maxAdmins = catalogPlan?.maxAdmins ?? (
-      planSlug === "enterprise" ? 50
-        : planSlug === "profesional" ? 10
-        : planSlug === "starter" ? 5
-        : 3
-    );
-    const maxStorageMb = catalogPlan?.maxStorageMb ?? (
-      planSlug === "enterprise" ? 10000
-        : planSlug === "profesional" ? 5000
-        : 1000
-    );
+    // 3. Plan — valores del catálogo (sin fallbacks hardcoded)
+    const maxGuards = catalogPlan.maxGuards;
+    const maxAdmins = catalogPlan.maxAdmins;
+    const maxStorageMb = catalogPlan.maxStorageMb;
 
     const tenantPlan = await tx.tenantPlan.create({
       data: {
@@ -171,15 +162,19 @@ export async function provisionTenant(
         maxGuards,
         maxAdmins,
         maxStorageMb,
-        pricePerGuard: catalogPlan?.pricePerGuard ?? 0,
-        basePrice: catalogPlan?.baseMinimum ?? 0,
+        pricePerGuard: catalogPlan.pricePerGuard,
+        basePrice: catalogPlan.baseMinimum,
       },
     });
 
-    // 4. Módulos — prefer catalog, then PLAN_MODULES, then free fallback
-    const modules = (catalogPlan?.includedModules as string[]) ??
-      PLAN_MODULES[planSlug] ?? PLAN_MODULES.free;
-    for (const mod of modules) {
+    // 4. Módulos — solo PlanCatalog
+    const modules = filterKnownModuleKeys(catalogPlan.includedModules);
+    if (modules.length === 0) {
+      throw new Error(
+        `El plan "${planSlug}" no tiene módulos definidos en el catálogo.`,
+      );
+    }
+    for (const mod of modules as TenantModuleKey[]) {
       await tx.tenantModule.create({
         data: {
           tenantId: tenant.id,

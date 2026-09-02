@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { getModuleDef } from '@/lib/modules/registry';
 
 interface PlanInfo {
   plan: string;
@@ -82,23 +83,6 @@ const planBadge: Record<string, string> = {
   starter: 'bg-status-info-soft text-status-info-fg',
   profesional: 'bg-status-info-soft text-status-info-fg',
   enterprise: 'bg-tint-violet text-tint-violet-fg',
-};
-
-const MODULE_LABELS: Record<string, string> = {
-  hub: 'Hub', config: 'Configuracion', portal_guardia: 'Portal Guardia',
-  portal_marcacion: 'Portal Marcacion', ops_asistencia: 'Asistencia',
-  ops_pauta: 'Pauta', ops_pce: 'PCE', ops_turnos_extra: 'Turnos Extra',
-  ops_refuerzos: 'Refuerzos', ops_onboarding: 'Onboarding', ops_audit: 'Auditoria',
-  personas: 'Personas', tickets: 'Tickets', documentos: 'Documentos',
-  contratos: 'Contratos', ops_supervision: 'Supervision',
-  alertas_cobertura: 'Alertas Cobertura', chat: 'Chat', gamificacion: 'Gamificacion',
-  protocolos_ia: 'Protocolos IA', reportes_dt: 'Reportes DT', crm: 'CRM',
-  cpq: 'CPQ', ops_rondas: 'Rondas', ops_inventario: 'Inventario',
-  ops_camaras: 'Cámaras IP',
-  portal_cliente: 'Portal Cliente', payroll: 'Payroll', finanzas: 'Finanzas',
-  ats: 'ATS / Reclutamiento', face_id: 'Face ID', ia_operacional: 'IA Operacional',
-  control_acceso: 'Control Acceso', fiscalizacion: 'Fiscalizacion',
-  control_nocturno: 'Control Nocturno', white_label: 'White-label', app_nativa: 'App Nativa',
 };
 
 export function MiPlanClient() {
@@ -254,7 +238,7 @@ export function MiPlanClient() {
         <div className="flex flex-wrap gap-2">
           {modules.map((m) => (
             <span key={m} className="rounded-full bg-status-ok-soft px-3 py-1 text-xs font-medium text-status-ok-fg">
-              {MODULE_LABELS[m] ?? m}
+              {getModuleDef(m)?.label ?? m}
             </span>
           ))}
         </div>

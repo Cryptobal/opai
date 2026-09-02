@@ -3,7 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 export async function seedPricingCatalog(prisma: PrismaClient) {
   console.log('Seeding pricing catalog...');
 
-  // Plans — aligned with PLAN_MODULES in src/lib/tenant-modules.ts
+  // Plans — aligned with MODULE_REGISTRY / PlanCatalog.includedModules
   const plans = [
     {
       slug: "free",
