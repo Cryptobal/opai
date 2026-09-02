@@ -32,6 +32,7 @@ import {
   cpqBreakdownAmount,
 } from "@/components/cpq/cpqBreakdownLayout";
 import { economicOpeningFromCostSummary } from "@/lib/cpq/economic-opening";
+import { sumEnabledQuoteVehiclesMonthly } from "@/lib/cpq/quote-vehicle-costs";
 import { isCommercialSendEnabled } from "@/lib/cpq/proposal-sections/send-gates";
 import { cn, formatNumber } from "@/lib/utils";
 import type {
@@ -1622,16 +1623,7 @@ export function CpqQuoteDetail({
         return sum + unitPrice * quantity;
       }, 0);
 
-    const dedicatedVehicles = vehicles.reduce((sum, v) => {
-      if (!v.isEnabled) return sum;
-      const kmPerDay = Number(v.kmPerDay || 0);
-      const daysPerMonth = Number(v.daysPerMonth || 0);
-      const kmPerLiter = Number(v.kmPerLiter || 0);
-      const liters = kmPerLiter > 0 ? (kmPerDay * daysPerMonth) / kmPerLiter : 0;
-      const fuelCost = liters * Number(v.fuelPrice || 0);
-      const monthly = Number(v.rentMonthly || 0) + Number(v.maintenanceMonthly || 0) + fuelCost;
-      return sum + monthly * v.vehiclesCount;
-    }, 0);
+    const dedicatedVehicles = sumEnabledQuoteVehiclesMonthly(vehicles);
 
     const dedicatedInfra = infrastructure.reduce((sum, inf) => {
       if (!inf.isEnabled) return sum;

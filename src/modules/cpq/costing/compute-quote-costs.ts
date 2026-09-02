@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import { hydrateQuoteCatalogLines } from "@/lib/cpq/resolve-active-catalog-item";
+import { sumEnabledQuoteVehiclesMonthly } from "@/lib/cpq/quote-vehicle-costs";
 import { getUfValue } from "@/lib/uf";
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 import type {
@@ -450,20 +451,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
 
   /* ── Vehicles ── */
 
-  const monthlyVehicles = vehicles.reduce((sum, vehicle) => {
-    if (!vehicle.isEnabled) return sum;
-    const kmPerDay = safeNumber(vehicle.kmPerDay);
-    const daysPerMonth = safeNumber(vehicle.daysPerMonth);
-    const kmPerLiter = safeNumber(vehicle.kmPerLiter);
-    const liters =
-      kmPerLiter > 0 ? (kmPerDay * daysPerMonth) / kmPerLiter : 0;
-    const fuelCost = liters * safeNumber(vehicle.fuelPrice);
-    const vehicleMonthly =
-      safeNumber(vehicle.rentMonthly) +
-      safeNumber(vehicle.maintenanceMonthly) +
-      fuelCost;
-    return sum + vehicleMonthly * vehicle.vehiclesCount;
-  }, 0);
+  const monthlyVehicles = sumEnabledQuoteVehiclesMonthly(vehicles);
 
   /* ── Infrastructure ── */
 

@@ -20,6 +20,11 @@ import {
 } from "@/components/cpq/cpqBreakdownLayout";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { isDefaultUniform } from "@/lib/cpq-constants";
+import {
+  additionalCostsVehicleRowTotal,
+  countEnabledQuoteVehicles,
+} from "@/lib/cpq/quote-vehicle-costs";
+import { QuoteVehicleCostsBreakdown } from "@/components/cpq/QuoteVehicleCostsBreakdown";
 import type {
   CpqCatalogItem,
   CpqQuoteAdditionalLine,
@@ -897,7 +902,11 @@ export function CpqQuoteCosts({
   const holidayAdjustment = summary?.monthlyHolidayAdjustment ?? 0;
   const operationalTotal = sumCostItemsByType(OPERATIONAL_TYPES);
   const transportTotal = sumCostItemsByType(TRANSPORT_TYPES);
-  const vehicleTotal = sumCostItemsByType(VEHICLE_TYPES);
+  // Extras kind=vehicle (mismo origen que monthlyVehicles). Los costItems
+  // tipados vehicle_rent/fuel/tag son el store legado del catálogo; se suman
+  // para no ocultar cotizaciones viejas. No se usan extras de nombre libre.
+  const catalogVehicleTotal = sumCostItemsByType(VEHICLE_TYPES);
+  const vehicleTotal = additionalCostsVehicleRowTotal(vehicles, catalogVehicleTotal);
   const infraTotal = sumCostItemsByType(INFRA_TYPES);
   const systemTotal = sumCostItemsByType(["system"]);
 
@@ -911,7 +920,8 @@ export function CpqQuoteCosts({
   const mealCount = meals.filter((m) => m.isEnabled).length;
   const operationalCount = costItems.filter((c) => c.isEnabled && OPERATIONAL_TYPES.includes(c.customType ?? (c.catalogItemId ? catalogById.get(c.catalogItemId)?.type : undefined) ?? "")).length;
   const transportCount = costItems.filter((c) => c.isEnabled && TRANSPORT_TYPES.includes(c.customType ?? (c.catalogItemId ? catalogById.get(c.catalogItemId)?.type : undefined) ?? "")).length;
-  const vehicleCount = costItems.filter((c) => c.isEnabled && VEHICLE_TYPES.includes(c.customType ?? (c.catalogItemId ? catalogById.get(c.catalogItemId)?.type : undefined) ?? "")).length;
+  const catalogVehicleCount = costItems.filter((c) => c.isEnabled && VEHICLE_TYPES.includes(c.customType ?? (c.catalogItemId ? catalogById.get(c.catalogItemId)?.type : undefined) ?? "")).length;
+  const vehicleCount = countEnabledQuoteVehicles(vehicles) + catalogVehicleCount;
   const infraCount = costItems.filter((c) => c.isEnabled && INFRA_TYPES.includes(c.customType ?? (c.catalogItemId ? catalogById.get(c.catalogItemId)?.type : undefined) ?? "")).length;
   const systemCount = otherCostItems.filter((c) => c.isEnabled).length;
 
@@ -1571,11 +1581,16 @@ export function CpqQuoteCosts({
         </div>
       )}
 
-      {/* Vehículos */}
+      {/* Vehículos: extras kind=vehicle + ítems tipados de catálogo (legado) */}
       <div className="border-t border-border/30" />
       {renderCategoryRow("vehicles", vehicleCount, vehicleTotal)}
       {isOpen("vehicles") && (
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-3 space-y-2">
+          <QuoteVehicleCostsBreakdown
+            vehicles={vehicles}
+            displayCurrency={displayCurrency}
+            ufValue={ufValue}
+          />
           <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
             {vehicleCatalog.filter((item) => findCostItem(item.id)?.isEnabled).map((item) =>
               item.type === "vehicle_fuel"
