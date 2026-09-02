@@ -6,9 +6,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon, Siren, FileBarChart, Send } from "lucide-react";
+import { useTenantModules } from "@/contexts/TenantModulesContext";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon, Siren, FileBarChart, Send, Video } from "lucide-react";
 import { EntityConversations } from "./EntityConversations";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
+import { InstalacionCamarasTab } from "./InstalacionCamarasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -1977,6 +1979,7 @@ export function CrmInstallationDetailClient({
   currentUserId?: string;
 }) {
   const router = useRouter();
+  const { isModuleEnabled } = useTenantModules();
   const [installation, setInstallation] = useState(initialInstallation);
 
   useEffect(() => {
@@ -2497,6 +2500,9 @@ export function CrmInstallationDetailClient({
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "docs-operacionales", label: "Docs. Operacionales", icon: ShieldCheck },
     { id: "rondas", label: "Rondas", icon: Route },
+    ...(isModuleEnabled("ops_camaras")
+      ? [{ id: "camaras", label: "Cámaras", icon: Video } satisfies EntityTab]
+      : []),
     { id: "incidentes", label: "Incidentes", icon: Siren },
     { id: "qr-reporte", label: "QR de reporte", icon: QrCode },
     { id: "reporte-cliente", label: "Reporte cliente", icon: FileBarChart },
@@ -3176,6 +3182,9 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "rondas" && (
           <InstalacionRondasTab installationId={installation.id} />
+        )}
+        {activeTab === "camaras" && (
+          <InstalacionCamarasTab installationId={installation.id} />
         )}
         {activeTab === "incidentes" && (
           <InstalacionIncidentesTab installationId={installation.id} />

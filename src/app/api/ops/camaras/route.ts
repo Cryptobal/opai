@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
-import { ensureCamarasEdit, ensureCamarasView } from "@/lib/camaras/access";
+import { ensureCamarasEdit, ensureCamarasView, canConfigureCamaras } from "@/lib/camaras/access";
 import { createCamaraSchema } from "@/lib/camaras/schemas";
 import { CAMARA_PUBLIC_SELECT, serializeCamara } from "@/lib/camaras/serialize";
 import { assertInstallation, createCamara } from "@/lib/camaras/mutate";
@@ -29,7 +29,12 @@ export async function GET(request: NextRequest) {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
 
-    return NextResponse.json({ success: true, data: cameras.map((c) => serializeCamara(c)) });
+    const canConfigure = await canConfigureCamaras(modCheck.ctx);
+    return NextResponse.json({
+      success: true,
+      canConfigure,
+      data: cameras.map((c) => serializeCamara(c)),
+    });
   } catch (e) {
     console.error("[ops/camaras GET]", e);
     return NextResponse.json({ success: false, error: "Error al listar cámaras" }, { status: 500 });

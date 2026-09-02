@@ -30,3 +30,8 @@ export async function ensureCamarasEdit(ctx: AuthContext): Promise<NextResponse 
   }
   return null;
 }
+
+export async function canConfigureCamaras(ctx: AuthContext): Promise<boolean> {
+  return (await ensureCamarasEdit(ctx)) === null;
+}
+
