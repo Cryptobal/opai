@@ -390,6 +390,13 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     critical: true,
   },
   {
+    key: 'marcacion_sin_correo_personal', label: 'Guardia sin correo personal',
+    description: 'Un guardia marcó sin tener correo personal registrado: no se le pudo enviar el comprobante Art. 13 (queda en el portal). Se avisa una vez por guardia y día.',
+    module: 'ops', submodule: 'marcaciones', category: 'Operaciones - Marcación',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+    coalesce: { windowSeconds: 300, groupBy: 'tenant' },
+  },
+  {
     // Nace silencioso en canal: su rol es alimentar/actualizar el tablero de
     // relevo (que se refresca por vía directa, no por esta notificación). Se
     // define para trazabilidad/opt-in. `slackDmOnly` garantiza que NUNCA cae en

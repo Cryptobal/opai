@@ -415,6 +415,7 @@ export async function POST(req: NextRequest) {
 
     dispatchMarcacionComprobante({
       tenantId,
+      guardiaId: guardia.id,
       installationId: installation.id,
       installationName: installation.name,
       guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),

@@ -38,6 +38,8 @@ interface MarcacionConfig {
   emailAlertaFueraRangoEnabled?: boolean;
   alertaFaltaMarcacionEnabled?: boolean;
   alertaFaltaMarcacionEmployerEmails?: string[];
+  alertaSinCorreoPersonalEnabled?: boolean;
+  alertaSinCorreoPersonalEmployerEmails?: string[];
   emailDelayManualMinutos: number;
   clausulaLegal: string;
   rondasPollingSegundos: number;

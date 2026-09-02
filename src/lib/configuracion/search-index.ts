@@ -347,6 +347,15 @@ export const CONFIG_SEARCH_INDEX: ConfigSearchItem[] = [
     type: "setting",
     sectionId: "ops",
     tab: "emails",
+    label: "Alerta: guardia sin correo personal",
+    group: "Módulos",
+    keywords:
+      "alerta sin correo personal comprobante art 13 campana casillas empleador opt-in",
+  },
+  {
+    type: "setting",
+    sectionId: "ops",
+    tab: "emails",
     label: "Aviso de marca manual",
     group: "Módulos",
     keywords:

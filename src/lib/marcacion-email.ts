@@ -687,15 +687,6 @@ export async function sendAlertaGuardiaSinCorreoPersonal(data: {
   const recipients = Array.from(
     new Set(data.employerEmails.map((e) => e.trim().toLowerCase()).filter(Boolean)),
   );
-  if (recipients.length === 0) {
-    const extra = await resolveSupervisorEmails({
-      tenantId: data.tenantId,
-      installationId: data.installationId,
-      includeSupervisors: true,
-      extraUserIds: [],
-    });
-    recipients.push(...extra);
-  }
   if (recipients.length === 0) return;
 
   const fecha = formatFechaComprobante(data.timestamp);
