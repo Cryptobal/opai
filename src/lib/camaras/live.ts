@@ -58,14 +58,20 @@ export async function testCamaraConnection(tenantId: string, id: string) {
   }
 }
 
+export type CamaraPtzResult =
+  | { ok: true }
+  | { notFound: true }
+  | { unavailable: true; error: string }
+  | { error: string };
+
 export async function runCamaraPtz(
   tenantId: string,
   id: string,
   input: { action: "move" | "stop"; pan?: number; tilt?: number; zoom?: number },
-) {
+): Promise<CamaraPtzResult> {
   const camara = await getCamara(tenantId, id, true);
-  if (!camara) return { notFound: true as const };
-  if (!camara.ptzCapable) return { unavailable: true as const, error: "PTZ no disponible" as const };
+  if (!camara) return { notFound: true };
+  if (!camara.ptzCapable) return { unavailable: true, error: "PTZ no disponible" };
   const password = decryptCameraSecret(camara.passwordEnc);
   const target = { host: camara.host, onvifPort: camara.onvifPort, username: camara.username };
   try {
@@ -78,9 +84,9 @@ export async function runCamaraPtz(
         zoom: input.zoom ?? 0,
       });
     }
-    return { ok: true as const };
+    return { ok: true };
   } catch {
-    return { error: "PTZ no disponible" as const };
+    return { error: "PTZ no disponible" };
   }
 }
 

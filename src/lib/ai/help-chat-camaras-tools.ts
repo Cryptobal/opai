@@ -753,8 +753,9 @@ export async function toolPtzCamera(
       return denied("Cámara no encontrada o inactiva.");
     }
     if ("error" in result) {
-      await logAiAction({ tenantId, userId, toolName: "ptz_camera", args, status: "validation_error", errorMessage: result.error, startedAt: t0 });
-      return denied(result.error);
+      const message = result.error ?? "PTZ no disponible";
+      await logAiAction({ tenantId, userId, toolName: "ptz_camera", args, status: "validation_error", errorMessage: message, startedAt: t0 });
+      return denied(message);
     }
     await logAiAction({
       tenantId, userId, toolName: "ptz_camera", args, status: "success",
