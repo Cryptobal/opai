@@ -1,10 +1,15 @@
-import { CreateTenantForm } from '@/components/platform/CreateTenantForm';
+"use client";
 
-export default function NewTenantPage() {
-  return (
-    <div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-gray-100">Nuevo Tenant</h1>
-      <CreateTenantForm />
-    </div>
-  );
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { usePlatformUi } from "@/components/platform/PlatformUiProvider";
+
+export default function NewTenantFallbackPage() {
+  const { openCreateTenant } = usePlatformUi();
+  const router = useRouter();
+  useEffect(() => {
+    openCreateTenant();
+    router.replace("/platform/tenants");
+  }, [openCreateTenant, router]);
+  return null;
 }

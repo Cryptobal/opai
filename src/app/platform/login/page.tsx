@@ -35,7 +35,7 @@ export default function PlatformLoginPage() {
         return;
       }
 
-      window.location.href = '/platform/dashboard';
+      window.location.href = '/platform';
     } catch {
       setError('Error de conexión');
     } finally {
@@ -56,7 +56,7 @@ export default function PlatformLoginPage() {
         return;
       }
 
-      window.location.href = '/platform/dashboard';
+      window.location.href = '/platform';
     } catch {
       setError('Error de conexión');
     } finally {
