@@ -65,6 +65,7 @@ import {
   toolGetCamera,
   toolListCameraBrands,
   toolListCameras,
+  toolPtzCamera,
   toolTestCameraConnection,
   toolUpdateCamera,
 } from "@/lib/ai/help-chat-camaras-tools";
@@ -163,6 +164,7 @@ describe("list/get/create/update/delete cámaras", () => {
     deactivateCamaraMock.mockReset();
     assertInstallationMock.mockReset();
     testCamaraConnectionMock.mockReset();
+    runCamaraPtzMock.mockReset();
     vi.mocked(prisma.admin.findFirst).mockReset().mockResolvedValue({
       email: "ops@gard.cl",
       role: "owner",
@@ -265,6 +267,15 @@ describe("list/get/create/update/delete cámaras", () => {
     const res = await toolTestCameraConnection(TENANT, USER, permsView, { cameraId: CAMERA_ID });
     expect(res).toMatchObject({ ok: true, snapshotAvailable: true });
     expect(res).not.toHaveProperty("dataUrl");
+  });
+
+  it("ptz_camera niega con mensaje string si el relay/ONVIF falla", async () => {
+    runCamaraPtzMock.mockResolvedValue({ error: "PTZ no disponible" });
+    const res = await toolPtzCamera(TENANT, USER, permsView, {
+      cameraId: CAMERA_ID,
+      action: "stop",
+    });
+    expect(res).toEqual({ ok: false, error: "PTZ no disponible" });
   });
 
   it("list_camera_brands incluye hikvision y puertos default", async () => {
