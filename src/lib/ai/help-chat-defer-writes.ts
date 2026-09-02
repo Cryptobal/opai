@@ -123,7 +123,9 @@ export function decideWriteDeferral(input: {
       pending: {
         previewToolName: toolName,
         confirmToolName: previewMap.confirmToolName,
-        args: previewToken ? { ...args, previewToken } : args,
+        args: previewToken
+          ? { ...args, previewToken, confirm: true }
+          : { ...args, confirm: true },
         summary: desc === baseLabel ? previewMap.label : desc,
       },
       toolResult: executedResult as Record<string, unknown>,

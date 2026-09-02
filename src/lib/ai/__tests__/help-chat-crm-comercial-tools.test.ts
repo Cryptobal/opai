@@ -122,7 +122,7 @@ describe("tool wiring comercial MCP", () => {
     expect(write.has("preview_reject_lead")).toBe(true);
     expect(write.has("reject_lead")).toBe(true);
     expect(getToolDefinitionsV2(true, false)).toHaveLength(60);
-    expect(getToolDefinitionsV2(true, true)).toHaveLength(141);
+    expect(getToolDefinitionsV2(true, true)).toHaveLength(143);
   });
 
   it("search_all declara que incluye leads", () => {

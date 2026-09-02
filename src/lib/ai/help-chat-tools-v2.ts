@@ -124,6 +124,8 @@ import {
 import {
   billingDraftReadToolDefinitions,
   billingDraftWriteToolDefinitions,
+  toolEmitInvoiceDraft,
+  toolPreviewEmitInvoiceDraft,
   toolPreviewUpdateInvoiceDraftRefs,
   toolPreviewUpdateRecurringInvoiceRefs,
   toolSearchInvoiceDrafts,
@@ -2732,6 +2734,10 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
     confirmToolName: "update_recurring_invoice_refs",
     label: "Actualizar referencias HES/OC de la plantilla",
   },
+  preview_emit_invoice_draft: {
+    confirmToolName: "emit_invoice_draft",
+    label: "Emitir borrador al SII y enviar al cliente",
+  },
   preview_send_quote_proposal: { confirmToolName: "send_quote_proposal", label: "Enviar propuesta de cotización" },
   preview_update_quote_position: { confirmToolName: "update_quote_position", label: "Actualizar puesto de la cotización" },
   preview_remove_quote_position: { confirmToolName: "remove_quote_position", label: "Eliminar puesto de la cotización" },
@@ -2790,6 +2796,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   create_recurring_invoice: "Crear plantilla de facturación recurrente",
   update_invoice_draft_refs: "Actualizar referencias HES/OC del borrador",
   update_recurring_invoice_refs: "Actualizar referencias HES/OC de la plantilla",
+  emit_invoice_draft: "Emitir borrador al SII y enviar al cliente",
   create_factoring_company: "Crear empresa de factoring",
   create_ticket: "Crear ticket",
   create_reminder: "Crear recordatorio",
@@ -2817,6 +2824,10 @@ export function describeWriteArgs(toolName: string, args: Record<string, unknown
   }
   if (toolName === "add_deal_note") {
     return `${label} · Nota en deal: "${String(args.content ?? "").slice(0, 60)}…"`;
+  }
+  if (toolName === "emit_invoice_draft") {
+    const id = typeof args.draftId === "string" ? args.draftId.slice(0, 8) : "";
+    return id ? `${label} · Borrador ${id}…`.slice(0, 140) : label;
   }
   if (toolName === "bulk_update_installations") {
     const status = args.status ?? "?";
@@ -9263,6 +9274,12 @@ export async function executeToolCallV2(
   }
   if (toolName === "update_recurring_invoice_refs") {
     return await toolUpdateRecurringInvoiceRefs(tenantId, userId, perms, args);
+  }
+  if (toolName === "preview_emit_invoice_draft") {
+    return await toolPreviewEmitInvoiceDraft(tenantId, userId, perms, args);
+  }
+  if (toolName === "emit_invoice_draft") {
+    return await toolEmitInvoiceDraft(tenantId, userId, perms, args);
   }
   if (toolName === "list_bank_movements") {
     return await toolListBankMovements(tenantId, perms, args);

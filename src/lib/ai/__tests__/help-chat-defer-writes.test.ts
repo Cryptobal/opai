@@ -77,6 +77,25 @@ describe("help-chat-defer-writes", () => {
     expect(shouldDeferWrite("create_crm_from_email", { confirm: true, proposal: {} }, true)).toBe(true);
   });
 
+  it("preview_emit_invoice_draft encola emit con confirm y previewToken", () => {
+    const d = decideWriteDeferral({
+      toolName: "preview_emit_invoice_draft",
+      args: { draftId: "11111111-1111-4111-8111-111111111111" },
+      allowWrites: true,
+      pendingCount: 0,
+      executedResult: { ok: true, data: { previewToken: "tok-1" } },
+    });
+    expect(d.kind).toBe("defer");
+    if (d.kind === "defer") {
+      expect(d.pending.confirmToolName).toBe("emit_invoice_draft");
+      expect(d.pending.args).toMatchObject({
+        draftId: "11111111-1111-4111-8111-111111111111",
+        previewToken: "tok-1",
+        confirm: true,
+      });
+    }
+  });
+
   it("preview ok encola escritura mapeada", () => {
     const d = decideWriteDeferral({
       toolName: "preview_bulk_update_installations",

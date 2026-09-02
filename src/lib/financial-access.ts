@@ -212,6 +212,8 @@ export const FINANCIAL_TOOL_GUARDS: Record<string, FinancialToolGuard> = {
   update_invoice_draft_refs: "facturacion_view",
   preview_update_recurring_invoice_refs: "facturacion_view",
   update_recurring_invoice_refs: "facturacion_view",
+  preview_emit_invoice_draft: ["facturacion_issue", "facturacion_credit_note"],
+  emit_invoice_draft: ["facturacion_issue", "facturacion_credit_note"],
   update_dte_cost_center: "facturacion_view",
   create_factoring_company: "facturacion_view",
 };
@@ -240,6 +242,8 @@ export const FINANCIAL_TOOL_PREFIXES = [
   "search_recurring",
   "preview_update_invoice",
   "update_invoice",
+  "preview_emit_invoice",
+  "emit_invoice",
   "preview_update_recurring",
   "update_recurring",
   "update_dte",
