@@ -5,6 +5,7 @@
  *   - signup_pending: nuevo PendingSignup creado (esperando verificación email)
  *   - signup_verified: PendingSignup -> Tenant provisionado exitosamente
  *   - signup_failed: PendingSignup falló al provisionar (race, BD error)
+ *   - trial_expiring / trial_expired / tenant_auto_suspended / upgrade_requested
  *
  * Canales: email (siempre). Slack: futuro (cuando se configure
  * PLATFORM_ALERTS_SLACK_WEBHOOK).
@@ -18,7 +19,11 @@ import PlatformAlertEmail from "@/emails/PlatformAlertEmail";
 export type PlatformAlertEvent =
   | "signup_pending"
   | "signup_verified"
-  | "signup_failed";
+  | "signup_failed"
+  | "trial_expiring"
+  | "trial_expired"
+  | "tenant_auto_suspended"
+  | "upgrade_requested";
 
 export interface PlatformAlertSiiData {
   fechaInicioActividades?: string;
@@ -56,6 +61,7 @@ export interface PlatformAlertData {
   platformAdminUrl?: string | null;
   // Failure detail
   errorMessage?: string | null;
+  daysLeft?: number | null;
 }
 
 function getRecipient(): string {
@@ -71,6 +77,18 @@ function getSubject(data: PlatformAlertData): string {
       return `Tenant activado — ${data.commercialName}${sizeBadge}`;
     case "signup_failed":
       return `Falló provisioning — ${data.commercialName}: ${data.errorMessage ?? "error desconocido"}`;
+    case "trial_expiring":
+      return `Trial por vencer — ${data.commercialName}${data.daysLeft != null ? ` (${data.daysLeft}d)` : ""}`;
+    case "trial_expired":
+      return `Trial vencido — ${data.commercialName} (solo lectura)`;
+    case "tenant_auto_suspended":
+      return `Tenant suspendido automáticamente — ${data.commercialName}`;
+    case "upgrade_requested":
+      return `Solicitud de upgrade — ${data.commercialName}`;
+    default: {
+      const _exhaustive: never = data.event;
+      return `Alerta plataforma — ${data.commercialName} (${_exhaustive})`;
+    }
   }
 }
 

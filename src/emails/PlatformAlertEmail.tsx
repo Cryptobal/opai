@@ -76,13 +76,21 @@ const styles = {
 
 const eventColor = (event: string) =>
   event === "signup_verified" ? "#10b981" :
-  event === "signup_pending" ? "#f59e0b" :
+  event === "signup_pending" || event === "trial_expiring" || event === "upgrade_requested" ? "#f59e0b" :
+  event === "trial_expired" ? "#f59e0b" :
   "#ef4444";
 
-const eventLabel = (event: string) =>
-  event === "signup_verified" ? "ACTIVADO" :
-  event === "signup_pending" ? "PENDIENTE" :
-  "FALLÓ";
+const eventLabel = (event: string) => {
+  switch (event) {
+    case "signup_verified": return "ACTIVADO";
+    case "signup_pending": return "PENDIENTE";
+    case "trial_expiring": return "TRIAL POR VENCER";
+    case "trial_expired": return "TRIAL VENCIDO";
+    case "tenant_auto_suspended": return "SUSPENDIDO";
+    case "upgrade_requested": return "UPGRADE";
+    default: return "FALLÓ";
+  }
+};
 
 export default function PlatformAlertEmail(props: PlatformAlertData) {
   const logoUrl = getEmailLogoUrl();
@@ -106,6 +114,10 @@ export default function PlatformAlertEmail(props: PlatformAlertData) {
               {props.event === "signup_pending" && "Esperando verificación de email del owner."}
               {props.event === "signup_verified" && "Tenant provisionado y activo."}
               {props.event === "signup_failed" && `Error: ${props.errorMessage ?? "desconocido"}`}
+              {props.event === "trial_expiring" && `El trial vence en ${props.daysLeft ?? "pocos"} día(s).`}
+              {props.event === "trial_expired" && "El trial venció. El tenant quedó en solo lectura."}
+              {props.event === "tenant_auto_suspended" && "Suspensión automática por fin de gracia."}
+              {props.event === "upgrade_requested" && (props.errorMessage ?? "El tenant pidió activación o upgrade.")}
             </Text>
           </Section>
 
