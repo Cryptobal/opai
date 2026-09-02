@@ -73,8 +73,6 @@ export async function GET(request: NextRequest) {
       ownerName: pending.ownerName,
       ownerEmail: pending.email,
       ownerPasswordHash: pending.passwordHash,
-      plan: "profesional",
-      trialDays: 30,
       legalName: pending.legalName ?? undefined,
       industry: pending.industry ?? undefined,
       estimatedGuards: pending.estimatedGuards ?? undefined,

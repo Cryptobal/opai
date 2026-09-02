@@ -82,8 +82,6 @@ export default async function VerifySignupPage({
       ownerName: pending.ownerName,
       ownerEmail: pending.email,
       ownerPasswordHash: pending.passwordHash,
-      plan: "profesional",
-      trialDays: 30,
       legalName: pending.legalName ?? undefined,
       industry: pending.industry ?? undefined,
       estimatedGuards: pending.estimatedGuards ?? undefined,

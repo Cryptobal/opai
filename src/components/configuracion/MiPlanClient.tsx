@@ -14,6 +14,7 @@ interface PlanInfo {
   currency: string;
   billingStatus: string;
   trialEndsAt: string | null;
+  graceEndsAt?: string | null;
 }
 
 interface AddonInfo {
@@ -47,6 +48,18 @@ interface PlanData {
   addons: AddonInfo[];
   planCatalog: CatalogPlan[];
   usage?: PlanUsage;
+  access?: {
+    state: string;
+    mode: string;
+    bannerKey: string | null;
+    daysLeft: number | null;
+  };
+  pricing?: {
+    total: number;
+    currency: string;
+    complete: boolean;
+    clpTotal: number | null;
+  } | null;
 }
 
 function usageTone(current: number, limit: number): string {
@@ -164,7 +177,7 @@ export function MiPlanClient() {
                 Plan {plan.plan.charAt(0).toUpperCase() + plan.plan.slice(1)}
               </h2>
               <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${planBadge[plan.plan] ?? 'bg-muted text-muted-foreground'}`}>
-                {plan.billingStatus}
+                {data.access?.state ?? plan.billingStatus}
               </span>
             </div>
             <p className="mt-1 text-[13px] text-ds-text-3 sm:hidden">
@@ -179,6 +192,17 @@ export function MiPlanClient() {
             {plan.trialEndsAt && (
               <p className="mt-1 text-sm text-status-warn-fg">
                 Trial hasta {new Date(plan.trialEndsAt).toLocaleDateString('es-CL')}
+              </p>
+            )}
+            {data.access?.mode === 'read_only' && (
+              <p className="mt-1 text-sm text-status-danger-fg">
+                Cuenta en solo lectura. Solicita la activación para volver a operar.
+              </p>
+            )}
+            {data.pricing && (
+              <p className="mt-1 text-[13px] text-ds-text-3">
+                Total mensual: {data.pricing.total} {data.pricing.currency}
+                {data.pricing.clpTotal != null ? ` (~$${data.pricing.clpTotal.toLocaleString('es-CL')} CLP)` : ''}
               </p>
             )}
           </div>
