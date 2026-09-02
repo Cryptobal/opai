@@ -60,7 +60,7 @@ export function InstalacionCamarasTab({ installationId }: { installationId: stri
   }
 
   if (error) {
-    return <p className="text-[13px] text-status-danger-fg">{error}</p>;
+    return <p className="text-ds-body text-status-danger-fg">{error}</p>;
   }
 
   return (
@@ -104,7 +104,7 @@ export function InstalacionCamarasTab({ installationId }: { installationId: stri
                 <Surface padding="sm" className="flex justify-end gap-2">
                   <button
                     type="button"
-                    className="h-11 px-3 text-[13px] text-ds-text-2"
+                    className="h-11 px-3 text-ds-body text-ds-text-2"
                     onClick={() => { setEditing(cam); setFormOpen(true); }}
                   >
                     Editar
