@@ -186,9 +186,9 @@ export default function PlatformSincronizacionHorariaPage() {
       )}
 
       {rows && rows.length > 0 && (
-        <div className="max-h-[70vh] overflow-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="max-h-[70vh] overflow-auto rounded-lg border border-ds-border-default bg-ds-surface-1">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 bg-white dark:bg-gray-900">
+            <thead className="sticky top-0 bg-ds-surface-1">
               <tr>
                 {[
                   'Fecha/hora',
@@ -206,7 +206,7 @@ export default function PlatformSincronizacionHorariaPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-gray-100 dark:border-gray-800">
+                <tr key={r.id} className="border-t border-ds-border-subtle border-ds-border-subtle">
                   <td className="whitespace-nowrap px-3 py-2">{r.checkedAtChile}</td>
                   <td className="px-3 py-2">{r.referenceSource}</td>
                   <td className="px-3 py-2 font-mono text-[12px]">{r.referenceTime || '—'}</td>

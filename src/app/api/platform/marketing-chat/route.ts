@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getPlatformSession } from '@/lib/platform-auth'
+import { requirePlatformAuth } from '@/lib/platform-api-auth'
 
 export async function GET() {
-  const session = await getPlatformSession()
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await requirePlatformAuth({ minRole: 'support' })
+  if (!auth.ok) return auth.response
 
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())

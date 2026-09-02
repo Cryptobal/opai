@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
+import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'support' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const pending = await prisma.pendingSignup.findMany({
     where: { verifiedAt: null },
@@ -45,8 +46,9 @@ export async function GET() {
 }
 
 export async function DELETE(request: NextRequest) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'admin' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const id = request.nextUrl.searchParams.get('id');
 

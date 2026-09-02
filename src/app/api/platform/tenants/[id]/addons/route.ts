@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
+import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
-import { clearTenantModuleCache, PLAN_MODULES } from '@/lib/tenant-modules';
+import { clearTenantModuleCache, getCatalogIncludedModules } from '@/lib/tenant-modules';
 import { logPlatformAction, platformActor } from '@/lib/platform/audit';
+import { isTenantModuleKey } from '@/lib/modules/registry';
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'support' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const { id } = await params;
 
@@ -77,8 +79,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'admin' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const { id } = await params;
   const body = await request.json();
@@ -133,8 +136,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'admin' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const { id } = await params;
   const addonSlug = request.nextUrl.searchParams.get('addon');
@@ -167,17 +171,13 @@ export async function DELETE(
     const tenantPlan = await prisma.tenantPlan.findUnique({
       where: { tenantId: id },
     });
-    const catalogPlan = tenantPlan
-      ? await prisma.planCatalog.findUnique({ where: { slug: tenantPlan.plan } })
-      : null;
-    const planModules =
-      (catalogPlan?.includedModules as string[] | null | undefined) ??
-      (tenantPlan ? PLAN_MODULES[tenantPlan.plan] : undefined) ??
-      [];
+    const planModules = tenantPlan
+      ? await getCatalogIncludedModules(tenantPlan.plan)
+      : [];
 
-    if (planModules.includes(addon.moduleKey)) {
+    if (isTenantModuleKey(addon.moduleKey) && planModules.includes(addon.moduleKey)) {
       moduleKept = true;
-    } else {
+    } else if (isTenantModuleKey(addon.moduleKey)) {
       const tenantModule = await prisma.tenantModule.findUnique({
         where: { tenantId_module: { tenantId: id, module: addon.moduleKey } },
       });

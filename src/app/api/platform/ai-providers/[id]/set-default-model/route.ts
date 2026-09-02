@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAuth, platformUnauthorized } from "@/lib/platform-api-auth";
+import { requirePlatformAuth } from "@/lib/platform-api-auth";
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const ctx = await requirePlatformAuth();
-    if (!ctx) return platformUnauthorized();
+    const auth = await requirePlatformAuth({ minRole: 'admin' });
+    if (!auth.ok) return auth.response;
+    const ctx = auth.ctx;
 
     const { id: modelId } = await params;
     const body = await request.json().catch(() => ({}));

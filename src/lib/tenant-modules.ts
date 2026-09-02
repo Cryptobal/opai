@@ -9,6 +9,24 @@ import { cache } from "react";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import {
+  MODULE_REGISTRY,
+  filterKnownModuleKeys,
+  normalizePlanSlug,
+  starterFallbackModuleKeys,
+  type TenantModuleKey,
+} from "@/lib/modules/registry";
+
+export type { TenantModuleKey } from "@/lib/modules/registry";
+export {
+  MODULE_REGISTRY,
+  getModuleDef,
+  isTenantModuleKey,
+  MODULE_CATEGORIES,
+  MODULE_CATEGORY_LABELS,
+  filterKnownModuleKeys,
+  normalizePlanSlug,
+} from "@/lib/modules/registry";
 
 /** Tag de invalidación para módulos, flags y config de un tenant. */
 export function tenantContextTag(tenantId: string): string {
@@ -17,53 +35,7 @@ export function tenantContextTag(tenantId: string): string {
 
 // ── Definición de módulos y planes ──
 
-export const ALL_MODULES = [
-  // Core
-  "hub",
-  "config",
-  "portal_guardia",
-  "portal_marcacion",
-  // Operaciones
-  "ops_asistencia",
-  "ops_pauta",
-  "ops_pce",
-  "ops_turnos_extra",
-  "ops_refuerzos",
-  "ops_onboarding",
-  "ops_audit",
-  "personas",
-  "tickets",
-  "documentos",
-  "contratos",
-  // Supervision (Profesional)
-  "ops_supervision",
-  "alertas_cobertura",
-  "chat",
-  "gamificacion",
-  "protocolos_ia",
-  "reportes_dt",
-  // Add-ons
-  "crm",
-  "cpq",
-  "ops_rondas",
-  "ops_inventario",
-  "ops_camaras",
-  "portal_cliente",
-  "payroll",
-  "finanzas",
-  "ats",
-  "face_id",
-  "ia_operacional",
-  "control_acceso",
-  "fiscalizacion",
-  "control_nocturno",
-  "white_label",
-  "app_nativa",
-  // RRHH — Evaluación Psicolaboral
-  "psych",
-] as const;
-
-export type TenantModuleKey = (typeof ALL_MODULES)[number];
+export const ALL_MODULES: readonly TenantModuleKey[] = MODULE_REGISTRY.map((m) => m.key);
 
 /** Sentinel JWT: el tenant tiene acceso a todos los módulos de ALL_MODULES. */
 export const TENANT_MODULES_ALL_SENTINEL = "*" as const;
@@ -75,33 +47,32 @@ export function hasAllTenantModules(modules: Iterable<string>): boolean {
   return ALL_MODULES.every((m) => set.has(m));
 }
 
-export const PLAN_MODULES: Record<string, TenantModuleKey[]> = {
-  free: [
-    "hub", "config", "portal_guardia", "portal_marcacion",
-    "ops_asistencia", "ops_pauta",
-    "personas", "tickets",
-  ],
-  starter: [
-    "hub", "config", "portal_guardia", "portal_marcacion",
-    "ops_asistencia", "ops_pauta", "ops_pce", "ops_turnos_extra",
-    "ops_refuerzos", "ops_onboarding", "ops_audit",
-    "personas", "tickets", "documentos", "contratos",
-  ],
-  profesional: [
-    "hub", "config", "portal_guardia", "portal_marcacion",
-    "ops_asistencia", "ops_pauta", "ops_pce", "ops_turnos_extra",
-    "ops_refuerzos", "ops_onboarding", "ops_audit",
-    "personas", "tickets", "documentos", "contratos",
-    // Profesional extras
-    "ops_supervision", "alertas_cobertura",
-    "chat", "gamificacion", "protocolos_ia", "reportes_dt",
-  ],
-  enterprise: ALL_MODULES.slice() as unknown as TenantModuleKey[],
-};
-// Backward compatibility aliases
-PLAN_MODULES.trial = PLAN_MODULES.free;
-PLAN_MODULES.essential = PLAN_MODULES.starter;
-PLAN_MODULES.professional = PLAN_MODULES.profesional;
+export async function getCatalogIncludedModules(
+  planSlug: string | null | undefined,
+): Promise<TenantModuleKey[]> {
+  const slug = normalizePlanSlug(planSlug) ?? "starter";
+  const catalog = await prisma.planCatalog.findUnique({
+    where: { slug },
+    select: { includedModules: true },
+  });
+  let keys = filterKnownModuleKeys(catalog?.includedModules ?? []);
+  if (keys.length > 0) return keys;
+
+  if (slug !== "starter") {
+    const starter = await prisma.planCatalog.findUnique({
+      where: { slug: "starter" },
+      select: { includedModules: true },
+    });
+    keys = filterKnownModuleKeys(starter?.includedModules ?? []);
+    if (keys.length > 0) return keys;
+  }
+
+  console.error("[TENANT_MODULES] PlanCatalog no resolvió módulos; fallback starter de registro", {
+    planSlug,
+    slug,
+  });
+  return starterFallbackModuleKeys();
+}
 
 // ── Cache (Next.js Data Cache, TTL 300 s) ──
 
@@ -146,9 +117,9 @@ async function withDataCacheFallback<T>(
  * Obtiene los módulos habilitados para un tenant.
  *
  * Regla:
- * - Cero filas en TenantModule → ALL_MODULES (legado: tenant nunca configurado).
+ * - Cero filas en TenantModule → módulos del PlanCatalog del plan del tenant
+ *   (o starter si no resuelve). Nunca ALL_MODULES.
  * - Filas existentes → solo las con enabled=true (puede ser conjunto vacío).
- *   "Todas desactivadas" NO es fail-open.
  */
 async function fetchTenantEnabledModuleKeys(tenantId: string): Promise<string[]> {
   const rows = await prisma.tenantModule.findMany({
@@ -156,11 +127,43 @@ async function fetchTenantEnabledModuleKeys(tenantId: string): Promise<string[]>
     select: { module: true, enabled: true },
   });
   if (rows.length === 0) {
-    console.warn(
-      "[TENANT_MODULES] tenant sin filas TenantModule, aplicando compat legado",
+    console.error(
+      "[TENANT_MODULES] tenant sin filas TenantModule, fail-closed a PlanCatalog",
       { tenantId },
     );
-    return [...ALL_MODULES];
+    const plan = await prisma.tenantPlan.findUnique({
+      where: { tenantId },
+      select: { plan: true },
+    });
+    const keys = await getCatalogIncludedModules(plan?.plan ?? "starter");
+    try {
+      await prisma.tenantModule.createMany({
+        data: keys.map((module) => ({ tenantId, module, enabled: true })),
+        skipDuplicates: true,
+      });
+    } catch (error) {
+      console.error("[TENANT_MODULES] no se pudieron materializar filas", { tenantId, error });
+    }
+    try {
+      const { logPlatformAction, hasPlatformAuditToday } = await import("@/lib/platform/audit");
+      const already = await hasPlatformAuditToday({
+        tenantId,
+        action: "lifecycle.modules_materialized",
+      });
+      if (!already) {
+        await logPlatformAction({
+          actorType: "system",
+          action: "lifecycle.modules_materialized",
+          tenantId,
+          targetType: "TenantModule",
+          targetId: tenantId,
+          after: { modules: keys, plan: plan?.plan ?? null },
+        });
+      }
+    } catch (error) {
+      console.error("[TENANT_MODULES] audit modules_materialized failed", { tenantId, error });
+    }
+    return keys;
   }
   return rows.filter((r) => r.enabled).map((r) => r.module);
 }

@@ -4,6 +4,7 @@
  * exigir seed: la migración de datos siembra los mismos valores.
  */
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const PLATFORM_SETTING_DEFAULTS = {
@@ -136,4 +137,37 @@ export async function getLifecycleSettings(): Promise<LifecycleSettings> {
       PLATFORM_SETTING_DEFAULTS["signup.defaultPlan"],
     ),
   };
+}
+
+export async function getAllPlatformSettings(): Promise<Record<PlatformSettingKey, unknown>> {
+  const rows = await loadRows();
+  const out = {} as Record<PlatformSettingKey, unknown>;
+  for (const key of Object.keys(PLATFORM_SETTING_DEFAULTS) as PlatformSettingKey[]) {
+    out[key] = rows.has(key) ? rows.get(key) : PLATFORM_SETTING_DEFAULTS[key];
+  }
+  return out;
+}
+
+export function isPlatformSettingKey(key: string): key is PlatformSettingKey {
+  return key in PLATFORM_SETTING_DEFAULTS;
+}
+
+export async function setPlatformSettings(
+  updates: Partial<Record<PlatformSettingKey, unknown>>,
+  updatedBy: string,
+): Promise<Record<PlatformSettingKey, unknown>> {
+  const keys = Object.keys(updates) as PlatformSettingKey[];
+  if (keys.length) {
+    await prisma.$transaction(
+      keys.map((key) =>
+        prisma.platformSetting.upsert({
+          where: { key },
+          create: { key, value: updates[key] as Prisma.InputJsonValue, updatedBy },
+          update: { value: updates[key] as Prisma.InputJsonValue, updatedBy },
+        }),
+      ),
+    );
+  }
+  invalidatePlatformSettingsCache();
+  return getAllPlatformSettings();
 }

@@ -8,10 +8,25 @@ vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
 }));
 
+const logPlatformAction = vi.fn();
+const hasPlatformAuditToday = vi.fn();
+
+vi.mock("@/lib/platform/audit", () => ({
+  logPlatformAction: (...args: unknown[]) => logPlatformAction(...args),
+  hasPlatformAuditToday: (...args: unknown[]) => hasPlatformAuditToday(...args),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     tenantModule: {
       findMany: vi.fn(),
+      createMany: vi.fn(),
+    },
+    tenantPlan: {
+      findUnique: vi.fn(),
+    },
+    planCatalog: {
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -19,29 +34,56 @@ vi.mock("@/lib/prisma", () => ({
 import { ALL_MODULES, getTenantEnabledModules } from "@/lib/tenant-modules";
 import { prisma } from "@/lib/prisma";
 
-const findMany = prisma.tenantModule.findMany as unknown as ReturnType<
-  typeof vi.fn
->;
+const findMany = prisma.tenantModule.findMany as unknown as ReturnType<typeof vi.fn>;
+const createMany = prisma.tenantModule.createMany as unknown as ReturnType<typeof vi.fn>;
+const planFind = prisma.tenantPlan.findUnique as unknown as ReturnType<typeof vi.fn>;
+const catalogFind = prisma.planCatalog.findUnique as unknown as ReturnType<typeof vi.fn>;
 
 describe("getTenantEnabledModules / fetchTenantEnabledModuleKeys", () => {
   beforeEach(() => {
     findMany.mockReset();
+    createMany.mockReset();
+    planFind.mockReset();
+    catalogFind.mockReset();
+    logPlatformAction.mockReset();
+    hasPlatformAuditToday.mockReset();
+    hasPlatformAuditToday.mockResolvedValue(false);
+    createMany.mockResolvedValue({ count: 0 });
     unstableCacheMock.mockReset();
     unstableCacheMock.mockImplementation((fn: () => unknown) => () => fn());
+    vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
-  it("cero filas → ALL_MODULES (compat legado)", async () => {
+  it("cero filas → módulos del PlanCatalog (nunca ALL_MODULES)", async () => {
     findMany.mockResolvedValue([]);
+    planFind.mockResolvedValue({ plan: "starter" });
+    catalogFind.mockResolvedValue({
+      includedModules: ["hub", "config", "ops_pauta"],
+    });
 
     const enabled = await getTenantEnabledModules("tenant-legacy");
 
-    expect(findMany).toHaveBeenCalledWith({
-      where: { tenantId: "tenant-legacy" },
-      select: { module: true, enabled: true },
-    });
-    expect(enabled).toEqual(new Set(ALL_MODULES));
-    expect(console.warn).toHaveBeenCalled();
+    expect(enabled).toEqual(new Set(["hub", "config", "ops_pauta"]));
+    expect(enabled.size).toBeLessThan(ALL_MODULES.length);
+    expect(createMany).toHaveBeenCalled();
+    expect(logPlatformAction).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "lifecycle.modules_materialized" }),
+    );
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it("cero filas y catálogo vacío del plan → starter", async () => {
+    findMany.mockResolvedValue([]);
+    planFind.mockResolvedValue({ plan: "enterprise" });
+    catalogFind
+      .mockResolvedValueOnce({ includedModules: [] })
+      .mockResolvedValueOnce({ includedModules: ["hub", "personas"] });
+
+    const enabled = await getTenantEnabledModules("tenant-no-plan-mods");
+
+    expect(enabled).toEqual(new Set(["hub", "personas"]));
+    expect(catalogFind).toHaveBeenCalledTimes(2);
   });
 
   it("filas con al menos una habilitada → solo habilitadas", async () => {

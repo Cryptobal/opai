@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
+import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
-import { PLAN_MODULES } from '@/lib/tenant-modules';
+import { getCatalogIncludedModules } from '@/lib/tenant-modules';
 import { clearTenantModuleCache } from '@/lib/tenant-modules';
 import { isBillingStatus, normalizeBillingStatus } from '@/lib/platform/tenant-lifecycle';
 import { logPlatformAction, platformActor } from '@/lib/platform/audit';
@@ -10,8 +10,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'admin' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const { id } = await params;
   const body = await request.json();
@@ -63,8 +64,9 @@ export async function PATCH(
       where: { slug: data.plan as string },
     });
 
-    const newModules = (catalogPlan?.includedModules as string[]) ??
-      PLAN_MODULES[data.plan as string] ?? [];
+    const newModules = catalogPlan
+      ? await getCatalogIncludedModules(catalogPlan.slug)
+      : [];
 
     if (newModules.length === 0) {
       return NextResponse.json(

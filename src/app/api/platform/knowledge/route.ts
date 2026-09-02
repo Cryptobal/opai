@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
+import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 import { uploadFile } from '@/lib/storage';
 import { extractText } from '@/lib/knowledge/extract';
@@ -11,8 +11,8 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const session = await requirePlatformAuth();
-  if (!session) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'support' });
+  if (!auth.ok) return auth.response;
 
   try {
     await ensureKnowledgeTables();
@@ -59,8 +59,9 @@ const ALLOWED_TYPES = [
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function POST(request: NextRequest) {
-  const session = await requirePlatformAuth();
-  if (!session) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'admin' });
+  if (!auth.ok) return auth.response;
+  const session = auth.ctx;
 
   try {
     await ensureKnowledgeTables();

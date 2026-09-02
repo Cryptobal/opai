@@ -52,7 +52,7 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status] || 'bg-ds-surface-2 text-ds-text-1'}`}>
       {status === 'processing' && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
       {status}
     </span>
@@ -231,11 +231,11 @@ export default function PlatformKnowledgePage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-ds-text-1">
             <BookOpen className="h-6 w-6" />
             Bases de Conocimiento — Plataforma
           </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-ds-text-3">
             Documentos de conocimiento global que alimentan al asistente IA de todos los tenants.
           </p>
         </div>
@@ -251,19 +251,19 @@ export default function PlatformKnowledgePage() {
       {/* Upload Modal */}
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900">
+          <div className="w-full max-w-lg rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="text-lg font-semibold text-ds-text-1">
                 Subir documento de conocimiento
               </h2>
-              <button onClick={() => setShowUpload(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowUpload(false)} className="text-ds-text-4 hover:text-ds-text-2">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleUpload} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="block text-sm font-medium text-ds-text-2">
                   Título *
                 </label>
                 <input
@@ -271,19 +271,19 @@ export default function PlatformKnowledgePage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  className="mt-1 w-full rounded-lg border border-ds-border-default px-3 py-2 text-sm border-ds-border-default bg-ds-surface-2 text-ds-text-1"
                   placeholder="Ej: Catálogo de módulos OPAI"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="block text-sm font-medium text-ds-text-2">
                   Categoría
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  className="mt-1 w-full rounded-lg border border-ds-border-default px-3 py-2 text-sm border-ds-border-default bg-ds-surface-2 text-ds-text-1"
                 >
                   <option value="">Sin categoría</option>
                   {CATEGORIES.map((c) => (
@@ -293,20 +293,20 @@ export default function PlatformKnowledgePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="block text-sm font-medium text-ds-text-2">
                   Descripción
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  className="mt-1 w-full rounded-lg border border-ds-border-default px-3 py-2 text-sm border-ds-border-default bg-ds-surface-2 text-ds-text-1"
                   placeholder="Descripción opcional del documento"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="block text-sm font-medium text-ds-text-2">
                   Archivo *
                 </label>
                 <input
@@ -314,16 +314,16 @@ export default function PlatformKnowledgePage() {
                   accept=".pdf,.md,.txt,.docx"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                   required
-                  className="mt-1 w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-status-info-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-status-info-fg hover:file:brightness-110 dark:text-gray-400"
+                  className="mt-1 w-full text-sm text-ds-text-3 file:mr-4 file:rounded-lg file:border-0 file:bg-status-info-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-status-info-fg hover:file:brightness-110 text-ds-text-3"
                 />
-                <p className="mt-1 text-xs text-gray-400">PDF, Markdown, TXT o DOCX. Máx 10MB.</p>
+                <p className="mt-1 text-xs text-ds-text-4">PDF, Markdown, TXT o DOCX. Máx 10MB.</p>
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowUpload(false)}
-                  className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                  className="rounded-lg px-4 py-2 text-sm text-ds-text-3 hover:bg-ds-surface-2"
                 >
                   Cancelar
                 </button>
@@ -349,12 +349,12 @@ export default function PlatformKnowledgePage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por título, archivo o descripción..."
-            className="flex-1 min-w-[220px] rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm"
+            className="flex-1 min-w-[220px] rounded-lg border border-ds-border-default bg-ds-surface-2 text-ds-text-1 px-3 py-2 text-sm"
           />
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm"
+            className="rounded-lg border border-ds-border-default bg-ds-surface-2 text-ds-text-1 px-3 py-2 text-sm"
           >
             <option value="all">Todas las categorías</option>
             {availableCategories.map((c) => (
@@ -363,7 +363,7 @@ export default function PlatformKnowledgePage() {
               </option>
             ))}
           </select>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
+          <span className="text-sm text-ds-text-3">
             {filteredItems.length} de {items.length}
           </span>
         </div>
@@ -372,51 +372,51 @@ export default function PlatformKnowledgePage() {
       {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-ds-text-4" />
         </div>
       ) : items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300 p-12 text-center dark:border-gray-700">
-          <BookOpen className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-600" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="rounded-xl border border-dashed border-ds-border-default p-12 text-center">
+          <BookOpen className="mx-auto mb-3 h-10 w-10 text-ds-text-4 dark:text-ds-text-3" />
+          <p className="text-sm text-ds-text-3">
             No hay documentos de conocimiento. Sube el primero para alimentar al asistente IA.
           </p>
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300 p-12 text-center dark:border-gray-700">
-          <BookOpen className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-600" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="rounded-xl border border-dashed border-ds-border-default p-12 text-center">
+          <BookOpen className="mx-auto mb-3 h-10 w-10 text-ds-text-4 dark:text-ds-text-3" />
+          <p className="text-sm text-ds-text-3">
             No hay documentos que coincidan con los filtros aplicados.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+        <div className="overflow-x-auto rounded-xl border border-ds-border-default">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50">
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Título</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Categoría</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Archivo</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Chunks</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Tamaño</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Habilitado</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Acciones</th>
+              <tr className="border-b border-ds-border-default bg-ds-surface-2 border-ds-border-default bg-ds-surface-2">
+                <th className="px-4 py-3 text-left font-medium text-ds-text-3">Título</th>
+                <th className="px-4 py-3 text-left font-medium text-ds-text-3">Categoría</th>
+                <th className="px-4 py-3 text-left font-medium text-ds-text-3">Archivo</th>
+                <th className="px-4 py-3 text-left font-medium text-ds-text-3">Estado</th>
+                <th className="px-4 py-3 text-left font-medium text-ds-text-3">Chunks</th>
+                <th className="px-4 py-3 text-left font-medium text-ds-text-3">Tamaño</th>
+                <th className="px-4 py-3 text-left font-medium text-ds-text-3">Habilitado</th>
+                <th className="px-4 py-3 text-left font-medium text-ds-text-3">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-ds-border-subtle divide-ds-border-subtle">
               {filteredItems.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                <tr key={item.id} className="hover:bg-ds-surface-2 hover:bg-ds-surface-2">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900 dark:text-gray-100">{item.title}</div>
+                    <div className="font-medium text-ds-text-1">{item.title}</div>
                     {item.description && (
-                      <div className="mt-0.5 text-xs text-gray-500 line-clamp-1">{item.description}</div>
+                      <div className="mt-0.5 text-xs text-ds-text-3 line-clamp-1">{item.description}</div>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                  <td className="px-4 py-3 text-ds-text-3">
                     {item.category || '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center gap-1.5 text-ds-text-3">
                       <FileText className="h-3.5 w-3.5" />
                       <span className="max-w-[150px] truncate">{item.fileName}</span>
                     </div>
@@ -424,17 +424,17 @@ export default function PlatformKnowledgePage() {
                   <td className="px-4 py-3">
                     <StatusBadge status={item.status} />
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{item.chunkCount}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{formatBytes(item.fileSize)}</td>
+                  <td className="px-4 py-3 text-ds-text-3">{item.chunkCount}</td>
+                  <td className="px-4 py-3 text-ds-text-3">{formatBytes(item.fileSize)}</td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => handleToggle(item.id, item.enabled)}
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                        item.enabled ? 'bg-status-info' : 'bg-gray-300 dark:bg-gray-600'
+                        item.enabled ? 'bg-status-info' : 'bg-ds-surface-3'
                       }`}
                     >
                       <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-ds-surface-1 transition-transform ${
                           item.enabled ? 'translate-x-4.5' : 'translate-x-0.5'
                         }`}
                       />
@@ -444,7 +444,7 @@ export default function PlatformKnowledgePage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => fetchItems()}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
+                        className="rounded p-1 text-ds-text-4 hover:bg-ds-surface-2 hover:text-ds-text-2"
                         title="Refrescar"
                       >
                         <RefreshCw className="h-4 w-4" />
@@ -452,7 +452,7 @@ export default function PlatformKnowledgePage() {
                       <button
                         onClick={() => handleReprocess(item.id)}
                         disabled={reprocessing === item.id}
-                        className="rounded p-1 text-gray-400 hover:bg-status-info-soft hover:text-status-info-fg disabled:opacity-50"
+                        className="rounded p-1 text-ds-text-4 hover:bg-status-info-soft hover:text-status-info-fg disabled:opacity-50"
                         title="Reprocesar (regenerar embeddings)"
                       >
                         {reprocessing === item.id ? (
@@ -464,7 +464,7 @@ export default function PlatformKnowledgePage() {
                       <button
                         onClick={() => handleDelete(item.id)}
                         disabled={deleting === item.id}
-                        className="rounded p-1 text-gray-400 hover:bg-status-danger-soft hover:text-status-danger-fg disabled:opacity-50"
+                        className="rounded p-1 text-ds-text-4 hover:bg-status-danger-soft hover:text-status-danger-fg disabled:opacity-50"
                         title="Eliminar"
                       >
                         {deleting === item.id ? (

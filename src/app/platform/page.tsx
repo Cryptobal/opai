@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { OverviewClient } from "@/components/platform/overview/OverviewClient";
 
-export default function PlatformPage() {
-  redirect('/platform/dashboard');
+export default function PlatformOverviewPage() {
+  return <OverviewClient />;
 }

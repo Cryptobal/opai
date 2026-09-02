@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAuth, platformUnauthorized } from "@/lib/platform-api-auth";
+import { requirePlatformAuth } from "@/lib/platform-api-auth";
 import { decryptApiKey } from "@/lib/ai-encryption";
 import { AIService, type AIConfig } from "@/lib/ai-service";
 import { KNOWN_PROVIDERS } from "@/lib/ai-known-models";
@@ -10,8 +10,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const ctx = await requirePlatformAuth();
-    if (!ctx) return platformUnauthorized();
+    const auth = await requirePlatformAuth({ minRole: 'admin' });
+    if (!auth.ok) return auth.response;
+    const ctx = auth.ctx;
 
     const { id } = await params;
 

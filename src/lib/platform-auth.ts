@@ -2,6 +2,7 @@ import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 import * as bcrypt from 'bcryptjs';
 import { verifyPlatformToken } from './platform-jwt';
+import { parsePlatformRole, type PlatformRole } from '@/lib/platform/roles';
 
 const COOKIE_NAME = 'platform-session';
 const EXPIRY_SECONDS = 24 * 60 * 60; // 24 hours
@@ -16,6 +17,7 @@ export interface PlatformSession {
   platformAdminId: string;
   email: string;
   name: string;
+  role: PlatformRole;
 }
 
 export async function platformLogin(
@@ -47,6 +49,7 @@ export async function platformLogin(
     platformAdminId: admin.id,
     email: admin.email,
     name: admin.name,
+    role: parsePlatformRole(admin.role),
   };
 
   // Sign JWT
@@ -95,6 +98,7 @@ export async function platformLoginByEmail(
     platformAdminId: admin.id,
     email: admin.email,
     name: admin.name,
+    role: parsePlatformRole(admin.role),
   };
 
   const token = await new SignJWT({ ...session })
