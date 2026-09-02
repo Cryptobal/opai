@@ -32,6 +32,9 @@ export async function authenticate(formData: FormData) {
     if (error instanceof CredentialsSignin && error.code === 'tenant_suspended') {
       return redirect(`/opai/login?error=tenant_suspended${emailQs}`);
     }
+    if (error instanceof CredentialsSignin && error.code === 'tenant_cancelled') {
+      return redirect(`/opai/login?error=tenant_cancelled${emailQs}`);
+    }
     if (error instanceof CredentialsSignin && error.code === 'not_registered') {
       return redirect(`/opai/login?error=not_registered${emailQs}`);
     }

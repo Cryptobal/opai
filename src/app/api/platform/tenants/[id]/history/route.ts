@@ -3,31 +3,81 @@ import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-au
 import { prisma } from '@/lib/prisma';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await requirePlatformAuth();
   if (!ctx) return platformUnauthorized();
 
   const { id } = await params;
+  const cursor = request.nextUrl.searchParams.get('cursor');
+  const take = 50;
 
-  const logs = await prisma.planChangeLog.findMany({
-    where: { tenantId: id },
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-  });
+  const cursorDate = cursor ? new Date(cursor) : null;
+  const createdAtFilter =
+    cursorDate && !Number.isNaN(cursorDate.getTime())
+      ? { lt: cursorDate }
+      : undefined;
+
+  const [auditLogs, planLogs] = await Promise.all([
+    prisma.platformAuditLog.findMany({
+      where: { tenantId: id, ...(createdAtFilter ? { createdAt: createdAtFilter } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take,
+    }),
+    prisma.planChangeLog.findMany({
+      where: { tenantId: id, ...(createdAtFilter ? { createdAt: createdAtFilter } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take,
+    }),
+  ]);
+
+  const logs = planLogs.map((l) => ({
+    id: l.id,
+    previousPlan: l.previousPlan,
+    newPlan: l.newPlan,
+    previousPrice: l.previousPrice ? Number(l.previousPrice) : null,
+    newPrice: l.newPrice ? Number(l.newPrice) : null,
+    changedBy: l.changedBy,
+    reason: l.reason,
+    addonsSnapshot: l.addonsSnapshot,
+    createdAt: l.createdAt.toISOString(),
+  }));
+
+  const events = [
+    ...auditLogs.map((a) => ({
+      source: 'audit' as const,
+      id: a.id,
+      createdAt: a.createdAt.toISOString(),
+      action: a.action,
+      actorType: a.actorType,
+      actorEmail: a.actorEmail,
+      targetType: a.targetType,
+      targetId: a.targetId,
+      before: a.before,
+      after: a.after,
+    })),
+    ...planLogs.map((l) => ({
+      source: 'plan_change' as const,
+      id: l.id,
+      createdAt: l.createdAt.toISOString(),
+      action: 'plan.change',
+      actorType: 'platform_admin',
+      actorEmail: l.changedBy,
+      targetType: 'TenantPlan',
+      targetId: id,
+      before: { plan: l.previousPlan, price: l.previousPrice ? Number(l.previousPrice) : null },
+      after: { plan: l.newPlan, price: l.newPrice ? Number(l.newPrice) : null, reason: l.reason },
+    })),
+  ]
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, take);
+
+  const nextCursor = events.length === take ? events[events.length - 1]?.createdAt : null;
 
   return NextResponse.json({
-    logs: logs.map((l) => ({
-      id: l.id,
-      previousPlan: l.previousPlan,
-      newPlan: l.newPlan,
-      previousPrice: l.previousPrice ? Number(l.previousPrice) : null,
-      newPrice: l.newPrice ? Number(l.newPrice) : null,
-      changedBy: l.changedBy,
-      reason: l.reason,
-      addonsSnapshot: l.addonsSnapshot,
-      createdAt: l.createdAt.toISOString(),
-    })),
+    logs,
+    events,
+    nextCursor,
   });
 }

@@ -13,6 +13,8 @@ export function erpLoginErrorMessage(error: string | undefined): string {
       return "Tu cuenta de Google aún no está registrada en Opai.";
     case "tenant_suspended":
       return "Tu empresa tiene el acceso suspendido. Contacta a soporte.";
+    case "tenant_cancelled":
+      return "La cuenta de tu empresa fue cancelada. Contacta a ventas.";
     case "Configuration":
     case "Callback":
     case "CallbackRouteError":

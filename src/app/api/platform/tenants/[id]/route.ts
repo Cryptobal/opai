@@ -78,6 +78,9 @@ export async function GET(
       customBaseMinimum: tenant.plan.customBaseMinimum ? Number(tenant.plan.customBaseMinimum) : null,
       currency: tenant.plan.currency, billingStatus: tenant.plan.billingStatus,
       trialEndsAt: tenant.plan.trialEndsAt?.toISOString() || null,
+      graceEndsAt: tenant.plan.graceEndsAt?.toISOString() || null,
+      statusChangedAt: tenant.plan.statusChangedAt?.toISOString() || null,
+      statusReason: tenant.plan.statusReason,
     } : null,
     modules: tenant.modules.map((m) => ({ module: m.module, enabled: m.enabled })),
     admins: tenant.admins.map((a) => ({
@@ -119,6 +122,17 @@ export async function PATCH(
   }
 
   await prisma.tenant.update({ where: { id }, data });
+
+  const { logPlatformAction, platformActor } = await import('@/lib/platform/audit');
+  await logPlatformAction({
+    ...platformActor(ctx),
+    action: 'tenant.update',
+    tenantId: id,
+    targetType: 'Tenant',
+    targetId: id,
+    after: data as Record<string, unknown>,
+    request,
+  });
 
   return NextResponse.json({ success: true });
 }
@@ -190,6 +204,16 @@ export async function DELETE(
         name: result.tenantName,
         rowsDeleted: result.rowsDeleted,
       },
+      request,
+    });
+
+    const { logPlatformAction, platformActor } = await import('@/lib/platform/audit');
+    await logPlatformAction({
+      ...platformActor(ctx),
+      action: 'tenant.delete',
+      targetType: 'Tenant',
+      targetId: tenant.id,
+      after: { slug: result.tenantSlug, name: result.tenantName, rowsDeleted: result.rowsDeleted },
       request,
     });
 

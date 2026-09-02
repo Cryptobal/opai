@@ -31,6 +31,13 @@ export function addDaysChile(utcDate: Date, days: number): Date {
   return fromZonedTime(local, CHILE_TZ);
 }
 
+/** Días calendario Chile desde `now` hasta `target` (negativo si ya pasó). */
+export function chileCalendarDaysUntil(target: Date, now: Date = new Date()): number {
+  const a = startOfDayChile(now).getTime();
+  const b = startOfDayChile(target).getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
 /**
  * Número de semana ISO-8601 (1-53) del día calendario en Chile.
  * Calcula sobre el ymd chileno para que un instante UTC cerca de medianoche

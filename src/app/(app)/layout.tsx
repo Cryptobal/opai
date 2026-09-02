@@ -6,6 +6,7 @@ import { PermissionsProvider } from '@/lib/permissions-context';
 import { ImpersonateBanner } from '@/components/platform/ImpersonateBanner';
 import { TenantModulesProvider } from '@/contexts/TenantModulesContext';
 import { DpaConsentBanner } from '@/components/DpaConsentBanner';
+import { TenantAccessBanner } from '@/components/tenant/TenantAccessBanner';
 import { parseSurface, SURFACE_COOKIE } from '@/lib/surface';
 import { brandCssVars } from '@/lib/branding/brand-css-vars';
 import { getAppRequestContext } from '@/lib/app-request-context';
@@ -35,6 +36,8 @@ export default async function AppLayout({
 
   const { session, permissions, tenantModules, tenantFlags, companyConfig, photoUrl } = ctx;
   const isImpersonating = (session as { impersonating?: boolean }).impersonating === true;
+  const bannerKey = (session as { bannerKey?: string }).bannerKey;
+  const accessDaysLeft = (session as { accessDaysLeft?: number }).accessDaysLeft;
 
   const cookieStore = await cookies();
   const surface = parseSurface(cookieStore.get(SURFACE_COOKIE)?.value);
@@ -56,6 +59,7 @@ export default async function AppLayout({
         />
       ) : null}
       {isImpersonating && <ImpersonateBanner />}
+      <TenantAccessBanner bannerKey={bannerKey} daysLeft={accessDaysLeft} />
       <PermissionsProvider permissions={permissions}>
         <TenantModulesProvider initialModules={tenantModules} initialFlags={tenantFlags}>
           <AppLayoutClient

@@ -28,6 +28,40 @@ function throwTenantSuspended(): never {
   throwCredentials('tenant_suspended');
 }
 
+function throwTenantCancelled(): never {
+  throwCredentials('tenant_cancelled');
+}
+
+type AccessMode = 'full' | 'read_only' | 'blocked';
+
+async function resolveTokenAccess(tenantId: string): Promise<{
+  accessMode: AccessMode;
+  bannerKey?: string;
+  accessDaysLeft?: number;
+  blocked: boolean;
+  blockedCode: 'tenant_suspended' | 'tenant_cancelled' | null;
+}> {
+  try {
+    const { resolveTenantAccess } = await import('@/lib/platform/tenant-lifecycle');
+    const access = await resolveTenantAccess(tenantId);
+    const blocked = access.mode === 'blocked';
+    return {
+      accessMode: access.mode,
+      bannerKey: access.bannerKey,
+      accessDaysLeft: access.daysLeft,
+      blocked,
+      blockedCode: blocked
+        ? access.state === 'cancelled'
+          ? 'tenant_cancelled'
+          : 'tenant_suspended'
+        : null,
+    };
+  } catch (error) {
+    console.error('[auth] resolveTokenAccess failed (fail-open):', error);
+    return { accessMode: 'full', blocked: false, blockedCode: null };
+  }
+}
+
 /**
  * Materializa módulos del tenant para el JWT.
  * Falla en abierto (`*`) ante error de BD: una caída no puede bloquear módulos.
@@ -67,6 +101,10 @@ declare module 'next-auth' {
     impersonating?: boolean;
     /** Módulos de plan del tenant (`*` = todos). */
     modules?: TenantModulesToken;
+    /** Modo de acceso comercial del tenant. Ausente en tokens pre-despliegue. */
+    accessMode?: AccessMode;
+    bannerKey?: string;
+    accessDaysLeft?: number;
   }
 }
 
@@ -86,6 +124,9 @@ declare module '@auth/core/jwt' {
     roleRefreshedAt?: number;
     /** Módulos de plan del tenant (`*` = todos). Ausente en tokens pre-despliegue. */
     modules?: TenantModulesToken;
+    accessMode?: AccessMode;
+    bannerKey?: string;
+    accessDaysLeft?: number;
   }
 }
 
@@ -131,7 +172,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             include: { tenant: true },
           });
           if (!admin) return null;
-          if (admin.tenant && admin.tenant.active === false) {
+          const impersonateAccess = await resolveTokenAccess(admin.tenantId);
+          if (impersonateAccess.blocked) {
             return null;
           }
           return {
@@ -161,6 +203,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           ) {
             const dtValid = await bcrypt.compare(password, dtSession.tempPasswordHash);
             if (dtValid) {
+              const dtAccess = await resolveTokenAccess(dtSession.tenantId);
+              if (dtAccess.blocked) {
+                if (dtAccess.blockedCode === 'tenant_cancelled') throwTenantCancelled();
+                throwTenantSuspended();
+              }
               await prisma.dtInspectorSession.update({
                 where: { id: dtSession.id },
                 data: { lastAccessAt: new Date() },
@@ -202,18 +249,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        if (admin.tenant && admin.tenant.active === false) {
-          try {
-            const { logAudit } = await import('./audit');
-            await logAudit({
-              action: 'LOGIN_FAILED',
-              entity: 'Admin',
-              userEmail: email,
-              tenantId: admin.tenantId,
-              details: { reason: 'tenant_suspended' },
-            });
-          } catch {}
-          throwTenantSuspended();
+        if (admin.tenant) {
+          const access = await resolveTokenAccess(admin.tenantId);
+          if (access.blocked) {
+            try {
+              const { logAudit } = await import('./audit');
+              await logAudit({
+                action: 'LOGIN_FAILED',
+                entity: 'Admin',
+                userEmail: email,
+                tenantId: admin.tenantId,
+                details: { reason: access.blockedCode ?? 'tenant_suspended' },
+              });
+            } catch {}
+            if (access.blockedCode === 'tenant_cancelled') throwTenantCancelled();
+            throwTenantSuspended();
+          }
         }
 
         const valid = await bcrypt.compare(password, admin.password);
@@ -237,6 +288,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { id: admin.id },
           data: { lastLoginAt: new Date() },
         });
+        const { touchTenantActivity } = await import('@/lib/platform/tenant-lifecycle');
+        await touchTenantActivity(admin.tenantId);
 
         return {
           id: admin.id,
@@ -277,8 +330,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!admin) {
           return '/opai/login?error=google_not_registered';
         }
-        if (admin.tenant && admin.tenant.active === false) {
-          return '/opai/login?error=tenant_suspended';
+        {
+          const access = await resolveTokenAccess(admin.tenantId);
+          if (access.blocked) {
+            const code = access.blockedCode === 'tenant_cancelled'
+              ? 'tenant_cancelled'
+              : 'tenant_suspended';
+            return `/opai/login?error=${code}`;
+          }
         }
         // Link googleId if not already linked
         if (!admin.googleId) {
@@ -287,6 +346,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             data: { googleId: account.providerAccountId },
           });
         }
+        await prisma.admin.update({
+          where: { id: admin.id },
+          data: { lastLoginAt: new Date() },
+        });
+        const { touchTenantActivity } = await import('@/lib/platform/tenant-lifecycle');
+        await touchTenantActivity(admin.tenantId);
         // Inject admin data into the NextAuth user object
         user.id = admin.id;
         user.name = admin.name;
@@ -310,6 +375,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.impersonating = (user as any).impersonating || false;
         token.impersonatingFrom = (user as any).impersonatingFrom || undefined;
         token.modules = await resolveTokenModules(user.tenantId);
+        const access = await resolveTokenAccess(user.tenantId);
+        token.accessMode = access.accessMode;
+        token.bannerKey = access.bannerKey;
+        token.accessDaysLeft = access.accessDaysLeft;
+        if (access.blocked) {
+          return null as unknown as typeof token;
+        }
         return token;
       }
 
@@ -330,16 +402,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                   role: true,
                   roleTemplateId: true,
                   status: true,
-                  tenant: { select: { active: true } },
                 },
               }),
               new Promise<null>((_, reject) =>
                 setTimeout(() => reject(new Error('DB timeout')), DB_TIMEOUT_MS)
               ),
             ]);
-            if (!admin || admin.status !== 'active' || admin.tenant?.active === false) {
-              // Usuario inactivo/eliminado o tenant suspendido: invalidar sesión
+            if (!admin || admin.status !== 'active') {
+              // Usuario inactivo/eliminado: invalidar sesión
               return null as unknown as typeof token;
+            }
+            if (typeof token.tenantId === 'string' && token.tenantId) {
+              const access = await resolveTokenAccess(token.tenantId);
+              token.accessMode = access.accessMode;
+              token.bannerKey = access.bannerKey;
+              token.accessDaysLeft = access.accessDaysLeft;
+              if (access.blocked) {
+                return null as unknown as typeof token;
+              }
             }
             token.role = admin.role;
             token.roleTemplateId = admin.roleTemplateId ?? null;
@@ -369,6 +449,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.portal = token.portal;
       session.impersonating = token.impersonating || false;
       session.modules = token.modules;
+      session.accessMode = token.accessMode;
+      session.bannerKey = token.bannerKey;
+      session.accessDaysLeft = token.accessDaysLeft;
       return session;
     },
   },
@@ -427,8 +510,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
  */
 export async function updateLastLogin(userId: string) {
   const { prisma } = await import('./prisma');
-  await prisma.admin.update({
+  const admin = await prisma.admin.update({
     where: { id: userId },
     data: { lastLoginAt: new Date() },
+    select: { tenantId: true },
   });
+  const { touchTenantActivity } = await import('@/lib/platform/tenant-lifecycle');
+  await touchTenantActivity(admin.tenantId);
 }

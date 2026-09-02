@@ -28,6 +28,17 @@ export async function POST(
     `[IMPERSONATE] Platform admin ${ctx.email} (${ctx.platformAdminId}) → tenant "${owner.tenant.name}" as ${owner.email}`,
   );
 
+  const { logPlatformAction, platformActor } = await import('@/lib/platform/audit');
+  await logPlatformAction({
+    ...platformActor(ctx),
+    action: 'tenant.impersonate',
+    tenantId: id,
+    targetType: 'Tenant',
+    targetId: id,
+    after: { ownerEmail: owner.email, tenantName: owner.tenant.name },
+    request: _request,
+  });
+
   try {
     await signIn('credentials', {
       email: owner.email,

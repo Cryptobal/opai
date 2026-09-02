@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 import { clearTenantModuleCache, PLAN_MODULES } from '@/lib/tenant-modules';
+import { logPlatformAction, platformActor } from '@/lib/platform/audit';
 
 export async function GET(
   _request: NextRequest,
@@ -115,6 +116,16 @@ export async function POST(
 
   clearTenantModuleCache(id);
 
+  await logPlatformAction({
+    ...platformActor(ctx),
+    action: 'addon.toggle',
+    tenantId: id,
+    targetType: 'TenantAddon',
+    targetId: addon.id,
+    after: { addonSlug, enabled: true, customPrice: customPrice ?? null },
+    request,
+  });
+
   return NextResponse.json({ success: true });
 }
 
@@ -180,6 +191,16 @@ export async function DELETE(
   }
 
   clearTenantModuleCache(id);
+
+  await logPlatformAction({
+    ...platformActor(ctx),
+    action: 'addon.toggle',
+    tenantId: id,
+    targetType: 'TenantAddon',
+    targetId: addon.id,
+    after: { addonSlug, enabled: false, moduleKept },
+    request,
+  });
 
   return NextResponse.json({ success: true, moduleKept });
 }

@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import * as bcrypt from "bcryptjs";
 import { PLAN_MODULES, type TenantModuleKey } from "@/lib/tenant-modules";
 import { PLATFORM_DEFAULT_EMAIL_FROM_ADDRESS } from "@/lib/platform-email";
+import { getLifecycleSettings } from "@/lib/platform/settings";
 
 export interface CreateTenantInput {
   // Empresa
@@ -26,8 +27,8 @@ export interface CreateTenantInput {
   ownerPasswordHash?: string;
 
   // Plan
-  plan: "free" | "starter" | "profesional" | "enterprise" | "trial" | "essential" | "professional";
-  trialDays?: number; // Default: 30
+  plan?: "free" | "starter" | "profesional" | "enterprise" | "trial" | "essential" | "professional";
+  trialDays?: number;
 
   // Datos enriquecidos del onboarding (opcionales — públicos signup)
   ownerPhone?: string;
@@ -52,6 +53,7 @@ export interface CreateTenantResult {
 export async function provisionTenant(
   input: CreateTenantInput,
 ): Promise<CreateTenantResult> {
+  const settings = await getLifecycleSettings();
   const {
     name,
     slug,
@@ -59,9 +61,10 @@ export async function provisionTenant(
     ownerName,
     ownerEmail,
     ownerPassword,
-    plan,
-    trialDays = 30,
+    plan: planInput,
+    trialDays = settings.trialDefaultDays,
   } = input;
+  const plan = planInput ?? (settings.signupDefaultPlan as NonNullable<CreateTenantInput["plan"]>);
 
   // Normalize legacy plan names
   const planSlug =
@@ -163,7 +166,7 @@ export async function provisionTenant(
       data: {
         tenantId: tenant.id,
         plan: planSlug,
-        billingStatus: "trial",
+        billingStatus: "trialing",
         trialEndsAt: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000),
         maxGuards,
         maxAdmins,
