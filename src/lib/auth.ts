@@ -16,11 +16,16 @@ import {
   type TenantModuleKey,
   type TenantModulesToken,
 } from '@/lib/tenant-modules';
+import { googleAdminLookupPlan } from '@/lib/auth-google-admin';
+
+function throwCredentials(code: string): never {
+  const err = new CredentialsSignin();
+  err.code = code;
+  throw err;
+}
 
 function throwTenantSuspended(): never {
-  const err = new CredentialsSignin();
-  err.code = 'tenant_suspended';
-  throw err;
+  throwCredentials('tenant_suspended');
 }
 
 /**
@@ -181,15 +186,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
         
         if (!admin || admin.status !== 'active') {
+          const reason = admin ? 'inactive' : 'not_found';
           try {
             const { logAudit } = await import('./audit');
             await logAudit({
               userEmail: email,
               action: 'LOGIN_FAILED',
               entity: 'Admin',
-              details: { reason: admin ? 'inactive' : 'not_found' },
+              details: { reason },
             });
           } catch {}
+          if (reason === 'not_found') {
+            throwCredentials('not_registered');
+          }
           return null;
         }
 
@@ -243,16 +252,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // Google provider: verify email exists as active Admin
+      // Google provider: Admin activo por email de Workspace o por googleId
+      // ya vinculado. El lookup solo-email rompe el acceso si el correo del
+      // Admin se renombró (el Google sub sigue siendo el mismo).
       if (account?.provider === 'google') {
         const { prisma } = await import('./prisma');
-        const admin = await prisma.admin.findFirst({
-          where: {
-            email: user.email!.toLowerCase(),
-            status: 'active',
-          },
-          include: { tenant: true },
+        const plan = googleAdminLookupPlan({
+          email: user.email,
+          googleSub: account.providerAccountId,
         });
+        const include = { tenant: true } as const;
+        let admin = plan.email
+          ? await prisma.admin.findFirst({
+              where: { email: plan.email, status: 'active' },
+              include,
+            })
+          : null;
+        if (!admin && plan.googleSub) {
+          admin = await prisma.admin.findFirst({
+            where: { googleId: plan.googleSub, status: 'active' },
+            include,
+          });
+        }
         if (!admin) {
           return '/opai/login?error=google_not_registered';
         }

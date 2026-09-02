@@ -17,6 +17,10 @@ export async function authenticate(formData: FormData) {
   const callbackUrl = String(formData.get('callbackUrl') ?? '/hub');
   const portal = String(formData.get('portal') ?? 'opai') || 'opai';
 
+  const emailQs = email.trim()
+    ? `&email=${encodeURIComponent(email.trim())}`
+    : '';
+
   try {
     await signIn('credentials', {
       email,
@@ -26,10 +30,13 @@ export async function authenticate(formData: FormData) {
     });
   } catch (error) {
     if (error instanceof CredentialsSignin && error.code === 'tenant_suspended') {
-      return redirect('/opai/login?error=tenant_suspended');
+      return redirect(`/opai/login?error=tenant_suspended${emailQs}`);
+    }
+    if (error instanceof CredentialsSignin && error.code === 'not_registered') {
+      return redirect(`/opai/login?error=not_registered${emailQs}`);
     }
     if (error instanceof AuthError) {
-      return redirect('/opai/login?error=CredentialsSignin');
+      return redirect(`/opai/login?error=CredentialsSignin${emailQs}`);
     }
     throw error;
   }

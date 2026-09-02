@@ -12,6 +12,7 @@ import { AuthTextInput } from '@/components/auth/AuthTextInput';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { UserIcon, LockIcon } from '@/components/auth/icons';
 import { usePlatform } from '@/lib/capacitor/usePlatform';
+import { erpLoginErrorMessage, safeLoginEmailPreset } from '@/lib/erp-login-errors';
 
 interface LoginPageClientProps {
   callbackUrl?: string;
@@ -33,6 +34,7 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
   const portal = searchParams.get('portal') ?? '';
   const error = errorProp ?? searchParams.get('error') ?? undefined;
   const success = successProp ?? searchParams.get('success') ?? undefined;
+  const presetEmail = safeLoginEmailPreset(searchParams.get('email'));
 
   return (
     <AuthShell
@@ -69,6 +71,7 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
           type="email"
           autoComplete="email"
           required
+          defaultValue={presetEmail}
           placeholder="admin@empresa.cl"
         />
 
@@ -125,19 +128,7 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
             style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
           >
             <p className="text-sm text-status-danger-fg">
-              {error === 'CredentialsSignin'
-                ? 'Email o contrase\u00f1a incorrectos.'
-                : error === 'google_not_registered'
-                ? 'Tu cuenta de Google a\u00fan no est\u00e1 registrada en Opai.'
-                : error === 'tenant_suspended'
-                ? 'Tu empresa tiene el acceso suspendido. Contacta a soporte.'
-                : error === 'Configuration' ||
-                  error === 'Callback' ||
-                  error === 'CallbackRouteError' ||
-                  error === 'OAuthCallback' ||
-                  error === 'OAuthSignin'
-                ? 'No se pudo completar el acceso con Google. Volv\u00e9 a intentar.'
-                : 'Error al iniciar sesi\u00f3n.'}
+              {erpLoginErrorMessage(error)}
             </p>
             {error === 'google_not_registered' && (
               <Link
@@ -147,6 +138,11 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
               >
                 Crear cuenta nueva &rarr;
               </Link>
+            )}
+            {error === 'not_registered' && (
+              <p className="mt-2 text-sm" style={{ color: "#9ca3af" }}>
+                Si tu usuario ya existe, entra con Google (la cuenta de Workspace vinculada) o pide a un admin que revise el correo en Usuarios.
+              </p>
             )}
           </div>
         )}
