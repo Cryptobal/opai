@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePlatformAuth, platformUnauthorized } from "@/lib/platform-api-auth";
+import { requirePlatformAuth } from "@/lib/platform-api-auth";
 import { seedWaTemplatesForTenant } from "@/lib/docs/seed-wa-templates";
 import { prisma } from "@/lib/prisma";
 
@@ -16,8 +16,9 @@ import { prisma } from "@/lib/prisma";
  * activo del tenant (DocTemplate.createdBy referencia al modelo Admin).
  */
 export async function POST(request: NextRequest) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'admin' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const body = (await request.json().catch(() => ({}))) as {
     tenantId?: string;

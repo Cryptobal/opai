@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
+import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'support' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const { id } = await params;
   const cursor = request.nextUrl.searchParams.get('cursor');

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
+import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 import { computeTenantMonthly, serializeTenantMonthly } from '@/lib/platform/pricing';
 import { getUfValue } from '@/lib/uf';
 
 export async function GET() {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'support' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const [tenants, packs, ufValue] = await Promise.all([
     prisma.tenant.findMany({

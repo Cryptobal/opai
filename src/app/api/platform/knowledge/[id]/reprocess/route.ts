@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
+import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 import { extractText } from '@/lib/knowledge/extract';
 import { processDocument } from '@/lib/knowledge/processor';
@@ -16,8 +16,8 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Sirve para destrabar documentos que quedaron en `processing` o `error`.
  */
 export async function POST(_request: NextRequest, context: RouteContext) {
-  const session = await requirePlatformAuth();
-  if (!session) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'admin' });
+  if (!auth.ok) return auth.response;
 
   await ensureKnowledgeTables();
   const { id } = await context.params;

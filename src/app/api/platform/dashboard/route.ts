@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
+import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 import {
   computeTenantMonthly,
@@ -13,8 +13,9 @@ import { getLifecycleSettings } from '@/lib/platform/settings';
 import { getUfValue } from '@/lib/uf';
 
 export async function GET() {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'support' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

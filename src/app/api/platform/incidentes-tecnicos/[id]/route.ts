@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAuth, platformUnauthorized } from "@/lib/platform-api-auth";
+import { requirePlatformAuth } from "@/lib/platform-api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +17,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'admin' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
   const { id } = await params;
   const parsed = patchSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -40,8 +41,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'admin' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
   const { id } = await params;
   await prisma.dtIncidenteTecnico.delete({ where: { id } });
   return NextResponse.json({ success: true });

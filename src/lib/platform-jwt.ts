@@ -7,11 +7,13 @@
  * components sin inflar/romper el bundle edge.
  */
 import { jwtVerify } from 'jose';
+import { parsePlatformRole, type PlatformRole } from '@/lib/platform/roles';
 
 export interface PlatformTokenPayload {
   platformAdminId: string;
   email: string;
   name: string;
+  role: PlatformRole;
 }
 
 function getSecret(): Uint8Array {
@@ -38,6 +40,7 @@ export async function verifyPlatformToken(
       platformAdminId: payload.platformAdminId as string,
       email: payload.email as string,
       name: payload.name as string,
+      role: parsePlatformRole(payload.role),
     };
   } catch {
     return null;

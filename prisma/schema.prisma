@@ -307,6 +307,7 @@ model PlatformAdmin {
   password    String
   name        String
   status      String    @default("active")
+  role        String    @default("admin") // owner | admin | support
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   lastLoginAt DateTime? @map("last_login_at")
@@ -345,6 +346,8 @@ model PlatformAuditLog {
 
   @@index([tenantId, createdAt])
   @@index([action, createdAt])
+  @@index([actorEmail, createdAt])
+  @@index([actorType, createdAt])
   @@map("platform_audit_logs")
   @@schema("public")
 }

@@ -119,6 +119,19 @@ export function isTransitionAllowed(from: BillingStatus, to: BillingStatus): boo
   return ALLOWED_TRANSITIONS[from].includes(to);
 }
 
+export function allowedLifecycleActions(from: BillingStatus): LifecycleAction[] {
+  const targets = new Set(ALLOWED_TRANSITIONS[from]);
+  const actions: LifecycleAction[] = [];
+  for (const action of Object.keys(LIFECYCLE_ACTIONS) as LifecycleAction[]) {
+    const to = LIFECYCLE_ACTIONS[action];
+    if (!targets.has(to)) continue;
+    if (action === "activate" && from !== "trialing" && from !== "trial_expired") continue;
+    if (action === "reactivate" && (from === "trialing" || from === "trial_expired")) continue;
+    actions.push(action);
+  }
+  return actions;
+}
+
 export function actionToStatus(action: string): BillingStatus | null {
   if (action in LIFECYCLE_ACTIONS) return LIFECYCLE_ACTIONS[action as LifecycleAction];
   return null;

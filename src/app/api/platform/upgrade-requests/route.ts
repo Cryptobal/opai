@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
+import { requirePlatformAuth } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
 
 const STATUSES = new Set(['open', 'contacted', 'won', 'lost']);
 
 export async function GET(request: NextRequest) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'support' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const status = request.nextUrl.searchParams.get('status') ?? 'open';
   const requests = await prisma.upgradeRequest.findMany({

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAuth, platformUnauthorized } from "@/lib/platform-api-auth";
+import { requirePlatformAuth } from "@/lib/platform-api-auth";
 import { decryptApiKey, maskApiKey } from "@/lib/ai-encryption";
 
 function safeMask(encryptedKey: string | null): string | null {
@@ -14,8 +14,9 @@ function safeMask(encryptedKey: string | null): string | null {
 
 export async function GET() {
   try {
-    const ctx = await requirePlatformAuth();
-    if (!ctx) return platformUnauthorized();
+    const auth = await requirePlatformAuth({ minRole: 'support' });
+    if (!auth.ok) return auth.response;
+    const ctx = auth.ctx;
 
     const providers = await prisma.platformAiProvider.findMany({
       include: { models: { orderBy: { costTier: "asc" } } },

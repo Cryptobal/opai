@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAuth, platformUnauthorized } from "@/lib/platform-api-auth";
+import { requirePlatformAuth } from "@/lib/platform-api-auth";
 import { decryptApiKey } from "@/lib/ai-encryption";
 
 export async function GET(
@@ -8,8 +8,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const ctx = await requirePlatformAuth();
-    if (!ctx) return platformUnauthorized();
+    const auth = await requirePlatformAuth({ minRole: 'admin' });
+    if (!auth.ok) return auth.response;
+    const ctx = auth.ctx;
 
     const { id } = await params;
 

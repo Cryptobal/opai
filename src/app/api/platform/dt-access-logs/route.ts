@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAuth, platformUnauthorized } from "@/lib/platform-api-auth";
+import { requirePlatformAuth } from "@/lib/platform-api-auth";
 import { tableToExcelBuffer } from "@/modules/reportes-dt/export-excel";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const ctx = await requirePlatformAuth();
-  if (!ctx) return platformUnauthorized();
+  const auth = await requirePlatformAuth({ minRole: 'support' });
+  if (!auth.ok) return auth.response;
+  const ctx = auth.ctx;
 
   const sp = request.nextUrl.searchParams;
   const email = (sp.get("email") ?? "").trim().toLowerCase();
