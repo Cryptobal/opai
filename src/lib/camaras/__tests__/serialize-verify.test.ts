@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseRelayVerifyRequest } from "../parse-verify";
 import { serializeCamara } from "../serialize";
 import { streamNameFor } from "../stream-name";
+import { updateCamaraSchema } from "../schemas";
 import { NextRequest } from "next/server";
 
 describe("serializeCamara", () => {
@@ -26,6 +27,12 @@ describe("streamNameFor", () => {
     expect(a).toMatch(/^c[a-f0-9]{20}$/);
     expect(a).not.toBe(other);
     expect(a).not.toContain("tenant");
+  });
+});
+
+describe("updateCamaraSchema", () => {
+  it("un patch solo con isActive no rellena defaults de create", () => {
+    expect(updateCamaraSchema.parse({ isActive: false })).toEqual({ isActive: false });
   });
 });
 

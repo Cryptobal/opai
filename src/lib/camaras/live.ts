@@ -5,6 +5,7 @@ import { decryptCameraSecret, sanitizeCameraError } from "./credentials";
 import { fetchSnapshot, isRelayConfigured, publicRelayUrl, upsertStream } from "./relay-client";
 import { signRelayToken } from "./relay-token";
 import { getCamara } from "./mutate";
+import { ptzMove, ptzStop } from "./onvif-ptz";
 import { CAMARA_PUBLIC_SELECT, serializeCamara } from "./serialize";
 import type { StreamQuality } from "./types";
 
@@ -54,6 +55,32 @@ export async function testCamaraConnection(tenantId: string, id: string) {
       select: CAMARA_PUBLIC_SELECT,
     });
     return { camera: serializeCamara(updated), error: lastError, status: "offline" as const };
+  }
+}
+
+export async function runCamaraPtz(
+  tenantId: string,
+  id: string,
+  input: { action: "move" | "stop"; pan?: number; tilt?: number; zoom?: number },
+) {
+  const camara = await getCamara(tenantId, id, true);
+  if (!camara) return { notFound: true as const };
+  if (!camara.ptzCapable) return { unavailable: true as const, error: "PTZ no disponible" as const };
+  const password = decryptCameraSecret(camara.passwordEnc);
+  const target = { host: camara.host, onvifPort: camara.onvifPort, username: camara.username };
+  try {
+    if (input.action === "stop") {
+      await ptzStop(target, password);
+    } else {
+      await ptzMove(target, password, {
+        pan: input.pan ?? 0,
+        tilt: input.tilt ?? 0,
+        zoom: input.zoom ?? 0,
+      });
+    }
+    return { ok: true as const };
+  } catch {
+    return { error: "PTZ no disponible" as const };
   }
 }
 

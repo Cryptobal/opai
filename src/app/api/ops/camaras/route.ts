@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
 import { ensureCamarasEdit, ensureCamarasView, canConfigureCamaras } from "@/lib/camaras/access";
 import { createCamaraSchema } from "@/lib/camaras/schemas";
-import { CAMARA_PUBLIC_SELECT, serializeCamara } from "@/lib/camaras/serialize";
+import { serializeCamara } from "@/lib/camaras/serialize";
+import { listCamaras } from "@/lib/camaras/repo";
 import { assertInstallation, createCamara } from "@/lib/camaras/mutate";
 
 export async function GET(request: NextRequest) {
@@ -18,15 +18,10 @@ export async function GET(request: NextRequest) {
     const accountId = sp.get("accountId") || undefined;
     const includeInactive = sp.get("includeInactive") === "true";
 
-    const cameras = await prisma.opsCamara.findMany({
-      where: {
-        tenantId: modCheck.ctx.tenantId,
-        ...(includeInactive ? {} : { isActive: true }),
-        ...(installationId ? { installationId } : {}),
-        ...(accountId ? { installation: { accountId } } : {}),
-      },
-      select: CAMARA_PUBLIC_SELECT,
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    const cameras = await listCamaras(modCheck.ctx.tenantId, {
+      installationId,
+      accountId,
+      includeInactive,
     });
 
     const canConfigure = await canConfigureCamaras(modCheck.ctx);

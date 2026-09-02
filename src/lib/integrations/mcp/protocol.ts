@@ -85,6 +85,8 @@ export const MCP_DESTRUCTIVE_TOOL_NAMES = new Set([
   "delete_deal",
   "delete_quote",
   "delete_lead",
+  "delete_camera",
+  "delete_camera_layout",
 ]);
 
 /** Garantiza un JSON Schema de objeto válido para `inputSchema`. */

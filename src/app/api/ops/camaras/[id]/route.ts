@@ -1,8 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantModule } from "@/lib/require-module";
-import { ensureCamarasEdit } from "@/lib/camaras/access";
+import { canConfigureCamaras, ensureCamarasEdit, ensureCamarasView } from "@/lib/camaras/access";
 import { updateCamaraSchema } from "@/lib/camaras/schemas";
-import { deactivateCamara, updateCamara } from "@/lib/camaras/mutate";
+import { serializeCamara } from "@/lib/camaras/serialize";
+import { deactivateCamara, getCamara, updateCamara } from "@/lib/camaras/mutate";
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const modCheck = await requireTenantModule("ops_camaras");
+    if (!modCheck.authorized) return modCheck.response;
+    const forbidden = await ensureCamarasView(modCheck.ctx);
+    if (forbidden) return forbidden;
+
+    const { id } = await params;
+    const row = await getCamara(modCheck.ctx.tenantId, id);
+    if (!row) {
+      return NextResponse.json({ success: false, error: "Cámara no encontrada" }, { status: 404 });
+    }
+    const canConfigure = await canConfigureCamaras(modCheck.ctx);
+    return NextResponse.json({
+      success: true,
+      canConfigure,
+      data: serializeCamara(row),
+    });
+  } catch (e) {
+    console.error("[ops/camaras GET id]", e);
+    return NextResponse.json({ success: false, error: "Error al obtener la cámara" }, { status: 500 });
+  }
+}
 
 export async function PATCH(
   request: NextRequest,

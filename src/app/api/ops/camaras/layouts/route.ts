@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
 import { ensureCamarasView } from "@/lib/camaras/access";
 import { layoutSchema } from "@/lib/camaras/schemas";
-
-async function activeIds(tenantId: string, ids: unknown): Promise<string[]> {
-  const raw = Array.isArray(ids) ? ids.filter((v): v is string => typeof v === "string") : [];
-  if (raw.length === 0) return [];
-  const rows = await prisma.opsCamara.findMany({
-    where: { tenantId, isActive: true, id: { in: raw } },
-    select: { id: true },
-  });
-  const allowed = new Set(rows.map((r) => r.id));
-  return raw.filter((id) => allowed.has(id));
-}
+import { createCamaraLayout, listCamaraLayouts } from "@/lib/camaras/layouts";
 
 export async function GET() {
   try {
@@ -22,18 +11,7 @@ export async function GET() {
     const forbidden = await ensureCamarasView(modCheck.ctx);
     if (forbidden) return forbidden;
 
-    const layouts = await prisma.opsCamaraLayout.findMany({
-      where: { tenantId: modCheck.ctx.tenantId, userId: modCheck.ctx.userId },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    });
-
-    const data = await Promise.all(
-      layouts.map(async (layout) => ({
-        ...layout,
-        cameraIds: await activeIds(modCheck.ctx.tenantId, layout.cameraIds),
-      })),
-    );
-
+    const data = await listCamaraLayouts(modCheck.ctx.tenantId, modCheck.ctx.userId);
     return NextResponse.json({ success: true, data });
   } catch (e) {
     console.error("[ops/camaras layouts GET]", e);
@@ -53,17 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    const cameraIds = await activeIds(modCheck.ctx.tenantId, parsed.data.cameraIds);
-    const row = await prisma.opsCamaraLayout.create({
-      data: {
-        tenantId: modCheck.ctx.tenantId,
-        userId: modCheck.ctx.userId,
-        name: parsed.data.name,
-        gridSize: parsed.data.gridSize,
-        cameraIds,
-        sortOrder: parsed.data.sortOrder ?? 0,
-      },
-    });
+    const row = await createCamaraLayout(modCheck.ctx.tenantId, modCheck.ctx.userId, parsed.data);
     return NextResponse.json({ success: true, data: row }, { status: 201 });
   } catch (e) {
     console.error("[ops/camaras layouts POST]", e);

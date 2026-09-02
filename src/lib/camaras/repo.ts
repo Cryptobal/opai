@@ -19,6 +19,39 @@ export async function getCamara(tenantId: string, id: string, activeOnly = false
   });
 }
 
+export async function listCamaras(
+  tenantId: string,
+  opts: {
+    installationId?: string;
+    accountId?: string;
+    includeInactive?: boolean;
+    query?: string;
+    limit?: number;
+  } = {},
+) {
+  const take = Math.max(1, Math.min(opts.limit ?? 50, 100));
+  const q = opts.query?.trim();
+  return prisma.opsCamara.findMany({
+    where: {
+      tenantId,
+      ...(opts.includeInactive ? {} : { isActive: true }),
+      ...(opts.installationId ? { installationId: opts.installationId } : {}),
+      ...(opts.accountId ? { installation: { accountId: opts.accountId } } : {}),
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { host: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    select: CAMARA_PUBLIC_SELECT,
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    take,
+  });
+}
+
 export async function syncRelay(streamName: string, rtspUrl: string): Promise<string | null> {
   if (!isRelayConfigured()) return "Relay no configurado";
   try {

@@ -46,6 +46,8 @@ describe("toMcpTools", () => {
     expect(MCP_DESTRUCTIVE_TOOL_NAMES.has("delete_deal")).toBe(true);
     expect(MCP_DESTRUCTIVE_TOOL_NAMES.has("delete_quote")).toBe(true);
     expect(MCP_DESTRUCTIVE_TOOL_NAMES.has("delete_lead")).toBe(true);
+    expect(MCP_DESTRUCTIVE_TOOL_NAMES.has("delete_camera")).toBe(true);
+    expect(MCP_DESTRUCTIVE_TOOL_NAMES.has("delete_camera_layout")).toBe(true);
     const tools = toMcpTools(defs, {
       writeToolNames: new Set(["remove_quote_position", "delete_deal"]),
     });

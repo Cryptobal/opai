@@ -167,6 +167,12 @@ import {
   toolRejectLead,
 } from "@/lib/ai/help-chat-crm-comercial-tools";
 import {
+  camarasReadToolDefinitions,
+  camarasWriteToolDefinitions,
+  CAMARAS_WRITE_TOOL_LABELS,
+  executeCamarasTool,
+} from "@/lib/ai/help-chat-camaras-tools";
+import {
   aiTool_get_quote_share_link,
   aiTool_manage_quote_extras,
   aiTool_update_quote,
@@ -2810,6 +2816,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   update_dte_cost_center: "Asignar centro de costo de DTE",
   ...BANKING_WRITE_TOOL_LABELS,
   ...CRM_COMERCIAL_WRITE_TOOL_LABELS,
+  ...CAMARAS_WRITE_TOOL_LABELS,
 };
 
 /** Descripción humana corta de una escritura diferida para la tarjeta de Slack. */
@@ -2884,6 +2891,7 @@ export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(
     ...billingDraftWriteToolDefinitions(),
     ...bankingWriteToolDefinitions(),
     ...crmComercialWriteToolDefinitions(),
+    ...camarasWriteToolDefinitions(),
   ]
     .map((d) => d.function.name)
     .filter(
@@ -2901,6 +2909,7 @@ export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: b
     ...billingDraftReadToolDefinitions(),
     ...bankingReadToolDefinitions(),
     ...crmComercialReadToolDefinitions(),
+    ...camarasReadToolDefinitions(),
   ];
   return allowWrites
     ? [
@@ -2909,6 +2918,7 @@ export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: b
         ...billingDraftWriteToolDefinitions(),
         ...bankingWriteToolDefinitions(),
         ...crmComercialWriteToolDefinitions(),
+        ...camarasWriteToolDefinitions(),
       ]
     : reads;
 }
@@ -9237,6 +9247,9 @@ export async function executeToolCallV2(
 ): Promise<unknown> {
   const denied = denyFinancialToolIfUnauthorized(toolName, perms);
   if (denied) return denied;
+
+  const camaras = await executeCamarasTool(toolName, tenantId, userId, perms, args);
+  if (camaras !== null) return camaras;
 
   const legacy = await executeLegacyTool(toolName, args, tenantId, userId, canViewAllRendiciones);
   if (legacy !== null) return legacy;
