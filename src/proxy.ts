@@ -147,6 +147,8 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/notifications/push/preferences')) return true;
   // Firma electrónica pública: GET/POST por token sin sesión
   if (pathname.startsWith('/api/docs/sign')) return true;
+  // Relay go2rtc (forward_auth de Caddy): JWT de corta vida, sin sesión ERP
+  if (pathname === '/api/ops/camaras/relay/verify' || pathname.startsWith('/api/ops/camaras/relay/verify/')) return true;
   // Vista pública de documento firmado (por viewToken)
   if (pathname.startsWith('/api/docs/signed-view/')) return true;
   // PDF firmado: acceso con viewToken en query (la ruta valida el token)
