@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantModule } from "@/lib/require-module";
 import { ensureCamarasView } from "@/lib/camaras/access";
 import { ptzSchema } from "@/lib/camaras/schemas";
-import { getCamara } from "@/lib/camaras/mutate";
-import { decryptCameraSecret } from "@/lib/camaras/credentials";
-import { ptzMove, ptzStop } from "@/lib/camaras/onvif-ptz";
+import { runCamaraPtz } from "@/lib/camaras/live";
 
 export async function POST(
   request: NextRequest,
@@ -20,33 +18,23 @@ export async function POST(
     const body = await request.json();
     const parsed = ptzSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ success: false, error: parsed.error.flatten().fieldErrors }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: parsed.error.flatten().fieldErrors },
+        { status: 400 },
+      );
     }
 
-    const camara = await getCamara(modCheck.ctx.tenantId, id, true);
-    if (!camara) {
+    const result = await runCamaraPtz(modCheck.ctx.tenantId, id, parsed.data);
+    if ("notFound" in result) {
       return NextResponse.json({ success: false, error: "Cámara no encontrada" }, { status: 404 });
     }
-    if (!camara.ptzCapable) {
-      return NextResponse.json({ success: false, error: "PTZ no disponible" }, { status: 400 });
+    if ("unavailable" in result) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }
-
-    const password = decryptCameraSecret(camara.passwordEnc);
-    const target = { host: camara.host, onvifPort: camara.onvifPort, username: camara.username };
-    try {
-      if (parsed.data.action === "stop") {
-        await ptzStop(target, password);
-      } else {
-        await ptzMove(target, password, {
-          pan: parsed.data.pan ?? 0,
-          tilt: parsed.data.tilt ?? 0,
-          zoom: parsed.data.zoom ?? 0,
-        });
-      }
-      return NextResponse.json({ success: true });
-    } catch {
-      return NextResponse.json({ success: false, error: "PTZ no disponible" }, { status: 502 });
+    if ("error" in result) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 502 });
     }
+    return NextResponse.json({ success: true });
   } catch (e) {
     console.error("[ops/camaras ptz]", e);
     return NextResponse.json({ success: false, error: "Error PTZ" }, { status: 500 });

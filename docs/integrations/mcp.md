@@ -25,8 +25,8 @@ Cada tenant genera **API keys** desde el panel anterior. La key resuelve el **te
 
 | Scope efectivo | Tools en `tools/list` |
 | --- | --- |
-| `READ` | **60** (solo lectura; incluye `search_leads` / `get_lead`) |
-| `READ_WRITE` + `allowWrites` | **143** (60 lectura + 83 escritura; incluye emitir borrador DTE y deletes comerciales) |
+| `READ` | **64** (solo lectura; incluye `search_leads` / `get_lead` / `list_cameras`) |
+| `READ_WRITE` + `allowWrites` | **155** (64 lectura + 91 escritura; incluye emitir borrador DTE, deletes comerciales y cámaras IP) |
 
 ## Autenticación
 
@@ -252,7 +252,7 @@ Leyenda: **R** = lectura (scope READ), **W** = escritura (requiere READ_WRITE + 
 
 **Gap Cesiones:** lectura de operaciones de factoring en `get_dte_detail`; no hay tools de cesión DTE ni listado "solo no cedidos".
 
-### Operaciones (12 R, 7 W)
+### Operaciones (16 R, 15 W)
 
 | Tool | R/W | Guard |
 | --- | --- | --- |
@@ -261,8 +261,12 @@ Leyenda: **R** = lectura (scope READ), **W** = escritura (requiere READ_WRITE + 
 | `get_supervision_visits`, `get_rondas_status`, `get_panic_alerts` | R | Ops supervisión/rondas |
 | `get_tickets_summary`, `get_my_tickets` | R | Ops tickets |
 | `create_ticket`, `transition_ticket`, `take_ticket`, `comment_ticket`, `reassign_ticket`, `change_ticket_priority` | W | `hasModuleAccess(ops)` |
+| `list_cameras`, `get_camera`, `list_camera_brands`, `list_camera_layouts` | R | add-on `ops_camaras` + `ops.camaras` view |
+| `create_camera`, `update_camera`, `delete_camera` | W | `camaras_configure` — mismo path que `/api/ops/camaras` |
+| `test_camera_connection`, `ptz_camera` | W | view (igual que la UI: prueba de stream y PTZ) |
+| `create_camera_layout`, `update_camera_layout`, `delete_camera_layout` | W | view — páginas del video wall del operador |
 
-**Gap Ops:** no hay tools de pauta mensual/diaria, PPC, inventario ni ATS en MCP (existen en UI ERP).
+**Gap Ops:** no hay tools de pauta mensual/diaria, PPC, inventario ni ATS en MCP (existen en UI ERP). **Gap cámaras:** el JWT WHEP (`relay-token`) es solo para el visor del navegador; MCP no reproduce video. `test_camera_connection` no devuelve el JPEG (sí `snapshotAvailable` + `status`).
 
 ### Documentos (3 R, 0 W)
 
@@ -299,7 +303,7 @@ Escritura desde correo va por tools CRM (`create_*_from_email`).
 | **Tesorero** | `search_received_dtes({search:"5144"})` o `{search:"11.111.111-1"}`; `search_dtes({search:"5144"})` (con search cubre compras); `get_dte_detail({folio:5144})`; `flow_cashflow_overview`, banca, KPIs/balance/EERR | RCV período, proyección multi-escenario, factoring 1→N deposit |
 | **Cobranzas** | `search_dtes` (`direction`), `get_dte_detail` (`paymentStatus`, `factoring`) | Sin filtro server-side DTEs no cedidos; sin registrar cobros |
 | **Comercial** | Pipeline CRM + CPQ + email; `search_leads` / `get_lead`; approve/reject/delete lead; `delete_deal` / `delete_quote` (papelera) | Sin Apollo; deletes destructivos — solo tenant de prueba y `confirm=true` |
-| **Ops** | Guardias, rondas, tickets, asistencia | Sin pautas, inventario, marcación |
+| **Ops** | Guardias, rondas, tickets, asistencia, cámaras IP | Sin pautas, inventario, marcación; video live solo en el visor web |
 
 Recomendación multi-agente: **keys READ separadas por agente** hoy; **READ_WRITE solo para agentes de confianza** con Admin de mínimo privilegio. Scopes por dominio → ver `mcp-scopes-design.md`.
 

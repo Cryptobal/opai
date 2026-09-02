@@ -19,13 +19,24 @@ export const createCamaraSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
-export const updateCamaraSchema = createCamaraSchema
-  .omit({ installationId: true, password: true })
-  .partial()
-  .extend({
-    password: z.string().min(1).max(255).optional(),
-    isActive: z.boolean().optional(),
-  });
+/** Patch real: sin defaults de create (Zod.partial() conserva `.default()`). */
+export const updateCamaraSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  sourceType: z.enum(SOURCE_TYPES).optional(),
+  brand: z.enum(CAMERA_BRANDS).optional(),
+  host: z.string().trim().min(1).max(255).optional(),
+  rtspPort: z.number().int().min(1).max(65535).optional(),
+  onvifPort: z.number().int().min(1).max(65535).nullable().optional(),
+  channel: z.number().int().min(1).max(256).optional(),
+  streamQuality: z.enum(STREAM_QUALITIES).optional(),
+  customPath: z.string().trim().max(255).nullable().optional(),
+  username: z.string().trim().min(1).max(120).optional(),
+  password: z.string().min(1).max(255).optional(),
+  ptzCapable: z.boolean().optional(),
+  notes: z.string().max(500).nullable().optional(),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+});
 
 export const relayTokenSchema = z.object({
   cameraIds: z.array(z.string().uuid()).min(1).max(16),
@@ -47,5 +58,17 @@ export const layoutSchema = z.object({
     z.literal(GRID_SIZES[3]),
   ]).default(4),
   cameraIds: z.array(z.string().uuid()).max(16).default([]),
+  sortOrder: z.number().int().optional(),
+});
+
+export const layoutPatchSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  gridSize: z.union([
+    z.literal(GRID_SIZES[0]),
+    z.literal(GRID_SIZES[1]),
+    z.literal(GRID_SIZES[2]),
+    z.literal(GRID_SIZES[3]),
+  ]).optional(),
+  cameraIds: z.array(z.string().uuid()).max(16).optional(),
   sortOrder: z.number().int().optional(),
 });
