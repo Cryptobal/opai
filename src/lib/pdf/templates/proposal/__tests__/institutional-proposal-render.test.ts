@@ -149,7 +149,8 @@ describe("renderInstitutionalProposalToBufferFromProps", () => {
       expect(document.getTitle()).toBe(
         "Propuesta técnica y económica - Cliente Industrial SpA",
       );
-      expect(buffer.toString("latin1")).toContain("BORRADOR");
+      // El texto va subseteado; el ExtGState del sello es ca 0.16 (único opacity del layout).
+      expect(buffer.toString("latin1")).toContain("/ca 0.16");
       for (const page of document.getPages()) {
         const { width, height } = page.getSize();
         expect(width).toBeCloseTo(595.28, 0);
@@ -199,6 +200,7 @@ describe("renderInstitutionalProposalToBufferFromProps", () => {
         proposalStatus: "aprobada",
       });
       expect(buffer.toString("latin1")).not.toContain("BORRADOR");
+      expect(buffer.toString("latin1")).not.toContain("/ca 0.16");
     },
     30_000,
   );

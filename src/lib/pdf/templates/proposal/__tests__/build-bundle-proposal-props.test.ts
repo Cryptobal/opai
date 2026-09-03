@@ -183,6 +183,15 @@ describe("buildBundleProposalProps", () => {
   });
 
   it("bundle draft → watermark BORRADOR", async () => {
+    mocks.bundleFindFirst.mockResolvedValue({
+      id: "b1",
+      code: "PROP-2026-001",
+      status: "draft",
+      currency: "CLP",
+      validUntil: null,
+      paymentTerms: null,
+      quotes: [{ quoteId: "q1" }],
+    });
     mocks.buildProposalProps.mockResolvedValueOnce(
       quoteProps({ watermark: "BORRADOR", proposalStatus: "borrador" }),
     );
