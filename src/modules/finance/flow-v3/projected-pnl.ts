@@ -4,8 +4,13 @@
  * Distinto del flujo de caja: acá el mes es de DEVENGADO (billingPeriod /
  * fecha del documento / mes de servicio), no de cobro ni de pago. Distinto
  * del EERR de Informes: no lee asientos POSTED; proyecta con DTEs,
- * programaciones y costo de personal por instalación.
+ * programaciones, costo de personal operativo por instalación, GAV (equipo
+ * interno + recurrencias + compras sin faena) y run-rate de TE/compras en
+ * meses abiertos.
  */
+
+/** Meses calendario cerrados usados para proyectar TE y compras futuras. */
+export const RUN_RATE_LOOKBACK_MONTHS = 3;
 
 export const UNASSIGNED_INSTALLATION = "__unassigned__";
 
@@ -154,6 +159,89 @@ export function monthLabel(key: string): string {
   const m = Number(ms);
   if (!ys || !Number.isFinite(m) || m < 1 || m > 12) return key;
   return `${MONTH_SHORT[m - 1]} ${ys}`;
+}
+
+/** Primer día UTC del mes `YYYY-MM`. Inválido → epoch 0. */
+export function monthKeyStartUtc(monthKey: string): Date {
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) return new Date(0);
+  return new Date(`${monthKey}-01T00:00:00.000Z`);
+}
+
+/**
+ * Últimos `count` meses calendario ya cerrados respecto de `todayYmd`
+ * (el mes en curso no entra). Orden cronológico.
+ */
+export function completeMonthKeysBefore(todayYmd: string, count: number): string[] {
+  if (count <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(todayYmd)) return [];
+  let y = Number(todayYmd.slice(0, 4));
+  let m = Number(todayYmd.slice(5, 7)) - 1;
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return [];
+  if (m < 1) {
+    m = 12;
+    y -= 1;
+  }
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m -= 1;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+  }
+  return out.reverse();
+}
+
+/** Promedio mensual (ceros incluidos). Sin meses → 0. */
+export function monthlyRunRate(
+  amountsByMonth: Map<string, number> | undefined,
+  monthKeys: string[],
+): number {
+  if (monthKeys.length === 0) return 0;
+  let sum = 0;
+  for (const k of monthKeys) sum += amountsByMonth?.get(k) ?? 0;
+  return Math.round(sum / monthKeys.length);
+}
+
+export interface RunRateActual {
+  key: string;
+  monthKey: string;
+  amount: number;
+}
+
+/**
+ * Completa meses abiertos (actual y futuros) con el promedio de meses
+ * cerrados. Si el mes ya tiene real, solo rellena el gap (`rate − actual`).
+ * Meses pasados no se tocan.
+ */
+export function gapFillOpenMonths<T>(args: {
+  months: PnlMonthColumn[];
+  rateMonthKeys: string[];
+  actuals: RunRateActual[];
+  toItem: (key: string, monthKey: string, amount: number) => T;
+}): T[] {
+  const byKey = new Map<string, Map<string, number>>();
+  for (const a of args.actuals) {
+    if (!a.key || a.amount === 0) continue;
+    let byMonth = byKey.get(a.key);
+    if (!byMonth) {
+      byMonth = new Map();
+      byKey.set(a.key, byMonth);
+    }
+    byMonth.set(a.monthKey, (byMonth.get(a.monthKey) ?? 0) + a.amount);
+  }
+  const open = args.months.filter((m) => !m.isPast);
+  const out: T[] = [];
+  for (const [key, byMonth] of byKey) {
+    const rate = monthlyRunRate(byMonth, args.rateMonthKeys);
+    if (rate <= 0) continue;
+    for (const m of open) {
+      const actual = byMonth.get(m.key) ?? 0;
+      const gap = rate - actual;
+      if (gap > 0) out.push(args.toItem(key, m.key, gap));
+    }
+  }
+  return out;
 }
 
 export function buildMonthColumns(
