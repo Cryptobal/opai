@@ -20,6 +20,8 @@ import {
   shouldApplyImportClosingBalance,
   syncCurrentBalanceFromMovements,
 } from "./bank-balance.service";
+import { bankTxContentKey } from "./bank-tx-content-key";
+import { loadVisibleContentKeys } from "./web4leads-import.service";
 
 /**
  * Genera un `apiTransactionId` determinístico para una transacción importada
@@ -649,12 +651,33 @@ export async function importBankTransactions(
     return { importedCount: 0, duplicateCount: 0, importId: null };
   }
 
+  const dates = [
+    ...new Set(transactions.map((tx) => tx.transactionDate)),
+  ].map((d) => new Date(d));
+  const existingContent = await loadVisibleContentKeys({
+    tenantId,
+    bankAccountId,
+    dates,
+  });
+  const seenContent = new Set(existingContent);
+  const fresh: ImportTransactionInput[] = [];
+  let contentDuplicateCount = 0;
+  for (const tx of transactions) {
+    const key = bankTxContentKey(tx);
+    if (seenContent.has(key)) {
+      contentDuplicateCount += 1;
+      continue;
+    }
+    seenContent.add(key);
+    fresh.push(tx);
+  }
+
   // Build data for createMany — incluye apiTransactionId determinístico para
   // que el unique key (tenantId, bankAccountId, apiTransactionId) bloquee
   // duplicados al re-importar la misma cartola. occurrenceCounts maneja el
   // caso de movimientos legítimamente duplicados dentro del mismo archivo.
   const occurrenceCounts = new Map<string, number>();
-  const data = transactions.map((tx) => {
+  const data = fresh.map((tx) => {
     const baseKey = [
       tx.transactionDate,
       tx.amount.toString(),
@@ -679,12 +702,16 @@ export async function importBankTransactions(
   // Bulk insert — skipDuplicates omite filas que rompan el unique constraint
   // (tenantId, bankAccountId, apiTransactionId), garantizando que reimportar
   // la misma cartola no agregue movimientos duplicados.
-  const result = await prisma.financeBankTransaction.createMany({
-    data,
-    skipDuplicates: true,
-  });
+  const result =
+    data.length === 0
+      ? { count: 0 }
+      : await prisma.financeBankTransaction.createMany({
+          data,
+          skipDuplicates: true,
+        });
 
-  const duplicateCount = transactions.length - result.count;
+  const duplicateCount =
+    contentDuplicateCount + (fresh.length - result.count);
 
   // Historial de cartola: solo lo creamos cuando hubo importación efectiva
   // (count > 0). Si todo eran duplicados, no dejamos rastro porque no aporta
@@ -774,7 +801,7 @@ export async function importBankTransactions(
     }
   }
 
-  if (result.count > 0) {
+  if (result.count > 0 || closingBalance != null) {
     await syncCurrentBalanceFromMovements(tenantId, bankAccountId);
   }
 
@@ -848,6 +875,13 @@ export async function previewBankStatementImport(
   // Para cada transacción del archivo, calculamos su apiTransactionId con la
   // misma lógica que importBankTransactions (incluyendo occurrenceIdx para
   // duplicados legítimos intra-archivo).
+  const existingContent = await loadVisibleContentKeys({
+    tenantId,
+    bankAccountId,
+    dates: [
+      ...new Set(transactions.map((tx) => tx.transactionDate)),
+    ].map((d) => new Date(d)),
+  });
   const occurrenceCounts = new Map<string, number>();
   const enriched = transactions.map((tx) => {
     const baseKey = [
@@ -884,8 +918,12 @@ export async function previewBankStatementImport(
   const newRows: PreviewRow[] = [];
   const duplicateRows: PreviewRow[] = [];
   for (const { tx, apiTransactionId } of enriched) {
-    if (existingSet.has(apiTransactionId)) duplicateRows.push(toRow(tx));
-    else newRows.push(toRow(tx));
+    if (
+      existingSet.has(apiTransactionId) ||
+      existingContent.has(bankTxContentKey(tx))
+    ) {
+      duplicateRows.push(toRow(tx));
+    } else newRows.push(toRow(tx));
   }
 
   return {

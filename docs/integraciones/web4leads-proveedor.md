@@ -131,12 +131,20 @@ No reintentar ante `400` ni `401`.
 
 ## 6. Idempotencia (evitar duplicados)
 
-Opai usa `externalId` como clave única por cuenta. Si se reenvía un movimiento
-con un `externalId` ya recibido, se ignora y se cuenta en `duplicates`. Esto hace
-que los reintentos sean 100% seguros.
+Opai usa **dos** claves por cuenta:
+
+1. `externalId` (`apiTransactionId = web4leads:<externalId>`). Si se reenvía el mismo id, se ignora.
+2. **Huella de contenido:** fecha + monto + glosa + referencia. Si llega el mismo movimiento con otro `externalId` (ids inestables, o varias copias en el mismo POST), también se ignora.
+
+Los reintentos siguen siendo seguros. `duplicates` cuenta ambos casos.
 
 **Requisito:** el `externalId` debe ser estable y único por movimiento — el mismo
-movimiento bancario lleva siempre el mismo `externalId` en cada envío.
+movimiento bancario lleva siempre el mismo `externalId` en cada envío. La huella
+de contenido es la red de seguridad cuando eso no se cumple.
+
+Si se envía `balance` en el movimiento más reciente y no hay un saldo **manual**
+del mismo día o más nuevo, Opai fija un snapshot CALCULATED con ese saldo
+(contrato: “si se envía balance, Opai actualiza el saldo”).
 
 ---
 
