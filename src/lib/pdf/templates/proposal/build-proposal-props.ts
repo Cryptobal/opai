@@ -25,6 +25,7 @@ import {
 import { loadDotacionPositions } from '@/lib/cpq/proposal-sections/build-dotacion';
 import { hydrateProposalContentForPdfWithTenant } from '@/lib/cpq/proposal-sections/hydrate-for-pdf';
 import { saveQuoteProposal } from '@/lib/cpq/proposal-sections/persist';
+import { resolveProposalWatermark } from './proposal-watermark';
 
 export type ProposalSectionSnapshot = {
   id: string;
@@ -1193,16 +1194,6 @@ export async function buildProposalProps(
     props.proposalSections = sections;
     props.proposalStatus = proposalContent.status || quote.proposalStatus;
     props.complianceMatrix = matrix;
-    // Cinturón y tirantes: pdfMode final nunca lleva BORRADOR (el flujo
-    // comercial puede enviar sin haber transicionado proposalStatus aún).
-    props.watermark =
-      opts?.pdfMode === 'final'
-        ? null
-        : ['borrador', 'en_revision'].includes(
-              proposalContent.status || quote.proposalStatus || '',
-            ) || opts?.pdfMode === 'draft'
-          ? 'BORRADOR'
-          : null;
     props.licitacionNumber = isLicitacion
       ? extractLicitacionNumber([
           deal?.isLicitacion ? deal.title : null,
@@ -1220,6 +1211,14 @@ export async function buildProposalProps(
       status: proposalContent.status,
     };
   }
+
+  // Status real manda: enviada/aprobada/sent no llevan BORRADOR aunque el
+  // GET default sea pdfMode=draft. pdfMode=final nunca sella (correo).
+  props.watermark = resolveProposalWatermark({
+    pdfMode: opts?.pdfMode,
+    proposalStatus: props.proposalStatus ?? quote.proposalStatus,
+    quoteStatus: quote.status,
+  });
 
   const fileName = buildCpqQuotePdfFileName({
     clientName: companyName,

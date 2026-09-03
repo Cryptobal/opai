@@ -149,6 +149,8 @@ describe("renderInstitutionalProposalToBufferFromProps", () => {
       expect(document.getTitle()).toBe(
         "Propuesta técnica y económica - Cliente Industrial SpA",
       );
+      // El texto va subseteado; el ExtGState del sello es ca 0.16 (único opacity del layout).
+      expect(buffer.toString("latin1")).toContain("/ca 0.16");
       for (const page of document.getPages()) {
         const { width, height } = page.getSize();
         expect(width).toBeCloseTo(595.28, 0);
@@ -185,6 +187,20 @@ describe("renderInstitutionalProposalToBufferFromProps", () => {
       const emptyDoc = await PDFDocument.load(Uint8Array.from(withEmpties));
       // Misma cantidad de páginas: los vacíos no agregan A4
       expect(emptyDoc.getPageCount()).toBe(baseDoc.getPageCount());
+    },
+    30_000,
+  );
+
+  it(
+    "propuesta enviada/aprobada no imprime BORRADOR en portada ni interiores",
+    async () => {
+      const buffer = await renderInstitutionalProposalToBufferFromProps({
+        ...fixture,
+        watermark: null,
+        proposalStatus: "aprobada",
+      });
+      expect(buffer.toString("latin1")).not.toContain("BORRADOR");
+      expect(buffer.toString("latin1")).not.toContain("/ca 0.16");
     },
     30_000,
   );

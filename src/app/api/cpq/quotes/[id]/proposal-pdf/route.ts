@@ -18,6 +18,7 @@ import {
   emptyFinalProposalSectionTitles,
   finalProposalIncompleteMessage,
 } from '@/lib/pdf/templates/proposal/final-proposal-gate';
+import { PROPOSAL_PDF_CACHE_CONTROL } from '@/lib/pdf/templates/proposal/proposal-watermark';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -102,6 +103,7 @@ export async function GET(
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': buildContentDisposition(fileName, 'inline'),
+        'Cache-Control': PROPOSAL_PDF_CACHE_CONTROL,
       },
     });
   } catch (error) {
