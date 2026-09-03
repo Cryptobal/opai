@@ -13,6 +13,7 @@ import { renderProposalToBufferFromProps } from '@/lib/pdf/templates/proposal/re
 import { buildProposalProps } from '@/lib/pdf/templates/proposal/build-proposal-props';
 import { buildContentDisposition } from '@/lib/pdf/cpq-quote-pdf-filename';
 import { cpqQuoteListedInClientPortalWhere } from '@/lib/cpq-portal-visibility';
+import { PROPOSAL_PDF_CACHE_CONTROL } from '@/lib/pdf/templates/proposal/proposal-watermark';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -70,6 +71,7 @@ export async function GET(
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': buildContentDisposition(fileName, 'attachment'),
+        'Cache-Control': PROPOSAL_PDF_CACHE_CONTROL,
       },
     });
   } catch (error) {

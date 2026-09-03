@@ -104,6 +104,7 @@ beforeEach(() => {
   mocks.bundleFindFirst.mockResolvedValue({
     id: "b1",
     code: "PROP-2026-001",
+    status: "draft",
     currency: "CLP",
     validUntil: null,
     paymentTerms: null,
@@ -162,6 +163,35 @@ describe("buildBundleProposalProps", () => {
     expect(props.watermark).toBeNull();
   });
 
+  it("bundle sent → no watermark BORRADOR aunque las hijas sigan en borrador", async () => {
+    mocks.bundleFindFirst.mockResolvedValue({
+      id: "b1",
+      code: "PROP-2026-001",
+      status: "sent",
+      currency: "CLP",
+      validUntil: null,
+      paymentTerms: null,
+      quotes: [{ quoteId: "q1" }],
+    });
+    mocks.buildProposalProps.mockResolvedValueOnce(
+      quoteProps({ watermark: "BORRADOR", proposalStatus: "borrador" }),
+    );
+
+    const props = await buildBundleProposalProps("b1", "t1", { pdfMode: "draft" });
+
+    expect(props.watermark).toBeNull();
+  });
+
+  it("bundle draft → watermark BORRADOR", async () => {
+    mocks.buildProposalProps.mockResolvedValueOnce(
+      quoteProps({ watermark: "BORRADOR", proposalStatus: "borrador" }),
+    );
+
+    const props = await buildBundleProposalProps("b1", "t1", { pdfMode: "draft" });
+
+    expect(props.watermark).toBe("BORRADOR");
+  });
+
   it("agrega los pagos únicos de TODAS las instalaciones, prefijados y renumerados", async () => {
     mocks.buildProposalProps
       .mockResolvedValueOnce(
@@ -214,6 +244,7 @@ describe("buildBundleProposalProps", () => {
     mocks.bundleFindFirst.mockResolvedValue({
       id: "b1",
       code: "PROP-2026-001",
+      status: "draft",
       currency: "CLP",
       validUntil: new Date("2027-03-31T00:00:00Z"),
       paymentTerms: "30_dias",
@@ -276,6 +307,7 @@ describe("buildBundleProposalProps", () => {
     mocks.bundleFindFirst.mockResolvedValue({
       id: "b1",
       code: "PROP-2026-001",
+      status: "draft",
       currency: "CLP",
       validUntil: null,
       paymentTerms: null,

@@ -9,6 +9,7 @@ import { formatCurrency, formatUFSuffix } from "@/lib/utils";
 import { getUfValue, clpToUf } from "@/lib/uf";
 import { buildProposalProps } from "./build-proposal-props";
 import type { ProposalProps } from "./build-proposal-props";
+import { resolveProposalWatermark } from "./proposal-watermark";
 import {
   buildDotacionContentForInstallations,
   loadDotacionPositions,
@@ -156,9 +157,11 @@ export async function buildBundleProposalProps(
 
   const props: ProposalProps = {
     ...baseProps,
-    // Cinturón: el PDF de correo / envío final no debe heredar BORRADOR
-    // de una cotización hija aún en borrador documental.
-    watermark: opts?.pdfMode === "final" ? null : baseProps.watermark,
+    watermark: resolveProposalWatermark({
+      pdfMode: opts?.pdfMode,
+      proposalStatus: baseProps.proposalStatus,
+      quoteStatus: bundle.status,
+    }),
     quotationCode: bundle.code,
     installationName: installationLabel,
     installationCity: undefined,
