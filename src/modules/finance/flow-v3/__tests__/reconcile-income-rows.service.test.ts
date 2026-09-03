@@ -269,3 +269,56 @@ describe("createRowsForAccountsWithPendingDtes (via reconcileIncomeRows)", () =>
     );
   });
 });
+
+describe("archiveSurplusRows (via reconcileIncomeRows)", () => {
+  const poetasRow = {
+    id: "row-poetas",
+    name: "Ametel - Los Poetas",
+    crmAccountId: "acc-A",
+    installationId: "inst-poetas",
+    recurringTemplateId: "tpl-poetas",
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+  };
+
+  it("no rearchiva fila cuyo borrador vive en otra plantilla pero misma instalación", async () => {
+    asMock(prisma.financeFlowRow.findMany).mockImplementation(async (args) => {
+      if (args?.where?.mapping === "ACCOUNT_INSTALLATION" && args?.select?.installationId) {
+        return [poetasRow];
+      }
+      return [];
+    });
+    asMock(prisma.financeDte.findMany).mockImplementation(async (args) => {
+      if (args?.where?.OR) {
+        return [{
+          recurringTemplateId: "tpl-pena",
+          installationId: "inst-poetas",
+        }];
+      }
+      return [];
+    });
+
+    await reconcileIncomeRows(TENANT);
+
+    const archivedIds = updateManySpy.mock.calls.flatMap(
+      (c) => (c[0]?.where?.id?.in as string[] | undefined) ?? [],
+    );
+    expect(archivedIds).not.toContain("row-poetas");
+  });
+
+  it("archiva sobrante sin template activo, plan ni DTE vivo", async () => {
+    asMock(prisma.financeFlowRow.findMany).mockImplementation(async (args) => {
+      if (args?.where?.mapping === "ACCOUNT_INSTALLATION" && args?.select?.installationId) {
+        return [poetasRow];
+      }
+      return [];
+    });
+    asMock(prisma.financeDte.findMany).mockResolvedValue([]);
+
+    await reconcileIncomeRows(TENANT);
+
+    const archivedIds = updateManySpy.mock.calls.flatMap(
+      (c) => (c[0]?.where?.id?.in as string[] | undefined) ?? [],
+    );
+    expect(archivedIds).toContain("row-poetas");
+  });
+});

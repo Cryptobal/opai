@@ -144,10 +144,31 @@ export function pickAdoptionCandidate(
 }
 
 /**
+ * Borrador o DTE impago que mantiene viva una fila de ingresos:
+ * - el template de la fila (aunque esté inactivo), o
+ * - la instalación (borrador re-colgado a otra programación, p.ej. Los Poetas
+ *   → Peñablanca). Sin esto, desarchivar se revierte en el siguiente reconcile.
+ */
+export function rowHasOpenDraftOrUnpaidDte(opts: {
+  recurringTemplateId: string | null;
+  installationId: string | null;
+  openTemplateIds: ReadonlySet<string>;
+  openInstallationIds: ReadonlySet<string>;
+}): boolean {
+  if (opts.recurringTemplateId && opts.openTemplateIds.has(opts.recurringTemplateId)) {
+    return true;
+  }
+  if (opts.installationId && opts.openInstallationIds.has(opts.installationId)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * ¿Archivar sobrante ACCOUNT_INSTALLATION sin template activo?
  * Precedencia: linkedActiveTemplate → hasOpenDraftOrUnpaidDte →
  * hasPlanData → hasExplicitOwnRowDte.
- * - Template con borrador o DTE impago → conservar (la fila sigue viva).
+ * - Template o instalación con borrador o DTE impago → conservar (fila viva).
  * - Sin plan propio → archivable (DTEs caen en Otros ingresos / filas de template).
  * - Con plan ≠ 0 → conservar (datos propios).
  * - Con DTE pendiente flowRouting=OWN_ROW → conservar (fila creada a propósito).
@@ -158,7 +179,7 @@ export function shouldArchiveSurplusAccountRow(opts: {
   linkedActiveTemplate: boolean;
   /** Cuenta con al menos un DTE pendiente con flowRouting=OWN_ROW. */
   hasExplicitOwnRowDte?: boolean;
-  /** El template vinculado (aunque inactivo) tiene borrador o DTE impago. */
+  /** El template o la instalación tienen borrador o DTE impago. */
   hasOpenDraftOrUnpaidDte?: boolean;
 }): boolean {
   if (opts.linkedActiveTemplate) return false;

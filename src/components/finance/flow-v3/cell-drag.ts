@@ -15,6 +15,28 @@ export type CellDragPayload =
   | { kind: "dte"; dteId: string }
   | { kind: "parametric"; amount: number };
 
+/**
+ * Destino válido para F° / B / P. Semana sellada no. En fila archivada
+ * (`cerrada`) las celdas posteriores al cutoff se vacían en la matriz, así
+ * que no se ofrece soltar ahí: hay que desarchivar para mover hacia adelante.
+ */
+export function canDropCommittedOnWeek(opts: {
+  weekStart: string;
+  weekClosed: boolean;
+  rowArchived: boolean;
+  archivedWeekCutoff: string | null;
+}): boolean {
+  if (opts.weekClosed) return false;
+  if (
+    opts.rowArchived &&
+    opts.archivedWeekCutoff != null &&
+    opts.weekStart > opts.archivedWeekCutoff
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export type StackedLine = {
   key: string;
   tag: string;

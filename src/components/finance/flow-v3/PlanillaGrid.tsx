@@ -54,7 +54,7 @@ import { SumPill } from "./SumPill";
 import { UnmatchedIncomeList } from "./UnmatchedIncomeList";
 import type { HistoryEntry } from "./usePlanillaHistory";
 import type { usePlanillaActions } from "./usePlanillaActions";
-import type { CellDragPayload } from "./cell-drag";
+import { canDropCommittedOnWeek, type CellDragPayload } from "./cell-drag";
 import { signedParametricPlanAmount } from "./parametric-move";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import {
@@ -1114,20 +1114,22 @@ export function PlanillaGrid({
     openUnmatchedAssigner("GAV");
   }, [openBandejaRequest, openUnmatchedAssigner]);
 
-  /** Semana abierta: se puede soltar F°/P aunque la celda ya tenga factura. */
+  /** Semana abierta: se puede soltar F°/B/P aunque la celda ya tenga factura.
+   *  Fila `cerrada` (archivada) también admite mover lo ya comprometido, pero
+   *  no a semanas posteriores al cutoff (la matriz las vacía). */
   const canMoveCommitted = useCallback(
     (rowId: string, colIdx: number) => {
       const row = rowById.get(rowId);
       const col = data.columns[colIdx];
-      return (
-        !!row &&
-        !!col &&
-        canManage &&
-        !row.isArchived &&
-        !row.isVirtual &&
-        data.granularity === "week" &&
-        !closedSet.has(col.key)
-      );
+      if (!row || !col || !canManage || row.isVirtual || data.granularity !== "week") {
+        return false;
+      }
+      return canDropCommittedOnWeek({
+        weekStart: col.key,
+        weekClosed: closedSet.has(col.key),
+        rowArchived: row.isArchived,
+        archivedWeekCutoff: row.archivedWeekCutoff,
+      });
     },
     [rowById, data.columns, data.granularity, canManage, closedSet],
   );
@@ -1354,9 +1356,13 @@ export function PlanillaGrid({
         (c, i) =>
           i !== colIdx &&
           data.granularity === "week" &&
-          !closedSet.has(c.key) &&
-          !row.isArchived &&
-          !row.isVirtual,
+          !row.isVirtual &&
+          canDropCommittedOnWeek({
+            weekStart: c.key,
+            weekClosed: closedSet.has(c.key),
+            rowArchived: row.isArchived,
+            archivedWeekCutoff: row.archivedWeekCutoff,
+          }),
       );
       return buildCellMenu(
         row,
@@ -1430,9 +1436,13 @@ export function PlanillaGrid({
       (c, i) =>
         i !== sheetTarget.sel.colIdx &&
         data.granularity === "week" &&
-        !closedSet.has(c.key) &&
-        !row.isArchived &&
-        !row.isVirtual,
+        !row.isVirtual &&
+        canDropCommittedOnWeek({
+          weekStart: c.key,
+          weekClosed: closedSet.has(c.key),
+          rowArchived: row.isArchived,
+          archivedWeekCutoff: row.archivedWeekCutoff,
+        }),
     );
     const model = buildCellSheetModel(
       row,

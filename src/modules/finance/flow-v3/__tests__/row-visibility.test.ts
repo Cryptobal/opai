@@ -3,6 +3,7 @@ import {
   normalizeNameForDedupe,
   pickAdoptionCandidate,
   pickDuplicateKeeper,
+  rowHasOpenDraftOrUnpaidDte,
   shouldArchiveSurplusAccountRow,
   shouldIncludeFlowRow,
   type AdoptionCandidate,
@@ -155,6 +156,41 @@ describe("shouldArchiveSurplusAccountRow", () => {
         hasPlanData: false,
         linkedActiveTemplate: false,
         hasExplicitOwnRowDte: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("rowHasOpenDraftOrUnpaidDte", () => {
+  it("detecta borrador del template de la fila", () => {
+    expect(
+      rowHasOpenDraftOrUnpaidDte({
+        recurringTemplateId: "tpl-poetas",
+        installationId: "inst-poetas",
+        openTemplateIds: new Set(["tpl-poetas"]),
+        openInstallationIds: new Set(),
+      }),
+    ).toBe(true);
+  });
+
+  it("detecta borrador re-colgado: misma instalación, otro template", () => {
+    expect(
+      rowHasOpenDraftOrUnpaidDte({
+        recurringTemplateId: "tpl-poetas",
+        installationId: "inst-poetas",
+        openTemplateIds: new Set(["tpl-pena"]),
+        openInstallationIds: new Set(["inst-poetas"]),
+      }),
+    ).toBe(true);
+  });
+
+  it("no dispara con template e instalación distintos a los abiertos", () => {
+    expect(
+      rowHasOpenDraftOrUnpaidDte({
+        recurringTemplateId: "tpl-poetas",
+        installationId: "inst-poetas",
+        openTemplateIds: new Set(["tpl-pena"]),
+        openInstallationIds: new Set(["inst-pena"]),
       }),
     ).toBe(false);
   });
