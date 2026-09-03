@@ -74,18 +74,25 @@ function ReadingLegend() {
     <Surface elevation={1} padding="md">
       <p className="text-[13px] font-medium text-ds-text-1 mb-2">Cómo leer este resultado</p>
       <ul className="space-y-1.5 text-[13px] text-ds-text-2">
-        <li>Montos <span className="text-ds-text-1 font-medium">netos de IVA</span>. No es tesorería: cobro y pago siguen en Caja.</li>
         <li>
-          Personal = líquido + Previred + impuesto único. Sin provisiones ni sueldos
-          administrativos. Es la dotación actual, repetida en cada mes.
+          Montos <span className="text-ds-text-1 font-medium">netos de IVA</span>. No es
+          tesorería: cobro y pago siguen en Caja.
         </li>
         <li>
-          Compras de faena = DTE recibidos asignados a una instalación. Si la compra no
-          tiene faena, entra en GAV empresa.
+          Personal (faena) = líquido + Previred (trabajador y empleador) + impuesto
+          único de la dotación operativa actual, repetida cada mes.
         </li>
         <li>
-          Fuera de este resultado: retiros de socios, costo de factoring y movimientos de
-          caja.
+          GAV incluye sueldos y Previred del equipo interno, compras sin faena y
+          gastos recurrentes fijos. Se prorratea a faenas por ingresos.
+        </li>
+        <li>
+          Turnos extra y compras de faena: meses cerrados con TE/DTE reales; mes
+          actual y futuros con el promedio de los últimos 3 meses cerrados.
+        </li>
+        <li>
+          Fuera de este resultado: provisiones de vacaciones/indemnización, retiros
+          de socios, costo de factoring, IVA F29 y movimientos de caja.
         </li>
       </ul>
     </Surface>
@@ -383,7 +390,11 @@ function Kpis({ totals, gavProrated }: { totals: PnlLineTotals; gavProrated?: bo
       <Stat
         label={gavProrated ? "GAV prorrateado" : "GAV"}
         value={fmtCLPShort(totals.gav)}
-        hint={fmtCLP(totals.gav)}
+        hint={
+          gavProrated
+            ? fmtCLP(totals.gav)
+            : `${fmtCLP(totals.gav)} · incluye equipo interno`
+        }
         icon={Wallet}
         variant="default"
       />
@@ -492,7 +503,7 @@ export function ResultadoClient() {
         iconTone="teal"
         title="Resultado proyectado"
         subtitle="estado de resultados mensual"
-        description="Ingresos por período de facturación y costos del servicio. Montos netos de IVA. No es tesorería: el cobro y el pago siguen en Caja."
+        description="Ingresos por período de facturación y costos del servicio, incluido equipo interno y la proyección de TE y compras. Montos netos de IVA. El cobro y el pago siguen en Caja."
       />
       <ReadingLegend />
 

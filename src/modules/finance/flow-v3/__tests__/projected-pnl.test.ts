@@ -3,9 +3,13 @@ import {
   allocateGavByRevenue,
   assembleProjectedPnl,
   buildMonthColumns,
+  completeMonthKeysBefore,
   coveredPeriodKey,
   enumerateMonthKeys,
+  gapFillOpenMonths,
+  monthKeyStartUtc,
   monthLabel,
+  monthlyRunRate,
   netPerRunFromLines,
   recognitionMonthKey,
   signedDocumentNet,
@@ -204,7 +208,72 @@ describe("assembleProjectedPnl", () => {
     expect(result.allocationMethod).toBe("by_revenue");
   });
 
+  it("repite GAV de equipo interno en cada mes", () => {
+    const result = assembleProjectedPnl({
+      months: MONTHS,
+      issued: [],
+      templates: [],
+      personnel: [],
+      extraShifts: [],
+      received: [],
+      gavRecurrences: MONTHS.map((m) => ({ monthKey: m.key, amountClp: 50 })),
+    });
+    expect(result.company.gav).toEqual([50, 50, 50]);
+    expect(result.company.personnel).toEqual([0, 0, 0]);
+  });
+
   it("coveredPeriodKey es estable", () => {
     expect(coveredPeriodKey("tpl", "2026-07")).toBe("tpl::2026-07");
+  });
+});
+
+describe("run-rate helpers", () => {
+  it("completeMonthKeysBefore toma meses cerrados, no el mes en curso", () => {
+    expect(completeMonthKeysBefore("2026-09-03", 3)).toEqual([
+      "2026-06",
+      "2026-07",
+      "2026-08",
+    ]);
+    expect(completeMonthKeysBefore("2026-01-15", 3)).toEqual([
+      "2025-10",
+      "2025-11",
+      "2025-12",
+    ]);
+    expect(completeMonthKeysBefore("2026-02-01", 1)).toEqual(["2026-01"]);
+    expect(completeMonthKeysBefore("bad", 3)).toEqual([]);
+  });
+
+  it("monthKeyStartUtc ancla al primer día UTC", () => {
+    expect(monthKeyStartUtc("2026-06").toISOString()).toBe("2026-06-01T00:00:00.000Z");
+  });
+
+  it("monthlyRunRate promedia ceros de meses sin movimiento", () => {
+    const byMonth = new Map([["2026-06", 90], ["2026-08", 30]]);
+    expect(monthlyRunRate(byMonth, ["2026-06", "2026-07", "2026-08"])).toBe(40);
+    expect(monthlyRunRate(undefined, ["2026-06"])).toBe(0);
+    expect(monthlyRunRate(byMonth, [])).toBe(0);
+  });
+
+  it("gapFillOpenMonths rellena actual/futuro y no toca meses pasados", () => {
+    const months = buildMonthColumns(
+      ["2026-07", "2026-08", "2026-09", "2026-10"],
+      "2026-09-03",
+    );
+    const filled = gapFillOpenMonths({
+      months,
+      rateMonthKeys: ["2026-06", "2026-07", "2026-08"],
+      actuals: [
+        { key: "norte", monthKey: "2026-06", amount: 30 },
+        { key: "norte", monthKey: "2026-07", amount: 30 },
+        { key: "norte", monthKey: "2026-08", amount: 30 },
+        { key: "norte", monthKey: "2026-09", amount: 10 },
+      ],
+      toItem: (key, monthKey, amount) => ({ key, monthKey, amount }),
+    });
+    expect(filled).toEqual([
+      { key: "norte", monthKey: "2026-09", amount: 20 },
+      { key: "norte", monthKey: "2026-10", amount: 30 },
+    ]);
+    expect(filled.some((x) => x.monthKey === "2026-07")).toBe(false);
   });
 });

@@ -2,7 +2,10 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { FinanceSiiStatus } from "@prisma/client";
 import { getUfValue } from "@/lib/uf";
-import { computePayrollCashForTenant } from "@/modules/finance/cashflow/payroll-cash.service";
+import {
+  computePayrollCashForTenant,
+  computeStaffPayrollCashForTenant,
+} from "@/modules/finance/cashflow/payroll-cash.service";
 import {
   billingPeriodFromAnchor,
   computeNextRunAt,
@@ -12,10 +15,15 @@ import { defaultHorizon, todayYmdChile, toYmd } from "./weeks";
 import {
   assembleProjectedPnl,
   buildMonthColumns,
+  completeMonthKeysBefore,
   coveredPeriodKey,
   enumerateMonthKeys,
+  gapFillOpenMonths,
+  monthKeyStartUtc,
   netPerRunFromLines,
   recognitionMonthKey,
+  RUN_RATE_LOOKBACK_MONTHS,
+  signedDocumentNet,
   type ExtraShiftInput,
   type GavRecurrenceInput,
   type IssuedRevenueInput,
@@ -53,8 +61,9 @@ function num(v: unknown): number {
 
 /**
  * P&L operativo proyectado del tenant: ingresos por período de facturación,
- * personal por instalación (mes de servicio), costos directos / GAV y
- * prorrateo de GAV por ingresos.
+ * personal operativo por instalación (mes de servicio), equipo interno y
+ * recurrencias en GAV, TE/compras reales en meses cerrados y run-rate en
+ * meses abiertos. Prorrateo de GAV por ingresos.
  */
 export async function buildProjectedPnl(
   tenantId: string,
@@ -83,7 +92,10 @@ export async function buildProjectedPnl(
 
   const firstMonth = monthKeys[0];
   const lastMonth = monthKeys[monthKeys.length - 1];
+  const rateMonthKeys = completeMonthKeysBefore(todayYmd, RUN_RATE_LOOKBACK_MONTHS);
   const fromDate = new Date(`${firstMonth}-01T00:00:00.000Z`);
+  const lookbackFromDate =
+    rateMonthKeys.length > 0 ? monthKeyStartUtc(rateMonthKeys[0]) : fromDate;
   const toDateExclusive = new Date(
     Date.UTC(Number(lastMonth.slice(0, 4)), Number(lastMonth.slice(5, 7)), 1),
   );
@@ -93,6 +105,7 @@ export async function buildProjectedPnl(
     draftRaw,
     templates,
     payroll,
+    staffPayroll,
     tes,
     receivedRaw,
     gavRecs,
@@ -161,11 +174,12 @@ export async function buildProjectedPnl(
       },
     }),
     computePayrollCashForTenant(tenantId),
+    computeStaffPayrollCashForTenant(tenantId),
     prisma.opsTurnoExtra.findMany({
       where: {
         tenantId,
         status: "approved",
-        date: { gte: fromDate, lt: toDateExclusive },
+        date: { gte: lookbackFromDate, lt: toDateExclusive },
       },
       select: { installationId: true, date: true, amountClp: true },
     }),
@@ -174,7 +188,7 @@ export async function buildProjectedPnl(
         tenantId,
         direction: "RECEIVED",
         dteType: { in: RECEIVED_TYPES },
-        date: { gte: fromDate, lt: toDateExclusive },
+        date: { gte: lookbackFromDate, lt: toDateExclusive },
         NOT: { receptionStatus: { in: ["CLAIMED", "EXPIRED"] } },
       },
       select: {
@@ -284,6 +298,22 @@ export async function buildProjectedPnl(
     dateYmd: ymdOf(t.date),
     amountClp: num(t.amountClp),
   }));
+  extraShifts.push(
+    ...gapFillOpenMonths({
+      months,
+      rateMonthKeys,
+      actuals: extraShifts.map((t) => ({
+        key: t.installationId,
+        monthKey: t.dateYmd.slice(0, 7),
+        amount: t.amountClp,
+      })),
+      toItem: (installationId, monthKey, amountClp) => ({
+        installationId,
+        dateYmd: `${monthKey}-15`,
+        amountClp,
+      }),
+    }),
+  );
 
   const received: ReceivedCostInput[] = receivedRaw.map((d) => ({
     dteType: d.dteType,
@@ -291,8 +321,38 @@ export async function buildProjectedPnl(
     dateYmd: ymdOf(d.date),
     installationId: d.installationId,
   }));
+  received.push(
+    ...gapFillOpenMonths({
+      months,
+      rateMonthKeys,
+      actuals: received.flatMap((d) => {
+        if (!d.installationId) return [];
+        const amount = signedDocumentNet(d.dteType, d.netAmount, "RECEIVED");
+        if (amount === 0) return [];
+        return [
+          {
+            key: d.installationId,
+            monthKey: d.dateYmd.slice(0, 7),
+            amount,
+          },
+        ];
+      }),
+      toItem: (installationId, monthKey, amountClp) => ({
+        dteType: 33,
+        netAmount: amountClp,
+        dateYmd: `${monthKey}-15`,
+        installationId,
+      }),
+    }),
+  );
 
   const gavRecurrences: GavRecurrenceInput[] = [];
+  const staffMonthly = staffPayroll.costoDirecto;
+  if (staffMonthly > 0) {
+    for (const m of months) {
+      gavRecurrences.push({ monthKey: m.key, amountClp: staffMonthly });
+    }
+  }
   const recEnd = `${lastMonth}-28`;
   for (const rec of gavRecs) {
     const startYmd = ymdOf(rec.startDate);

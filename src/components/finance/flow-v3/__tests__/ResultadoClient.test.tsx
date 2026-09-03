@@ -77,8 +77,12 @@ describe("ResultadoClient", () => {
     expect(screen.queryByText("Costo directo")).toBeNull();
     expect(screen.queryByText("Costos directos")).toBeNull();
     expect(screen.getAllByText(/netos de IVA/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/equipo interno/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/promedio de los últimos 3 meses/)).toBeTruthy();
     expect(screen.getByText(/retiros de socios/)).toBeTruthy();
     expect(screen.getByText(/factoring/)).toBeTruthy();
+    expect(screen.getByText(/provisiones de vacaciones/)).toBeTruthy();
+    expect(screen.queryByText(/Sin provisiones ni sueldos administrativos/)).toBeNull();
   });
 
   it("abre un concepto y muestra las faenas que lo componen", async () => {
