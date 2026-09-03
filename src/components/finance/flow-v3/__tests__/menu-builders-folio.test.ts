@@ -306,6 +306,35 @@ describe("buildCellMenu — por folio en desktop", () => {
     expect(moveSub.find((i) => i.key === "mdte-draft-ep-2026-08-10")?.highlight).toBe("next-week");
   });
 
+  it("fila archivada sigue ofreciendo mover el borrador si hay semanas destino", () => {
+    const draftCell: FlowMatrixCellDto = {
+      weekStart: "2026-08-03",
+      plan: 0,
+      committed: {
+        total: 4_684_011,
+        items: [{
+          kind: "draft",
+          dteId: "draft-poetas",
+          label: "Ametel",
+          fecha: "2026-09-01",
+          monto: 4_684_011,
+        }],
+      },
+      real: null,
+      effective: 4_684_011,
+      layer: "committed",
+    };
+    const items = buildCellMenu(
+      row({ name: "Ametel - Los Poetas", isArchived: true, archivedWeekCutoff: "2026-08-31" }),
+      draftCell,
+      ctx,
+      cbs(),
+    );
+    const move = items.find((i) => i.key === "move-draft-draft-poetas");
+    expect(move?.disabled).toBe(false);
+    expect(move?.submenu?.length).toBeGreaterThan(0);
+  });
+
   it("con 2 borradores ofrece excluir cada uno del flujo", () => {
     const twoDrafts: FlowMatrixCellDto = {
       weekStart: "2026-08-03",

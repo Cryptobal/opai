@@ -122,3 +122,11 @@ describe("buildRowMenu — subfilas", () => {
     expect(del?.reason).toMatch(/real o comprometido/i);
   });
 });
+
+describe("buildRowMenu — archivar", () => {
+  it("fila archivada ofrece Desarchivar", () => {
+    const items = buildRowMenu(row({ isArchived: true }), [], cbs());
+    expect(items.find((i) => i.key === "unarchive")?.label).toBe("Desarchivar fila");
+    expect(items.find((i) => i.key === "archive")).toBeUndefined();
+  });
+});

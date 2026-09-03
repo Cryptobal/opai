@@ -13,6 +13,7 @@ import {
   normalizeNameForDedupe,
   pickAdoptionCandidate,
   pickDuplicateKeeper,
+  rowHasOpenDraftOrUnpaidDte,
   shouldArchiveSurplusAccountRow,
   type AdoptionCandidate,
 } from "./row-visibility";
@@ -525,8 +526,9 @@ async function archiveSurplusRows(
     tx.financeDte.findMany({
       where: {
         tenantId,
-        recurringTemplateId: { not: null },
+        direction: "ISSUED",
         voidedByCreditNoteId: null,
+        siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
         OR: [
           { siiStatus: "DRAFT" },
           {
@@ -535,7 +537,7 @@ async function archiveSurplusRows(
           },
         ],
       },
-      select: { recurringTemplateId: true },
+      select: { recurringTemplateId: true, installationId: true },
     }),
   ]);
 
@@ -544,6 +546,11 @@ async function archiveSurplusRows(
   const openTplIds = new Set(
     openDtes
       .map((d) => d.recurringTemplateId)
+      .filter((id): id is string => !!id),
+  );
+  const openInstIds = new Set(
+    openDtes
+      .map((d) => d.installationId)
       .filter((id): id is string => !!id),
   );
 
@@ -580,8 +587,12 @@ async function archiveSurplusRows(
         hasPlanData: planRowIds.has(r.id),
         linkedActiveTemplate: linkedActive,
         hasExplicitOwnRowDte: !!r.crmAccountId && ownRowAccounts.has(r.crmAccountId),
-        hasOpenDraftOrUnpaidDte:
-          !!r.recurringTemplateId && openTplIds.has(r.recurringTemplateId),
+        hasOpenDraftOrUnpaidDte: rowHasOpenDraftOrUnpaidDte({
+          recurringTemplateId: r.recurringTemplateId,
+          installationId: r.installationId,
+          openTemplateIds: openTplIds,
+          openInstallationIds: openInstIds,
+        }),
       })
     ) {
       archiveIds.add(r.id);

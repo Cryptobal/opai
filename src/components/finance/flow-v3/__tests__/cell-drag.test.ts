@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 import {
+  canDropCommittedOnWeek,
   cellLevelDragPayload,
   itemDragPayload,
   stackedCommittedLines,
@@ -197,5 +198,51 @@ describe("cell-drag", () => {
       kind: "parametric",
       amount: 10_000_000,
     });
+  });
+});
+
+describe("canDropCommittedOnWeek", () => {
+  it("semana abierta de fila viva admite soltar", () => {
+    expect(
+      canDropCommittedOnWeek({
+        weekStart: "2026-09-07",
+        weekClosed: false,
+        rowArchived: false,
+        archivedWeekCutoff: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("semana cerrada no admite soltar", () => {
+    expect(
+      canDropCommittedOnWeek({
+        weekStart: "2026-08-03",
+        weekClosed: true,
+        rowArchived: false,
+        archivedWeekCutoff: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("fila archivada admite semanas hasta el cutoff inclusive", () => {
+    expect(
+      canDropCommittedOnWeek({
+        weekStart: "2026-08-31",
+        weekClosed: false,
+        rowArchived: true,
+        archivedWeekCutoff: "2026-08-31",
+      }),
+    ).toBe(true);
+  });
+
+  it("fila archivada no admite semanas posteriores al cutoff", () => {
+    expect(
+      canDropCommittedOnWeek({
+        weekStart: "2026-09-07",
+        weekClosed: false,
+        rowArchived: true,
+        archivedWeekCutoff: "2026-08-31",
+      }),
+    ).toBe(false);
   });
 });
