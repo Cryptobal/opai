@@ -9,8 +9,10 @@
  *   3. Match a la cuenta bancaria del tenant por número de cuenta
  *      (bankCode solo desempata si hay varias con el mismo número).
  *   4. Inserta en finance_bank_transactions con
- *      apiTransactionId = "web4leads:<externalId>" → idempotente.
- *   5. Actualiza saldo + apiLastSync de la cuenta.
+ *      apiTransactionId = "web4leads:<externalId>" y huella de contenido
+ *      (fecha|monto|glosa|referencia) para ids inestables.
+ *   5. Actualiza saldo (snapshot CALCULATED si viene `balance`) + apiLastSync.
+
  *   6. Corre auto-match (DTE → turnos extra → reglas) sobre los
  *      movimientos recién insertados — mismo comportamiento que el
  *      import CSV desde la UI.
@@ -28,7 +30,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import {
   tenantWeb4leadsKey,
   tenantWeb4leadsSecret,
@@ -37,10 +38,10 @@ import {
   normalizeAccountNumber,
   normalizeBankCode,
 } from "@/modules/finance/banking/web4leads-inbox";
+import { importWeb4leadsMovements } from "@/modules/finance/banking/web4leads-import.service";
 import { notify } from "@/lib/notifications/notify";
 import { buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
 import { buildBankMovementsSlackData } from "@/modules/finance/banking/slack-movements-payload";
-import { syncCurrentBalanceFromMovements } from "@/modules/finance/banking/bank-balance.service";
 import { bulkAutoMatchBankTransactions } from "@/modules/finance/banking/auto-match-payment.service";
 import { resolveInboundActorId } from "@/modules/finance/banking/inbound-actor";
 
@@ -226,55 +227,24 @@ export async function POST(
     );
   }
 
-  // 6. Insert idempotente
-  const data = payload.movements.map((m) => ({
+  // 6. Insert idempotente por externalId y por contenido.
+  const result = await importWeb4leadsMovements({
     tenantId,
     bankAccountId: account.id,
-    transactionDate: new Date(m.transactionDate),
-    description: m.description,
-    reference: m.reference ?? null,
-    amount: new Prisma.Decimal(m.amount),
-    balance:
-      m.balance != null && Number.isFinite(m.balance)
-        ? new Prisma.Decimal(m.balance)
-        : null,
-    source: "API" as const,
-    reconciliationStatus: "UNMATCHED" as const,
-    apiTransactionId: `web4leads:${m.externalId}`,
-  }));
-
-  const result = await prisma.financeBankTransaction.createMany({
-    data,
-    skipDuplicates: true,
+    movements: payload.movements,
   });
-  const imported = result.count;
-  const duplicates = payload.movements.length - imported;
-
-  let syncedBalance: number | null = null;
-  if (imported > 0) {
-    const resolved = await syncCurrentBalanceFromMovements(tenantId, account.id);
-    syncedBalance = resolved.resolvedBalanceClp;
-    await prisma.financeBankAccount.update({
-      where: { id: account.id },
-      data: {
-        apiLastSync: new Date(),
-        apiProvider: "WEB4LEADS",
-      },
-    });
-  }
+  const imported = result.imported;
+  const duplicates = result.duplicates;
+  const syncedBalance = result.syncedBalance;
 
   // 8. Auto-match + notificación (fire-and-forget; un fallo no debe romper el 200)
   if (imported > 0) {
     const summary = `${imported} movimiento(s) en cta. ${account.accountNumber}${duplicates > 0 ? ` · ${duplicates} duplicados ignorados` : ""}`;
 
-    // Filas recién insertadas: por apiTransactionId del lote + createdAt ≥
-    // startedAt (evita tomar filas viejas si hay race entre webhooks).
     const inserted = await prisma.financeBankTransaction.findMany({
       where: {
         tenantId,
-        bankAccountId: account.id,
-        apiTransactionId: { in: data.map((d) => d.apiTransactionId) },
-        createdAt: { gte: new Date(startedAt) },
+        id: { in: result.insertedIds },
       },
       select: {
         id: true,

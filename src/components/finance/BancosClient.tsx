@@ -1341,15 +1341,22 @@ function TransactionsTab({
         resolvedBalanceClp: number;
         txCount: number;
         anchorBalanceClp: number;
+        hiddenDuplicates?: number;
       };
       toast.success(
         `Saldo actualizado: ${fmtCLP.format(d.resolvedBalanceClp)}` +
           (d.txCount > 0
             ? ` (ancla ${fmtCLP.format(d.anchorBalanceClp)} + ${d.txCount} mov.)`
+            : "") +
+          (d.hiddenDuplicates
+            ? ` · ${d.hiddenDuplicates} duplicados ocultos`
             : ""),
       );
       onAccountsChanged();
-      if (d.previousBalanceClp !== d.resolvedBalanceClp) {
+      if (
+        d.previousBalanceClp !== d.resolvedBalanceClp ||
+        (d.hiddenDuplicates ?? 0) > 0
+      ) {
         await loadTransactions();
       }
     } catch (error) {
@@ -2281,7 +2288,7 @@ function TransactionsTab({
                 className="h-10 sm:h-9 shrink-0 self-start"
                 disabled={recalculatingBalance || !selectedAccount}
                 onClick={recalculateAccountBalance}
-                title="Recalcula sumando movimientos posteriores al último snapshot"
+                title="Oculta duplicados del mismo movimiento y recalcula el saldo desde el último snapshot"
               >
                 {recalculatingBalance ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
