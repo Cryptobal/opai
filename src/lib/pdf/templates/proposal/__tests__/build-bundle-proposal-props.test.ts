@@ -201,6 +201,25 @@ describe("buildBundleProposalProps", () => {
     expect(props.watermark).toBe("BORRADOR");
   });
 
+  it("bundle draft no hereda aprobada/enviada de una cotización hija", async () => {
+    mocks.bundleFindFirst.mockResolvedValue({
+      id: "b1",
+      code: "PROP-2026-001",
+      status: "draft",
+      currency: "CLP",
+      validUntil: null,
+      paymentTerms: null,
+      quotes: [{ quoteId: "q1" }],
+    });
+    mocks.buildProposalProps.mockResolvedValueOnce(
+      quoteProps({ watermark: null, proposalStatus: "aprobada" }),
+    );
+
+    const props = await buildBundleProposalProps("b1", "t1", { pdfMode: "draft" });
+
+    expect(props.watermark).toBe("BORRADOR");
+  });
+
   it("agrega los pagos únicos de TODAS las instalaciones, prefijados y renumerados", async () => {
     mocks.buildProposalProps
       .mockResolvedValueOnce(

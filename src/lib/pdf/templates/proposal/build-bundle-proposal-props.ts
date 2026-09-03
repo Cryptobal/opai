@@ -159,7 +159,9 @@ export async function buildBundleProposalProps(
     ...baseProps,
     watermark: resolveProposalWatermark({
       pdfMode: opts?.pdfMode,
-      proposalStatus: baseProps.proposalStatus,
+      // El consolidado es un documento propio: un hijo legado en
+      // aprobada/enviada no puede quitar BORRADOR a un bundle aún draft
+      // (convertir a multi-instalación no resetea proposalStatus).
       quoteStatus: bundle.status,
     }),
     quotationCode: bundle.code,
