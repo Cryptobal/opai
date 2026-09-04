@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { simulatePayslip } from "@/modules/payroll/engine/simulate-payslip";
 import { requireTenantModule } from '@/lib/require-module';
+import { ensureOpsAccess } from "@/lib/ops";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,12 @@ export async function POST(req: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+
+    const payrollForbidden = await ensureModuleAccess(ctx, "payroll");
+    if (payrollForbidden) {
+      const opsForbidden = await ensureOpsAccess(ctx);
+      if (opsForbidden) return payrollForbidden;
+    }
 
     const body = await req.json();
     const {

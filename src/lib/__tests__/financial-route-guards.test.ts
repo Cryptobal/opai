@@ -99,4 +99,11 @@ describe("financial route guards (deny-by-default)", () => {
       .map((file) => path.relative(REPO_ROOT, file));
     expect(unguarded, `Sin guard: ${unguarded.join(", ")}`).toEqual([]);
   });
+
+  it("no cubre /api/ops (catálogos de puesto operativo no son lock financiero)", () => {
+    const opsRoutes = collectRouteFiles("src/app/api/ops");
+    expect(opsRoutes.length).toBeGreaterThan(0);
+    const audited = new Set(files);
+    expect(opsRoutes.some((file) => audited.has(file))).toBe(false);
+  });
 });

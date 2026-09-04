@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { createPuestoSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
+import { assertPuestoCatalogOwnership } from "@/lib/ops/puesto-catalog";
 import { simulatePayslip } from "@/modules/payroll/engine/simulate-payslip";
 import { resolveStructureAllowances } from "@/modules/payroll/resolve-structure-allowances";
 import { syncPayrollItemForInstallation } from "@/modules/finance/cashflow/generators/payroll-sync";
@@ -49,6 +50,14 @@ export async function POST(request: NextRequest) {
     const parsed = await parseBody(request, createPuestoSchema);
     if (parsed.error) return parsed.error;
     const body = parsed.data;
+
+    const catalogForbidden = await assertPuestoCatalogOwnership(ctx.tenantId, {
+      cargoId: body.cargoId,
+      rolId: body.rolId,
+      puestoTrabajoId: body.puestoTrabajoId,
+      bonos: body.bonos,
+    });
+    if (catalogForbidden) return catalogForbidden;
 
     const installation = await prisma.crmInstallation.findFirst({
       where: { id: body.installationId, tenantId: ctx.tenantId },
