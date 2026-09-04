@@ -31,7 +31,7 @@ const WEEKDAY_ORDER = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 /* ── Types ─────────────────────────────────────── */
 
-type CatalogItem = { id: string; name: string; description?: string | null };
+type CatalogItem = { id: string; name: string; description?: string | null; active?: boolean };
 type BonoCatalogItem = {
   id: string;
   code: string;
@@ -41,7 +41,14 @@ type BonoCatalogItem = {
   isTributable: boolean;
   defaultAmount: number | null;
   defaultPercentage: number | null;
+  active?: boolean;
 };
+
+function catalogOptionLabel(item: CatalogItem, extra?: string | null): string {
+  const extraPart = extra ? ` (${extra})` : "";
+  const inactivePart = item.active === false ? " (inactivo)" : "";
+  return `${item.name}${extraPart}${inactivePart}`;
+}
 
 export type PuestoBonoEntry = {
   bonoCatalogId: string;
@@ -124,6 +131,9 @@ export function PuestoFormModal({
   const [roles, setRoles] = useState<CatalogItem[]>([]);
   const [puestos, setPuestos] = useState<CatalogItem[]>([]);
   const [bonosCatalog, setBonosCatalog] = useState<BonoCatalogItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [estimateAvailable, setEstimateAvailable] = useState(true);
 
   // Net salary estimation
   const [netEstimate, setNetEstimate] = useState<{
@@ -134,24 +144,74 @@ export function PuestoFormModal({
   } | null>(null);
   const [estimating, setEstimating] = useState(false);
 
-  // Load catalogs when modal opens
+  // Load catalogs when modal opens (ops endpoint — not gated by CPQ/Payroll)
   useEffect(() => {
-    if (open) {
-      Promise.all([
-        fetch("/api/cpq/cargos?active=true").then((r) => r.json()),
-        fetch("/api/cpq/roles?active=true").then((r) => r.json()),
-        fetch("/api/cpq/puestos?active=true").then((r) => r.json()),
-        fetch("/api/payroll/bonos?active=true").then((r) => r.json()).catch(() => ({ data: [] })),
-      ])
-        .then(([c, r, p, b]) => {
-          setCargos(c.data || []);
-          setRoles(r.data || []);
-          setPuestos(p.data || []);
-          setBonosCatalog(b.data || []);
-        })
-        .catch(console.error);
+    if (!open) {
+      setCatalogError(null);
+      return;
     }
-  }, [open]);
+
+    let cancelled = false;
+    setCatalogLoading(true);
+    setCatalogError(null);
+
+    const includeIds = [
+      initialData?.cargoId,
+      initialData?.rolId,
+      initialData?.puestoTrabajoId,
+      ...(initialData?.bonos ?? []).map((b) => b.bonoCatalogId),
+    ].filter((id): id is string => typeof id === "string" && id.length > 0);
+
+    const params = new URLSearchParams();
+    if (includeIds.length > 0) params.set("includeIds", includeIds.join(","));
+    const qs = params.toString();
+    const url = qs ? `/api/ops/puestos/catalogos?${qs}` : "/api/ops/puestos/catalogos";
+
+    fetch(url)
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const message =
+            typeof json?.error === "string" && json.error
+              ? json.error
+              : "No se pudieron cargar los catálogos";
+          throw new Error(message);
+        }
+        return json;
+      })
+      .then((json) => {
+        if (cancelled) return;
+        const data = json?.data ?? {};
+        setCargos(data.cargos ?? []);
+        setRoles(data.roles ?? []);
+        setPuestos(data.puestos ?? []);
+        setBonosCatalog(data.bonos ?? []);
+        setEstimateAvailable(data.payrollEnabled !== false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setCargos([]);
+        setRoles([]);
+        setPuestos([]);
+        setBonosCatalog([]);
+        setCatalogError(
+          err instanceof Error ? err.message : "No se pudieron cargar los catálogos",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setCatalogLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    initialData?.cargoId,
+    initialData?.rolId,
+    initialData?.puestoTrabajoId,
+    initialData?.bonos,
+  ]);
 
   const prevOpenRef = useRef(false);
   const liquidResultRef = useRef<HTMLDivElement>(null);
@@ -208,6 +268,10 @@ export function PuestoFormModal({
         }),
       });
       const json = await res.json();
+      if (res.status === 404 || json?.code === "MODULE_NOT_ENABLED") {
+        setEstimateAvailable(false);
+        return;
+      }
       if (res.ok && json?.data && typeof json.data.netSalary === "number") {
         setNetEstimate(json.data);
       } else {
@@ -247,6 +311,7 @@ export function PuestoFormModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (catalogLoading || catalogError) return;
     if (form.weekdays.length === 0) {
       toast.error("Debes seleccionar al menos un día de la semana");
       return;
@@ -271,6 +336,14 @@ export function PuestoFormModal({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
+        {catalogError && (
+          <div
+            role="alert"
+            className="rounded-md border border-status-danger-border bg-status-danger-soft px-3 py-2 text-sm text-status-danger-fg"
+          >
+            {catalogError}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* ── Row 1: Cargo + Tipo de puesto ── */}
@@ -289,7 +362,7 @@ export function PuestoFormModal({
                 <option value="">Selecciona un cargo</option>
                 {cargos.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {catalogOptionLabel(c)}
                   </option>
                 ))}
               </select>
@@ -308,7 +381,7 @@ export function PuestoFormModal({
                 <option value="">Selecciona un puesto</option>
                 {puestos.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name}
+                    {catalogOptionLabel(p)}
                   </option>
                 ))}
               </select>
@@ -331,8 +404,7 @@ export function PuestoFormModal({
                 <option value="">Selecciona un rol</option>
                 {roles.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.name}
-                    {r.description ? ` (${r.description})` : ""}
+                    {catalogOptionLabel(r, r.description)}
                   </option>
                 ))}
               </select>
@@ -638,7 +710,9 @@ export function PuestoFormModal({
                       >
                         <option value="">Selecciona bono...</option>
                         {bonosCatalog.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
+                          <option key={c.id} value={c.id}>
+                            {catalogOptionLabel(c)}
+                          </option>
                         ))}
                       </select>
                       {cat && (cat.bonoType === "FIJO" || cat.bonoType === "CONDICIONAL") && (
@@ -705,44 +779,46 @@ export function PuestoFormModal({
               </div>
             )}
 
-            {/* Calcular sueldo líquido — Líquido estimado en la misma línea para que siempre sea visible */}
-            <div className="space-y-2" ref={liquidResultRef}>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
-                  onClick={calculateNetEstimate}
-                  disabled={estimating || form.baseSalary <= 0}
-                >
-                  {estimating ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            {/* Calcular sueldo líquido — oculto si el tenant no tiene módulo payroll */}
+            {estimateAvailable && (
+              <div className="space-y-2" ref={liquidResultRef}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={calculateNetEstimate}
+                    disabled={estimating || form.baseSalary <= 0}
+                  >
+                    {estimating ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Calculator className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Calcular sueldo líquido
+                  </Button>
+                  <span className="text-xs text-muted-foreground shrink-0">Líquido estimado:</span>
+                  {netEstimate ? (
+                    <strong className="text-status-ok-fg text-sm">${netEstimate.netSalary.toLocaleString("es-CL")}</strong>
                   ) : (
-                    <Calculator className="mr-1.5 h-3.5 w-3.5" />
+                    <span className="text-muted-foreground/80 text-xs">{estimating ? "Calculando…" : "—"}</span>
                   )}
-                  Calcular sueldo líquido
-                </Button>
-                <span className="text-xs text-muted-foreground shrink-0">Líquido estimado:</span>
-                {netEstimate ? (
-                  <strong className="text-status-ok-fg text-sm">${netEstimate.netSalary.toLocaleString("es-CL")}</strong>
-                ) : (
-                  <span className="text-muted-foreground/80 text-xs">{estimating ? "Calculando…" : "—"}</span>
+                </div>
+                {netEstimate && (
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <span className="text-muted-foreground">
+                      Bruto: <strong className="text-foreground">${netEstimate.grossSalary.toLocaleString("es-CL")}</strong>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Desc: <strong className="text-destructive">-${netEstimate.totalDeductions.toLocaleString("es-CL")}</strong>
+                    </span>
+                  </div>
                 )}
               </div>
-              {netEstimate && (
-                <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <span className="text-muted-foreground">
-                    Bruto: <strong className="text-foreground">${netEstimate.grossSalary.toLocaleString("es-CL")}</strong>
-                  </span>
-                  <span className="text-muted-foreground">
-                    Desc: <strong className="text-destructive">-${netEstimate.totalDeductions.toLocaleString("es-CL")}</strong>
-                  </span>
-                </div>
-              )}
-            </div>
+            )}
 
-            {netEstimate && (
+            {estimateAvailable && netEstimate && (
               <div className="rounded-md border border-border/50 bg-muted/20 p-2.5 text-[10px] text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
                 <span>AFP: -${netEstimate.deductions.afp.toLocaleString("es-CL")}</span>
                 <span>Salud: -${netEstimate.deductions.health.toLocaleString("es-CL")}</span>
@@ -761,7 +837,7 @@ export function PuestoFormModal({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" disabled={isSaving || catalogLoading || Boolean(catalogError)}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar
             </Button>

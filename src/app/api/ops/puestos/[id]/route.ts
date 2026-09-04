@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { updatePuestoSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess, parseDateOnly, toISODate } from "@/lib/ops";
+import { assertPuestoCatalogOwnership } from "@/lib/ops/puesto-catalog";
 import { simulatePayslip } from "@/modules/payroll/engine/simulate-payslip";
 import { resolveStructureAllowances } from "@/modules/payroll/resolve-structure-allowances";
 import { syncPayrollItemForInstallation } from "@/modules/finance/cashflow/generators/payroll-sync";
@@ -252,6 +253,14 @@ export async function PATCH(
     const parsed = await parseBody(request, updatePuestoSchema);
     if (parsed.error) return parsed.error;
     const body = parsed.data;
+
+    const catalogForbidden = await assertPuestoCatalogOwnership(ctx.tenantId, {
+      cargoId: body.cargoId,
+      rolId: body.rolId,
+      puestoTrabajoId: body.puestoTrabajoId,
+      bonos: body.bonos,
+    });
+    if (catalogForbidden) return catalogForbidden;
 
     // If deactivating: block if there are active guard assignments
     if (body.active === false && existing.active === true) {
