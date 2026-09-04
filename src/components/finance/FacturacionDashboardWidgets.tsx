@@ -328,7 +328,7 @@ export function TrendChart({ periodo }: TrendChartProps = {}) {
   const tooltipFg = "hsl(var(--ds-text-1))";
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 min-w-0 overflow-hidden">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div>
           <h3 className="font-display font-semibold text-sm text-ds-text-1">
@@ -349,7 +349,8 @@ export function TrendChart({ periodo }: TrendChartProps = {}) {
           </div>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={180}>
+      <div className="h-[180px] w-full min-w-0 overflow-hidden">
+        <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="dteVentasG" x1="0" y1="0" x2="0" y2="1">
@@ -407,7 +408,8 @@ export function TrendChart({ periodo }: TrendChartProps = {}) {
             strokeWidth={2}
           />
         </AreaChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+      </div>
     </Card>
   );
 }
