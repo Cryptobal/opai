@@ -95,7 +95,7 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
           los botones cuando el contenido supera 85dvh. */}
       <DialogContent
         overlayClassName="z-[70]"
-        className="z-[70] flex min-h-0 max-h-[min(90dvh,calc(100svh-1rem))] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-h-[min(85dvh,calc(100svh-2rem))]"
+        className="z-[70] flex min-h-0 max-h-[min(90dvh,calc(100svh-1rem))] max-w-lg flex-col gap-0 overflow-hidden p-0 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:max-h-[min(85dvh,calc(100svh-2rem))] sm:pb-0"
         data-testid="emision-confirm-dialog"
       >
         <DialogHeader className="shrink-0 px-6 pb-3 pr-12 pt-6">
@@ -200,7 +200,7 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
 
         </div>
 
-        <div className="shrink-0 space-y-3 border-t border-ds-border-subtle px-6 py-4">
+        <div className="shrink-0 space-y-3 border-t border-ds-border-subtle px-6 pt-3 pb-3 sm:py-4">
           <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-sm text-status-warn-fg">
             <div className="flex items-start gap-2">
               <AlertTriangle className="size-4 shrink-0 mt-0.5" />
@@ -214,7 +214,7 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end sm:gap-2">
             <Button
               variant="outline"
               className="h-10 sm:h-9"

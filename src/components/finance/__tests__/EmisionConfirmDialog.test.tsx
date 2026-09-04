@@ -9,7 +9,7 @@ const DIALOG_BASE =
   "fixed inset-x-0 bottom-0 z-50 grid w-full max-w-[100vw] gap-4 px-6 pt-6 max-h-[90dvh] overflow-y-auto overflow-x-hidden sm:max-h-[85dvh]";
 
 const STICKY_LAYOUT =
-  "z-[70] flex min-h-0 max-h-[min(90dvh,calc(100svh-1rem))] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-h-[min(85dvh,calc(100svh-2rem))]";
+  "z-[70] flex min-h-0 max-h-[min(90dvh,calc(100svh-1rem))] max-w-lg flex-col gap-0 overflow-hidden p-0 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:max-h-[min(85dvh,calc(100svh-2rem))] sm:pb-0";
 
 const BASE_PROPS = {
   open: true,
@@ -48,7 +48,7 @@ describe("EmisionConfirmDialog layout (viewport)", () => {
       'className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 pb-4"',
     );
     expect(src).toContain(
-      'className="shrink-0 space-y-3 border-t border-ds-border-subtle px-6 py-4"',
+      'className="shrink-0 space-y-3 border-t border-ds-border-subtle px-6 pt-3 pb-3 sm:py-4"',
     );
     expect(src).toContain('data-testid="emision-confirm-submit"');
   });
