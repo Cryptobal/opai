@@ -859,9 +859,11 @@ export function SaludFinancieraHero({
         </div>
       )}
 
-      {/* Mini-chart con selector de rango */}
+      {/* Mini-chart con selector de rango. min-w-0 + overflow-hidden: el
+          ResponsiveContainer de Recharts a veces mide más ancho que el
+          card (rango anual / 12M) y se sale del cuadro. */}
       {trend && trend.length > 0 && (
-        <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3">
+        <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 min-w-0 overflow-hidden">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-2 min-w-0">
             <div className={STAT_LABEL}>
               <Banknote className="h-3 w-3 shrink-0" />
@@ -899,7 +901,8 @@ export function SaludFinancieraHero({
               </div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={140}>
+          <div className="h-[140px] w-full min-w-0 overflow-hidden">
+            <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={trend}
               margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
@@ -960,7 +963,8 @@ export function SaludFinancieraHero({
                 strokeWidth={2}
               />
             </AreaChart>
-          </ResponsiveContainer>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 

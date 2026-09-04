@@ -89,17 +89,21 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !loading && onClose()}>
-      {/* z-[70]: por encima de DteEditModal (z-60) cuando se emite desde Programación */}
+      {/* z-[70]: por encima de DteEditModal (z-60) cuando se emite desde Programación.
+          Flex + max-h viewport + overflow-hidden: el cuerpo scrollea y el footer
+          (aviso + Emitir) queda siempre visible. Sin esto el grid default recorta
+          los botones cuando el contenido supera 85dvh. */}
       <DialogContent
         overlayClassName="z-[70]"
-        className="z-[70] max-w-lg"
+        className="z-[70] flex min-h-0 max-h-[min(90dvh,calc(100svh-1rem))] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-h-[min(85dvh,calc(100svh-2rem))]"
+        data-testid="emision-confirm-dialog"
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0 px-6 pb-3 pr-12 pt-6">
           <DialogTitle>Confirmar emisión al SII</DialogTitle>
           <DialogDescription>{tipoNombre}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 pb-4">
           <div className="rounded-md border bg-muted/40 p-3 text-sm">
             <div className="grid grid-cols-[120px_1fr] gap-y-1">
               <span className="text-muted-foreground">Receptor:</span>
@@ -194,6 +198,9 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
             </div>
           )}
 
+        </div>
+
+        <div className="shrink-0 space-y-3 border-t border-ds-border-subtle px-6 py-4">
           <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-sm text-status-warn-fg">
             <div className="flex items-start gap-2">
               <AlertTriangle className="size-4 shrink-0 mt-0.5" />
@@ -206,20 +213,27 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
               </div>
             </div>
           </div>
-        </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={() => onConfirm({ autoSendEmail, sendXmlToBackoffice: sendXml })}
-            disabled={loading}
-          >
-            {loading && <Loader2 className="size-4 mr-2 animate-spin" />}
-            Emitir y enviar al SII
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              className="h-10 sm:h-9"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="h-10 sm:h-9"
+              onClick={() => onConfirm({ autoSendEmail, sendXmlToBackoffice: sendXml })}
+              disabled={loading}
+              data-testid="emision-confirm-submit"
+            >
+              {loading && <Loader2 className="size-4 mr-2 animate-spin" />}
+              Emitir y enviar al SII
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
