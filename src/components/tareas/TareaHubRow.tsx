@@ -8,6 +8,7 @@ import { hubTareaHref } from "@/components/agenda/agenda-hub-item";
 import { todayInChile, ymdInChile } from "@/lib/dates-cl";
 import type { TareaBucket } from "@/modules/tareas/tareas.service";
 import type { TareaItem } from "./types";
+import { TareaAccountBadge } from "./TareaAccountBadge";
 
 function dueLabel(task: TareaItem): string | null {
   if (!task.dueAt) return null;
@@ -40,6 +41,7 @@ export function TareaHubRow({
   const overdueTone =
     bucket === "vencidas" ||
     (task.dueAt != null && ymdInChile(new Date(task.dueAt)) < todayYmd);
+  const accountLabel = task.accountName?.trim() || null;
 
   return (
     <div className="flex min-h-11 min-w-0 items-center gap-1 rounded-ds-md">
@@ -61,15 +63,21 @@ export function TareaHubRow({
         className="min-w-0 flex-1 rounded-ds-md px-2 py-1.5 transition-colors hover:bg-ds-surface-2 ds-tap"
       >
         <p className="truncate text-[13px] font-medium text-ds-text-1">{task.title}</p>
-        <p
-          className={cn(
-            "truncate text-[12px]",
-            overdueTone ? "text-status-danger-fg" : "text-ds-text-4",
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5">
+          <span
+            className={cn(
+              "truncate text-[12px]",
+              overdueTone ? "text-status-danger-fg" : "text-ds-text-4",
+            )}
+          >
+            {bucketLabel}
+            {due ? ` · ${due}` : ""}
+          </span>
+          {accountLabel && (
+            // Sin link propio: el row ya navega al detalle (evita <a> anidados).
+            <TareaAccountBadge name={accountLabel} />
           )}
-        >
-          {bucketLabel}
-          {due ? ` · ${due}` : ""}
-        </p>
+        </div>
       </Link>
     </div>
   );

@@ -2,8 +2,9 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Briefcase, Building2, FileText, Mail, MapPin } from "lucide-react";
+import { Briefcase, FileText, Mail, MapPin } from "lucide-react";
 import type { TareaItem } from "./types";
+import { TareaAccountBadge } from "./TareaAccountBadge";
 
 /** Chips de origen / vinculación CRM en la fila (con stopPropagation). */
 export function TareaOriginChip({ task }: { task: TareaItem }) {
@@ -26,15 +27,11 @@ export function TareaOriginChip({ task }: { task: TareaItem }) {
 
   if (task.accountId && task.accountName) {
     chips.push(
-      <Link
+      <TareaAccountBadge
         key="account"
-        href={`/crm/accounts/${task.accountId}`}
-        onClick={(e) => e.stopPropagation()}
-        className="opai-glass-soft inline-flex max-w-[10rem] items-center gap-1 rounded-lg px-1.5 py-0.5 text-[12px] text-ds-text-4 hover:text-primary"
-      >
-        <Building2 className="h-3 w-3 shrink-0" />
-        <span className="truncate">{task.accountName}</span>
-      </Link>,
+        accountId={task.accountId}
+        name={task.accountName}
+      />,
     );
   }
 
