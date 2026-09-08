@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { FinancePaymentRecordType, FinancePaymentMethod, FinanceCurrency } from "@prisma/client";
+import { nextPaymentRecordCode } from "./payment-record-code";
 
 interface CreatePaymentInput {
   type: FinancePaymentRecordType;
@@ -47,12 +48,12 @@ export async function listPaymentRecords(
 }
 
 export async function createPaymentRecord(tenantId: string, userId: string, data: CreatePaymentInput) {
-  // Generate code
-  const count = await prisma.financePaymentRecord.count({ where: { tenantId } });
-  const prefix = data.type === "DISBURSEMENT" ? "PAG" : "COB";
-  const code = `${prefix}-${String(count + 1).padStart(6, "0")}`;
-
   return prisma.$transaction(async (tx) => {
+    const code = await nextPaymentRecordCode(
+      tx,
+      tenantId,
+      data.type === "DISBURSEMENT" ? "DISBURSEMENT" : "COLLECTION"
+    );
     const record = await tx.financePaymentRecord.create({
       data: {
         tenantId,

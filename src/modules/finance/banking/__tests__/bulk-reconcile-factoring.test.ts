@@ -27,7 +27,7 @@ vi.mock("@/lib/prisma", () => {
     findMany: vi.fn(),
     update: vi.fn(),
   };
-  const financePaymentRecord = { count: vi.fn(), create: vi.fn() };
+  const financePaymentRecord = { findFirst: vi.fn(), create: vi.fn() };
   const financePaymentAllocation = {
     create: vi.fn(),
     aggregate: vi.fn(),
@@ -214,8 +214,8 @@ describe("bulkReconcileToDtes — happy path factoring", () => {
           invoiceAmount: dec(6_000_000),
         },
       ]);
-    (prisma.financePaymentRecord.count as ReturnType<typeof vi.fn>)
-      .mockResolvedValue(0);
+    (prisma.financePaymentRecord.findFirst as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(null);
     (prisma.financePaymentRecord.create as ReturnType<typeof vi.fn>)
       .mockResolvedValue({ id: "pr-1", code: "COB-000001" });
 
@@ -277,8 +277,8 @@ describe("bulkReconcileToDtes — happy path factoring", () => {
           invoiceAmount: dec(6_000_000),
         },
       ]);
-    (prisma.financePaymentRecord.count as ReturnType<typeof vi.fn>)
-      .mockResolvedValue(0);
+    (prisma.financePaymentRecord.findFirst as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(null);
     (prisma.financePaymentRecord.create as ReturnType<typeof vi.fn>)
       .mockResolvedValue({ id: "pr-1", code: "COB-000001" });
 

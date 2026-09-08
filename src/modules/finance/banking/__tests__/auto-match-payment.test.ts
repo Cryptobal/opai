@@ -22,7 +22,7 @@ vi.mock("@/lib/prisma", () => {
     update: vi.fn(),
   };
   const financePaymentRecord = {
-    count: vi.fn(),
+    findFirst: vi.fn(),
     create: vi.fn(),
   };
   const financePaymentAllocation = {
@@ -240,7 +240,7 @@ describe("tryAutoMatchBankTransactionToDte", () => {
         amountPaid: dec(0),
       },
     ]);
-    (prisma.financePaymentRecord.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    (prisma.financePaymentRecord.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financePaymentRecord.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "pay-1",
     });
@@ -283,7 +283,7 @@ describe("tryAutoMatchBankTransactionToDte", () => {
         amountPaid: dec(0),
       },
     ]);
-    (prisma.financePaymentRecord.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    (prisma.financePaymentRecord.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financePaymentRecord.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "pay-1",
     });
@@ -326,7 +326,7 @@ describe("tryAutoMatchBankTransactionToDte", () => {
         amountPaid: dec(0),
       },
     ]);
-    (prisma.financePaymentRecord.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    (prisma.financePaymentRecord.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financePaymentRecord.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "pay-1",
     });
@@ -419,7 +419,7 @@ describe("tryAutoMatchBankTransactionToDte", () => {
         amountPaid: dec(0),
       },
     ]);
-    (prisma.financePaymentRecord.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    (prisma.financePaymentRecord.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financePaymentRecord.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "pay-1",
     });

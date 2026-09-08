@@ -33,6 +33,10 @@
  */
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import {
+  nextPaymentRecordCode,
+  paymentRecordSeriesForIncome,
+} from "./payment-record-code";
 import { findMatchingRule } from "./automatch-rule.service";
 import { resolveRuleAction } from "./rule-action-resolver";
 import { tryAutoMatchBankTransactionToTurnoExtra } from "./auto-match-turno-extra.service";
@@ -247,11 +251,11 @@ export async function tryAutoMatchBankTransactionToDte(
 
     // Crear FinancePaymentRecord. Cobros: COB-AUTO-N (type=COLLECTION).
     // Pagos a proveedor: PAG-AUTO-N (type=DISBURSEMENT).
-    const codePrefix = isIncome ? "COB-AUTO-" : "PAG-AUTO-";
-    const countAuto = await tx.financePaymentRecord.count({
-      where: { tenantId, code: { startsWith: codePrefix } },
-    });
-    const code = `${codePrefix}${String(countAuto + 1).padStart(6, "0")}`;
+    const code = await nextPaymentRecordCode(
+      tx,
+      tenantId,
+      paymentRecordSeriesForIncome(isIncome, true)
+    );
     const paymentRecord = await tx.financePaymentRecord.create({
       data: {
         tenantId,

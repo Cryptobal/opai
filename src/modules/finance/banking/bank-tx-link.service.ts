@@ -26,6 +26,10 @@ import type {
   Prisma,
 } from "@prisma/client";
 import { createManualEntry } from "../accounting/journal-entry.service";
+import {
+  nextPaymentRecordCode,
+  paymentRecordSeriesForIncome,
+} from "./payment-record-code";
 import { normalizeRutForMatch } from "./auto-match-payment.service";
 import { extractCanonicalRutFromBankText } from "./rut-recognition.service";
 import {
@@ -67,24 +71,6 @@ const RECONCILE_ELIGIBLE_DTE: Prisma.FinanceDteWhereInput = {
     notIn: ["ANNULLED", "REJECTED", "DRAFT"] as FinanceSiiStatus[],
   },
 };
-
-/**
- * Calcula el siguiente código secuencial para un FinancePaymentRecord.
- * Mantiene el patrón histórico de createPaymentRecord (PAG-NNNNNN para
- * desembolsos, COB-NNNNNN para cobros) sin acoplarlo a esa función para
- * poder generar el code dentro de la misma transacción Prisma.
- */
-async function nextPaymentRecordCode(
-  txClient: Prisma.TransactionClient,
-  tenantId: string,
-  isIncome: boolean
-): Promise<string> {
-  const count = await txClient.financePaymentRecord.count({
-    where: { tenantId },
-  });
-  const prefix = isIncome ? "COB" : "PAG";
-  return `${prefix}-${String(count + 1).padStart(6, "0")}`;
-}
 
 /**
  * Recalcula `amountPaid`, `amountPending` y `paymentStatus` de un DTE a
@@ -2391,7 +2377,11 @@ export async function setTransactionLinks(
 
     // 3. Si hay links a DTE, crear FinancePaymentRecord + allocations.
     if (dteLinks.length > 0) {
-      const code = await nextPaymentRecordCode(tx2, tenantId, isIncome);
+      const code = await nextPaymentRecordCode(
+        tx2,
+        tenantId,
+        paymentRecordSeriesForIncome(isIncome)
+      );
       const totalDteAmount = dteLinks.reduce((s, l) => s + l.amount, 0);
       const record = await tx2.financePaymentRecord.create({
         data: {
@@ -2657,7 +2647,11 @@ export async function bulkReconcileToDte(
   await prisma.$transaction(async (tx2: Prisma.TransactionClient) => {
     for (const t of txs) {
       const amountAbs = Math.abs(t.amount.toNumber());
-      const code = await nextPaymentRecordCode(tx2, tenantId, isIncome);
+      const code = await nextPaymentRecordCode(
+        tx2,
+        tenantId,
+        paymentRecordSeriesForIncome(isIncome)
+      );
       const record = await tx2.financePaymentRecord.create({
         data: {
           tenantId,
@@ -3111,7 +3105,11 @@ export async function bulkReconcileToDtes(
       // allocations DTE como diferencia). Garantiza que cada mov reparta
       // exactamente movAmount entre todos los targets.
       const movShare = totalMovs > 0 ? movAmount / totalMovs : 0;
-      const code = await nextPaymentRecordCode(tx2, tenantId, isIncome);
+      const code = await nextPaymentRecordCode(
+        tx2,
+        tenantId,
+        paymentRecordSeriesForIncome(isIncome)
+      );
       // Pieces en enteros CLP: CLP no usa decimales, y trabajar con enteros
       // reduce los residuos de redondeo a max $1 por mov en lugar de hasta
       // $0.01 por mov (que acumulado en N movs llegaba a dejar la factura
