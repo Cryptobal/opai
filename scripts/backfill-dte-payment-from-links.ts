@@ -36,6 +36,10 @@
 
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import {
+  nextPaymentRecordCode,
+  paymentRecordSeriesForIncome,
+} from "@/modules/finance/banking/payment-record-code";
 
 const prisma = new PrismaClient();
 const DRY_RUN = process.env.DRY_RUN === "1";
@@ -47,18 +51,6 @@ interface TenantStats {
   dtesRecomputed: number;
   alreadyMigrated: number;
   skippedNoDteLinks: number;
-}
-
-async function nextPaymentRecordCode(
-  txClient: Prisma.TransactionClient,
-  tenantId: string,
-  isIncome: boolean,
-): Promise<string> {
-  const count = await txClient.financePaymentRecord.count({
-    where: { tenantId },
-  });
-  const prefix = isIncome ? "COB" : "PAG";
-  return `${prefix}-${String(count + 1).padStart(6, "0")}`;
 }
 
 async function recomputeDtePaymentAggregate(
@@ -173,7 +165,11 @@ async function backfillTenant(
     }
 
     await prisma.$transaction(async (tx2) => {
-      const code = await nextPaymentRecordCode(tx2, tenantId, isIncome);
+      const code = await nextPaymentRecordCode(
+        tx2,
+        tenantId,
+        paymentRecordSeriesForIncome(isIncome),
+      );
       const record = await tx2.financePaymentRecord.create({
         data: {
           tenantId,
