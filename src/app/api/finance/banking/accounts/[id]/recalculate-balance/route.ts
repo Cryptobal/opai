@@ -9,7 +9,8 @@ import { hideContentDuplicateBankTransactions } from "@/modules/finance/banking/
 /**
  * POST /api/finance/banking/accounts/[id]/recalculate-balance
  *
- * Oculta copias visibles de la misma huella de contenido y recalcula
+ * Oculta copias visibles con la misma huella y el mismo apiTransactionId
+ * (ids de proveedor distintos no se tocan) y recalcula
  * `currentBalance` = ancla + movimientos posteriores.
  */
 export async function POST(

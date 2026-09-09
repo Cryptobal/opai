@@ -45,6 +45,7 @@ describe("hideContentDuplicateBankTransactions", () => {
         amount: 100,
         description: "A",
         reference: null,
+        apiTransactionId: null,
         createdAt: new Date(),
         reconciliationStatus: "UNMATCHED",
       },
@@ -66,6 +67,7 @@ describe("hideContentDuplicateBankTransactions", () => {
         amount: 7_000_000,
         description: "SCF SERVICIOS F",
         reference: "77460259-3",
+        apiTransactionId: null,
         createdAt: new Date("2026-08-04T17:00:00Z"),
         reconciliationStatus: "UNMATCHED",
       },
@@ -75,6 +77,7 @@ describe("hideContentDuplicateBankTransactions", () => {
         amount: 7_000_000,
         description: "SCF SERVICIOS F",
         reference: "77460259-3",
+        apiTransactionId: null,
         createdAt: new Date("2026-08-04T18:00:00Z"),
         reconciliationStatus: "MATCHED",
       },
@@ -84,6 +87,7 @@ describe("hideContentDuplicateBankTransactions", () => {
         amount: 7_000_000,
         description: "SCF SERVICIOS F",
         reference: "77460259-3",
+        apiTransactionId: null,
         createdAt: new Date("2026-08-04T19:00:00Z"),
         reconciliationStatus: "MATCHED",
       },
@@ -116,5 +120,37 @@ describe("hideContentDuplicateBankTransactions", () => {
       expect.stringContaining("Duplicado de contenido"),
     );
     expect(r.hidden).toBe(2);
+  });
+
+  it("no oculta filas con apiTransactionId de proveedor distintos", async () => {
+    findMany.mockResolvedValueOnce([
+      {
+        id: "a",
+        transactionDate: new Date("2026-09-07T00:00:00.000Z"),
+        amount: 7_000_000,
+        description: "SCF SERVICIOS F",
+        reference: "77460259-3",
+        apiTransactionId: "web4leads:mov_1",
+        createdAt: new Date("2026-09-07T10:00:00Z"),
+        reconciliationStatus: "UNMATCHED",
+      },
+      {
+        id: "b",
+        transactionDate: new Date("2026-09-07T00:00:00.000Z"),
+        amount: 7_000_000,
+        description: "SCF SERVICIOS F",
+        reference: "77460259-3",
+        apiTransactionId: "web4leads:mov_2",
+        createdAt: new Date("2026-09-07T10:01:00Z"),
+        reconciliationStatus: "UNMATCHED",
+      },
+    ]);
+
+    const r = await hideContentDuplicateBankTransactions({
+      tenantId: "t1",
+      bankAccountId: "a1",
+    });
+    expect(r.hidden).toBe(0);
+    expect(bulkHide).not.toHaveBeenCalled();
   });
 });

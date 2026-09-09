@@ -10,6 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { OpeningBalanceDetail } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtClp, fmtShortDate, formatThousands } from "./format";
+import {
+  bankBalanceSourceLabel,
+  DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP,
+} from "@/modules/finance/banking/bank-balance-constants";
+import { Tag } from "@/components/opai-ds";
 
 /** Días entre una cartola (YMD) y hoy (YMD). */
 function daysSince(ymd: string | null, todayYmd: string): number | null {
@@ -102,6 +107,13 @@ export function BankBalancePopover({
   const parsed = parseClpDigits(draft);
   const fcBalance = selected?.currentBalance ?? detail.totalClp;
   const delta = parsed != null ? parsed - Math.round(fcBalance) : null;
+  const discrepancyThresholdClp =
+    detail.discrepancyThresholdClp ??
+    DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP;
+  const noteRequired =
+    delta != null &&
+    Math.abs(delta) >= discrepancyThresholdClp &&
+    !note.trim();
 
   const todayLabel = useMemo(() => fmtShortDate(todayYmd), [todayYmd]);
 
@@ -120,7 +132,10 @@ export function BankBalancePopover({
       });
       const j = await res.json();
       if (!res.ok || !j?.success) {
-        throw new Error(j?.error || "No se pudo guardar el saldo");
+        const err = j?.error === "note_required"
+          ? "La diferencia supera el umbral: agregá una nota"
+          : j?.error || "No se pudo guardar el saldo";
+        throw new Error(err);
       }
       toast.success("Saldo banco actualizado", {
         description: "La planilla recalcula con banco hoy + pendientes de la semana.",
@@ -157,30 +172,41 @@ export function BankBalancePopover({
               detail.perAccount.map((a, i) => {
                 const d = daysSince(a.lastSnapshotYmd, todayYmd);
                 const stale = d != null && d > 7;
+                const disc = a.lastDiscrepancy;
+                const warnDisc =
+                  disc != null &&
+                  Math.abs(disc.deltaClp) >= discrepancyThresholdClp;
                 return (
                   <li
                     key={i}
-                    className="flex items-start justify-between gap-2 border-b border-ds-border-subtle pb-1.5 last:border-0"
+                    className="flex flex-col gap-1 border-b border-ds-border-subtle pb-2 last:border-0"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-ds-text-1">{a.bankName}</p>
-                      <p className="font-mono text-[12px] uppercase tracking-tight text-ds-text-4">
-                        {a.accountMasked}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-ds-text-1">{a.bankName}</p>
+                        <p className="font-mono text-[12px] uppercase tracking-tight text-ds-text-4">
+                          {a.accountMasked}
+                        </p>
+                      </div>
+                      <p className="shrink-0 tabular-nums text-sm text-ds-text-1">
+                        {fmtClp(a.balanceClp)}
                       </p>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="tabular-nums text-sm text-ds-text-1">{fmtClp(a.balanceClp)}</p>
-                      <p
-                        className={`text-[12px] ${stale ? "text-status-warn-fg" : "text-ds-text-4"}`}
-                        title={
-                          stale
-                            ? `Última cartola hace ${d} días — el saldo puede estar desactualizado.`
-                            : undefined
-                        }
-                      >
-                        {a.lastSnapshotYmd ? `cartola ${fmtShortDate(a.lastSnapshotYmd)}` : "sin cartola"}
-                      </p>
-                    </div>
+                    <p
+                      className={`text-[12px] ${stale ? "text-status-warn-fg" : "text-ds-text-4"}`}
+                    >
+                      Ancla {bankBalanceSourceLabel(a.anchorSource)}{" "}
+                      {a.lastSnapshotYmd ? fmtShortDate(a.lastSnapshotYmd) : "—"}{" "}
+                      {fmtClp(a.anchorBalanceClp)} + {a.txCount} mov. ({fmtClp(a.txDeltaClp)})
+                    </p>
+                    {disc && (
+                      <div className="flex items-center gap-1.5">
+                        <Tag variant={warnDisc ? "warn" : "neutral"} size="md">
+                          Última diferencia no explicada: {fmtClp(disc.deltaClp)} el{" "}
+                          {fmtShortDate(disc.asOfYmd)}
+                        </Tag>
+                      </div>
+                    )}
                   </li>
                 );
               })
@@ -270,7 +296,7 @@ export function BankBalancePopover({
                   )}
                   <div>
                     <label className="mb-1 block text-[12px] text-ds-text-3" htmlFor="fc-bank-note">
-                      Nota (opcional)
+                      {noteRequired ? "Nota (obligatoria)" : "Nota (opcional)"}
                     </label>
                     <Input
                       id="fc-bank-note"
@@ -310,7 +336,7 @@ export function BankBalancePopover({
               type="button"
               className="h-10 flex-1 sm:h-9"
               onClick={() => void handleSave()}
-              disabled={saving || parsed == null || !selectedId || loading}
+              disabled={saving || parsed == null || !selectedId || loading || noteRequired}
             >
               {saving ? "Guardando…" : "Anclar y recalcular"}
             </Button>

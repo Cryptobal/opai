@@ -16,6 +16,7 @@ import {
   MAX_INLINE,
   type MovementForBlocks,
   type MovementMatch,
+  type BalanceDiscrepancyForBlocks,
 } from "@/lib/integrations/slack/bank-reconcile-blocks";
 
 /** Un movimiento recién insertado, con su id de DB. `amount` en CLP con signo. */
@@ -85,6 +86,7 @@ export async function buildBankMovementsSlackData(
   summary: string,
   txs: InsertedMovement[],
   accountBalanceClp?: number | null,
+  discrepancy?: BalanceDiscrepancyForBlocks | null,
 ): Promise<BankMovementsSlackData> {
   const tooMany = txs.length > MAX_INLINE;
 
@@ -105,7 +107,7 @@ export async function buildBankMovementsSlackData(
     }),
   );
 
-  const input = { summary, accountLabel, movements, accountBalanceClp };
+  const input = { summary, accountLabel, movements, accountBalanceClp, discrepancy };
   return {
     __customBlocks: buildBankMovementsBlocks(input),
     __customText: buildBankMovementsText(input),

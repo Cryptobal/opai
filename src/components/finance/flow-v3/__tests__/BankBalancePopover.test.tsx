@@ -12,12 +12,18 @@ vi.mock("sonner", () => ({
 const detail = {
   totalClp: 42_442_544,
   lastSnapshotYmd: "2026-08-10",
+  discrepancyThresholdClp: 100_000,
   perAccount: [
     {
       bankName: "Santander",
       accountMasked: "••4115",
       balanceClp: 42_442_544,
       lastSnapshotYmd: "2026-08-10",
+      anchorSource: "MANUAL" as const,
+      anchorBalanceClp: 42_442_544,
+      txDeltaClp: 0,
+      txCount: 0,
+      lastDiscrepancy: null,
     },
   ],
 };
@@ -40,6 +46,28 @@ describe("BankBalancePopover", () => {
     expect(screen.queryByText("Anclar y recalcular")).toBeNull();
     expect(screen.getAllByText("$42.442.544").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Total en FC")).toBeTruthy();
+    expect(screen.getByText(/Ancla Manual/)).toBeTruthy();
+  });
+
+  it("muestra badge de última diferencia no explicada", () => {
+    render(
+      <BankBalancePopover
+        open
+        onOpenChange={() => {}}
+        detail={{
+          ...detail,
+          perAccount: [
+            {
+              ...detail.perAccount[0]!,
+              lastDiscrepancy: { asOfYmd: "2026-09-09", deltaClp: 7_770_000 },
+            },
+          ],
+        }}
+        todayYmd="2026-09-09"
+      />,
+    );
+    expect(screen.getByText(/Última diferencia no explicada/)).toBeTruthy();
+    expect(screen.getByText(/09\/09\/26/)).toBeTruthy();
   });
 
   it("con canManage permite anclar saldo y llama adjust + onSaved", async () => {
@@ -102,7 +130,7 @@ describe("BankBalancePopover", () => {
 
     const input = await screen.findByLabelText("Saldo real a hoy");
     fireEvent.change(input, { target: { value: "39672512" } });
-    const note = screen.getByLabelText("Nota (opcional)");
+    const note = screen.getByLabelText(/Nota \(obligatoria\)/);
     fireEvent.change(note, { target: { value: "App Office Banking 12:51" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Anclar y recalcular" }));

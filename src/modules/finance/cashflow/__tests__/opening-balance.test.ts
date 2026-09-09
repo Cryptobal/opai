@@ -25,6 +25,7 @@ beforeEach(() => {
   findAccountFirst.mockReset();
   findSnapshots.mockReset();
   aggregate.mockReset();
+  findSnapshots.mockResolvedValue([]);
 });
 
 describe("resolveOpeningBalance", () => {
@@ -40,6 +41,8 @@ describe("resolveOpeningBalance", () => {
     expect(r.perAccount[0].anchorSnapshotDate).toBeNull();
     expect(r.perAccount[0].txDeltaClp).toBe(0);
     expect(r.perAccount[0].resolvedBalanceClp).toBe(1_000_000);
+    expect(r.perAccount[0].anchorSource).toBeNull();
+    expect(r.perAccount[0].lastDiscrepancy).toBeNull();
   });
 
   it("aplica delta de tx desde el snapshot", async () => {
@@ -187,5 +190,40 @@ describe("resolveOpeningBalance", () => {
     expect(where.hiddenAt).toBeNull();
     expect(where.reconciliationStatus).toBeUndefined();
     expect(where.links).toBeUndefined();
+  });
+
+  it("expone la última discrepancia no explicada de 90 días", async () => {
+    findMany.mockResolvedValueOnce([
+      { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 0 },
+    ]);
+    findAccountFirst.mockResolvedValueOnce({ currentBalance: 0 });
+    const snapDate = new Date("2026-09-09T00:00:00.000Z");
+    findSnapshots
+      .mockResolvedValueOnce([
+        {
+          asOfDate: snapDate,
+          balance: 18_646_796,
+          source: "CALCULATED",
+          createdAt: new Date("2026-09-09T12:00:00Z"),
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          asOfDate: snapDate,
+          deltaClp: 7_770_000,
+          balance: 18_646_796,
+          computedBalance: 10_876_796,
+        },
+      ]);
+    aggregate.mockResolvedValueOnce({
+      _sum: { amount: null },
+      _count: { _all: 0 },
+    });
+
+    const r = await resolveOpeningBalance("t1", new Date("2026-09-09T16:00:00.000Z"));
+    expect(r.perAccount[0].lastDiscrepancy).toEqual({
+      asOfDate: "2026-09-09",
+      deltaClp: 7_770_000,
+    });
   });
 });

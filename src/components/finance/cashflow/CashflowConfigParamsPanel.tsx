@@ -330,6 +330,25 @@ export function CashflowConfigParamsPanel({
               colchón mínimo de caja.
             </p>
           </div>
+          <div>
+            <Label>Umbral de diferencia de saldo bancario (CLP)</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={1000000000}
+              step={10000}
+              value={config.bankBalanceDiscrepancyThresholdClp}
+              onChange={(e) =>
+                setField("bankBalanceDiscrepancyThresholdClp", Number(e.target.value))
+              }
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Si el saldo reportado por el banco (Fintoc, cartola o fijado a
+              mano) difiere del calculado por este monto o más, se notifica a
+              administradores. Default $100.000.
+            </p>
+          </div>
           <div className="flex items-start justify-between gap-4 rounded-lg border border-ds-border-subtle px-3 py-2.5">
             <div className="min-w-0">
               <p className="font-medium text-[13px]">Arrastrar el saldo por ejecutar</p>

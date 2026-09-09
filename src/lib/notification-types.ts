@@ -509,6 +509,16 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     // Evento de alta frecuencia: sin email por default (alineado con catalog.ts).
     defaultEmail: false,
   },
+  {
+    key: "bank_balance_discrepancy",
+    label: "Diferencia de saldo bancario",
+    description:
+      "Cuando el saldo reportado por el banco difiere del calculado por sobre el umbral configurado",
+    module: "finance",
+    category: "Finanzas - Bancos",
+    defaultBell: true,
+    defaultEmail: false,
+  },
 
   // ── CRM - Portal Cliente ──
   {

@@ -3,9 +3,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAuth, unauthorized, parseBody, resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
-import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
+import { todayInChile } from "@/lib/dates-cl";
 import { prisma } from "@/lib/prisma";
-import { syncCurrentBalanceFromMovements } from "@/modules/finance/banking/bank-balance.service";
+import { applyReportedBalance } from "@/modules/finance/banking/bank-balance.service";
+import { notifyBankBalanceDiscrepancy } from "@/modules/finance/banking/bank-balance-notify";
 
 const adjustSchema = z.object({
   bankAccountId: z.string().uuid(),
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const account = await prisma.financeBankAccount.findFirst({
     where: { id: bankAccountId, tenantId: ctx.tenantId, isActive: true },
-    select: { id: true, currency: true },
+    select: { id: true, currency: true, bankName: true, accountNumber: true },
   });
   if (!account) {
     return NextResponse.json(
@@ -45,27 +46,45 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const now = new Date();
-  // Snapshot "as of" en calendario Chile (no UTC) — crítico mid-week.
-  const asOfDate = utcDateFromYmd(todayInChile(now));
+  const asOfDate = todayInChile();
 
-  const snapshot = await prisma.financeBankAccountBalance.create({
-    data: {
-      tenantId: ctx.tenantId,
-      bankAccountId,
-      asOfDate,
-      balance,
-      source: "MANUAL",
-      note: note ?? null,
-      createdById: ctx.userId,
-    },
+  const applied = await applyReportedBalance({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    bankAccountId,
+    asOf: asOfDate,
+    balance,
+    source: "MANUAL",
+    note: note ?? null,
+    requireNoteIfExceeds: true,
   });
 
-  const resolved = await syncCurrentBalanceFromMovements(
-    ctx.tenantId,
-    bankAccountId,
-    now,
-  );
+  if (!applied.ok) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "note_required",
+        delta: applied.discrepancy.delta,
+        reported: applied.discrepancy.reported,
+        computed: applied.discrepancy.computed,
+        thresholdClp: applied.discrepancy.thresholdClp,
+      },
+      { status: 400 },
+    );
+  }
+
+  if (applied.discrepancy.exceeds) {
+    try {
+      await notifyBankBalanceDiscrepancy({
+        tenantId: ctx.tenantId,
+        accountLabel: `${account.bankName} ${account.accountNumber}`,
+        discrepancy: applied.discrepancy,
+        link: "/finanzas/flujo-caja",
+      });
+    } catch (err) {
+      console.error("[cashflow/bank-balance/adjust] notify:", err);
+    }
+  }
 
   // Invalida caches de FC (legacy + planilla v3).
   revalidatePath("/finanzas/flujo-caja");
@@ -75,9 +94,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: true,
     data: {
-      snapshotId: snapshot.id,
-      balance: resolved.resolvedBalanceClp,
-      asOfDate: todayInChile(now),
+      snapshotId: applied.snapshot.id,
+      balance: applied.resolvedBalanceClp,
+      asOfDate,
+      discrepancy: applied.discrepancy,
     },
   });
 }

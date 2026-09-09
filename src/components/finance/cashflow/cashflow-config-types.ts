@@ -32,6 +32,7 @@ export interface CashflowConfig {
   writeOffOverPaymentAccountId: string | null;
   collectionLagDays: number;
   flowWarnThresholdClp: number;
+  bankBalanceDiscrepancyThresholdClp: number;
   residualCarryEnabled: boolean;
   residualMinClp: number;
   flowCutoffYmd: string | null;
@@ -106,6 +107,10 @@ export function coerceCashflowConfig(initial: RawCashflowConfig): CashflowConfig
     projectReceivedDtesAsExpense: initial.projectReceivedDtesAsExpense === true,
     residualCarryEnabled: initial.residualCarryEnabled !== false,
     residualMinClp: Number(initial.residualMinClp ?? 10_000),
+    bankBalanceDiscrepancyThresholdClp: Number(
+      (initial as { bankBalanceDiscrepancyThresholdClp?: number })
+        .bankBalanceDiscrepancyThresholdClp ?? 100_000,
+    ),
     finiquitosAvgMonths: Number(initial.finiquitosAvgMonths ?? 6),
     finiquitosManualMonthlyClp:
       initial.finiquitosManualMonthlyClp == null

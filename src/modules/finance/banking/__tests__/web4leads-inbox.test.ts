@@ -12,6 +12,7 @@ import {
   isWeb4leadsTimestampValid,
   normalizeAccountNumber,
   normalizeBankCode,
+  parseWeb4leadsAccountBalance,
 } from "../web4leads-inbox";
 
 const TENANT_A = "tenant_test_aaa";
@@ -86,5 +87,26 @@ describe("web4leads-inbox", () => {
     expect(normalizeAccountNumber(" 000 0123456789 ")).toBe("0000123456789");
     expect(normalizeBankCode(" banco santander ")).toBe("SANTANDER");
     expect(normalizeBankCode("SANTANDER")).toBe("SANTANDER");
+  });
+
+  it("accountBalance: null si no viene; parsea current+asOf", () => {
+    expect(parseWeb4leadsAccountBalance(undefined)).toBeNull();
+    expect(parseWeb4leadsAccountBalance(null)).toBeNull();
+    expect(
+      parseWeb4leadsAccountBalance({
+        current: 18_646_796,
+        asOf: "2026-09-09T15:00:00Z",
+      }),
+    ).toEqual({ current: 18_646_796, asOf: "2026-09-09T15:00:00Z" });
+  });
+
+  it("accountBalance: lanza si el objeto está mal formado", () => {
+    expect(() => parseWeb4leadsAccountBalance("18")).toThrow(/objeto/);
+    expect(() => parseWeb4leadsAccountBalance({ asOf: "2026-09-09" })).toThrow(
+      /current/,
+    );
+    expect(() =>
+      parseWeb4leadsAccountBalance({ current: 1, asOf: "" }),
+    ).toThrow(/asOf/);
   });
 });

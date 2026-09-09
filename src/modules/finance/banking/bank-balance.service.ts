@@ -19,6 +19,8 @@ import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import type { FinanceBalanceSource } from "@prisma/client";
 import { bankTxDateFilterAfterAnchor } from "@/modules/finance/banking/bank-tx-after-anchor";
+import { utcDateFromYmd, ymdInChile, addDaysChile } from "@/lib/dates-cl";
+import { DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP } from "@/modules/finance/banking/bank-balance-constants";
 
 export interface ResolvedAccountBalance {
   anchorSnapshotDate: Date | null;
@@ -180,6 +182,222 @@ export interface SetBalanceSnapshotInput {
   balance: number;
   source?: FinanceBalanceSource;
   note?: string | null;
+  computedBalance?: number | null;
+  deltaClp?: number | null;
+}
+
+export interface BalanceDiscrepancy {
+  reported: number;
+  computed: number;
+  delta: number;
+  exceeds: boolean;
+  thresholdClp: number;
+  asOfDate: string;
+}
+
+export interface LastUnexplainedDiscrepancy {
+  asOfDate: string;
+  deltaClp: number;
+  reported: number;
+  computed: number | null;
+}
+
+/**
+ * `asOf` con hora → fecha calendario Chile. YYYY-MM-DD se usa tal cual
+ * (no se parsea como Date UTC, que caería al día anterior en Santiago).
+ */
+export function parseAsOfToChileYmd(asOf: string): string {
+  const trimmed = asOf.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const d = new Date(trimmed);
+  if (Number.isNaN(d.getTime())) {
+    throw new Error("asOf inválido");
+  }
+  return ymdInChile(d);
+}
+
+export function evaluateBalanceDiscrepancy(args: {
+  reported: number;
+  computed: number;
+  thresholdClp: number;
+  asOfDate: string;
+}): BalanceDiscrepancy {
+  const reported = new Decimal(args.reported);
+  const computed = new Decimal(args.computed);
+  const delta = reported.minus(computed);
+  const threshold = new Decimal(args.thresholdClp);
+  return {
+    reported: reported.toNumber(),
+    computed: computed.toNumber(),
+    delta: delta.toNumber(),
+    exceeds: delta.abs().gte(threshold),
+    thresholdClp: args.thresholdClp,
+    asOfDate: args.asOfDate,
+  };
+}
+
+export async function getBankBalanceDiscrepancyThresholdClp(
+  tenantId: string,
+): Promise<number> {
+  const config = await prisma.financeCashflowConfig.findUnique({
+    where: { tenantId },
+    select: { bankBalanceDiscrepancyThresholdClp: true },
+  });
+  const n = config?.bankBalanceDiscrepancyThresholdClp;
+  if (typeof n === "number" && Number.isFinite(n) && n >= 0) return n;
+  return DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP;
+}
+
+export async function resolveAndEvaluateBalanceDiscrepancy(args: {
+  tenantId: string;
+  bankAccountId: string;
+  asOf: string;
+  reportedBalance: number;
+  thresholdClp?: number;
+}): Promise<BalanceDiscrepancy> {
+  const asOfDate = parseAsOfToChileYmd(args.asOf);
+  const thresholdClp =
+    args.thresholdClp ??
+    (await getBankBalanceDiscrepancyThresholdClp(args.tenantId));
+  const resolved = await resolveAccountBalanceFromMovements(
+    args.tenantId,
+    args.bankAccountId,
+    utcDateFromYmd(asOfDate),
+  );
+  return evaluateBalanceDiscrepancy({
+    reported: args.reportedBalance,
+    computed: resolved.resolvedBalanceClp,
+    thresholdClp,
+    asOfDate,
+  });
+}
+
+export type ApplyReportedBalanceResult =
+  | {
+      ok: true;
+      snapshot: Awaited<ReturnType<typeof setBalanceSnapshot>>;
+      discrepancy: BalanceDiscrepancy;
+      appliedAsAnchor: boolean;
+      resolvedBalanceClp: number;
+    }
+  | {
+      ok: false;
+      error: "note_required";
+      discrepancy: BalanceDiscrepancy;
+    };
+
+/**
+ * Evalúa reportado vs calculado, persiste snapshot con delta y sincroniza
+ * currentBalance. Un MANUAL más nuevo no se pisa como ancla, pero el
+ * snapshot queda en el historial (discrepancia informativa).
+ */
+export async function applyReportedBalance(args: {
+  tenantId: string;
+  userId: string | null;
+  bankAccountId: string;
+  asOf: string;
+  balance: number;
+  source: FinanceBalanceSource;
+  note?: string | null;
+  requireNoteIfExceeds?: boolean;
+}): Promise<ApplyReportedBalanceResult> {
+  const asOfDate = parseAsOfToChileYmd(args.asOf);
+  const asOfDateUtc = utcDateFromYmd(asOfDate);
+  const discrepancy = await resolveAndEvaluateBalanceDiscrepancy({
+    tenantId: args.tenantId,
+    bankAccountId: args.bankAccountId,
+    asOf: asOfDate,
+    reportedBalance: args.balance,
+  });
+
+  if (
+    args.requireNoteIfExceeds &&
+    discrepancy.exceeds &&
+    !args.note?.trim()
+  ) {
+    return { ok: false, error: "note_required", discrepancy };
+  }
+
+  let appliedAsAnchor = true;
+  if (args.source !== "MANUAL") {
+    const protectingManual = await prisma.financeBankAccountBalance.findFirst({
+      where: {
+        tenantId: args.tenantId,
+        bankAccountId: args.bankAccountId,
+        source: "MANUAL",
+        asOfDate: { gte: asOfDateUtc },
+      },
+      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
+      select: { asOfDate: true },
+    });
+    appliedAsAnchor = shouldApplyImportClosingBalance({
+      importAsOfDate: asOfDateUtc,
+      protectingManualAsOfDate: protectingManual?.asOfDate ?? null,
+    });
+  }
+
+  const noteParts: string[] = [];
+  if (args.note?.trim()) noteParts.push(args.note.trim());
+  if (!appliedAsAnchor) {
+    noteParts.push("No usado como ancla: hay un saldo MANUAL más reciente.");
+  }
+
+  const snapshot = await setBalanceSnapshot(args.tenantId, args.userId, {
+    bankAccountId: args.bankAccountId,
+    asOfDate,
+    balance: args.balance,
+    source: args.source,
+    note: noteParts.length > 0 ? noteParts.join(" ") : null,
+    computedBalance: discrepancy.computed,
+    deltaClp: discrepancy.delta,
+  });
+
+  const resolved = await syncCurrentBalanceFromMovements(
+    args.tenantId,
+    args.bankAccountId,
+  );
+
+  return {
+    ok: true,
+    snapshot,
+    discrepancy,
+    appliedAsAnchor,
+    resolvedBalanceClp: resolved.resolvedBalanceClp,
+  };
+}
+
+export async function findLatestUnexplainedDiscrepancy(
+  tenantId: string,
+  bankAccountId: string,
+  now: Date = new Date(),
+): Promise<LastUnexplainedDiscrepancy | null> {
+  const since = utcDateFromYmd(ymdInChile(addDaysChile(now, -90)));
+  const rows = await prisma.financeBankAccountBalance.findMany({
+    where: {
+      tenantId,
+      bankAccountId,
+      deltaClp: { not: null },
+      asOfDate: { gte: since },
+    },
+    orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
+    take: 30,
+    select: {
+      asOfDate: true,
+      deltaClp: true,
+      balance: true,
+      computedBalance: true,
+    },
+  });
+  const hit = rows.find(
+    (r) => r.deltaClp != null && !new Decimal(r.deltaClp.toString()).isZero(),
+  );
+  if (!hit || hit.deltaClp == null) return null;
+  return {
+    asOfDate: hit.asOfDate.toISOString().slice(0, 10),
+    deltaClp: Number(hit.deltaClp),
+    reported: Number(hit.balance),
+    computed: hit.computedBalance != null ? Number(hit.computedBalance) : null,
+  };
 }
 
 /**
@@ -204,11 +422,16 @@ export async function setBalanceSnapshot(
     data: {
       tenantId,
       bankAccountId: input.bankAccountId,
-      asOfDate: new Date(input.asOfDate),
+      asOfDate: utcDateFromYmd(input.asOfDate),
       balance: new Decimal(input.balance),
       source: input.source ?? "MANUAL",
       note: input.note ?? null,
       createdById: userId ?? null,
+      computedBalance:
+        input.computedBalance != null
+          ? new Decimal(input.computedBalance)
+          : null,
+      deltaClp: input.deltaClp != null ? new Decimal(input.deltaClp) : null,
     },
   });
 
