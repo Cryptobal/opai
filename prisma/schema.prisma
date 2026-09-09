@@ -8474,12 +8474,16 @@ model FinanceBankAccountBalance {
   tenantId      String               @map("tenant_id")
   bankAccountId String               @map("bank_account_id") @db.Uuid
   bankAccount   FinanceBankAccount   @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  asOfDate      DateTime             @map("as_of_date") @db.Date
-  balance       Decimal              @db.Decimal(14, 2)
-  source        FinanceBalanceSource @default(MANUAL)
-  note          String?
-  createdById   String?              @map("created_by")
-  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  asOfDate         DateTime             @map("as_of_date") @db.Date
+  balance          Decimal              @db.Decimal(14, 2)
+  /// Saldo calculado (ancla previa + movimientos) al momento de fijar `balance`.
+  computedBalance  Decimal?             @map("computed_balance") @db.Decimal(14, 2)
+  /// `balance - computedBalance`. Null en snapshots históricos anteriores a la cuadratura.
+  deltaClp         Decimal?             @map("delta_clp") @db.Decimal(14, 2)
+  source           FinanceBalanceSource @default(MANUAL)
+  note             String?
+  createdById      String?              @map("created_by")
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([tenantId, bankAccountId, asOfDate], map: "idx_finance_bank_balance_date")
   @@map("finance_bank_account_balances")
@@ -9301,6 +9305,9 @@ model FinanceCashflowConfig {
   /// Umbral CLP del semáforo del saldo en la planilla (ámbar bajo este
   /// valor, rojo bajo 0). Default $8.000.000.
   flowWarnThresholdClp           Int                    @default(8000000) @map("flow_warn_threshold_clp")
+  /// |reportado − calculado| ≥ este umbral dispara `bank_balance_discrepancy`.
+  /// Default $100.000.
+  bankBalanceDiscrepancyThresholdClp Int             @default(100000) @map("bank_balance_discrepancy_threshold_clp")
   /// Flujo v3: el remanente no ejecutado de una proyección sigue pesando en
   /// su semana (real + por ejecutar). false = el real reemplaza la proyección
   /// (comportamiento previo a esta versión). Default true.
