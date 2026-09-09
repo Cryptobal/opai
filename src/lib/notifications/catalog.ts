@@ -779,6 +779,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     audiences: ['admin'], defaults: { admin: adminBell() },
   },
   {
+    key: 'bank_balance_discrepancy', label: 'Diferencia de saldo bancario',
+    description: 'Cuando el saldo reportado por el banco (Fintoc, cartola o fijado a mano) difiere del calculado por sobre el umbral del tenant',
+    module: 'finance', category: 'Finanzas - Bancos',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
+  {
     key: 'accounting_entry_failed', label: 'Factura sin asiento contable',
     description: 'Cuando el asiento automático de una factura emitida falla y queda pendiente de generar',
     module: 'finance', submodule: 'contabilidad', category: 'Finanzas - Contabilidad',

@@ -107,6 +107,7 @@ export async function buildFlowMatrix(
           driftAlertThresholdClp: true,
           residualCarryEnabled: true,
           residualMinClp: true,
+          bankBalanceDiscrepancyThresholdClp: true,
         },
       }),
       listClosedV3Weeks(tenantId, weeks),
@@ -416,6 +417,13 @@ export async function buildFlowMatrix(
     accountMasked: maskAccount(a.accountNumber),
     balanceClp: Math.round(a.resolvedBalanceClp),
     lastSnapshotYmd: a.anchorSnapshotDate ? a.anchorSnapshotDate.toISOString().slice(0, 10) : null,
+    anchorSource: a.anchorSource ?? null,
+    anchorBalanceClp: Math.round(a.anchorBalanceClp),
+    txDeltaClp: Math.round(a.txDeltaClp),
+    txCount: a.txCount,
+    lastDiscrepancy: a.lastDiscrepancy
+      ? { asOfYmd: a.lastDiscrepancy.asOfDate, deltaClp: Math.round(a.lastDiscrepancy.deltaClp) }
+      : null,
   }));
   const lastSnapshotYmd = perAccount.reduce<string | null>(
     (acc, a) => (a.lastSnapshotYmd && (!acc || a.lastSnapshotYmd > acc) ? a.lastSnapshotYmd : acc),
@@ -425,6 +433,8 @@ export async function buildFlowMatrix(
     totalClp: Math.round(opening.currentTotalClp),
     perAccount,
     lastSnapshotYmd,
+    discrepancyThresholdClp:
+      config?.bankBalanceDiscrepancyThresholdClp ?? 100_000,
   };
 
   // Remap rowIds de exclusiones con el mismo criterio de sentinels.

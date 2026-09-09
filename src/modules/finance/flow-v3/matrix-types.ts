@@ -14,6 +14,11 @@ export interface OpeningBalanceAccount {
   balanceClp: number;
   /** Fecha (YMD) de la última cartola/snapshot usada como ancla; null si no hay. */
   lastSnapshotYmd: string | null;
+  anchorSource: "MANUAL" | "IMPORT" | "CALCULATED" | null;
+  anchorBalanceClp: number;
+  txDeltaClp: number;
+  txCount: number;
+  lastDiscrepancy: { asOfYmd: string; deltaClp: number } | null;
 }
 
 export interface OpeningBalanceDetail {
@@ -21,6 +26,8 @@ export interface OpeningBalanceDetail {
   perAccount: OpeningBalanceAccount[];
   /** Cartola más reciente entre las cuentas (para avisar si está desactualizada). */
   lastSnapshotYmd: string | null;
+  /** Umbral del tenant para pintar/exigir nota por diferencia de saldo. */
+  discrepancyThresholdClp: number;
 }
 
 export interface FlowMatrixResponse {

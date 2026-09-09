@@ -7,10 +7,9 @@ import { Decimal } from "@prisma/client/runtime/library";
  * mismo cargo/abono con otro id (y a veces varias copias en el mismo POST).
  * La cartola CSV ya deduplica por contenido; esta clave alinea API + CSV.
  *
- * No incluye un índice de ocurrencia: un (fecha, monto, glosa, referencia)
- * visible por cuenta es un solo movimiento económico. Dos transferencias
- * idénticas el mismo día al mismo destinatario son raras; se pueden restaurar
- * a mano si hace falta.
+ * Con `externalId` de proveedor: la huella NO bloquea un id nuevo. El lote
+ * se compara por conteo de ocurrencias (cuántas filas visibles hay en BD
+ * vs cuántas trae el lote). Sin `externalId` (CSV): a lo más 1 fila por huella.
  */
 export function bankTxContentKey(input: {
   transactionDate: string | Date;
@@ -44,27 +43,52 @@ export interface InboundMovementLike {
   balance?: number | null;
 }
 
+function providerExternalId(item: { externalId?: string | null }): string {
+  return (item.externalId ?? "").trim();
+}
+
 /**
- * Parte un lote inbound: se inserta si el externalId es nuevo Y la huella
- * de contenido no existe ya (en BD ni más arriba en el mismo lote).
+ * Parte un lote inbound.
+ *
+ * - `externalId` ya visto (BD o lote) → duplicado, pero igual cuenta
+ *   como ocurrencia de huella en el lote (un reenvío de 7 que incluye
+ *   el id ya persistido inserta los 6 restantes).
+ * - `externalId` nuevo: se inserta mientras ocurrenciaEnLote > conteoEnBD
+ *   de la misma huella (7 transferencias idénticas con 7 ids → 7 filas;
+ *   reenvío completo → 0; reenvío con ids nuevos de un día ya cargado → 0).
+ * - sin `externalId`: 1 por huella (CSV / cartola).
  */
 export function partitionInboundMovements<T extends InboundMovementLike>(args: {
   incoming: T[];
   existingExternalIds: Set<string>;
-  existingContentKeys: Set<string>;
+  existingContentCounts: Map<string, number>;
 }): { toInsert: T[]; duplicateCount: number } {
   const seenExternal = new Set(args.existingExternalIds);
-  const seenContent = new Set(args.existingContentKeys);
+  const seenInBatch = new Set<string>();
+  const seenContentNoId = new Set<string>();
+  const batchCounts = new Map<string, number>();
   const toInsert: T[] = [];
 
   for (const item of args.incoming) {
-    const ext = item.externalId;
+    const ext = providerExternalId(item);
     const content = bankTxContentKey(item);
-    if (seenExternal.has(ext) || seenContent.has(content)) {
+
+    if (ext) {
+      if (seenInBatch.has(ext)) continue;
+      seenInBatch.add(ext);
+      const batchOcc = (batchCounts.get(content) ?? 0) + 1;
+      batchCounts.set(content, batchOcc);
+      if (seenExternal.has(ext)) continue;
+      seenExternal.add(ext);
+      const dbCount = args.existingContentCounts.get(content) ?? 0;
+      if (batchOcc <= dbCount) continue;
+      toInsert.push(item);
       continue;
     }
-    seenExternal.add(ext);
-    seenContent.add(content);
+
+    const dbCount = args.existingContentCounts.get(content) ?? 0;
+    if (dbCount > 0 || seenContentNoId.has(content)) continue;
+    seenContentNoId.add(content);
     toInsert.push(item);
   }
 
@@ -119,3 +143,13 @@ export function pickContentDuplicateKeeper(rows: DedupeCandidate[]): string {
   return ranked[0]!.id;
 }
 
+/** Clave de agrupación para ocultar duplicados: huella + id de proveedor. */
+export function contentDuplicateGroupKey(args: {
+  transactionDate: string | Date;
+  amount: Decimal | number | string;
+  description: string;
+  reference?: string | null;
+  apiTransactionId?: string | null;
+}): string {
+  return `${bankTxContentKey(args)}|${args.apiTransactionId ?? ""}`;
+}

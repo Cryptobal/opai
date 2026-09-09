@@ -17,11 +17,13 @@ import {
 } from "./resolve-flow-row-display";
 import { recognizeRutsForTransactions } from "./rut-recognition.service";
 import {
-  shouldApplyImportClosingBalance,
+  applyReportedBalance,
   syncCurrentBalanceFromMovements,
+  type BalanceDiscrepancy,
 } from "./bank-balance.service";
 import { bankTxContentKey } from "./bank-tx-content-key";
 import { loadVisibleContentKeys } from "./web4leads-import.service";
+import { todayInChile } from "@/lib/dates-cl";
 
 /**
  * Genera un `apiTransactionId` determinístico para una transacción importada
@@ -638,6 +640,7 @@ export async function importBankTransactions(
   autoMatch?: BulkAutoMatchSummary;
   /** True si el auto-match alcanzó el cap defensivo de 500 — puede haber tx sin procesar. */
   reachedAutoMatchCap?: boolean;
+  discrepancy?: BalanceDiscrepancy | null;
 }> {
   // Verify bank account exists and belongs to tenant
   const bankAccount = await prisma.financeBankAccount.findFirst({
@@ -648,7 +651,7 @@ export async function importBankTransactions(
   }
 
   if (transactions.length === 0) {
-    return { importedCount: 0, duplicateCount: 0, importId: null };
+    return { importedCount: 0, duplicateCount: 0, importId: null, discrepancy: null };
   }
 
   const dates = [
@@ -759,46 +762,25 @@ export async function importBankTransactions(
   }
 
   // Update bank account balance if closing balance was provided.
-  // Además registra un snapshot IMPORT en el historial para que quede trazable
-  // qué cartola fijó qué saldo (la fecha del snapshot es la fecha de la última
-  // transacción de la cartola, que aproxima el "Fecha hasta" del extracto).
-  // Si ya hay un MANUAL con fecha ≥ cierre de cartola, NO creamos el IMPORT
-  // como ancla: el saldo fijado a mano no se pisa en silencio.
+  // Snapshot IMPORT con cuadratura (computed/delta). Si hay MANUAL ≥ cierre,
+  // el snapshot queda en historial pero no pisa el ancla.
+  let discrepancy: BalanceDiscrepancy | null = null;
   if (closingBalance !== null && closingBalance !== undefined) {
     const lastTxDate = transactions.reduce<string | null>((acc, tx) => {
       if (!acc || tx.transactionDate > acc) return tx.transactionDate;
       return acc;
     }, null);
-    if (lastTxDate) {
-      const importAsOfDate = new Date(lastTxDate);
-      const protectingManual = await prisma.financeBankAccountBalance.findFirst({
-        where: {
-          tenantId,
-          bankAccountId,
-          source: "MANUAL",
-          asOfDate: { gte: importAsOfDate },
-        },
-        orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-        select: { asOfDate: true },
-      });
-      const applyImport = shouldApplyImportClosingBalance({
-        importAsOfDate,
-        protectingManualAsOfDate: protectingManual?.asOfDate ?? null,
-      });
-      if (applyImport) {
-        await prisma.financeBankAccountBalance.create({
-          data: {
-            tenantId,
-            bankAccountId,
-            asOfDate: importAsOfDate,
-            balance: new Decimal(closingBalance),
-            source: "IMPORT",
-            note: `Saldo de cierre de cartola importada (${transactions.length} mov.)`,
-            createdById: userId ?? null,
-          },
-        });
-      }
-    }
+    const asOf = (lastTxDate ?? todayInChile()).slice(0, 10);
+    const applied = await applyReportedBalance({
+      tenantId,
+      userId: userId ?? null,
+      bankAccountId,
+      asOf,
+      balance: closingBalance,
+      source: "IMPORT",
+      note: `Saldo de cierre de cartola importada (${transactions.length} mov.)`,
+    });
+    discrepancy = applied.discrepancy;
   }
 
   if (result.count > 0 || closingBalance != null) {
@@ -844,6 +826,7 @@ export async function importBankTransactions(
     importId,
     autoMatch,
     reachedAutoMatchCap,
+    discrepancy,
   };
 }
 

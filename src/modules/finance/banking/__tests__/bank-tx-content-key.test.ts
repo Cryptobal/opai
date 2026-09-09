@@ -3,6 +3,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import {
   amountKey,
   bankTxContentKey,
+  contentDuplicateGroupKey,
   partitionInboundMovements,
   pickContentDuplicateKeeper,
   pickLatestBalanceHint,
@@ -66,42 +67,125 @@ describe("partitionInboundMovements", () => {
     const r = partitionInboundMovements({
       incoming: [mov("a")],
       existingExternalIds: new Set(["a"]),
-      existingContentKeys: new Set(),
+      existingContentCounts: new Map(),
     });
     expect(r.toInsert).toHaveLength(0);
     expect(r.duplicateCount).toBe(1);
   });
 
-  it("salta un id nuevo si la huella ya existe (id inestable)", () => {
-    const incoming = mov("new-id");
+  it("7 items idénticos con 7 ids se insertan las 7", () => {
+    const r = partitionInboundMovements({
+      incoming: [mov("id-1"), mov("id-2"), mov("id-3"), mov("id-4"), mov("id-5"), mov("id-6"), mov("id-7")],
+      existingExternalIds: new Set(),
+      existingContentCounts: new Map(),
+    });
+    expect(r.toInsert).toHaveLength(7);
+    expect(r.duplicateCount).toBe(0);
+  });
+
+  it("reenvío completo del lote → 0 inserciones", () => {
+    const ids = ["id-1", "id-2", "id-3", "id-4", "id-5", "id-6", "id-7"];
+    const r = partitionInboundMovements({
+      incoming: ids.map((id) => mov(id)),
+      existingExternalIds: new Set(ids),
+      existingContentCounts: new Map([
+        [bankTxContentKey(mov("id-1")), 7],
+      ]),
+    });
+    expect(r.toInsert).toHaveLength(0);
+    expect(r.duplicateCount).toBe(7);
+  });
+
+  it("subconjunto con ids ya vistos → 0", () => {
+    const r = partitionInboundMovements({
+      incoming: [mov("id-1"), mov("id-2"), mov("id-3")],
+      existingExternalIds: new Set(["id-1", "id-2", "id-3", "id-4"]),
+      existingContentCounts: new Map([[bankTxContentKey(mov("id-1")), 4]]),
+    });
+    expect(r.toInsert).toHaveLength(0);
+  });
+
+  it("ids nuevos de un día ya cubierto por conteo no duplican", () => {
+    const key = bankTxContentKey(mov("x"));
+    const r = partitionInboundMovements({
+      incoming: [mov("new-a"), mov("new-b")],
+      existingExternalIds: new Set(),
+      existingContentCounts: new Map([[key, 7]]),
+    });
+    expect(r.toInsert).toHaveLength(0);
+  });
+
+  it("6 ids nuevos cuando ya hay 1 fila visible → inserta 6 (caso SCF)", () => {
+    const key = bankTxContentKey(mov("x"));
+    const r = partitionInboundMovements({
+      incoming: [
+        mov("keep"),
+        mov("miss-1"),
+        mov("miss-2"),
+        mov("miss-3"),
+        mov("miss-4"),
+        mov("miss-5"),
+        mov("miss-6"),
+      ],
+      existingExternalIds: new Set(["keep"]),
+      existingContentCounts: new Map([[key, 1]]),
+    });
+    expect(r.toInsert).toHaveLength(6);
+    expect(r.toInsert.map((m) => m.externalId)).toEqual([
+      "miss-1",
+      "miss-2",
+      "miss-3",
+      "miss-4",
+      "miss-5",
+      "miss-6",
+    ]);
+  });
+
+  it("CSV sin id: 1 por huella aunque el lote traiga copias", () => {
+    const r = partitionInboundMovements({
+      incoming: [mov(""), mov(""), mov("")],
+      existingExternalIds: new Set(),
+      existingContentCounts: new Map(),
+    });
+    expect(r.toInsert).toHaveLength(1);
+    expect(r.duplicateCount).toBe(2);
+  });
+
+  it("CSV sin id: no inserta si la huella ya está en BD", () => {
+    const incoming = mov("");
     const r = partitionInboundMovements({
       incoming: [incoming],
       existingExternalIds: new Set(),
-      existingContentKeys: new Set([bankTxContentKey(incoming)]),
+      existingContentCounts: new Map([[bankTxContentKey(incoming), 1]]),
     });
     expect(r.toInsert).toHaveLength(0);
-    expect(r.duplicateCount).toBe(1);
-  });
-
-  it("en un mismo POST deja una sola copia de la misma huella", () => {
-    const r = partitionInboundMovements({
-      incoming: [mov("id-1"), mov("id-2"), mov("id-3")],
-      existingExternalIds: new Set(),
-      existingContentKeys: new Set(),
-    });
-    expect(r.toInsert).toHaveLength(1);
-    expect(r.toInsert[0]?.externalId).toBe("id-1");
-    expect(r.duplicateCount).toBe(2);
   });
 
   it("inserta movimientos distintos", () => {
     const r = partitionInboundMovements({
       incoming: [mov("a", 7_000_000), mov("b", 6_464_888)],
       existingExternalIds: new Set(),
-      existingContentKeys: new Set(),
+      existingContentCounts: new Map(),
     });
     expect(r.toInsert).toHaveLength(2);
     expect(r.duplicateCount).toBe(0);
+  });
+});
+
+describe("contentDuplicateGroupKey", () => {
+  it("separa ids de proveedor distintos", () => {
+    const base = {
+      transactionDate: "2026-09-07",
+      amount: 7_000_000,
+      description: "SCF",
+      reference: "x",
+    };
+    expect(contentDuplicateGroupKey({ ...base, apiTransactionId: "web4leads:a" })).not.toBe(
+      contentDuplicateGroupKey({ ...base, apiTransactionId: "web4leads:b" }),
+    );
+    expect(contentDuplicateGroupKey({ ...base, apiTransactionId: null })).toBe(
+      contentDuplicateGroupKey({ ...base, apiTransactionId: null }),
+    );
   });
 });
 

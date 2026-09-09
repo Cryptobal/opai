@@ -7,6 +7,8 @@ import {
 import { hasCapability } from "@/lib/permissions";
 import { importBankTransactions } from "@/modules/finance/banking/bank-transaction.service";
 import { parseCartolaUpload } from "@/modules/finance/banking/parse-cartola-upload";
+import { prisma } from "@/lib/prisma";
+import { notifyBankBalanceDiscrepancy } from "@/modules/finance/banking/bank-balance-notify";
 
 /**
  * POST /api/finance/banking/transactions/import
@@ -53,6 +55,24 @@ export async function POST(request: NextRequest) {
         periodTo: meta.periodTo,
       },
     );
+
+    if (result.discrepancy?.exceeds) {
+      try {
+        const acc = await prisma.financeBankAccount.findFirst({
+          where: { id: bankAccountId, tenantId: ctx.tenantId },
+          select: { bankName: true, accountNumber: true },
+        });
+        await notifyBankBalanceDiscrepancy({
+          tenantId: ctx.tenantId,
+          accountLabel: acc
+            ? `${acc.bankName} ${acc.accountNumber}`
+            : bankAccountId,
+          discrepancy: result.discrepancy,
+        });
+      } catch (err) {
+        console.error("[Finance BankTransactions Import] discrepancy notify:", err);
+      }
+    }
 
     return NextResponse.json(
       {

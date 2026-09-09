@@ -37,6 +37,8 @@ import {
   isWeb4leadsTimestampValid,
   normalizeAccountNumber,
   normalizeBankCode,
+  parseWeb4leadsAccountBalance,
+  type Web4leadsAccountBalancePayload,
 } from "@/modules/finance/banking/web4leads-inbox";
 import { importWeb4leadsMovements } from "@/modules/finance/banking/web4leads-import.service";
 import { notify } from "@/lib/notifications/notify";
@@ -44,6 +46,7 @@ import { buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
 import { buildBankMovementsSlackData } from "@/modules/finance/banking/slack-movements-payload";
 import { bulkAutoMatchBankTransactions } from "@/modules/finance/banking/auto-match-payment.service";
 import { resolveInboundActorId } from "@/modules/finance/banking/inbound-actor";
+import { notifyBankBalanceDiscrepancy } from "@/modules/finance/banking/bank-balance-notify";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -62,6 +65,7 @@ interface Web4leadsPayload {
   accountNumber: string;
   bankCode?: string; // opcional, solo desempate
   movements: MovementInput[];
+  accountBalance?: Web4leadsAccountBalancePayload | null;
 }
 
 const log = (...args: unknown[]) => console.log("[inbound/web4leads]", ...args);
@@ -137,7 +141,19 @@ export async function POST(
       { status: 400 },
     );
   }
-  if (payload.movements.length === 0) {
+  let accountBalance: Web4leadsAccountBalancePayload | null = null;
+  try {
+    accountBalance = parseWeb4leadsAccountBalance(payload.accountBalance);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: err instanceof Error ? err.message : "accountBalance inválido",
+      },
+      { status: 400 },
+    );
+  }
+  if (payload.movements.length === 0 && !accountBalance) {
     return NextResponse.json({ success: true, imported: 0, duplicates: 0 });
   }
   if (payload.movements.length > 500) {
@@ -227,15 +243,17 @@ export async function POST(
     );
   }
 
-  // 6. Insert idempotente por externalId y por contenido.
+  // 6. Insert idempotente por externalId y conteo de huella.
   const result = await importWeb4leadsMovements({
     tenantId,
     bankAccountId: account.id,
     movements: payload.movements,
+    accountBalance,
   });
   const imported = result.imported;
   const duplicates = result.duplicates;
   const syncedBalance = result.syncedBalance;
+  const discrepancy = result.discrepancy;
 
   // 8. Auto-match + notificación (fire-and-forget; un fallo no debe romper el 200)
   if (imported > 0) {
@@ -291,6 +309,7 @@ export async function POST(
           amount: t.amount.toNumber(),
         })),
         syncedBalance,
+        discrepancy,
       );
     } catch (blocksErr) {
       console.error("[inbound/web4leads] blocks conciliación error:", blocksErr);
@@ -319,8 +338,27 @@ export async function POST(
     }
   }
 
+  if (discrepancy?.exceeds) {
+    try {
+      await notifyBankBalanceDiscrepancy({
+        tenantId,
+        accountLabel: `${account.bankName} ${account.accountNumber}`,
+        discrepancy,
+        link: "/finanzas/bancos?tab=transactions",
+      });
+    } catch (err) {
+      console.error("[inbound/web4leads] discrepancy notify error:", err);
+    }
+  }
+
   log(
     `OK tenant=${tenantId} acc=${account.id} imported=${imported}/${payload.movements.length} in ${Date.now() - startedAt}ms`,
   );
-  return NextResponse.json({ success: true, imported, duplicates });
+  return NextResponse.json({
+    success: true,
+    imported,
+    duplicates,
+    syncedBalance,
+    discrepancy,
+  });
 }

@@ -1,6 +1,10 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { resolveAccountBalanceFromMovements } from "@/modules/finance/banking/bank-balance.service";
+import {
+  resolveAccountBalanceFromMovements,
+  findLatestUnexplainedDiscrepancy,
+} from "@/modules/finance/banking/bank-balance.service";
+import type { FinanceBalanceSource } from "@prisma/client";
 
 export interface OpeningBalanceBreakdown {
   /** Saldo total resultante en CLP, "as of today" (snapshot + Σ tx posteriores).
@@ -22,12 +26,17 @@ export interface OpeningBalanceBreakdown {
     /** El snapshot más reciente usado como anclaje (o null si solo se usa currentBalance). */
     anchorSnapshotDate: Date | null;
     anchorBalanceClp: number;
+    anchorSource: FinanceBalanceSource | null;
     /** Movimientos de cartola visibles posteriores al día del ancla (no el mismo día). */
     txDeltaClp: number;
     /** Cuántas bank tx se sumaron. */
     txCount: number;
     /** Resultado final por cuenta: anchorBalanceClp + txDeltaClp. */
     resolvedBalanceClp: number;
+    lastDiscrepancy: {
+      asOfDate: string;
+      deltaClp: number;
+    } | null;
   }>;
 }
 
@@ -72,15 +81,24 @@ export async function resolveOpeningBalance(
       acc.id,
       today,
     );
+    const lastDiscrepancy = await findLatestUnexplainedDiscrepancy(
+      tenantId,
+      acc.id,
+      today,
+    );
     perAccount.push({
       bankAccountId: acc.id,
       bankName: acc.bankName,
       accountNumber: acc.accountNumber,
       anchorSnapshotDate: resolved.anchorSnapshotDate,
       anchorBalanceClp: resolved.anchorBalanceClp,
+      anchorSource: resolved.anchorSource ?? null,
       txDeltaClp: resolved.txDeltaClp,
       txCount: resolved.txCount,
       resolvedBalanceClp: resolved.resolvedBalanceClp,
+      lastDiscrepancy: lastDiscrepancy
+        ? { asOfDate: lastDiscrepancy.asOfDate, deltaClp: lastDiscrepancy.deltaClp }
+        : null,
     });
     currentTotalClp += resolved.resolvedBalanceClp;
   }

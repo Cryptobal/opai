@@ -4,7 +4,9 @@ import { z } from "zod";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { setBalanceSnapshot } from "@/modules/finance/banking/bank-balance.service";
+import { todayInChile } from "@/lib/dates-cl";
+import { applyReportedBalance } from "@/modules/finance/banking/bank-balance.service";
+import { notifyBankBalanceDiscrepancy } from "@/modules/finance/banking/bank-balance-notify";
 
 const setCurrentBalanceSchema = z.object({
   balance: z.number().finite(),
@@ -15,7 +17,8 @@ const setCurrentBalanceSchema = z.object({
  * POST /api/finance/banking/accounts/[id]/set-current-balance
  *
  * Fija el saldo real de la cuenta desde Movimientos: crea snapshot MANUAL
- * a hoy y actualiza currentBalance. No es el ajuste de proyección de flujo de caja.
+ * a hoy (calendario Chile) y actualiza currentBalance. Si |delta| ≥ umbral
+ * la nota es obligatoria (400 note_required).
  */
 export async function POST(
   request: NextRequest,
@@ -54,21 +57,46 @@ export async function POST(
       );
     }
 
-    const today = new Date();
-    const asOfDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
+    const asOfDate = todayInChile();
     const previousBalanceClp = Number(account.currentBalance ?? 0);
     const { balance, note } = parsed.data;
 
-    const snapshot = await setBalanceSnapshot(ctx.tenantId, ctx.userId, {
+    const applied = await applyReportedBalance({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
       bankAccountId: id,
-      asOfDate,
+      asOf: asOfDate,
       balance,
       source: "MANUAL",
-      note:
-        note ??
-        "Saldo fijado manualmente en Movimientos (saldo real del banco)",
+      note: note ?? null,
+      requireNoteIfExceeds: true,
     });
+
+    if (!applied.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "note_required",
+          delta: applied.discrepancy.delta,
+          reported: applied.discrepancy.reported,
+          computed: applied.discrepancy.computed,
+          thresholdClp: applied.discrepancy.thresholdClp,
+        },
+        { status: 400 },
+      );
+    }
+
+    if (applied.discrepancy.exceeds) {
+      try {
+        await notifyBankBalanceDiscrepancy({
+          tenantId: ctx.tenantId,
+          accountLabel: `${account.bankName} ${account.accountNumber}`,
+          discrepancy: applied.discrepancy,
+        });
+      } catch (err) {
+        console.error("[Finance/Banking/SetCurrentBalance] notify:", err);
+      }
+    }
 
     revalidatePath("/finanzas/bancos");
     revalidatePath("/finanzas");
@@ -81,9 +109,10 @@ export async function POST(
         bankName: account.bankName,
         accountNumber: account.accountNumber,
         previousBalanceClp,
-        balanceClp: balance,
+        balanceClp: applied.resolvedBalanceClp,
         asOfDate,
-        snapshotId: snapshot.id,
+        snapshotId: applied.snapshot.id,
+        discrepancy: applied.discrepancy,
       },
     });
   } catch (error) {

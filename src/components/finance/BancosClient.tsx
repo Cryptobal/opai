@@ -28,6 +28,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DataTable, EmptyState, Tag, type DataTableColumn } from "@/components/opai-ds";
+import { bankBalanceSourceLabel, DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP } from "@/modules/finance/banking/bank-balance-constants";
 import { PaginationControls } from "./PaginationControls";
 import { BankBalanceSheet } from "./BankBalanceSheet";
 import { BankRulesClient } from "./BankRulesClient";
@@ -978,6 +979,7 @@ function AccountsTab({
           bankAccountId={balanceSheet.id}
           bankAccountLabel={`${balanceSheet.bankName} - ${balanceSheet.accountNumber}`}
           canManage={canManage}
+          currentBalance={balanceSheet.currentBalance}
           onChanged={() => router.refresh()}
         />
       )}
@@ -1109,6 +1111,16 @@ function TransactionsTab({
   const [lastCartolaClose, setLastCartolaClose] = useState<{
     asOfDate: string;
     balance: number;
+  } | null>(null);
+  const [balanceTrace, setBalanceTrace] = useState<{
+    anchorSource: string | null;
+    anchorSnapshotDate: string | null;
+    anchorBalanceClp: number;
+    txDeltaClp: number;
+    txCount: number;
+    resolvedBalanceClp: number;
+    lastDiscrepancy: { asOfDate: string; deltaClp: number } | null;
+    discrepancyThresholdClp: number;
   } | null>(null);
   const [manualBalanceNote, setManualBalanceNote] = useState("");
   const [savingManualBalance, setSavingManualBalance] = useState(false);
@@ -1380,6 +1392,7 @@ function TransactionsTab({
   useEffect(() => {
     if (!selectedAccount) {
       setLastCartolaClose(null);
+      setBalanceTrace(null);
       return;
     }
     let cancelled = false;
@@ -1395,15 +1408,38 @@ function TransactionsTab({
         const importSnap = rows.find((s) => s.source === "IMPORT");
         if (!importSnap) {
           setLastCartolaClose(null);
-          return;
+        } else {
+          setLastCartolaClose({
+            asOfDate: String(importSnap.asOfDate).slice(0, 10),
+            balance: Number(importSnap.balance),
+          });
         }
-        setLastCartolaClose({
-          asOfDate: String(importSnap.asOfDate).slice(0, 10),
-          balance: Number(importSnap.balance),
-        });
+        if (json.resolved) {
+          setBalanceTrace({
+            anchorSource: json.resolved.anchorSource ?? null,
+            anchorSnapshotDate: json.resolved.anchorSnapshotDate ?? null,
+            anchorBalanceClp: Number(json.resolved.anchorBalanceClp ?? 0),
+            txDeltaClp: Number(json.resolved.txDeltaClp ?? 0),
+            txCount: Number(json.resolved.txCount ?? 0),
+            resolvedBalanceClp: Number(json.resolved.resolvedBalanceClp ?? 0),
+            lastDiscrepancy: json.lastDiscrepancy
+              ? {
+                  asOfDate: String(json.lastDiscrepancy.asOfDate).slice(0, 10),
+                  deltaClp: Number(json.lastDiscrepancy.deltaClp),
+                }
+              : null,
+            discrepancyThresholdClp:
+              typeof json.discrepancyThresholdClp === "number"
+                ? json.discrepancyThresholdClp
+                : DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP,
+          });
+        }
       })
       .catch(() => {
-        if (!cancelled) setLastCartolaClose(null);
+        if (!cancelled) {
+          setLastCartolaClose(null);
+          setBalanceTrace(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -1432,6 +1468,11 @@ function TransactionsTab({
       );
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.success) {
+        if (json?.error === "note_required") {
+          throw new Error(
+            `La diferencia (${fmtCLP.format(Number(json.delta ?? 0))}) supera el umbral: agregá una nota`,
+          );
+        }
         throw new Error(json?.error || "No se pudo fijar el saldo");
       }
       const d = json.data as { balanceClp: number; previousBalanceClp: number };
@@ -2248,6 +2289,17 @@ function TransactionsTab({
     [transactionColumns, isWideTxTable],
   );
 
+  const manualLiveDelta =
+    selectedAccountRow && manualBalanceDigits
+      ? Number(manualBalanceDigits) - selectedAccountRow.currentBalance
+      : null;
+  const manualNoteRequired =
+    manualLiveDelta != null &&
+    Math.abs(manualLiveDelta) >=
+      (balanceTrace?.discrepancyThresholdClp ??
+        DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP) &&
+    !manualBalanceNote.trim();
+
   return (
     <div className="space-y-4 pb-24">
       {selectedAccountRow && (
@@ -2260,7 +2312,51 @@ function TransactionsTab({
               <p className="font-display text-lg font-semibold tabular-nums">
                 {fmtCLP.format(selectedAccountRow.currentBalance)}
               </p>
-              {lastCartolaClose ? (
+              {balanceTrace ? (
+                <div className="mt-1 space-y-1">
+                  <p
+                    className={`text-[12px] ${
+                      balanceTrace.lastDiscrepancy &&
+                      Math.abs(balanceTrace.lastDiscrepancy.deltaClp) >=
+                        balanceTrace.discrepancyThresholdClp
+                        ? "text-status-warn-fg"
+                        : "text-ds-text-3"
+                    }`}
+                  >
+                    Ancla {bankBalanceSourceLabel(balanceTrace.anchorSource)}{" "}
+                    {balanceTrace.anchorSnapshotDate
+                      ? format(
+                          new Date(`${balanceTrace.anchorSnapshotDate}T12:00:00`),
+                          "dd-MM-yyyy",
+                        )
+                      : "—"}{" "}
+                    {fmtCLP.format(balanceTrace.anchorBalanceClp)} +{" "}
+                    {balanceTrace.txCount} movimientos (
+                    {fmtCLP.format(balanceTrace.txDeltaClp)}) ={" "}
+                    {fmtCLP.format(balanceTrace.resolvedBalanceClp)}
+                  </p>
+                  {balanceTrace.lastDiscrepancy && (
+                    <Tag
+                      variant={
+                        Math.abs(balanceTrace.lastDiscrepancy.deltaClp) >=
+                        balanceTrace.discrepancyThresholdClp
+                          ? "warn"
+                          : "neutral"
+                      }
+                      size="md"
+                    >
+                      Última diferencia no explicada:{" "}
+                      {fmtCLP.format(balanceTrace.lastDiscrepancy.deltaClp)} el{" "}
+                      {format(
+                        new Date(
+                          `${balanceTrace.lastDiscrepancy.asOfDate}T12:00:00`,
+                        ),
+                        "dd-MM-yyyy",
+                      )}
+                    </Tag>
+                  )}
+                </div>
+              ) : lastCartolaClose ? (
                 <p className="text-[12px] text-ds-text-3 mt-0.5">
                   Última cartola:{" "}
                   {format(new Date(`${lastCartolaClose.asOfDate}T12:00:00`), "dd-MM-yyyy")}
@@ -2320,7 +2416,9 @@ function TransactionsTab({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tx-manual-balance-note">Nota (opcional)</Label>
+                <Label htmlFor="tx-manual-balance-note">
+                  {manualNoteRequired ? "Nota (obligatoria)" : "Nota (opcional)"}
+                </Label>
                 <Input
                   id="tx-manual-balance-note"
                   className="h-10 sm:h-9"
@@ -2336,7 +2434,8 @@ function TransactionsTab({
                 disabled={
                   savingManualBalance ||
                   !selectedAccount ||
-                  !manualBalanceDigits
+                  !manualBalanceDigits ||
+                  manualNoteRequired
                 }
                 onClick={saveManualAccountBalance}
               >
@@ -2347,6 +2446,17 @@ function TransactionsTab({
                 )}
                 Fijar saldo
               </Button>
+              {manualLiveDelta != null && manualLiveDelta !== 0 && (
+                <p
+                  className={`sm:col-span-3 text-[12px] tabular-nums ${
+                    manualNoteRequired
+                      ? "text-status-warn-fg"
+                      : "text-ds-text-3"
+                  }`}
+                >
+                  Diferencia vs calculado: {fmtCLP.format(manualLiveDelta)}
+                </p>
+              )}
             </div>
           )}
         </div>

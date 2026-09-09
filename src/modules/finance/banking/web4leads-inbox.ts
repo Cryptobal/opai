@@ -82,6 +82,32 @@ export function isWeb4leadsTimestampValid(
   return Math.abs(now - ts) <= windowSeconds;
 }
 
+export interface Web4leadsAccountBalancePayload {
+  current: number;
+  asOf: string;
+}
+
+/**
+ * `accountBalance` top-level opcional. Null si no viene; lanza si viene
+ * mal formado (el caller responde 400).
+ */
+export function parseWeb4leadsAccountBalance(
+  raw: unknown,
+): Web4leadsAccountBalancePayload | null {
+  if (raw == null) return null;
+  if (typeof raw !== "object") {
+    throw new Error("accountBalance debe ser un objeto");
+  }
+  const o = raw as Record<string, unknown>;
+  if (typeof o.current !== "number" || !Number.isFinite(o.current)) {
+    throw new Error("accountBalance.current debe ser número");
+  }
+  if (typeof o.asOf !== "string" || !o.asOf.trim()) {
+    throw new Error("accountBalance.asOf debe ser string ISO");
+  }
+  return { current: o.current, asOf: o.asOf.trim() };
+}
+
 /** Normaliza un número de cuenta a solo dígitos para hacer match robusto. */
 export function normalizeAccountNumber(input: string): string {
   return (input ?? "").replace(/\D/g, "");

@@ -44,6 +44,7 @@ export const updateCashflowConfigSchema = z.object({
   collectionLagDays: z.number().int().min(0).max(180).optional(),
   // Umbral CLP del semáforo del saldo (ámbar bajo este valor).
   flowWarnThresholdClp: z.number().int().min(0).max(1_000_000_000).optional(),
+  bankBalanceDiscrepancyThresholdClp: z.number().int().min(0).max(1_000_000_000).optional(),
   // Residual: remanente no ejecutado sigue pesando en la semana.
   residualCarryEnabled: z.boolean().optional(),
   // Remanente bajo el cual la proyección se da por cumplida sola.

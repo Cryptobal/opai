@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { bulkHideTransactions } from "@/modules/finance/banking/bank-transaction.service";
 import {
-  bankTxContentKey,
+  contentDuplicateGroupKey,
   pickContentDuplicateKeeper,
 } from "@/modules/finance/banking/bank-tx-content-key";
 
@@ -15,9 +15,10 @@ export interface HideContentDuplicatesResult {
 }
 
 /**
- * Oculta copias visibles de la misma huella de contenido. Conserva MATCHED
- * si hay, si no la más antigua. Borra vínculos de las copias para que
- * factoring/DTE no queden contabilizados N veces.
+ * Oculta copias visibles de la misma huella + mismo `apiTransactionId`
+ * (nulo se agrupa con nulos). Filas con ids de proveedor distintos nunca
+ * se ocultan. Conserva MATCHED si hay, si no la más antigua. Borra
+ * vínculos de las copias para que factoring/DTE no queden N veces.
  */
 export async function hideContentDuplicateBankTransactions(args: {
   tenantId: string;
@@ -36,6 +37,7 @@ export async function hideContentDuplicateBankTransactions(args: {
       amount: true,
       description: true,
       reference: true,
+      apiTransactionId: true,
       createdAt: true,
       reconciliationStatus: true,
     },
@@ -43,11 +45,12 @@ export async function hideContentDuplicateBankTransactions(args: {
 
   const groups = new Map<string, typeof rows>();
   for (const row of rows) {
-    const key = bankTxContentKey({
+    const key = contentDuplicateGroupKey({
       transactionDate: row.transactionDate,
       amount: row.amount,
       description: row.description,
       reference: row.reference,
+      apiTransactionId: row.apiTransactionId,
     });
     const list = groups.get(key);
     if (list) list.push(row);

@@ -78,6 +78,26 @@ describe("buildBankMovementsBlocks", () => {
     expect(actionIds(blocks, "tx-abono")).toEqual(["bankreconc_manual"]);
   });
 
+  it("incluye bloque de diferencia no explicada", () => {
+    const blocks = asBlocks(
+      buildBankMovementsBlocks({
+        summary: "s",
+        accountLabel: "Santander 94541158",
+        movements: [abono],
+        discrepancy: {
+          reported: 18_646_796,
+          computed: -15_637_402,
+          delta: 34_284_198,
+          asOfDate: "2026-09-09",
+        },
+      }),
+    );
+    const dump = JSON.stringify(blocks);
+    expect(dump).toContain("Diferencia no explicada");
+    expect(dump).toContain("2026-09-09");
+    expect(dump).toContain("Probable movimiento no enviado");
+  });
+
   it("lotes > MAX_INLINE colapsan a resumen sin botones por movimiento", () => {
     const many = Array.from({ length: MAX_INLINE + 1 }, (_, i): MovementForBlocks => ({
       bankTxId: `tx-${i}`,

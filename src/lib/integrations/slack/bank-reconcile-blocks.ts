@@ -52,6 +52,13 @@ export interface MovementForBlocks {
   match?: MovementMatch | null;
 }
 
+export interface BalanceDiscrepancyForBlocks {
+  reported: number;
+  computed: number;
+  delta: number;
+  asOfDate: string;
+}
+
 export interface BankMovementsBlocksInput {
   summary: string;
   accountLabel: string;
@@ -59,6 +66,7 @@ export interface BankMovementsBlocksInput {
   /** Saldo total de la cuenta tras estos movimientos (CLP). Si viene, se
    *  muestra en el encabezado ("Saldo cuenta: $X"). */
   accountBalanceClp?: number | null;
+  discrepancy?: BalanceDiscrepancyForBlocks | null;
 }
 
 const DESC_MAX = 70;
@@ -171,8 +179,23 @@ export function renderMovementBlocks(m: MovementForBlocks): unknown[] {
 
 /** Arma la tarjeta completa. Lotes > MAX_INLINE caen al layout resumido. */
 export function buildBankMovementsBlocks(input: BankMovementsBlocksInput): unknown[] {
-  const { summary, movements, accountBalanceClp } = input;
+  const { summary, movements, accountBalanceClp, discrepancy } = input;
   const blocks = headerBlocks(summary, movements, accountBalanceClp);
+
+  if (discrepancy) {
+    const signed =
+      discrepancy.delta > 0
+        ? `+${formatCLP(discrepancy.delta)}`
+        : formatCLP(discrepancy.delta);
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `⚠️ *Diferencia no explicada* (${discrepancy.asOfDate})\nReportado ${formatCLP(discrepancy.reported)} · calculado ${formatCLP(discrepancy.computed)} · delta ${signed}\n_Probable movimiento no enviado por el proveedor o pago masivo._`,
+      },
+    });
+    blocks.push({ type: "divider" });
+  }
 
   if (movements.length > MAX_INLINE) {
     blocks.push({
@@ -199,8 +222,17 @@ export function buildBankMovementsText(input: BankMovementsBlocksInput): string 
       amount: m.amount,
     })),
   });
-  const { accountBalanceClp } = input;
-  return accountBalanceClp != null && Number.isFinite(accountBalanceClp)
-    ? `${body}\n\nSaldo cuenta: ${formatCLP(accountBalanceClp)}`
-    : body;
+  const { accountBalanceClp, discrepancy } = input;
+  let text =
+    accountBalanceClp != null && Number.isFinite(accountBalanceClp)
+      ? `${body}\n\nSaldo cuenta: ${formatCLP(accountBalanceClp)}`
+      : body;
+  if (discrepancy) {
+    const signed =
+      discrepancy.delta > 0
+        ? `+${formatCLP(discrepancy.delta)}`
+        : formatCLP(discrepancy.delta);
+    text += `\n\nDiferencia no explicada (${discrepancy.asOfDate}): reportado ${formatCLP(discrepancy.reported)} · calculado ${formatCLP(discrepancy.computed)} · delta ${signed}`;
+  }
+  return text;
 }

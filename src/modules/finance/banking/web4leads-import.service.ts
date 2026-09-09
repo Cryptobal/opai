@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import {
-  shouldApplyImportClosingBalance,
-  setBalanceSnapshot,
+  applyReportedBalance,
   syncCurrentBalanceFromMovements,
+  type BalanceDiscrepancy,
 } from "@/modules/finance/banking/bank-balance.service";
 import {
   bankTxContentKey,
@@ -13,19 +13,25 @@ import {
   type InboundMovementLike,
 } from "@/modules/finance/banking/bank-tx-content-key";
 
+export interface Web4leadsAccountBalance {
+  current: number;
+  asOf: string;
+}
+
 export interface Web4leadsImportResult {
   imported: number;
   duplicates: number;
   insertedIds: string[];
   syncedBalance: number | null;
+  discrepancy: BalanceDiscrepancy | null;
 }
 
-export async function loadVisibleContentKeys(args: {
+export async function loadVisibleContentCounts(args: {
   tenantId: string;
   bankAccountId: string;
   dates: Date[];
-}): Promise<Set<string>> {
-  if (args.dates.length === 0) return new Set();
+}): Promise<Map<string, number>> {
+  if (args.dates.length === 0) return new Map();
   const rows = await prisma.financeBankTransaction.findMany({
     where: {
       tenantId: args.tenantId,
@@ -40,34 +46,57 @@ export async function loadVisibleContentKeys(args: {
       reference: true,
     },
   });
-  return new Set(
-    rows.map((r) =>
-      bankTxContentKey({
-        transactionDate: r.transactionDate,
-        amount: r.amount,
-        description: r.description,
-        reference: r.reference,
-      }),
-    ),
-  );
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const key = bankTxContentKey({
+      transactionDate: r.transactionDate,
+      amount: r.amount,
+      description: r.description,
+      reference: r.reference,
+    });
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export async function loadVisibleContentKeys(args: {
+  tenantId: string;
+  bankAccountId: string;
+  dates: Date[];
+}): Promise<Set<string>> {
+  const counts = await loadVisibleContentCounts(args);
+  return new Set(counts.keys());
 }
 
 /**
  * Inserta movimientos Web4Leads con doble idempotencia:
- *   1. `apiTransactionId = web4leads:<externalId>` (contrato original)
- *   2. huella contenido fecha|monto|glosa|referencia (cubre ids inestables)
+ *   1. `apiTransactionId = web4leads:<externalId>`
+ *   2. conteo de huella fecha|monto|glosa|referencia (ids inestables /
+ *      reenvíos; no descarta un externalId nuevo si el lote trae más
+ *      ocurrencias que las ya visibles).
  *
- * Si el lote trae `balance`, y no hay un MANUAL del mismo día o más nuevo,
- * se crea un snapshot CALCULATED — el contrato documentado con el proveedor.
+ * `accountBalance` (top-level) tiene prioridad sobre `balance` por movimiento.
+ * Tras insertar se evalúa la cuadratura y se ancla el saldo reportado.
  */
 export async function importWeb4leadsMovements(args: {
   tenantId: string;
   bankAccountId: string;
   movements: InboundMovementLike[];
+  accountBalance?: Web4leadsAccountBalance | null;
 }): Promise<Web4leadsImportResult> {
   const { tenantId, bankAccountId, movements } = args;
-  if (movements.length === 0) {
-    return { imported: 0, duplicates: 0, insertedIds: [], syncedBalance: null };
+  const accountBalance = args.accountBalance ?? null;
+
+  const empty: Web4leadsImportResult = {
+    imported: 0,
+    duplicates: 0,
+    insertedIds: [],
+    syncedBalance: null,
+    discrepancy: null,
+  };
+
+  if (movements.length === 0 && !accountBalance) {
+    return empty;
   }
 
   const externalIds = movements.map((m) => `web4leads:${m.externalId}`);
@@ -75,16 +104,18 @@ export async function importWeb4leadsMovements(args: {
     ...new Set(movements.map((m) => dateKey(m.transactionDate))),
   ].map((d) => new Date(d));
 
-  const [existingByExt, existingContent] = await Promise.all([
-    prisma.financeBankTransaction.findMany({
-      where: {
-        tenantId,
-        bankAccountId,
-        apiTransactionId: { in: externalIds },
-      },
-      select: { apiTransactionId: true },
-    }),
-    loadVisibleContentKeys({ tenantId, bankAccountId, dates }),
+  const [existingByExt, existingContentCounts] = await Promise.all([
+    externalIds.length === 0
+      ? Promise.resolve([] as Array<{ apiTransactionId: string | null }>)
+      : prisma.financeBankTransaction.findMany({
+          where: {
+            tenantId,
+            bankAccountId,
+            apiTransactionId: { in: externalIds },
+          },
+          select: { apiTransactionId: true },
+        }),
+    loadVisibleContentCounts({ tenantId, bankAccountId, dates }),
   ]);
 
   const existingExternalIds = new Set(
@@ -97,7 +128,7 @@ export async function importWeb4leadsMovements(args: {
   const { toInsert, duplicateCount } = partitionInboundMovements({
     incoming: movements,
     existingExternalIds,
-    existingContentKeys: existingContent,
+    existingContentCounts,
   });
 
   const startedAt = new Date();
@@ -138,48 +169,45 @@ export async function importWeb4leadsMovements(args: {
         });
 
   const hint = pickLatestBalanceHint(movements);
-  let appliedHint = false;
-  if (hint) {
-    const protectingManual = await prisma.financeBankAccountBalance.findFirst({
-      where: {
-        tenantId,
-        bankAccountId,
-        source: "MANUAL",
-        asOfDate: { gte: new Date(hint.asOfDate) },
-      },
-      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-      select: { asOfDate: true },
+  const reported = accountBalance
+    ? {
+        asOf: accountBalance.asOf,
+        balance: accountBalance.current,
+        note: "Saldo informado por Fintoc (accountBalance)",
+      }
+    : hint
+      ? {
+          asOf: hint.asOfDate,
+          balance: hint.balance,
+          note: "Saldo informado por Web4Leads (balance del movimiento)",
+        }
+      : null;
+
+  let discrepancy: BalanceDiscrepancy | null = null;
+  let syncedBalance: number | null = null;
+
+  if (reported) {
+    const applied = await applyReportedBalance({
+      tenantId,
+      userId: null,
+      bankAccountId,
+      asOf: reported.asOf,
+      balance: reported.balance,
+      source: "CALCULATED",
+      note: reported.note,
     });
-    const apply = shouldApplyImportClosingBalance({
-      importAsOfDate: new Date(hint.asOfDate),
-      protectingManualAsOfDate: protectingManual?.asOfDate ?? null,
-    });
-    if (apply) {
-      await setBalanceSnapshot(tenantId, null, {
-        bankAccountId,
-        asOfDate: hint.asOfDate,
-        balance: hint.balance,
-        source: "CALCULATED",
-        note: "Saldo informado por Web4Leads (balance del movimiento)",
-      });
-      appliedHint = true;
+    discrepancy = applied.discrepancy;
+    if (applied.ok) {
+      syncedBalance = applied.resolvedBalanceClp;
     }
   }
 
-  let syncedBalance: number | null = null;
-  if (inserted.length > 0 && !appliedHint) {
+  if (syncedBalance == null && (inserted.length > 0 || reported)) {
     const resolved = await syncCurrentBalanceFromMovements(
       tenantId,
       bankAccountId,
     );
     syncedBalance = resolved.resolvedBalanceClp;
-  } else if (appliedHint) {
-    const acc = await prisma.financeBankAccount.findFirst({
-      where: { id: bankAccountId, tenantId },
-      select: { currentBalance: true },
-    });
-    syncedBalance =
-      acc?.currentBalance != null ? Number(acc.currentBalance) : hint!.balance;
   }
 
   await prisma.financeBankAccount.update({
@@ -195,5 +223,6 @@ export async function importWeb4leadsMovements(args: {
     duplicates: duplicateCount + (toInsert.length - inserted.length),
     insertedIds: inserted.map((r) => r.id),
     syncedBalance,
+    discrepancy,
   };
 }

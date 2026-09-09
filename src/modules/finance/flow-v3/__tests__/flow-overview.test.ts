@@ -60,7 +60,7 @@ function matrixFromAssemble(
     currentWeek: CURRENT,
     todayYmd: "2026-08-24",
     openingBalance: opening,
-    openingBalanceDetail: { totalClp: opening, perAccount: [], lastSnapshotYmd: null },
+    openingBalanceDetail: { totalClp: opening, perAccount: [], lastSnapshotYmd: null, discrepancyThresholdClp: 100_000 },
     closedWeeks: [],
     warnThreshold: 8_000_000,
     rows: assembled.rows,
