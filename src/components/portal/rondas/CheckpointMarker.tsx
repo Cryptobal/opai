@@ -499,6 +499,16 @@ export function CheckpointMarker({
         }
 
         const json = await res.json();
+        // Punto ya marcado en esta ejecución: no celebrar como éxito nuevo.
+        if (json.already_marked || json.code === "already_marked") {
+          setSubmitError(
+            json.error || "Este punto ya fue marcado en esta ronda. Escanea otro QR.",
+          );
+          setQrCode(null);
+          navigator.vibrate?.([80, 60, 80]);
+          if (needsQr) setShowQr(true);
+          return;
+        }
         if (!json.success) {
           throw new Error(json.error || "Error al registrar marcacion");
         }
@@ -574,6 +584,7 @@ export function CheckpointMarker({
     checkpoint.verificationType,
     qrCode,
     note,
+    needsQr,
     requiresGeoInRange,
     inRange,
     distanceM,

@@ -30,7 +30,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof MarcarCheckpointError) {
       if (error.code === "already_marked") {
-        return NextResponse.json({ success: true, already_marked: true }, { status: 200 });
+        return NextResponse.json(
+          {
+            success: true,
+            already_marked: true,
+            code: "already_marked",
+            error: error.message || "Checkpoint ya marcado en esta ronda",
+          },
+          { status: 200 },
+        );
       }
       return NextResponse.json(
         { success: false, error: error.message, code: error.code },
