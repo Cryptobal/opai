@@ -2,11 +2,50 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const findDraft = vi.fn();
-const deleteDte = vi.fn();
-const findRun = vi.fn();
-const issueDteMock = vi.fn();
-const rebindMock = vi.fn();
+const {
+  findDraft,
+  deleteDte,
+  findRun,
+  issueDteMock,
+  rebindMock,
+  emptyDetachTx,
+} = vi.hoisted(() => {
+  const deleteDte = vi.fn();
+  function emptyDetachTx() {
+    return {
+      financeFactoringOperation: {
+        count: vi.fn().mockResolvedValue(0),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      financePaymentAllocation: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      financePaymentRecord: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      financeReconciliationMatch: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      financeBankTransactionLink: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      financeBankTransaction: { update: vi.fn() },
+      financeCashflowOccurrence: { updateMany: vi.fn() },
+      financeDte: { delete: (...a: unknown[]) => deleteDte(...a) },
+    };
+  }
+  return {
+    findDraft: vi.fn(),
+    deleteDte,
+    findRun: vi.fn(),
+    issueDteMock: vi.fn(),
+    rebindMock: vi.fn(),
+    emptyDetachTx,
+  };
+});
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -17,6 +56,8 @@ vi.mock("@/lib/prisma", () => ({
     financeDteRecurringRun: {
       findFirst: (...a: unknown[]) => findRun(...a),
     },
+    $transaction: (cb: (tx: ReturnType<typeof emptyDetachTx>) => unknown) =>
+      cb(emptyDetachTx()),
   },
 }));
 

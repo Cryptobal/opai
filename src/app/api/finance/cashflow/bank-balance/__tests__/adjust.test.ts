@@ -20,6 +20,7 @@ const bankAccountUpdate = vi.fn();
 const balanceCreate = vi.fn();
 const balanceFindMany = vi.fn();
 const bankTxAggregate = vi.fn();
+const cashflowConfigFindUnique = vi.fn();
 
 vi.mock("server-only", () => ({}));
 
@@ -85,6 +86,9 @@ vi.mock("@/lib/prisma", () => ({
     financeBankTransaction: {
       aggregate: bankTxAggregate,
     },
+    financeCashflowConfig: {
+      findUnique: cashflowConfigFindUnique,
+    },
   },
 }));
 
@@ -105,6 +109,11 @@ beforeEach(() => {
   balanceCreate.mockReset();
   balanceFindMany.mockReset();
   bankTxAggregate.mockReset();
+  cashflowConfigFindUnique.mockReset();
+  // Umbral alto: estos tests cubren snapshots, no el gate de discrepancia.
+  cashflowConfigFindUnique.mockResolvedValue({
+    bankBalanceDiscrepancyThresholdClp: 1_000_000_000,
+  });
 
   // POST ahora llama syncCurrentBalanceFromMovements tras crear el snapshot.
   balanceFindMany.mockImplementation(async () => {
@@ -244,13 +253,13 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
       data: expect.objectContaining({
         tenantId: "tenant-A",
         bankAccountId: "11111111-1111-4111-8111-111111111111",
-        balance: 12_500_000,
         source: "MANUAL",
         note: "saldo informado por el banco",
         createdById: "user-1",
         asOfDate: expect.any(Date),
       }),
     });
+    expect(Number(balanceCreate.mock.calls[0][0].data.balance)).toBe(12_500_000);
     expect(bankAccountUpdate).toHaveBeenCalled();
     const updateData = bankAccountUpdate.mock.calls[0][0].data as {
       currentBalance: unknown;
@@ -284,8 +293,8 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
     );
 
     expect(balanceCreate).toHaveBeenCalledTimes(2);
-    expect(balanceCreate.mock.calls[0][0].data.balance).toBe(1_000_000);
-    expect(balanceCreate.mock.calls[1][0].data.balance).toBe(2_000_000);
+    expect(Number(balanceCreate.mock.calls[0][0].data.balance)).toBe(1_000_000);
+    expect(Number(balanceCreate.mock.calls[1][0].data.balance)).toBe(2_000_000);
     // El segundo update lleva el currentBalance final (Decimal de Prisma).
     const lastUpdate = bankAccountUpdate.mock.calls.at(-1)?.[0].data as {
       currentBalance: unknown;

@@ -35,21 +35,27 @@ describe("daysInStage", () => {
   });
 
   it("toma la entrada más reciente a la etapa actual tras rebotes", () => {
+    const daysAgo = (n: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() - n);
+      return d.toISOString();
+    };
     const result = daysInStage(
       deal({
         id: "d1",
         stageId: "s2",
-        createdAt: "2026-01-01T12:00:00.000Z",
+        createdAt: daysAgo(200),
         stageHistory: [
-          { toStageId: "s2", changedAt: "2026-08-01T12:00:00.000Z" },
-          { toStageId: "s3", changedAt: "2026-07-15T12:00:00.000Z" },
-          { toStageId: "s2", changedAt: "2026-06-01T12:00:00.000Z" },
+          { toStageId: "s2", changedAt: daysAgo(10) },
+          { toStageId: "s3", changedAt: daysAgo(40) },
+          { toStageId: "s2", changedAt: daysAgo(80) },
         ],
       }),
     );
     expect(result.source).toBe("stage_history");
     // history ya viene orderBy changedAt desc → primera match es la más reciente
-    expect(result.days).toBeLessThan(40);
+    expect(result.days).toBeGreaterThanOrEqual(9);
+    expect(result.days).toBeLessThan(12);
   });
 });
 

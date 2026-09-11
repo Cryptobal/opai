@@ -96,7 +96,28 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[Finance/Billing/Drafts] Delete error:", error);
+    const prismaCode =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "";
     const message = error instanceof Error ? error.message : "Error al eliminar borrador";
+    if (
+      prismaCode === "P2003" ||
+      message.includes("Foreign key") ||
+      message.includes("factoring") ||
+      message.includes("pagos u otros documentos")
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            prismaCode === "P2003" || message.includes("Foreign key")
+              ? "No se puede eliminar el borrador: tiene pagos u otros documentos asociados. Desconcilia el movimiento en Banca e inténtalo de nuevo."
+              : message,
+        },
+        { status: 409 },
+      );
+    }
     const status = message.includes("no encontrado") ? 404 : 500;
     return NextResponse.json({ success: false, error: message }, { status });
   }

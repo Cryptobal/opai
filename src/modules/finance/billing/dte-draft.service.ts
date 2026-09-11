@@ -477,6 +477,121 @@ export async function updateDraftDte(
   });
 }
 
+const DRAFT_DELETE_FK_ERROR =
+  "No se puede eliminar el borrador: tiene pagos u otros documentos asociados. Desconcilia el movimiento en Banca e inténtalo de nuevo.";
+
+function throwIfDraftDeleteFk(err: unknown): never {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
+    throw new Error(DRAFT_DELETE_FK_ERROR);
+  }
+  throw err;
+}
+
+/**
+ * Quita relaciones con ON DELETE RESTRICT que impiden borrar un FinanceDte
+ * en siiStatus=DRAFT.
+ *
+ * Banca no ofrece borradores para conciliar (`siiStatus=DRAFT` / folio 0),
+ * pero hay filas históricas y paths legacy (pago manual, auto-match viejo)
+ * que dejan `FinancePaymentAllocation` apuntando al draft. Sin este detach,
+ * `financeDte.delete` explota con P2003 `finance_payment_allocations_dte_id_fkey`
+ * y el toast muestra el error crudo de Prisma.
+ *
+ * Factoring también es RESTRICT: no se borra en silencio.
+ */
+async function detachDraftRestrictRelations(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  draftId: string,
+  opts?: { rebindFactoringToId?: string },
+): Promise<void> {
+  const factoringCount = await tx.financeFactoringOperation.count({
+    where: { tenantId, dteId: draftId },
+  });
+  if (factoringCount > 0) {
+    if (!opts?.rebindFactoringToId) {
+      throw new Error(
+        "No se puede eliminar el borrador: está asociado a una operación de factoring",
+      );
+    }
+    await tx.financeFactoringOperation.updateMany({
+      where: { tenantId, dteId: draftId },
+      data: { dteId: opts.rebindFactoringToId },
+    });
+  }
+
+  const allocations = await tx.financePaymentAllocation.findMany({
+    where: { dteId: draftId },
+    select: { id: true, paymentId: true },
+  });
+
+  const bankTxIds = new Set<string>();
+
+  if (allocations.length > 0) {
+    console.info(
+      `[dte-draft] desvinculando ${allocations.length} allocation(s) de pago del borrador ${draftId}`,
+    );
+    await tx.financePaymentAllocation.deleteMany({
+      where: { id: { in: allocations.map((a) => a.id) } },
+    });
+
+    const paymentIds = [...new Set(allocations.map((a) => a.paymentId))];
+    const orphanIds: string[] = [];
+    for (const paymentId of paymentIds) {
+      const remaining = await tx.financePaymentAllocation.count({
+        where: { paymentId },
+      });
+      if (remaining === 0) orphanIds.push(paymentId);
+    }
+
+    if (orphanIds.length > 0) {
+      const orphans = await tx.financePaymentRecord.findMany({
+        where: { id: { in: orphanIds } },
+        select: { bankTransactionId: true },
+      });
+      for (const p of orphans) {
+        if (p.bankTransactionId) bankTxIds.add(p.bankTransactionId);
+      }
+      await tx.financeReconciliationMatch.updateMany({
+        where: { paymentRecordId: { in: orphanIds } },
+        data: { paymentRecordId: null },
+      });
+      await tx.financePaymentRecord.deleteMany({
+        where: { id: { in: orphanIds } },
+      });
+    }
+  }
+
+  const bankLinks = await tx.financeBankTransactionLink.findMany({
+    where: { tenantId, targetType: "DTE_ISSUED", targetId: draftId },
+    select: { bankTransactionId: true },
+  });
+  for (const l of bankLinks) bankTxIds.add(l.bankTransactionId);
+  await tx.financeBankTransactionLink.deleteMany({
+    where: { tenantId, targetType: "DTE_ISSUED", targetId: draftId },
+  });
+  for (const bankTxId of bankTxIds) {
+    const remainingLinks = await tx.financeBankTransactionLink.count({
+      where: { tenantId, bankTransactionId: bankTxId },
+    });
+    if (remainingLinks === 0) {
+      await tx.financeBankTransaction.update({
+        where: { id: bankTxId },
+        data: { reconciliationStatus: "UNMATCHED" },
+      });
+      await tx.financeCashflowOccurrence.updateMany({
+        where: { tenantId, bankTransactionId: bankTxId },
+        data: {
+          bankTransactionId: null,
+          matchedAt: null,
+          matchedBy: null,
+          status: "PROJECTED",
+        },
+      });
+    }
+  }
+}
+
 export async function deleteDraftDte(tenantId: string, draftId: string) {
   const existing = await prisma.financeDte.findFirst({
     where: { id: draftId, tenantId, siiStatus: "DRAFT" },
@@ -485,13 +600,15 @@ export async function deleteDraftDte(tenantId: string, draftId: string) {
   if (!existing) throw new Error("Borrador no encontrado o ya emitido");
 
   await prisma.$transaction(async (tx) => {
-    // 1. Localizar runs asociados al draft.
+    await detachDraftRestrictRelations(tx, tenantId, draftId);
+
+    // Localizar runs asociados al draft.
     const runs = await tx.financeDteRecurringRun.findMany({
       where: { tenantId, dteId: draftId },
       select: { id: true },
     });
 
-    // 2. Limpiar autoSendIssues y anotar la eliminación en `error` para auditoría.
+    // Limpiar autoSendIssues y anotar la eliminación en `error` para auditoría.
     if (runs.length > 0) {
       await tx.financeDteRecurringRun.updateMany({
         where: { id: { in: runs.map((r) => r.id) } },
@@ -502,8 +619,12 @@ export async function deleteDraftDte(tenantId: string, draftId: string) {
       });
     }
 
-    // 3. Eliminar el draft. El `dteId` del run queda null por SetNull (definido en schema).
-    await tx.financeDte.delete({ where: { id: draftId } });
+    // El `dteId` del run queda null por SetNull (definido en schema).
+    try {
+      await tx.financeDte.delete({ where: { id: draftId } });
+    } catch (err) {
+      throwIfDraftDeleteFk(err);
+    }
   });
 }
 
@@ -650,7 +771,18 @@ export async function issueDraftDte(
 
   // Borrar el borrador solo tras éxito de issueDte. Si falla arriba, el
   // throw burbujea y el borrador queda intacto para corrección manual.
-  await prisma.financeDte.delete({ where: { id: draftId } });
+  // Mismo detach que deleteDraftDte: un cobro mal asignado al draft
+  // no puede bloquear la emisión (P2003 en payment_allocations).
+  await prisma.$transaction(async (tx) => {
+    await detachDraftRestrictRelations(tx, tenantId, draftId, {
+      rebindFactoringToId: issued.id,
+    });
+    try {
+      await tx.financeDte.delete({ where: { id: draftId } });
+    } catch (err) {
+      throwIfDraftDeleteFk(err);
+    }
+  });
   return issued;
 }
 
