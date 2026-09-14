@@ -1,17 +1,16 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 
-/**
- * Resuelve accountPlanId desde las cuentas del renglón.
- * Precedencia: override → isPrimary del renglón → categoría legacy (espejo).
- */
-export async function resolveAccountPlanIdForFlowRow(
-  tenantId: string,
-  row: { id?: string; categoryId: string | null },
-  overrideAccountPlanId?: string | null,
-): Promise<string | null> {
-  if (overrideAccountPlanId) return overrideAccountPlanId;
+type FlowRowAccountRef = {
+  id?: string;
+  categoryId: string | null;
+  parentId?: string | null;
+};
 
+async function resolveOwnAccountPlanId(
+  tenantId: string,
+  row: FlowRowAccountRef,
+): Promise<string | null> {
   if (row.id) {
     const primary = await prisma.financeFlowRowAccount.findFirst({
       where: { tenantId, rowId: row.id, isPrimary: true },
@@ -41,4 +40,28 @@ export async function resolveAccountPlanIdForFlowRow(
     },
   });
   return cat?.accountMappings[0]?.accountPlanId ?? cat?.accountPlanId ?? null;
+}
+
+/**
+ * Resuelve accountPlanId desde las cuentas del renglón.
+ * Precedencia: override → isPrimary del renglón → categoría legacy (espejo)
+ * → cuentas de la categoría padre (las subfilas no tienen cuentas propias).
+ */
+export async function resolveAccountPlanIdForFlowRow(
+  tenantId: string,
+  row: FlowRowAccountRef,
+  overrideAccountPlanId?: string | null,
+): Promise<string | null> {
+  if (overrideAccountPlanId) return overrideAccountPlanId;
+
+  const own = await resolveOwnAccountPlanId(tenantId, row);
+  if (own) return own;
+  if (!row.parentId) return null;
+
+  const parent = await prisma.financeFlowRow.findFirst({
+    where: { id: row.parentId, tenantId, archivedAt: null },
+    select: { id: true, categoryId: true },
+  });
+  if (!parent) return null;
+  return resolveOwnAccountPlanId(tenantId, parent);
 }

@@ -623,6 +623,7 @@ export async function runHistoricalForRule(
               targetId: null,
               amount: new Decimal(amountAbs),
               accountPlanId: resolved.accountPlanId,
+              flowRowId: resolved.flowRowId,
               note: `Auto-aplicado al crear/editar regla: ${evaluation.ruleName}`,
               matchSource: "RULE",
               matchedByRuleId: evaluation.ruleId,
@@ -858,4 +859,135 @@ export async function upsertFlowRowRuleForDescription(input: {
     "[Finance/Banking/Rules] upsertFlowRowRuleForDescription: created 1 rule",
   );
   return { ruleId: created.id, created: true };
+}
+
+export interface FlowRowMatchRuleDto {
+  rut: string | null;
+  description: string | null;
+}
+
+function isOwnedFlowRowAction(action: unknown, flowRowId: string): action is FlowRowRuleAction {
+  return isFlowRowAction(action as RuleAction)
+    && (action as FlowRowRuleAction).flowRowId === flowRowId;
+}
+
+function conditionField(stored: unknown): string | null {
+  const c = stored as RuleConditions;
+  if (c?.mode !== "ALL" || !Array.isArray(c.items) || c.items.length !== 1) {
+    return null;
+  }
+  return c.items[0]?.field ?? null;
+}
+
+/** Extrae RUT/glosa de las reglas FLOW_ROW que apuntan a esta fila. */
+export function matchRuleFromOwnedRules(
+  rules: Array<{ action: unknown; conditions: unknown }>,
+  flowRowId: string,
+): FlowRowMatchRuleDto {
+  let rut: string | null = null;
+  let description: string | null = null;
+  for (const r of rules) {
+    if (!isOwnedFlowRowAction(r.action, flowRowId)) continue;
+    const field = conditionField(r.conditions);
+    const item = (r.conditions as RuleConditions).items[0];
+    if (field === "BENEFICIARY_RUT" && item.operator === "RUT_MATCHES") {
+      const raw = Array.isArray(item.value) ? item.value[0] : item.value;
+      const n = normalizeRutForMatch(String(raw ?? ""));
+      rut = n || null;
+    } else if (field === "DESCRIPTION" && item.operator === "CONTAINS") {
+      const needle = String(item.value ?? "").trim();
+      description = needle || null;
+    }
+  }
+  return { rut, description };
+}
+
+export async function getMatchRuleForFlowRow(
+  tenantId: string,
+  flowRowId: string,
+): Promise<FlowRowMatchRuleDto> {
+  const rules = await prisma.financeAutoMatchRule.findMany({
+    where: { tenantId },
+    select: { action: true, conditions: true },
+  });
+  return matchRuleFromOwnedRules(rules, flowRowId);
+}
+
+const SUBROW_HISTORICAL_MAX_SCAN = 1_500;
+
+/**
+ * Crea/actualiza/borra las reglas RUT y glosa de una subfila.
+ * Si ambos campos vienen vacíos, elimina las reglas propias de la fila.
+ */
+export async function syncFlowRowMatchRules(input: {
+  tenantId: string;
+  flowRowId: string;
+  rowName: string;
+  rut?: string;
+  description?: string;
+  userId: string | null;
+}): Promise<{ ruleIds: string[] }> {
+  const rutRaw = input.rut?.trim() || "";
+  const description = input.description?.trim() || "";
+
+  const owned = await prisma.financeAutoMatchRule.findMany({
+    where: { tenantId: input.tenantId },
+    select: { id: true, action: true, conditions: true },
+  });
+  const ownedRutIds = owned
+    .filter((r) =>
+      isOwnedFlowRowAction(r.action, input.flowRowId)
+      && conditionField(r.conditions) === "BENEFICIARY_RUT",
+    )
+    .map((r) => r.id);
+  const ownedGlosaIds = owned
+    .filter((r) =>
+      isOwnedFlowRowAction(r.action, input.flowRowId)
+      && conditionField(r.conditions) === "DESCRIPTION",
+    )
+    .map((r) => r.id);
+
+  const ruleIds: string[] = [];
+
+  if (rutRaw) {
+    const { ruleId } = await upsertFlowRowRuleForRut({
+      tenantId: input.tenantId,
+      rut: rutRaw,
+      flowRowId: input.flowRowId,
+      rowName: input.rowName,
+      userId: input.userId,
+    });
+    ruleIds.push(ruleId);
+    for (const id of ownedRutIds) {
+      if (id !== ruleId) await deleteRule(input.tenantId, id);
+    }
+  } else {
+    for (const id of ownedRutIds) await deleteRule(input.tenantId, id);
+  }
+
+  if (description.length >= MERCHANT_NEEDLE_MIN_LEN) {
+    const { ruleId } = await upsertFlowRowRuleForDescription({
+      tenantId: input.tenantId,
+      needle: description,
+      flowRowId: input.flowRowId,
+      rowName: input.rowName,
+      appliesTo: "WITHDRAWALS",
+      userId: input.userId,
+    });
+    ruleIds.push(ruleId);
+    for (const id of ownedGlosaIds) {
+      if (id !== ruleId) await deleteRule(input.tenantId, id);
+    }
+  } else {
+    for (const id of ownedGlosaIds) await deleteRule(input.tenantId, id);
+  }
+
+  const actor = input.userId || "system";
+  for (const ruleId of ruleIds) {
+    await runHistoricalForRule(input.tenantId, actor, ruleId, {
+      maxScan: SUBROW_HISTORICAL_MAX_SCAN,
+    });
+  }
+
+  return { ruleIds };
 }

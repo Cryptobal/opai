@@ -32,6 +32,7 @@ describe("resolveRuleAction", () => {
       ok: true,
       accountPlanId: "ap-1",
       requiresReview: false,
+      flowRowId: null,
     });
   });
 
@@ -59,6 +60,7 @@ describe("resolveRuleAction", () => {
       ok: true,
       accountPlanId: "ap-9",
       requiresReview: false,
+      flowRowId: "row-1",
     });
   });
 
@@ -104,6 +106,31 @@ describe("resolveRuleAction", () => {
       ok: true,
       accountPlanId: "ap-1",
       requiresReview: true,
+      flowRowId: "row-1",
+    });
+  });
+
+  it("FLOW_ROW de subfila persiste flowRowId del hijo (cuenta puede ser del padre)", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "child-1",
+      categoryId: null,
+      parentId: "parent-1",
+    });
+    asMock(resolveAccountPlanIdForFlowRow).mockResolvedValue("ap-parent");
+    const out = await resolveRuleAction(TENANT, {
+      kind: "FLOW_ROW",
+      flowRowId: "child-1",
+      requiresReview: false,
+    });
+    expect(resolveAccountPlanIdForFlowRow).toHaveBeenCalledWith(
+      TENANT,
+      expect.objectContaining({ id: "child-1", parentId: "parent-1" }),
+    );
+    expect(out).toEqual({
+      ok: true,
+      accountPlanId: "ap-parent",
+      requiresReview: false,
+      flowRowId: "child-1",
     });
   });
 });

@@ -14,6 +14,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { prisma } from "@/lib/prisma";
 import {
+  matchRuleFromOwnedRules,
   upsertFlowRowRuleForDescription,
   upsertFlowRowRuleForRut,
 } from "../automatch-rule.service";
@@ -164,5 +165,41 @@ describe("upsertFlowRowRuleForDescription", () => {
         userId: null,
       }),
     ).rejects.toThrow(/genérico/);
+  });
+});
+
+describe("matchRuleFromOwnedRules", () => {
+  it("lee RUT y glosa de las reglas FLOW_ROW de la fila", () => {
+    const out = matchRuleFromOwnedRules(
+      [
+        {
+          action: { kind: "FLOW_ROW", flowRowId: "row-1", requiresReview: false },
+          conditions: {
+            mode: "ALL",
+            items: [{ field: "BENEFICIARY_RUT", operator: "RUT_MATCHES", value: "123456785" }],
+          },
+        },
+        {
+          action: { kind: "FLOW_ROW", flowRowId: "row-1", requiresReview: false },
+          conditions: {
+            mode: "ALL",
+            items: [{ field: "DESCRIPTION", operator: "CONTAINS", value: "CONTADOR SPA" }],
+          },
+        },
+        {
+          action: { kind: "FLOW_ROW", flowRowId: "row-other", requiresReview: false },
+          conditions: {
+            mode: "ALL",
+            items: [{ field: "DESCRIPTION", operator: "CONTAINS", value: "OTRA" }],
+          },
+        },
+      ],
+      "row-1",
+    );
+    expect(out).toEqual({ rut: "123456785", description: "CONTADOR SPA" });
+  });
+
+  it("devuelve nulls si la fila no tiene reglas", () => {
+    expect(matchRuleFromOwnedRules([], "row-1")).toEqual({ rut: null, description: null });
   });
 });

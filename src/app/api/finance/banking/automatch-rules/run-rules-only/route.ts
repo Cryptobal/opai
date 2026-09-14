@@ -129,6 +129,7 @@ export async function POST(request: NextRequest) {
                 targetId: null,
                 amount: new Decimal(amountAbs),
                 accountPlanId: resolved.accountPlanId,
+                flowRowId: resolved.flowRowId,
                 note: `Re-evaluación de regla: ${evaluation.ruleName}`,
                 matchSource: "RULE",
                 matchedByRuleId: evaluation.ruleId,
