@@ -10,9 +10,50 @@ import {
   computeTeHistoricalWeekly,
   computeTePctPayrollWeekly,
   payWeekForMonthDay,
+  resolvePayrollBaseForMonth,
   resolveRetiroPctFraction,
   teHistoricalAmountSamples,
 } from "../derive-committed-expense-params";
+
+describe("resolvePayrollBaseForMonth — mapas por vigencia vs total plano", () => {
+  const payroll = {
+    liquidoTotal: 1_000_000,
+    previRedTotal: 250_000,
+    quincenaOperativo: 100_000,
+    liquidoByMonth: new Map([["2026-09", 366_667], ["2026-10", 1_000_000]]),
+    previRedByMonth: new Map([["2026-10", 91_667]]),
+    quincenaOperativoByMonth: new Map([["2026-09", 36_667]]),
+  };
+
+  it("el mes prorrateado manda sobre el total (no se pisa el prorrateo)", () => {
+    const r = resolvePayrollBaseForMonth(payroll, "2026-09");
+    expect(r.liquido).toBe(366_667);
+    expect(r.quincenaOp).toBe(36_667);
+    // Previred de septiembre no está en el mapa → total.
+    expect(r.previRed).toBe(250_000);
+  });
+
+  it("mes ausente en los mapas → total plano", () => {
+    const r = resolvePayrollBaseForMonth(payroll, "2026-12");
+    expect(r).toEqual({ liquido: 1_000_000, previRed: 250_000, quincenaOp: 100_000 });
+  });
+
+  it("sin mapas → comportamiento histórico", () => {
+    const r = resolvePayrollBaseForMonth(
+      { liquidoTotal: 500, previRedTotal: 100 },
+      "2026-09",
+    );
+    expect(r).toEqual({ liquido: 500, previRed: 100, quincenaOp: 0 });
+  });
+
+  it("mes con 0 explícito (antes del inicio) devuelve 0, no el total", () => {
+    const r = resolvePayrollBaseForMonth(
+      { liquidoTotal: 500, previRedTotal: 100, liquidoByMonth: new Map([["2026-08", 0]]) },
+      "2026-08",
+    );
+    expect(r.liquido).toBe(0);
+  });
+});
 
 describe("computeRetiroSocioClp", () => {
   it("retorna 0 si pct <= 0", () => {

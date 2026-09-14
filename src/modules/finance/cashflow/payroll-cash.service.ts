@@ -39,6 +39,24 @@ export type PayrollCashInstallation = PayrollCashBreakdown & {
   name: string | null;
 };
 
+/**
+ * Aporte de caja de UN puesto (ya multiplicado por `requiredGuards`) junto a
+ * su vigencia. Permite que el Flujo v3 proyecte el costo mes a mes respetando
+ * la fecha de inicio/término del servicio en vez de repetir una foto plana.
+ * Montos sin redondear: el consumidor agrega y redondea por mes.
+ */
+export interface PayrollCashSegment {
+  puestoId: string;
+  installationId: string;
+  installationName: string | null;
+  liquido: number;
+  previred: number;
+  impuestoUnico: number;
+  /** Vigencia del puesto (YYYY-MM-DD); null = sin límite. */
+  activeFromYmd: string | null;
+  activeUntilYmd: string | null;
+}
+
 type SalaryStructureRow = {
   id: string;
   baseSalary: unknown;
@@ -63,9 +81,18 @@ type PuestoRow = {
   id: string;
   installationId: string;
   requiredGuards: number | null;
+  activeFrom?: Date | null;
+  activeUntil?: Date | null;
   installation: { id: string; name: string | null } | null;
   salaryStructure: SalaryStructureRow | null;
 };
+
+function dateOnlyToYmd(d: Date | null | undefined): string | null {
+  if (!d) return null;
+  const t = d.getTime();
+  if (!Number.isFinite(t)) return null;
+  return d.toISOString().slice(0, 10);
+}
 
 type TenantPayrollConfig = {
   afpName: string;
@@ -168,6 +195,8 @@ function puestoSelect() {
     id: true,
     installationId: true,
     requiredGuards: true,
+    activeFrom: true,
+    activeUntil: true,
     installation: { select: { id: true, name: true } },
     salaryStructure: { select: salaryStructureSelect },
   } as const;
@@ -315,11 +344,13 @@ async function accumulatePuestos(
 ): Promise<{
   total: PayrollCashBreakdown;
   byInstallation: Map<string, PayrollCashInstallation>;
+  segments: PayrollCashSegment[];
   /** Expuesto para tests de memoización. */
   computeCalls: number;
 }> {
   const memo = new Map<string, MemoEntry | "error">();
   const byInstallation = new Map<string, PayrollCashInstallation>();
+  const segments: PayrollCashSegment[] = [];
   const total = emptyBreakdown();
   let computeCalls = 0;
 
@@ -373,6 +404,16 @@ async function accumulatePuestos(
     }
     if (!inst.name && instName) inst.name = instName;
     add(inst);
+    segments.push({
+      puestoId: p.id,
+      installationId: instId,
+      installationName: instName,
+      liquido: entry.liquido * count,
+      previred: entry.previred * count,
+      impuestoUnico: entry.impuestoUnico * count,
+      activeFromYmd: dateOnlyToYmd(p.activeFrom),
+      activeUntilYmd: dateOnlyToYmd(p.activeUntil),
+    });
   }
 
   const roundedTotal = roundBreakdown(total);
@@ -380,7 +421,7 @@ async function accumulatePuestos(
   for (const [id, b] of byInstallation) {
     roundedByInst.set(id, { ...roundBreakdown(b), name: b.name });
   }
-  return { total: roundedTotal, byInstallation: roundedByInst, computeCalls };
+  return { total: roundedTotal, byInstallation: roundedByInst, segments, computeCalls };
 }
 
 /**
@@ -389,6 +430,8 @@ async function accumulatePuestos(
 export async function computePayrollCashForTenant(tenantId: string): Promise<{
   total: PayrollCashBreakdown;
   byInstallation: Map<string, PayrollCashInstallation>;
+  /** Aporte por puesto con su vigencia (para proyección mes a mes). */
+  segments: PayrollCashSegment[];
   /** Solo para tests / diagnóstico. */
   _meta?: { computeCalls: number };
 }> {
@@ -408,7 +451,7 @@ export async function computePayrollCashForTenant(tenantId: string): Promise<{
       `[PAYROLL-CASH] Sin parámetros activos — omitiendo nómina tenant=${tenantId}:`,
       err instanceof Error ? err.message : err,
     );
-    return { total: emptyBreakdown(), byInstallation: new Map() };
+    return { total: emptyBreakdown(), byInstallation: new Map(), segments: [] };
   }
 
   const tenantCfg = await loadTenantPayrollConfig(tenantId);
@@ -429,7 +472,7 @@ export async function computePayrollCashForTenant(tenantId: string): Promise<{
   })) as unknown as PuestoRow[];
   const puestos = excludeAdminPuestos(puestosRaw, adminPuestoIds);
 
-  const { total, byInstallation, computeCalls } = await accumulatePuestos(puestos, {
+  const { total, byInstallation, segments, computeCalls } = await accumulatePuestos(puestos, {
     paramsVersionId: paramsVersion.id,
     ufValue: references.uf_clp,
     ufDate: references.uf_date,
@@ -439,7 +482,7 @@ export async function computePayrollCashForTenant(tenantId: string): Promise<{
     mutualRatePct: tenantCfg.mutualRatePct,
   });
 
-  return { total, byInstallation, _meta: { computeCalls } };
+  return { total, byInstallation, segments, _meta: { computeCalls } };
 }
 
 /**

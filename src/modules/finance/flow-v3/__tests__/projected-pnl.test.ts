@@ -225,6 +225,32 @@ describe("assembleProjectedPnl", () => {
   it("coveredPeriodKey es estable", () => {
     expect(coveredPeriodKey("tpl", "2026-07")).toBe("tpl::2026-07");
   });
+
+  it("personal por mes respeta monthlyByKey (inicio prorrateado) y cae al plano si falta el mes", () => {
+    const result = assembleProjectedPnl({
+      months: MONTHS,
+      issued: [],
+      templates: [],
+      personnel: [
+        {
+          installationId: "nueva",
+          name: "Nueva",
+          monthlyCostClp: 300,
+          monthlyByKey: new Map([
+            ["2026-06", 0],
+            ["2026-07", 110],
+          ]),
+        },
+        { installationId: "vieja", name: "Vieja", monthlyCostClp: 100 },
+      ],
+      extraShifts: [],
+      received: [],
+      gavRecurrences: [],
+    });
+    expect(result.company.personnel).toEqual([100, 210, 400]);
+    const nueva = result.installations.find((i) => i.installationId === "nueva");
+    expect(nueva?.monthly.personnel).toEqual([0, 110, 300]);
+  });
 });
 
 describe("run-rate helpers", () => {
