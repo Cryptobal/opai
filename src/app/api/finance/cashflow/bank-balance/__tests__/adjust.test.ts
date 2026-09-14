@@ -6,8 +6,10 @@
  *  - Sin `banking_manage` → 403.
  *  - Cuenta inexistente / cross-tenant → 404.
  *  - Cuenta no-CLP (UF/USD) → 400.
- *  - Happy path: crea snapshot MANUAL + actualiza currentBalance.
- *  - Historial: dos llamadas crean dos snapshots (no se actualiza el viejo).
+ *  - Happy path: registra una lectura MANUAL y NO mueve el saldo: `balance`
+ *    devuelto es el ledger (saldo inicial + movimientos) y currentBalance
+ *    queda en el ledger, no en la lectura.
+ *  - Historial: dos llamadas crean dos lecturas (no se actualiza la vieja).
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -19,8 +21,17 @@ const bankAccountFindFirst = vi.fn();
 const bankAccountUpdate = vi.fn();
 const balanceCreate = vi.fn();
 const balanceFindMany = vi.fn();
+const balanceFindFirst = vi.fn();
 const bankTxAggregate = vi.fn();
 const cashflowConfigFindUnique = vi.fn();
+
+const OPENING = {
+  id: "opening-1",
+  asOfDate: new Date("2026-01-01T00:00:00.000Z"),
+  balance: 10_000_000,
+  note: null,
+  createdAt: new Date("2026-01-02T00:00:00Z"),
+};
 
 vi.mock("server-only", () => ({}));
 
@@ -82,6 +93,7 @@ vi.mock("@/lib/prisma", () => ({
     financeBankAccountBalance: {
       create: balanceCreate,
       findMany: balanceFindMany,
+      findFirst: balanceFindFirst,
     },
     financeBankTransaction: {
       aggregate: bankTxAggregate,
@@ -108,29 +120,23 @@ beforeEach(() => {
   bankAccountUpdate.mockReset();
   balanceCreate.mockReset();
   balanceFindMany.mockReset();
+  balanceFindFirst.mockReset();
   bankTxAggregate.mockReset();
   cashflowConfigFindUnique.mockReset();
-  // Umbral alto: estos tests cubren snapshots, no el gate de discrepancia.
+  // Umbral alto: estos tests cubren lecturas, no el gate de discrepancia.
   cashflowConfigFindUnique.mockResolvedValue({
     bankBalanceDiscrepancyThresholdClp: 1_000_000_000,
   });
 
-  // POST ahora llama syncCurrentBalanceFromMovements tras crear el snapshot.
-  balanceFindMany.mockImplementation(async () => {
-    const last = balanceCreate.mock.calls.at(-1)?.[0]?.data as
-      | { balance?: number; asOfDate?: Date; source?: string }
-      | undefined;
-    if (!last) return [];
-    return [
-      {
-        balance: last.balance,
-        asOfDate: last.asOfDate,
-        source: last.source,
-        createdAt: new Date(),
-      },
-    ];
-  });
-  bankTxAggregate.mockResolvedValue({ _sum: { amount: 0 }, _count: { _all: 0 } });
+  // Ledger: OPENING 10M + Σ tx 2.5M = 12.5M, independiente de las lecturas.
+  balanceFindFirst.mockResolvedValue(OPENING);
+  balanceFindMany.mockResolvedValue([]);
+  balanceCreate.mockImplementation(async (args: { data: Record<string, unknown> }) => ({
+    id: `snap-${balanceCreate.mock.calls.length}`,
+    ...args.data,
+    createdAt: new Date(),
+  }));
+  bankTxAggregate.mockResolvedValue({ _sum: { amount: 2_500_000 }, _count: { _all: 4 } });
 
   requireAuthMock.mockResolvedValue({
     userId: "user-1",
@@ -226,13 +232,12 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
     expect(balanceCreate).not.toHaveBeenCalled();
   });
 
-  it("crea snapshot MANUAL y actualiza currentBalance (happy path)", async () => {
+  it("registra lectura MANUAL que cuadra: delta 0 y balance = ledger (happy path)", async () => {
     bankAccountFindFirst.mockResolvedValue({
       id: "11111111-1111-4111-8111-111111111111",
       currency: "CLP",
       currentBalance: 0,
     });
-    balanceCreate.mockResolvedValueOnce({ id: "snap-1" });
     bankAccountUpdate.mockResolvedValue({});
     const { POST } = await import("../adjust/route");
     const res = await POST(
@@ -247,8 +252,11 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
     expect(body.success).toBe(true);
     expect(body.data.snapshotId).toBe("snap-1");
     expect(body.data.balance).toBe(12_500_000);
+    expect(body.data.readingBalance).toBe(12_500_000);
+    expect(body.data.discrepancy.delta).toBe(0);
     expect(body.data.asOfDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
+    expect(balanceCreate).toHaveBeenCalledTimes(1);
     expect(balanceCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         tenantId: "tenant-A",
@@ -260,22 +268,19 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
       }),
     });
     expect(Number(balanceCreate.mock.calls[0][0].data.balance)).toBe(12_500_000);
-    expect(bankAccountUpdate).toHaveBeenCalled();
+    expect(Number(balanceCreate.mock.calls[0][0].data.deltaClp)).toBe(0);
     const updateData = bankAccountUpdate.mock.calls[0][0].data as {
       currentBalance: unknown;
     };
     expect(Number(updateData.currentBalance)).toBe(12_500_000);
   });
 
-  it("dos llamadas seguidas crean dos snapshots (preserva historial)", async () => {
+  it("una lectura distinta NO mueve el saldo: currentBalance sigue en el ledger y el delta se informa", async () => {
     bankAccountFindFirst.mockResolvedValue({
       id: "11111111-1111-4111-8111-111111111111",
       currency: "CLP",
       currentBalance: 0,
     });
-    balanceCreate
-      .mockResolvedValueOnce({ id: "snap-1" })
-      .mockResolvedValueOnce({ id: "snap-2" });
     bankAccountUpdate.mockResolvedValue({});
 
     const { POST } = await import("../adjust/route");
@@ -285,20 +290,23 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
         balance: 1_000_000,
       }) as Parameters<typeof POST>[0],
     );
-    await POST(
+    const res2 = await POST(
       makeRequest({
         bankAccountId: "11111111-1111-4111-8111-111111111111",
         balance: 2_000_000,
       }) as Parameters<typeof POST>[0],
     );
+    const body2 = await res2.json();
 
     expect(balanceCreate).toHaveBeenCalledTimes(2);
     expect(Number(balanceCreate.mock.calls[0][0].data.balance)).toBe(1_000_000);
     expect(Number(balanceCreate.mock.calls[1][0].data.balance)).toBe(2_000_000);
-    // El segundo update lleva el currentBalance final (Decimal de Prisma).
+    expect(balanceCreate.mock.calls.every((c) => c[0].data.source === "MANUAL")).toBe(true);
+    expect(body2.data.balance).toBe(12_500_000);
+    expect(body2.data.discrepancy.delta).toBe(2_000_000 - 12_500_000);
     const lastUpdate = bankAccountUpdate.mock.calls.at(-1)?.[0].data as {
       currentBalance: unknown;
     };
-    expect(Number(lastUpdate.currentBalance)).toBe(2_000_000);
+    expect(Number(lastUpdate.currentBalance)).toBe(12_500_000);
   });
 });

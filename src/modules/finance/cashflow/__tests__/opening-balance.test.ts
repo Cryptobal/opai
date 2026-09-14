@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeBankAccount: { findMany: vi.fn(), findFirst: vi.fn() },
-    financeBankAccountBalance: { findMany: vi.fn() },
+    financeBankAccountBalance: { findMany: vi.fn(), findFirst: vi.fn() },
     financeBankTransaction: { aggregate: vi.fn() },
   },
 }));
@@ -11,30 +11,33 @@ vi.mock("@/lib/prisma", () => ({
 import { prisma } from "@/lib/prisma";
 import { resolveOpeningBalance } from "../opening-balance.service";
 
-const findMany = prisma.financeBankAccount.findMany as unknown as ReturnType<typeof vi.fn>;
-const findAccountFirst = prisma.financeBankAccount.findFirst as unknown as ReturnType<
-  typeof vi.fn
->;
-const findSnapshots = prisma.financeBankAccountBalance.findMany as unknown as ReturnType<
-  typeof vi.fn
->;
-const aggregate = prisma.financeBankTransaction.aggregate as unknown as ReturnType<typeof vi.fn>;
+const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
+const findMany = asMock(prisma.financeBankAccount.findMany);
+const findAccountFirst = asMock(prisma.financeBankAccount.findFirst);
+const findOpening = asMock(prisma.financeBankAccountBalance.findFirst);
+const findReadings = asMock(prisma.financeBankAccountBalance.findMany);
+const aggregate = asMock(prisma.financeBankTransaction.aggregate);
 
-beforeEach(() => {
-  findMany.mockReset();
-  findAccountFirst.mockReset();
-  findSnapshots.mockReset();
-  aggregate.mockReset();
-  findSnapshots.mockResolvedValue([]);
+const opening = (asOfDate: string, balance: number) => ({
+  id: `o-${asOfDate}`,
+  asOfDate: new Date(`${asOfDate}T00:00:00.000Z`),
+  balance,
+  note: null,
+  createdAt: new Date(`${asOfDate}T12:00:00Z`),
 });
 
-describe("resolveOpeningBalance", () => {
-  it("usa currentBalance cuando no hay snapshot", async () => {
+beforeEach(() => {
+  vi.clearAllMocks();
+  findReadings.mockResolvedValue([]);
+});
+
+describe("resolveOpeningBalance (Banco hoy = libro mayor)", () => {
+  it("sin saldo inicial usa currentBalance y marca needsOpening", async () => {
     findMany.mockResolvedValueOnce([
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 1_000_000 },
     ]);
     findAccountFirst.mockResolvedValueOnce({ currentBalance: 1_000_000 });
-    findSnapshots.mockResolvedValueOnce([]);
+    findOpening.mockResolvedValueOnce(null);
 
     const r = await resolveOpeningBalance("t1");
     expect(r.totalClp).toBe(1_000_000);
@@ -42,32 +45,26 @@ describe("resolveOpeningBalance", () => {
     expect(r.perAccount[0].txDeltaClp).toBe(0);
     expect(r.perAccount[0].resolvedBalanceClp).toBe(1_000_000);
     expect(r.perAccount[0].anchorSource).toBeNull();
+    expect(r.perAccount[0].needsOpening).toBe(true);
     expect(r.perAccount[0].lastDiscrepancy).toBeNull();
+    expect(aggregate).not.toHaveBeenCalled();
   });
 
-  it("aplica delta de tx desde el snapshot", async () => {
+  it("aplica delta de tx desde el saldo inicial", async () => {
     findMany.mockResolvedValueOnce([
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 0 },
     ]);
     findAccountFirst.mockResolvedValueOnce({ currentBalance: 0 });
-    findSnapshots.mockResolvedValueOnce([
-      {
-        asOfDate: new Date("2026-05-01"),
-        balance: 500_000,
-        source: "IMPORT",
-        createdAt: new Date("2026-05-01T12:00:00Z"),
-      },
-    ]);
-    aggregate.mockResolvedValueOnce({
-      _sum: { amount: 150_000 },
-      _count: { _all: 3 },
-    });
+    findOpening.mockResolvedValueOnce(opening("2026-05-01", 500_000));
+    aggregate.mockResolvedValueOnce({ _sum: { amount: 150_000 }, _count: { _all: 3 } });
 
     const r = await resolveOpeningBalance("t1", new Date("2026-05-12"));
     expect(r.totalClp).toBe(650_000);
     expect(r.perAccount[0].txDeltaClp).toBe(150_000);
     expect(r.perAccount[0].txCount).toBe(3);
     expect(r.perAccount[0].anchorBalanceClp).toBe(500_000);
+    expect(r.perAccount[0].anchorSource).toBe("OPENING");
+    expect(r.perAccount[0].needsOpening).toBe(false);
   });
 
   it("suma múltiples cuentas", async () => {
@@ -76,14 +73,7 @@ describe("resolveOpeningBalance", () => {
       { id: "a2", bankName: "Y", accountNumber: "2", currentBalance: 0 },
     ]);
     findAccountFirst.mockResolvedValue({ currentBalance: 0 });
-    findSnapshots.mockResolvedValue([
-      {
-        asOfDate: new Date("2026-05-01"),
-        balance: 100_000,
-        source: "MANUAL",
-        createdAt: new Date("2026-05-01T12:00:00Z"),
-      },
-    ]);
+    findOpening.mockResolvedValue(opening("2026-05-01", 100_000));
     aggregate.mockResolvedValue({ _sum: { amount: 50_000 }, _count: { _all: 1 } });
 
     const r = await resolveOpeningBalance("t1");
@@ -96,7 +86,7 @@ describe("resolveOpeningBalance", () => {
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: null },
     ]);
     findAccountFirst.mockResolvedValueOnce({ currentBalance: null });
-    findSnapshots.mockResolvedValueOnce([]);
+    findOpening.mockResolvedValueOnce(null);
     const r = await resolveOpeningBalance("t1");
     expect(r.totalClp).toBe(0);
   });
@@ -106,90 +96,42 @@ describe("resolveOpeningBalance", () => {
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 0 },
     ]);
     findAccountFirst.mockResolvedValueOnce({ currentBalance: 0 });
-    findSnapshots.mockResolvedValueOnce([
-      {
-        asOfDate: new Date("2026-05-01"),
-        balance: 100_000,
-        source: "IMPORT",
-        createdAt: new Date("2026-05-01T12:00:00Z"),
-      },
-    ]);
-    aggregate.mockResolvedValueOnce({
-      _sum: { amount: null },
-      _count: { _all: 0 },
-    });
+    findOpening.mockResolvedValueOnce(opening("2026-05-01", 100_000));
+    aggregate.mockResolvedValueOnce({ _sum: { amount: null }, _count: { _all: 0 } });
     const r = await resolveOpeningBalance("t1");
     expect(r.totalClp).toBe(100_000);
     expect(r.perAccount[0].txDeltaClp).toBe(0);
     expect(r.perAccount[0].txCount).toBe(0);
   });
 
-  it("usa el snapshot más reciente como ancla (MANUAL gana en empate de fecha)", async () => {
-    findMany.mockResolvedValueOnce([
-      { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 999 },
-    ]);
-    findAccountFirst.mockResolvedValueOnce({ currentBalance: 999 });
-    findSnapshots.mockResolvedValueOnce([
-      {
-        asOfDate: new Date("2026-05-13"),
-        balance: 3_999_000,
-        source: "IMPORT",
-        createdAt: new Date("2026-05-13T18:00:00Z"),
-      },
-      {
-        asOfDate: new Date("2026-05-13"),
-        balance: 12_500_000,
-        source: "MANUAL",
-        createdAt: new Date("2026-05-13T10:00:00Z"),
-      },
-    ]);
-    aggregate.mockResolvedValueOnce({
-      _sum: { amount: null },
-      _count: { _all: 0 },
-    });
-
-    const r = await resolveOpeningBalance("t1", new Date("2026-05-13"));
-    expect(r.perAccount[0].anchorBalanceClp).toBe(12_500_000);
-    expect(r.perAccount[0].resolvedBalanceClp).toBe(12_500_000);
-    expect(r.totalClp).toBe(12_500_000);
-    expect(findSnapshots).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-      }),
-    );
-  });
-
-  it("ancla MANUAL: no suma la cartola del mismo día; sí el neto del día siguiente", async () => {
+  it("una lectura MANUAL de hoy no congela el día: se suman todos los movimientos posteriores al saldo inicial", async () => {
     findMany.mockResolvedValueOnce([
       { id: "santander", bankName: "Santander", accountNumber: "1", currentBalance: 0 },
     ]);
     findAccountFirst.mockResolvedValueOnce({ currentBalance: 0 });
-    const snapDate = new Date("2026-08-24T00:00:00.000Z");
-    findSnapshots.mockResolvedValueOnce([
-      {
-        asOfDate: snapDate,
-        balance: 24_773_797,
-        source: "MANUAL",
-        createdAt: new Date("2026-08-24T17:47:54.904Z"),
-      },
-    ]);
-    // Neto 25-ago (NTB +2.675.188 y egresos −520.000) — no Embajada del 24.
+    const openingDate = new Date("2026-08-23T00:00:00.000Z");
+    findOpening.mockResolvedValueOnce(opening("2026-08-23", 24_773_797 - 24_024_231));
+    // 24-ago: Embajada +24.024.231 (llegó después de que alguien "fijó" 24.773.797)
+    // 25-ago: NTB +2.675.188 y egresos −520.000.
     aggregate.mockResolvedValueOnce({
-      _sum: { amount: 2_155_188 },
-      _count: { _all: 7 },
+      _sum: { amount: 24_024_231 + 2_155_188 },
+      _count: { _all: 8 },
     });
 
     const r = await resolveOpeningBalance("t1", new Date("2026-08-25T16:00:00.000Z"));
     expect(r.currentTotalClp).toBe(26_928_985);
-    expect(r.perAccount[0].txDeltaClp).toBe(2_155_188);
     const where = aggregate.mock.calls[0][0].where;
     expect(where.transactionDate).toEqual({
-      gt: snapDate,
-      lte: expect.any(Date),
+      gt: openingDate,
+      lte: new Date("2026-08-25T00:00:00.000Z"),
     });
     expect(where.hiddenAt).toBeNull();
     expect(where.reconciliationStatus).toBeUndefined();
     expect(where.links).toBeUndefined();
+    // Solo se consulta el OPENING: las lecturas no participan del saldo.
+    expect(findOpening).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ source: "OPENING" }) }),
+    );
   });
 
   it("expone la última discrepancia no explicada de 90 días", async () => {
@@ -197,28 +139,16 @@ describe("resolveOpeningBalance", () => {
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 0 },
     ]);
     findAccountFirst.mockResolvedValueOnce({ currentBalance: 0 });
-    const snapDate = new Date("2026-09-09T00:00:00.000Z");
-    findSnapshots
-      .mockResolvedValueOnce([
-        {
-          asOfDate: snapDate,
-          balance: 18_646_796,
-          source: "CALCULATED",
-          createdAt: new Date("2026-09-09T12:00:00Z"),
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          asOfDate: snapDate,
-          deltaClp: 7_770_000,
-          balance: 18_646_796,
-          computedBalance: 10_876_796,
-        },
-      ]);
-    aggregate.mockResolvedValueOnce({
-      _sum: { amount: null },
-      _count: { _all: 0 },
-    });
+    findOpening.mockResolvedValueOnce(opening("2026-09-01", 10_876_796));
+    aggregate.mockResolvedValueOnce({ _sum: { amount: null }, _count: { _all: 0 } });
+    findReadings.mockResolvedValueOnce([
+      {
+        asOfDate: new Date("2026-09-09T00:00:00.000Z"),
+        deltaClp: 7_770_000,
+        balance: 18_646_796,
+        computedBalance: 10_876_796,
+      },
+    ]);
 
     const r = await resolveOpeningBalance("t1", new Date("2026-09-09T16:00:00.000Z"));
     expect(r.perAccount[0].lastDiscrepancy).toEqual({

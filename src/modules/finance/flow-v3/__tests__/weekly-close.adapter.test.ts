@@ -9,9 +9,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeCashflowConfig: { findUnique: vi.fn() },
     financeCashflowWeeklyClose: { findFirst: vi.fn(), findMany: vi.fn() },
-    financeBankAccount: { findMany: vi.fn() },
+    financeBankAccount: { findMany: vi.fn(), findFirst: vi.fn() },
     financeBankAccountBalance: { findFirst: vi.fn() },
-    financeBankTransaction: { count: vi.fn() },
+    financeBankTransaction: { count: vi.fn(), aggregate: vi.fn() },
     financeCashflowOccurrence: { count: vi.fn() },
   },
 }));
@@ -31,7 +31,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   asMock(prisma.financeCashflowConfig.findUnique).mockResolvedValue({ weekClosingDow: 5 });
   asMock(prisma.financeBankAccount.findMany).mockResolvedValue([{ id: "a1", currentBalance: 1000 }]);
+  // Cuenta sin saldo inicial: el ledger cae a currentBalance (fallback).
+  asMock(prisma.financeBankAccount.findFirst).mockResolvedValue({ currentBalance: 1000 });
   asMock(prisma.financeBankAccountBalance.findFirst).mockResolvedValue(null);
+  asMock(prisma.financeBankTransaction.aggregate).mockResolvedValue({
+    _sum: { amount: 0 },
+    _count: { _all: 0 },
+  });
   asMock(prisma.financeBankTransaction.count).mockResolvedValue(0);
   asMock(prisma.financeCashflowOccurrence.count).mockResolvedValue(0);
   asMock(prisma.financeCashflowWeeklyClose.findFirst).mockResolvedValue(null);
@@ -56,10 +62,21 @@ describe("listClosedV3Weeks — mapeo semana ISO ↔ semana de cierre v2", () =>
 });
 
 describe("getV3WeeklyCloseSnapshotLite — sin proyección", () => {
-  it("resuelve banco + counts y deja projected/variance en 0", async () => {
+  it("resuelve banco (ledger: saldo inicial + tx) + counts y deja projected/variance en 0", async () => {
     asMock(prisma.financeBankAccount.findMany).mockResolvedValue([
-      { id: "a1", currentBalance: 5_000 },
+      { id: "a1", currentBalance: 999 },
     ]);
+    asMock(prisma.financeBankAccountBalance.findFirst).mockResolvedValue({
+      id: "o",
+      asOfDate: new Date("2020-06-30T00:00:00.000Z"),
+      balance: 4_000,
+      note: null,
+      createdAt: new Date("2020-07-01T00:00:00Z"),
+    });
+    asMock(prisma.financeBankTransaction.aggregate).mockResolvedValue({
+      _sum: { amount: 1_000 },
+      _count: { _all: 2 },
+    });
     asMock(prisma.financeBankTransaction.count).mockResolvedValue(3);
     asMock(prisma.financeCashflowOccurrence.count).mockResolvedValue(2);
     // Semana pasada conocida: 2020-07-06 es lunes.
