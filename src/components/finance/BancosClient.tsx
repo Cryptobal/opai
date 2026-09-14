@@ -154,6 +154,9 @@ interface TransactionRow {
   reconciliationStatus: string;
   hiddenAt: string | null;
   hiddenReason: string | null;
+  /** Posible duplicado (misma huella que otra fila) pendiente de revisión. */
+  dupSuspectOfId?: string | null;
+  dupResolvedAt?: string | null;
   suggestedRuleId: string | null;
   suggestedRuleName: string | null;
   suggestedAccountPlanId: string | null;
@@ -1106,6 +1109,7 @@ function TransactionsTab({
     [accounts, selectedAccount],
   );
   const [recalculatingBalance, setRecalculatingBalance] = useState(false);
+  /** Saldo según banco a cuadrar: siempre parte vacío (no se prellena). */
   const [manualBalanceDigits, setManualBalanceDigits] = useState("");
   /** Último cierre de cartola (IMPORT) — informativo; no pisa el saldo actual. */
   const [lastCartolaClose, setLastCartolaClose] = useState<{
@@ -1119,9 +1123,15 @@ function TransactionsTab({
     txDeltaClp: number;
     txCount: number;
     resolvedBalanceClp: number;
+    needsOpening: boolean;
+    latestReading: { asOfDate: string; balance: number; deltaClp: number | null } | null;
+    daysWithDelta: number;
+    duplicateSuspects: number;
     lastDiscrepancy: { asOfDate: string; deltaClp: number } | null;
     discrepancyThresholdClp: number;
   } | null>(null);
+  const [balanceTraceVersion, setBalanceTraceVersion] = useState(0);
+  const [cuadraturaOpen, setCuadraturaOpen] = useState(false);
   const [manualBalanceNote, setManualBalanceNote] = useState("");
   const [savingManualBalance, setSavingManualBalance] = useState(false);
   // Diálogo "Ocultar movimiento"
@@ -1353,22 +1363,21 @@ function TransactionsTab({
         resolvedBalanceClp: number;
         txCount: number;
         anchorBalanceClp: number;
-        hiddenDuplicates?: number;
+        needsOpening?: boolean;
       };
-      toast.success(
-        `Saldo actualizado: ${fmtCLP.format(d.resolvedBalanceClp)}` +
-          (d.txCount > 0
-            ? ` (ancla ${fmtCLP.format(d.anchorBalanceClp)} + ${d.txCount} mov.)`
-            : "") +
-          (d.hiddenDuplicates
-            ? ` · ${d.hiddenDuplicates} duplicados ocultos`
-            : ""),
-      );
+      if (d.needsOpening) {
+        toast.warning(
+          "La cuenta no tiene saldo inicial: definilo en Cuadratura para que el saldo sea un libro mayor.",
+        );
+      } else {
+        toast.success(
+          `Saldo recalculado: ${fmtCLP.format(d.resolvedBalanceClp)}` +
+            ` (saldo inicial ${fmtCLP.format(d.anchorBalanceClp)} + ${d.txCount} mov.)`,
+        );
+      }
       onAccountsChanged();
-      if (
-        d.previousBalanceClp !== d.resolvedBalanceClp ||
-        (d.hiddenDuplicates ?? 0) > 0
-      ) {
+      setBalanceTraceVersion((v) => v + 1);
+      if (d.previousBalanceClp !== d.resolvedBalanceClp) {
         await loadTransactions();
       }
     } catch (error) {
@@ -1381,13 +1390,11 @@ function TransactionsTab({
   }, [selectedAccount, onAccountsChanged, loadTransactions]);
 
   useEffect(() => {
-    if (!selectedAccountRow) {
-      setManualBalanceDigits("");
-      return;
-    }
-    setManualBalanceDigits(String(Math.round(selectedAccountRow.currentBalance)));
+    // Nunca prellenar con el saldo calculado: cuadrar significa escribir lo
+    // que muestra el banco, no confirmar lo que ya dice OPAI.
+    setManualBalanceDigits("");
     setManualBalanceNote("");
-  }, [selectedAccountRow?.id, selectedAccountRow?.currentBalance]);
+  }, [selectedAccountRow?.id]);
 
   useEffect(() => {
     if (!selectedAccount) {
@@ -1415,6 +1422,17 @@ function TransactionsTab({
           });
         }
         if (json.resolved) {
+          const report = json.report as
+            | {
+                latestReading: {
+                  asOfDate: string;
+                  balance: number;
+                  deltaClp: number | null;
+                } | null;
+                daysWithDelta: unknown[];
+                duplicateSuspects: unknown[];
+              }
+            | undefined;
           setBalanceTrace({
             anchorSource: json.resolved.anchorSource ?? null,
             anchorSnapshotDate: json.resolved.anchorSnapshotDate ?? null,
@@ -1422,6 +1440,19 @@ function TransactionsTab({
             txDeltaClp: Number(json.resolved.txDeltaClp ?? 0),
             txCount: Number(json.resolved.txCount ?? 0),
             resolvedBalanceClp: Number(json.resolved.resolvedBalanceClp ?? 0),
+            needsOpening: Boolean(json.resolved.needsOpening),
+            latestReading: report?.latestReading
+              ? {
+                  asOfDate: String(report.latestReading.asOfDate).slice(0, 10),
+                  balance: Number(report.latestReading.balance),
+                  deltaClp:
+                    report.latestReading.deltaClp == null
+                      ? null
+                      : Number(report.latestReading.deltaClp),
+                }
+              : null,
+            daysWithDelta: report?.daysWithDelta?.length ?? 0,
+            duplicateSuspects: report?.duplicateSuspects?.length ?? 0,
             lastDiscrepancy: json.lastDiscrepancy
               ? {
                   asOfDate: String(json.lastDiscrepancy.asOfDate).slice(0, 10),
@@ -1444,7 +1475,7 @@ function TransactionsTab({
     return () => {
       cancelled = true;
     };
-  }, [selectedAccount, selectedAccountRow?.currentBalance]);
+  }, [selectedAccount, selectedAccountRow?.currentBalance, balanceTraceVersion]);
 
   const saveManualAccountBalance = useCallback(async () => {
     if (!selectedAccount || !manualBalanceDigits) return;
@@ -1475,26 +1506,40 @@ function TransactionsTab({
         }
         throw new Error(json?.error || "No se pudo fijar el saldo");
       }
-      const d = json.data as { balanceClp: number; previousBalanceClp: number };
-      toast.success(`Saldo fijado: ${fmtCLP.format(d.balanceClp)}`);
-      onAccountsChanged();
-      if (d.previousBalanceClp !== d.balanceClp) {
-        await loadTransactions();
+      const d = json.data as {
+        balanceClp: number;
+        readingBalanceClp: number;
+        previousBalanceClp: number;
+        needsOpening?: boolean;
+        discrepancy: { delta: number; evaluable: boolean };
+      };
+      if (d.needsOpening) {
+        toast.warning(
+          "Lectura registrada, pero la cuenta no tiene saldo inicial. Definilo en Cuadratura.",
+        );
+        setCuadraturaOpen(true);
+      } else if (Math.abs(d.discrepancy.delta) < 1) {
+        toast.success(
+          `Cuadra con el banco: ${fmtCLP.format(d.balanceClp)} en OPAI y en el banco.`,
+        );
+      } else {
+        toast.warning(
+          `Diferencia de ${fmtCLP.format(d.discrepancy.delta)}: banco ${fmtCLP.format(d.readingBalanceClp)} vs OPAI ${fmtCLP.format(d.balanceClp)}. Revisá Cuadratura: falta o sobra un movimiento.`,
+        );
+        setCuadraturaOpen(true);
       }
+      setManualBalanceDigits("");
+      setManualBalanceNote("");
+      setBalanceTraceVersion((v) => v + 1);
+      onAccountsChanged();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Error al fijar saldo",
+        error instanceof Error ? error.message : "Error al registrar la lectura",
       );
     } finally {
       setSavingManualBalance(false);
     }
-  }, [
-    selectedAccount,
-    manualBalanceDigits,
-    manualBalanceNote,
-    onAccountsChanged,
-    loadTransactions,
-  ]);
+  }, [selectedAccount, manualBalanceDigits, manualBalanceNote, onAccountsChanged]);
 
   // Resetea a la página 1 cuando cambian filtros (cuenta, fechas, búsqueda, orden, visibilidad o sub-tab)
   useEffect(() => {
@@ -2116,6 +2161,18 @@ function TransactionsTab({
               </Badge>
             );
           }
+          if (row.dupSuspectOfId && !row.dupResolvedAt) {
+            return (
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <Tag variant="warn" size="sm">
+                  Posible duplicado
+                </Tag>
+                <span className="text-[12px] text-ds-text-3">
+                  Resolver en Cuadratura
+                </span>
+              </div>
+            );
+          }
           if (
             row.suggestedAccountPlanId &&
             row.reconciliationStatus === "UNMATCHED"
@@ -2299,6 +2356,8 @@ function TransactionsTab({
       (balanceTrace?.discrepancyThresholdClp ??
         DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP) &&
     !manualBalanceNote.trim();
+  const ledgerIssues =
+    (balanceTrace?.daysWithDelta ?? 0) + (balanceTrace?.duplicateSuspects ?? 0);
 
   return (
     <div className="space-y-4 pb-24">
@@ -2312,18 +2371,20 @@ function TransactionsTab({
               <p className="font-display text-lg font-semibold tabular-nums">
                 {fmtCLP.format(selectedAccountRow.currentBalance)}
               </p>
-              {balanceTrace ? (
+              {balanceTrace?.needsOpening ? (
                 <div className="mt-1 space-y-1">
-                  <p
-                    className={`text-[12px] ${
-                      balanceTrace.lastDiscrepancy &&
-                      Math.abs(balanceTrace.lastDiscrepancy.deltaClp) >=
-                        balanceTrace.discrepancyThresholdClp
-                        ? "text-status-warn-fg"
-                        : "text-ds-text-3"
-                    }`}
-                  >
-                    Ancla {bankBalanceSourceLabel(balanceTrace.anchorSource)}{" "}
+                  <Tag variant="warn" size="md">
+                    Sin saldo inicial: este número no es un libro mayor
+                  </Tag>
+                  <p className="text-[12px] text-ds-text-3">
+                    Definí el saldo de cierre de un día ya terminado en Cuadratura y
+                    el saldo pasará a ser saldo inicial + cada ingreso y egreso.
+                  </p>
+                </div>
+              ) : balanceTrace ? (
+                <div className="mt-1 space-y-1">
+                  <p className="text-[12px] text-ds-text-3">
+                    Saldo inicial{" "}
                     {balanceTrace.anchorSnapshotDate
                       ? format(
                           new Date(`${balanceTrace.anchorSnapshotDate}T12:00:00`),
@@ -2331,28 +2392,29 @@ function TransactionsTab({
                         )
                       : "—"}{" "}
                     {fmtCLP.format(balanceTrace.anchorBalanceClp)} +{" "}
-                    {balanceTrace.txCount} movimientos (
+                    {balanceTrace.txCount} mov. (
                     {fmtCLP.format(balanceTrace.txDeltaClp)}) ={" "}
                     {fmtCLP.format(balanceTrace.resolvedBalanceClp)}
                   </p>
-                  {balanceTrace.lastDiscrepancy && (
+                  {balanceTrace.latestReading && (
                     <Tag
                       variant={
-                        Math.abs(balanceTrace.lastDiscrepancy.deltaClp) >=
-                        balanceTrace.discrepancyThresholdClp
+                        balanceTrace.latestReading.deltaClp != null &&
+                        Math.abs(balanceTrace.latestReading.deltaClp) >= 1
                           ? "warn"
-                          : "neutral"
+                          : "ok"
                       }
                       size="md"
                     >
-                      Última diferencia no explicada:{" "}
-                      {fmtCLP.format(balanceTrace.lastDiscrepancy.deltaClp)} el{" "}
-                      {format(
-                        new Date(
-                          `${balanceTrace.lastDiscrepancy.asOfDate}T12:00:00`,
-                        ),
-                        "dd-MM-yyyy",
-                      )}
+                      Banco {format(
+                        new Date(`${balanceTrace.latestReading.asOfDate}T12:00:00`),
+                        "dd-MM",
+                      )}{" "}
+                      {fmtCLP.format(balanceTrace.latestReading.balance)}
+                      {balanceTrace.latestReading.deltaClp != null &&
+                      Math.abs(balanceTrace.latestReading.deltaClp) >= 1
+                        ? ` · diferencia ${fmtCLP.format(balanceTrace.latestReading.deltaClp)}`
+                        : " · cuadra"}
                     </Tag>
                   )}
                 </div>
@@ -2362,49 +2424,58 @@ function TransactionsTab({
                   {format(new Date(`${lastCartolaClose.asOfDate}T12:00:00`), "dd-MM-yyyy")}
                   {" · "}
                   Saldo cierre: {fmtCLP.format(lastCartolaClose.balance)}
-                  {Math.abs(lastCartolaClose.balance - selectedAccountRow.currentBalance) > 1 && (
-                    <span className="text-status-warn-fg">
-                      {" "}
-                      (informativo — no reemplaza el saldo actual)
-                    </span>
-                  )}
                 </p>
               ) : (
                 <p className="text-[12px] text-ds-text-3 mt-0.5">
-                  Fijá el saldo que ves hoy en el banco. Una cartola nueva no
-                  pisa un saldo manual del mismo día o más reciente.
+                  El saldo es saldo inicial + cada ingreso y egreso. Las lecturas
+                  del banco solo se comparan, nunca lo modifican.
                 </p>
               )}
             </div>
-            {canManage && (
+            <div className="flex shrink-0 gap-2 self-start">
               <Button
                 type="button"
-                variant="outline"
+                variant={ledgerIssues > 0 ? "default" : "outline"}
                 size="sm"
-                className="h-10 sm:h-9 shrink-0 self-start"
-                disabled={recalculatingBalance || !selectedAccount}
-                onClick={recalculateAccountBalance}
-                title="Oculta duplicados del mismo movimiento y recalcula el saldo desde el último snapshot"
+                className="h-10 sm:h-9"
+                disabled={!selectedAccount}
+                onClick={() => setCuadraturaOpen(true)}
+                title="Saldo inicial, lecturas del banco, días con diferencia y posibles duplicados"
               >
-                {recalculatingBalance ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
-                ) : (
-                  <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5" />
-                )}
-                Recalcular saldo
+                <Wallet className="h-3.5 w-3.5 sm:mr-1.5" />
+                Cuadratura
+                {ledgerIssues > 0 ? ` (${ledgerIssues})` : ""}
               </Button>
-            )}
+              {canManage && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 sm:h-9"
+                  disabled={recalculatingBalance || !selectedAccount}
+                  onClick={recalculateAccountBalance}
+                  title="Recalcula el saldo desde el saldo inicial y los movimientos visibles"
+                >
+                  {recalculatingBalance ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5" />
+                  )}
+                  Recalcular
+                </Button>
+              )}
+            </div>
           </div>
 
           {canManage && (
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end border-t border-ds-border-subtle pt-3">
               <div className="space-y-1.5">
-                <Label htmlFor="tx-manual-balance">Saldo actual (manual)</Label>
+                <Label htmlFor="tx-manual-balance">Saldo según banco (hoy)</Label>
                 <Input
                   id="tx-manual-balance"
                   inputMode="numeric"
                   className="h-10 sm:h-9 font-mono tabular-nums"
-                  placeholder="0"
+                  placeholder="Ej. 20.634.054"
                   value={
                     manualBalanceDigits
                       ? fmtNumber.format(Number(manualBalanceDigits))
@@ -2422,7 +2493,7 @@ function TransactionsTab({
                 <Input
                   id="tx-manual-balance-note"
                   className="h-10 sm:h-9"
-                  placeholder="Ej. según app Santander"
+                  placeholder="Ej. app Santander 11:36"
                   value={manualBalanceNote}
                   onChange={(e) => setManualBalanceNote(e.target.value)}
                 />
@@ -2438,13 +2509,14 @@ function TransactionsTab({
                   manualNoteRequired
                 }
                 onClick={saveManualAccountBalance}
+                title="Registra la lectura del banco y la compara con el saldo de OPAI. No modifica el saldo."
               >
                 {savingManualBalance ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
                 ) : (
                   <Pencil className="h-3.5 w-3.5 sm:mr-1.5" />
                 )}
-                Fijar saldo
+                Cuadrar con banco
               </Button>
               {manualLiveDelta != null && manualLiveDelta !== 0 && (
                 <p
@@ -2454,7 +2526,7 @@ function TransactionsTab({
                       : "text-ds-text-3"
                   }`}
                 >
-                  Diferencia vs calculado: {fmtCLP.format(manualLiveDelta)}
+                  Diferencia banco − OPAI: {fmtCLP.format(manualLiveDelta)}
                 </p>
               )}
             </div>
@@ -3013,6 +3085,13 @@ function TransactionsTab({
                             Motivo: {tx.hiddenReason}
                           </p>
                         )}
+                        {tx.dupSuspectOfId && !tx.dupResolvedAt && !tx.hiddenAt && (
+                          <div className="mt-1">
+                            <Tag variant="warn" size="sm">
+                              Posible duplicado · resolver en Cuadratura
+                            </Tag>
+                          </div>
+                        )}
                         {tx.suggestedAccountLabel &&
                           tx.reconciliationStatus === "UNMATCHED" && (
                             <p className="text-xs text-muted-foreground mt-1">
@@ -3501,6 +3580,22 @@ function TransactionsTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectedAccountRow && (
+        <BankBalanceSheet
+          open={cuadraturaOpen}
+          onOpenChange={setCuadraturaOpen}
+          bankAccountId={selectedAccountRow.id}
+          bankAccountLabel={`${selectedAccountRow.bankName} - ${selectedAccountRow.accountNumber}`}
+          canManage={canManage}
+          currentBalance={selectedAccountRow.currentBalance}
+          onChanged={() => {
+            onAccountsChanged();
+            setBalanceTraceVersion((v) => v + 1);
+            loadTransactions();
+          }}
+        />
+      )}
     </div>
   );
 }

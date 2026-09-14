@@ -42,8 +42,10 @@ function parseClpDigits(raw: string): number | null {
 
 /**
  * Desglose del saldo bancario de hoy (§5H) +, si `canManage`, formulario para
- * anclar el saldo real mid-week (snapshot MANUAL). El motor de la planilla
- * usa banco hoy + pendientes de la semana para el saldo de fin de semana.
+ * registrar la lectura del banco (saldo real que muestra la app). La lectura
+ * se cuadra contra el ledger (saldo inicial + movimientos) y NO lo modifica:
+ * "Banco hoy" solo cambia con movimientos. El motor de la planilla usa banco
+ * hoy + pendientes de la semana para el saldo de fin de semana.
  */
 export function BankBalancePopover({
   open,
@@ -88,8 +90,8 @@ export function BankBalancePopover({
         setAccounts(list);
         const first = list[0] ?? null;
         setSelectedId(first?.bankAccountId ?? null);
-        const seed = first ? Math.round(first.currentBalance) : Math.round(detail.totalClp);
-        setDraft(seed === 0 ? "" : formatThousands(String(Math.abs(seed))));
+        // Nunca prellenar con el saldo de OPAI: la lectura es lo que dice el banco.
+        setDraft("");
       })
       .catch((err) => {
         if (cancelled) return;
@@ -134,12 +136,29 @@ export function BankBalancePopover({
       if (!res.ok || !j?.success) {
         const err = j?.error === "note_required"
           ? "La diferencia supera el umbral: agregá una nota"
-          : j?.error || "No se pudo guardar el saldo";
+          : j?.error || "No se pudo registrar la lectura";
         throw new Error(err);
       }
-      toast.success("Saldo banco actualizado", {
-        description: "La planilla recalcula con banco hoy + pendientes de la semana.",
-      });
+      const d = j.data as {
+        balance: number;
+        readingBalance: number;
+        needsOpening?: boolean;
+        discrepancy?: { delta: number; evaluable: boolean };
+      };
+      const deltaClp = d.discrepancy?.delta ?? 0;
+      if (d.needsOpening || d.discrepancy?.evaluable === false) {
+        toast.warning("Lectura registrada", {
+          description: "La cuenta no tiene saldo inicial: definilo en Bancos → Cuadratura.",
+        });
+      } else if (Math.abs(deltaClp) < 1) {
+        toast.success("Cuadra con el banco", {
+          description: `Banco hoy ${fmtClp(d.balance)} coincide con la lectura.`,
+        });
+      } else {
+        toast.warning(`Diferencia ${fmtClp(deltaClp)} con el banco`, {
+          description: "Banco hoy no cambia: falta o sobra un movimiento. Revisá Bancos → Cuadratura.",
+        });
+      }
       await onSaved?.();
       onOpenChange(false);
     } catch (err) {
@@ -155,11 +174,11 @@ export function BankBalancePopover({
         <DialogHeader className="space-y-1 border-b border-ds-border-subtle px-5 py-4 text-left">
           <DialogTitle className="flex items-center gap-2 text-base text-ds-text-1">
             <Landmark className="h-4 w-4 text-ds-text-3" aria-hidden />
-            {canManage ? "Actualizar saldo banco" : "Saldo del banco hoy"}
+            {canManage ? "Cuadrar saldo banco" : "Saldo del banco hoy"}
           </DialogTitle>
           <DialogDescription className="text-[12px] text-ds-text-3">
             {canManage
-              ? `Punto en el tiempo · ${todayLabel} · no cierra la semana`
+              ? `Lectura del banco · ${todayLabel} · no modifica el saldo ni cierra la semana`
               : "Desglose por cuenta (solo lectura)"}
           </DialogDescription>
         </DialogHeader>
@@ -192,13 +211,19 @@ export function BankBalancePopover({
                         {fmtClp(a.balanceClp)}
                       </p>
                     </div>
-                    <p
-                      className={`text-[12px] ${stale ? "text-status-warn-fg" : "text-ds-text-4"}`}
-                    >
-                      Ancla {bankBalanceSourceLabel(a.anchorSource)}{" "}
-                      {a.lastSnapshotYmd ? fmtShortDate(a.lastSnapshotYmd) : "—"}{" "}
-                      {fmtClp(a.anchorBalanceClp)} + {a.txCount} mov. ({fmtClp(a.txDeltaClp)})
-                    </p>
+                    {a.needsOpening ? (
+                      <Tag variant="warn" size="md">
+                        Sin saldo inicial: definir en Bancos → Cuadratura
+                      </Tag>
+                    ) : (
+                      <p
+                        className={`text-[12px] ${stale ? "text-status-warn-fg" : "text-ds-text-4"}`}
+                      >
+                        {bankBalanceSourceLabel(a.anchorSource)}{" "}
+                        {a.lastSnapshotYmd ? fmtShortDate(a.lastSnapshotYmd) : "—"}{" "}
+                        {fmtClp(a.anchorBalanceClp)} + {a.txCount} mov. ({fmtClp(a.txDeltaClp)})
+                      </p>
+                    )}
                     {disc && (
                       <div className="flex items-center gap-1.5">
                         <Tag variant={warnDisc ? "warn" : "neutral"} size="md">
@@ -244,11 +269,7 @@ export function BankBalancePopover({
                     onChange={(e) => {
                       const id = e.target.value;
                       setSelectedId(id);
-                      const acc = accounts.find((a) => a.bankAccountId === id);
-                      if (acc) {
-                        const seed = Math.round(acc.currentBalance);
-                        setDraft(seed === 0 ? "" : formatThousands(String(Math.abs(seed))));
-                      }
+                      setDraft("");
                     }}
                     className="h-10 w-full rounded-md border border-ds-border-default bg-ds-surface-1 px-3 text-sm text-ds-text-1 sm:h-9"
                   >
@@ -283,7 +304,7 @@ export function BankBalancePopover({
                   </div>
                   {delta != null && delta !== 0 && (
                     <div className="flex items-center justify-between text-[13px]">
-                      <span className="text-ds-text-3">Diferencia vs FC</span>
+                      <span className="text-ds-text-3">Diferencia banco − OPAI</span>
                       <span
                         className={`tabular-nums font-medium ${
                           delta < 0 ? "text-status-danger-fg" : "text-status-ok-fg"
@@ -309,10 +330,10 @@ export function BankBalancePopover({
                     />
                   </div>
                   <p className="text-[12px] leading-snug text-ds-text-3">
-                    Guarda un ancla a hoy. Banco hoy suma encima los movimientos
-                    visibles de cartola con fecha posterior al ancla (el saldo
-                    pegado ya incluye ese día; no se vuelve a sumar). El fin de
-                    semana queda como{" "}
+                    Registra lo que muestra el banco y lo compara con Banco hoy
+                    (saldo inicial + movimientos). Si difieren, falta o sobra un
+                    movimiento: se resuelve en Bancos → Cuadratura, nunca moviendo
+                    el saldo. El fin de semana queda como{" "}
                     <span className="text-ds-text-2">banco hoy + pendientes</span>.
                   </p>
                 </>
@@ -338,7 +359,7 @@ export function BankBalancePopover({
               onClick={() => void handleSave()}
               disabled={saving || parsed == null || !selectedId || loading || noteRequired}
             >
-              {saving ? "Guardando…" : "Anclar y recalcular"}
+              {saving ? "Guardando…" : "Registrar lectura"}
             </Button>
           </div>
         )}
