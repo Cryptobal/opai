@@ -88,6 +88,7 @@ describe("splitF29Milestone", () => {
       amountClp: 300_000,
       dateYmd: "2026-09-12",
       taxPeriod: "2026-08",
+      ivaPostponed: true,
     });
     expect(out[0]!.label).toContain("solo PPM");
     expect(out[1]).toMatchObject({
@@ -118,7 +119,7 @@ describe("splitF29Milestone", () => {
     expect(out.reduce((s, m) => s + m.amountClp, 0)).toBe(150_000);
   });
 
-  it("resto = 0 omite el hito f29 y deja solo el postergado", () => {
+  it("resto = 0 emite marca F29 (0) + postergado para que el plan no pise", () => {
     const out = splitF29Milestone({
       taxPeriod: "2026-08",
       payYmd: "2026-09-12",
@@ -126,9 +127,14 @@ describe("splitF29Milestone", () => {
       ivaDeterminadoClp: 1_800_000,
       postponement: POSTPONEMENT,
     });
-    expect(out).toHaveLength(1);
-    expect(out[0]!.key).toBe("iva_postergado");
-    expect(out[0]!.amountClp).toBe(1_800_000);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({
+      key: "f29",
+      amountClp: 0,
+      ivaPostponed: true,
+    });
+    expect(out[1]!.key).toBe("iva_postergado");
+    expect(out[1]!.amountClp).toBe(1_800_000);
   });
 
   it("redondea a enteros CLP y nunca deja decimales", () => {

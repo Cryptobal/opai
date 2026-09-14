@@ -27,6 +27,9 @@ export interface CommittedItem {
   /// Solo hitos f29 / iva_postergado: período tributario YYYY-MM (mes de ventas).
   /// No confundir con billingPeriod, que es el mes de pago.
   taxPeriod?: string;
+  /// Hito F29 cuyo IVA determinado ya se movió a IVA postergado. El plan
+  /// manual de esa celda no debe pisar el comprometido (resto PPM o vacío).
+  ivaPostponed?: boolean;
   folio?: number;
   /** Nombre visible: cliente/proveedor/hito (popover). */
   label: string;

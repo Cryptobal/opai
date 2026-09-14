@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { FlowExcludedDte } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
-import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
+import { committedHasPostponedIvaF29, hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import { filterMoveTargetWeeks, resolveNextWeekKey } from "./menu-builders";
 import {
@@ -73,8 +73,9 @@ export function CellCompositionPanel({
   const [showExcluded, setShowExcluded] = useState(false);
 
   const manualPlan = hasManualPlanOverride(cell.plan, cell.layer);
+  const ivaPostponed = committedHasPostponedIvaF29(cell.committed);
   const hasPlan = cell.plan !== 0 || manualPlan;
-  const committedItems = cell.committed?.items ?? [];
+  const committedItems = (cell.committed?.items ?? []).filter((it) => it.monto !== 0);
   const hasCommitted = committedItems.length > 0;
   const realItems = cell.real?.items ?? [];
   const hasReal = realItems.length > 0;
@@ -115,10 +116,15 @@ export function CellCompositionPanel({
             )}
             <span className="tabular-nums">{fmtClp(cell.plan)}</span>
           </div>
-          {manualPlan && cell.committed && cell.committed.total !== 0 && (
+          {ivaPostponed && cell.plan !== 0 && (
+            <p className="text-right text-[12px] text-ds-text-4">
+              No suma: IVA postergado
+            </p>
+          )}
+          {manualPlan && !ivaPostponed && cell.committed && cell.committed.total !== 0 && (
             <p className="text-right text-[12px] text-ds-text-4">Proyección: {fmtClp(cell.committed.total)}</p>
           )}
-          {canManage && moveTargets.length > 0 && onMovePlan && cell.plan !== 0 && movingKey !== "plan" && (
+          {canManage && !ivaPostponed && moveTargets.length > 0 && onMovePlan && cell.plan !== 0 && movingKey !== "plan" && (
             <div className="flex justify-end">
               <button
                 type="button"

@@ -41,6 +41,8 @@ export interface ExpenseMilestoneInput {
   targetRowId?: string;
   /// Solo hitos f29 / iva_postergado: período tributario YYYY-MM (mes de ventas).
   taxPeriod?: string;
+  /// F29 con IVA ya postergado: se emite aunque amountClp sea 0 (marca de celda).
+  ivaPostponed?: boolean;
   /** Parte remuneraciones: rutea a hijo operativo o admin. Default OPERATIVO. */
   laborClass?: "OPERATIVO" | "ADMINISTRATIVO";
 }
@@ -115,7 +117,7 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
   const idx = buildExpenseIndexes(args.rows, args.accountToRowId);
 
   for (const m of args.milestones) {
-    if (m.amountClp === 0) continue;
+    if (m.amountClp === 0 && !m.ivaPostponed) continue;
     if (m.amountClp < 0 && !m.targetRowId) continue;
     // Hitos pasados quedan en su semana natural (el real ya los capturó);
     // no clampean para no duplicar visualmente contra la semana actual.
@@ -143,6 +145,7 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
       fecha: placementYmd,
       monto: Math.round(m.amountClp),
       taxPeriod: m.taxPeriod,
+      ...(m.ivaPostponed ? { ivaPostponed: true as const } : {}),
     });
   }
 

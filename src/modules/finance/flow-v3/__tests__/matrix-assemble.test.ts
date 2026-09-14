@@ -868,3 +868,127 @@ describe("reduceMonthly", () => {
     expect(r.balances[1]).toBe(5_000 + 50);
   });
 });
+
+describe("assembleMatrix — IVA postergado no deja el plan en el mes", () => {
+  const week = "2026-09-14";
+  const weeks = ["2026-09-07", "2026-09-14", "2026-09-21"];
+  const f29Row = row({
+    id: "f29",
+    name: "IVA F29",
+    section: "IMPUESTOS",
+    canonicalKey: "IVA_F29",
+  });
+
+  it("plan $30M no pisa: efectiva = PPM comprometido", () => {
+    const committed: CommittedByRow = new Map([
+      [
+        "f29",
+        new Map([
+          [
+            week,
+            {
+              total: 300_000,
+              items: [{
+                kind: "scheduled",
+                milestoneKey: "f29",
+                label: "IVA F29 2026-08 (solo PPM · IVA postergado)",
+                fecha: "2026-09-20",
+                monto: 300_000,
+                taxPeriod: "2026-08",
+                ivaPostponed: true,
+              }],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows: [f29Row],
+      weeks,
+      currentWeek: week,
+      openingBalance: 0,
+      plan: new Map([["f29", new Map([[week, 30_000_000]])]]),
+      committed,
+      real: new Map(),
+    });
+    const cell = m.rows[0]!.cells[1]!;
+    expect(cell.layer).toBe("committed");
+    expect(cell.plan).toBe(30_000_000);
+    expect(cell.effective).toBe(-300_000);
+  });
+
+  it("vista mensual: el plan tampoco pisa el F29 postergado", () => {
+    const committed: CommittedByRow = new Map([
+      [
+        "f29",
+        new Map([
+          [
+            week,
+            {
+              total: 300_000,
+              items: [{
+                kind: "scheduled",
+                milestoneKey: "f29",
+                label: "IVA F29 2026-08 (solo PPM · IVA postergado)",
+                fecha: "2026-09-20",
+                monto: 300_000,
+                taxPeriod: "2026-08",
+                ivaPostponed: true,
+              }],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows: [f29Row],
+      weeks,
+      currentWeek: week,
+      openingBalance: 0,
+      plan: new Map([["f29", new Map([[week, 30_000_000]])]]),
+      committed,
+      real: new Map(),
+    });
+    const monthly = reduceMonthly(weeks, week, m);
+    const sep = monthly.rows[0]!.cells.find((c) => c.weekStart.startsWith("2026-09"));
+    expect(sep?.layer).toBe("committed");
+    expect(sep?.effective).toBe(-300_000);
+  });
+
+  it("PPM = 0: plan no reaparece; celda vacía", () => {
+    const committed: CommittedByRow = new Map([
+      [
+        "f29",
+        new Map([
+          [
+            week,
+            {
+              total: 0,
+              items: [{
+                kind: "scheduled",
+                milestoneKey: "f29",
+                label: "IVA F29 2026-08 (IVA postergado)",
+                fecha: "2026-09-20",
+                monto: 0,
+                taxPeriod: "2026-08",
+                ivaPostponed: true,
+              }],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows: [f29Row],
+      weeks,
+      currentWeek: week,
+      openingBalance: 0,
+      plan: new Map([["f29", new Map([[week, 30_000_000]])]]),
+      committed,
+      real: new Map(),
+    });
+    const cell = m.rows[0]!.cells[1]!;
+    expect(cell.layer).toBe("empty");
+    expect(cell.effective).toBe(0);
+  });
+});
