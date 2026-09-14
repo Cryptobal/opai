@@ -17,17 +17,13 @@ vi.mock("../recurring-plan.service", () => ({
   updateRecurrence: vi.fn(),
 }));
 vi.mock("@/modules/finance/banking/automatch-rule.service", () => ({
-  upsertFlowRowRuleForRut: vi.fn(),
-  upsertFlowRowRuleForDescription: vi.fn(),
+  syncFlowRowMatchRules: vi.fn(),
 }));
 
 import { prisma } from "@/lib/prisma";
 import { createRow, updateRow } from "../rows.service";
 import { createRecurrence, updateRecurrence } from "../recurring-plan.service";
-import {
-  upsertFlowRowRuleForDescription,
-  upsertFlowRowRuleForRut,
-} from "@/modules/finance/banking/automatch-rule.service";
+import { syncFlowRowMatchRules } from "@/modules/finance/banking/automatch-rule.service";
 import { createSubRow, updateSubRow } from "../sub-row.service";
 
 const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
@@ -42,8 +38,7 @@ beforeEach(() => {
   });
   asMock(prisma.financeSupplier.findFirst).mockResolvedValue(null);
   asMock(createRecurrence).mockResolvedValue({ rule: { id: "rec-1" }, cells: [] });
-  asMock(upsertFlowRowRuleForRut).mockResolvedValue({ ruleId: "rule-rut" });
-  asMock(upsertFlowRowRuleForDescription).mockResolvedValue({ ruleId: "rule-glosa" });
+  asMock(syncFlowRowMatchRules).mockResolvedValue({ ruleIds: ["rule-rut", "rule-glosa"] });
 });
 
 describe("createSubRow", () => {
@@ -74,14 +69,12 @@ describe("createSubRow", () => {
       }),
     );
     expect(createRecurrence).toHaveBeenCalled();
-    expect(upsertFlowRowRuleForRut).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: "t1", flowRowId: "child-1" }),
-    );
-    expect(upsertFlowRowRuleForDescription).toHaveBeenCalledWith(
+    expect(syncFlowRowMatchRules).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId: "t1",
         flowRowId: "child-1",
-        appliesTo: "WITHDRAWALS",
+        rut: "12.345.678-5",
+        description: "CONTADOR SPA",
       }),
     );
     expect(out.ruleIds).toEqual(["rule-rut", "rule-glosa"]);
@@ -151,7 +144,49 @@ describe("updateSubRow", () => {
     expect(updateRow).toHaveBeenCalledWith("t1", "child-1", { name: "Uniformes y EPP" });
     expect(updateRecurrence).toHaveBeenCalled();
     expect(createRecurrence).not.toHaveBeenCalled();
+    expect(syncFlowRowMatchRules).not.toHaveBeenCalled();
     expect(out.row.name).toBe("Uniformes y EPP");
+  });
+
+  it("persiste RUT y glosa al editar", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "child-1",
+      name: "Mejillones",
+      parentId: "parent-1",
+    });
+    asMock(prisma.financeFlowPlanRecurrence.findFirst).mockResolvedValue({ id: "rec-1" });
+    asMock(updateRecurrence).mockResolvedValue({ rule: { id: "rec-1" }, cells: [] });
+    asMock(prisma.financeFlowRow.findFirstOrThrow).mockResolvedValue({
+      id: "child-1",
+      name: "Mejillones",
+      parentId: "parent-1",
+    });
+
+    await updateSubRow(
+      "t1",
+      "child-1",
+      {
+        name: "Mejillones",
+        recurrence: {
+          amount: 700_000,
+          frequency: "MONTHLY",
+          dayOfMonth: 1,
+          startDate: "2026-09-20",
+          currency: "CLP",
+        },
+        matchRule: { rut: "12.345.678-5", description: "CONTADOR SPA" },
+      },
+      "user-1",
+    );
+
+    expect(syncFlowRowMatchRules).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "t1",
+        flowRowId: "child-1",
+        rut: "12.345.678-5",
+        description: "CONTADOR SPA",
+      }),
+    );
   });
 
   it("rechaza editar una fila padre", async () => {

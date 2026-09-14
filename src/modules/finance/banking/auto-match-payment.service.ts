@@ -553,6 +553,7 @@ async function tryApplyRule(
         targetId: null,
         amount: new Decimal(amountAbs),
         accountPlanId: resolved.accountPlanId,
+        flowRowId: resolved.flowRowId,
         note: `Auto-match por regla: ${evaluation.ruleName}`,
         matchSource: "RULE",
         matchedByRuleId: evaluation.ruleId,

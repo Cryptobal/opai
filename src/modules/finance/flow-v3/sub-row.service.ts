@@ -1,11 +1,8 @@
 import "server-only";
 import type { FinanceFlowRow } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { isValidRut, rutSearchNeedles, toSiiRut } from "@/lib/chile-rut";
-import {
-  upsertFlowRowRuleForDescription,
-  upsertFlowRowRuleForRut,
-} from "@/modules/finance/banking/automatch-rule.service";
+import { isValidRut, rutSearchNeedles } from "@/lib/chile-rut";
+import { syncFlowRowMatchRules } from "@/modules/finance/banking/automatch-rule.service";
 import { createRow, updateRow } from "./rows.service";
 import {
   createRecurrence,
@@ -69,7 +66,16 @@ export async function createSubRow(
     await createRecurrence(tenantId, row.id, input.recurrence, userId);
   }
 
-  const ruleIds = await applyMatchRules(tenantId, row.id, row.name, rutRaw, description, userId);
+  const ruleIds = input.matchRule != null
+    ? (await syncFlowRowMatchRules({
+      tenantId,
+      flowRowId: row.id,
+      rowName: row.name,
+      rut: rutRaw,
+      description,
+      userId,
+    })).ruleIds
+    : [];
 
   const fresh = await prisma.financeFlowRow.findFirstOrThrow({
     where: { id: row.id, tenantId },
@@ -113,50 +119,19 @@ export async function updateSubRow(
   }
 
   const displayName = input.name?.trim() || row.name;
-  const ruleIds = await applyMatchRules(
-    tenantId,
-    row.id,
-    displayName,
-    rutRaw,
-    description,
-    userId,
-  );
+  const ruleIds = input.matchRule != null
+    ? (await syncFlowRowMatchRules({
+      tenantId,
+      flowRowId: row.id,
+      rowName: displayName,
+      rut: rutRaw,
+      description,
+      userId,
+    })).ruleIds
+    : [];
 
   const fresh = await prisma.financeFlowRow.findFirstOrThrow({
     where: { id: rowId, tenantId },
   });
   return { row: fresh, ruleIds };
-}
-
-async function applyMatchRules(
-  tenantId: string,
-  rowId: string,
-  rowName: string,
-  rutRaw: string,
-  description: string,
-  userId: string | null,
-): Promise<string[]> {
-  const ruleIds: string[] = [];
-  if (rutRaw) {
-    const { ruleId } = await upsertFlowRowRuleForRut({
-      tenantId,
-      rut: toSiiRut(rutRaw),
-      flowRowId: rowId,
-      rowName,
-      userId,
-    });
-    ruleIds.push(ruleId);
-  }
-  if (description.length >= 4) {
-    const { ruleId } = await upsertFlowRowRuleForDescription({
-      tenantId,
-      needle: description,
-      flowRowId: rowId,
-      rowName,
-      appliesTo: "WITHDRAWALS",
-      userId,
-    });
-    ruleIds.push(ruleId);
-  }
-  return ruleIds;
 }

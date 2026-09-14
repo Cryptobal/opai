@@ -17,7 +17,13 @@ import {
 } from "./automatch-rule.service";
 
 export type ResolvedRuleAction =
-  | { ok: true; accountPlanId: string; requiresReview: boolean }
+  | {
+      ok: true;
+      accountPlanId: string;
+      requiresReview: boolean;
+      /** Fila de flujo destino (acción FLOW_ROW). Null en reglas legacy. */
+      flowRowId: string | null;
+    }
   | {
       ok: false;
       reason: "TGR_MANUAL" | "ROW_NOT_FOUND" | "ROW_WITHOUT_ACCOUNT" | "NO_ACCOUNT_PLAN";
@@ -38,7 +44,7 @@ export async function resolveRuleAction(
         tenantId,
         archivedAt: null,
       },
-      select: { id: true, categoryId: true },
+      select: { id: true, categoryId: true, parentId: true },
     });
     if (!flowRow) {
       return { ok: false, reason: "ROW_NOT_FOUND" };
@@ -51,6 +57,7 @@ export async function resolveRuleAction(
       ok: true,
       accountPlanId,
       requiresReview: action.requiresReview !== false,
+      flowRowId: flowRow.id,
     };
   }
 
@@ -62,6 +69,7 @@ export async function resolveRuleAction(
     ok: true,
     accountPlanId: action.accountPlanId,
     requiresReview: action.requiresReview,
+    flowRowId: null,
   };
 }
 

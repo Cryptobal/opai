@@ -57,7 +57,13 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (url: string) => {
       if (String(url).includes("/recurring-plan?rowId=")) {
-        return { json: async () => ({ success: true, data: [existingRule] }) };
+        return {
+          json: async () => ({
+            success: true,
+            data: [existingRule],
+            matchRule: { rut: "123456785", description: "CONTADOR SPA" },
+          }),
+        };
       }
       return { json: async () => ({ success: true, data: [] }) };
     }),
@@ -102,6 +108,45 @@ describe("AddSubRowDialog — listar / editar / eliminar", () => {
     expect(screen.getByRole("button", { name: "Eliminar" })).toBeTruthy();
     const name = screen.getByPlaceholderText("Ej. Contador") as HTMLInputElement;
     expect(name.value).toBe("Uniformes y EPP");
+    await waitFor(() => {
+      const rut = screen.getByPlaceholderText("12.345.678-5") as HTMLInputElement;
+      expect(rut.value).toBe("12.345.678-5");
+    });
+    const glosa = screen.getByPlaceholderText("Ej. CONTADOR SPA") as HTMLInputElement;
+    expect(glosa.value).toBe("CONTADOR SPA");
+  });
+
+  it("al guardar envía matchRule con RUT y glosa", async () => {
+    const onUpdate = vi.fn(async () => ({ ok: true }));
+    const onClose = vi.fn();
+    render(
+      <AddSubRowDialog
+        parent={parent}
+        children={[child]}
+        initialChildId={child.id}
+        busy={false}
+        onConfirm={async () => null}
+        onUpdate={onUpdate}
+        onDelete={async () => ({})}
+        onClose={onClose}
+      />,
+    );
+
+    await waitFor(() => {
+      expect((screen.getByPlaceholderText("12.345.678-5") as HTMLInputElement).value).toBe(
+        "12.345.678-5",
+      );
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        "child-1",
+        expect.objectContaining({
+          matchRule: { rut: "12.345.678-5", description: "CONTADOR SPA" },
+        }),
+      );
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 
   it("confirma y elimina la subfila seleccionada", async () => {

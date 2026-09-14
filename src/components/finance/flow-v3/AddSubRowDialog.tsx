@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { UF_POLICY_LABELS, type UfPolicy } from "@/modules/finance/flow-v3/uf-occurrence";
+import { formatRut } from "@/lib/chile-rut";
 import { formatThousands, parseSignedAmount, fmtClp } from "./format";
 import type { PlanRecurrenceDto } from "./RecurringExpenseDialog";
 import { rowDeleteBlockReason } from "./menu-builders";
@@ -173,10 +174,17 @@ export function AddSubRowDialog({
       cache: "no-store",
     })
       .then((res) => res.json())
-      .then((json: { success?: boolean; data?: PlanRecurrenceDto[] }) => {
+      .then((json: {
+        success?: boolean;
+        data?: PlanRecurrenceDto[];
+        matchRule?: { rut: string | null; description: string | null };
+      }) => {
         if (cancelled) return;
         const rules = json.success && Array.isArray(json.data) ? json.data : [];
         if (rules[0]) applyRuleToFormSetters(rules[0], formSetters);
+        const match = json.matchRule;
+        setRut(match?.rut ? formatRut(match.rut) : "");
+        setDescription(match?.description ?? "");
       })
       .catch(() => { /* formulario queda con el nombre */ })
       .finally(() => {
@@ -237,7 +245,7 @@ export function AddSubRowDialog({
     return {
       name: name.trim(),
       recurrence,
-      ...(Object.keys(matchRule).length > 0 ? { matchRule } : {}),
+      matchRule,
     };
   };
 
@@ -469,7 +477,7 @@ export function AddSubRowDialog({
               />
             </label>
             <label className="block space-y-1 text-xs text-ds-text-3">
-              <span>Glosa / descripción</span>
+              <span>Glosa / descripción (mín. 4 caracteres)</span>
               <Input
                 className="h-10 sm:h-9"
                 value={description}

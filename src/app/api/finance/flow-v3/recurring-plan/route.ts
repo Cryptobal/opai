@@ -5,6 +5,7 @@ import {
   listRecurrencesForRow,
   toRecurrenceDto,
 } from "@/modules/finance/flow-v3/recurring-plan.service";
+import { getMatchRuleForFlowRow } from "@/modules/finance/banking/automatch-rule.service";
 import { flowRecurringPlanCreateSchema } from "@/lib/validations/flow-v3";
 import { prisma } from "@/lib/prisma";
 
@@ -32,10 +33,14 @@ export async function GET(request: NextRequest) {
         { status: 404 },
       );
     }
-    const rules = await listRecurrencesForRow(guard.ctx.tenantId, rowId);
+    const [rules, matchRule] = await Promise.all([
+      listRecurrencesForRow(guard.ctx.tenantId, rowId),
+      getMatchRuleForFlowRow(guard.ctx.tenantId, rowId),
+    ]);
     return NextResponse.json({
       success: true,
       data: rules.map(toRecurrenceDto),
+      matchRule,
     });
   } catch (error) {
     console.error("[Finance/FlowV3] GET recurring-plan:", error);
