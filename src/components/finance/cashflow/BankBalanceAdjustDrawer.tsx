@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Landmark, RefreshCw, AlertCircle } from "lucide-react";
+import { Landmark, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
 interface BankAccountOption {
   bankAccountId: string;
@@ -87,12 +88,6 @@ export function BankBalanceAdjustDrawer({ open, onClose, onSaved }: Props) {
 
   const selected = accounts.find((a) => a.bankAccountId === selectedId);
 
-  function applyBankBalance() {
-    if (!selected) return;
-    setNewBalance(String(Math.round(selected.currentBalance)));
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }
-
   function handleBalanceChange(raw: string) {
     const digits = raw.replace(/\D/g, "");
     setNewBalance(digits);
@@ -120,7 +115,27 @@ export function BankBalanceAdjustDrawer({ open, onClose, onSaved }: Props) {
         }),
       });
       const j = await res.json();
-      if (!j.success) throw new Error(j.error || "Error al guardar");
+      if (!j.success) {
+        throw new Error(
+          j.error === "note_required"
+            ? "La diferencia supera el umbral: agregá una nota"
+            : j.error || "Error al guardar",
+        );
+      }
+      const d = j.data as {
+        balance: number;
+        discrepancy?: { delta: number; evaluable: boolean };
+      };
+      const delta = d.discrepancy?.delta ?? 0;
+      if (d.discrepancy?.evaluable === false) {
+        toast.warning("Lectura registrada: definí el saldo inicial en Bancos → Cuadratura.");
+      } else if (Math.abs(delta) < 1) {
+        toast.success("Cuadra con el banco.");
+      } else {
+        toast.warning(
+          `Diferencia banco − OPAI: ${fmt.format(delta)}. Banco hoy no cambia; revisá Bancos → Cuadratura.`,
+        );
+      }
       onSaved();
       onClose();
     } catch (err) {
@@ -141,7 +156,7 @@ export function BankBalanceAdjustDrawer({ open, onClose, onSaved }: Props) {
       >
         <SheetHeader className="px-4 pt-4 pb-2 border-b border-border/50">
           <SheetTitle className="flex items-center gap-2 text-base">
-            <Landmark className="h-4 w-4" /> Ajustar saldo del banco
+            <Landmark className="h-4 w-4" /> Cuadrar saldo del banco
           </SheetTitle>
         </SheetHeader>
 
@@ -183,26 +198,21 @@ export function BankBalanceAdjustDrawer({ open, onClose, onSaved }: Props) {
             <>
               <div className="flex items-baseline justify-between gap-2 py-2 border-b border-border/40">
                 <span className="text-xs text-muted-foreground">
-                  Saldo conocido
+                  Saldo OPAI (saldo inicial + movimientos)
                 </span>
                 <span className="text-sm font-mono font-semibold tabular-nums">
                   {fmt.format(selected.currentBalance)}
                 </span>
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={applyBankBalance}
-                className="w-full h-10"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Traer saldo del sistema al input
-              </Button>
+              <p className="text-[12px] text-ds-text-3">
+                Escribí el saldo que muestra el banco. Se compara con OPAI y no
+                modifica el saldo: si difieren, falta o sobra un movimiento.
+              </p>
 
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">
-                  Nuevo saldo (CLP)
+                  Saldo según banco (CLP)
                 </label>
                 <Input
                   ref={inputRef}
@@ -222,7 +232,7 @@ export function BankBalanceAdjustDrawer({ open, onClose, onSaved }: Props) {
                     }, 200);
                   }}
                 />
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-[12px] text-ds-text-3">
                   Solo números enteros, sin decimales.
                 </p>
               </div>
@@ -266,7 +276,7 @@ export function BankBalanceAdjustDrawer({ open, onClose, onSaved }: Props) {
             disabled={!selectedId || !newBalance || saving}
             className="flex-1 h-11"
           >
-            {saving ? "Guardando..." : "Guardar"}
+            {saving ? "Guardando..." : "Registrar lectura"}
           </Button>
         </div>
       </SheetContent>

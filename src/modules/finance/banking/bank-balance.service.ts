@@ -1,89 +1,130 @@
 /**
- * Bank Account Balance History Service
+ * Bank Ledger Service — saldo bancario como libro mayor.
  *
- * Maneja los snapshots históricos de saldo de una cuenta bancaria. Permite:
- *   - Fijar manualmente el saldo a una fecha (auditado por usuario y nota).
- *   - Listar el historial completo de saldos de una cuenta.
- *   - Resolver el saldo "más cercano hacia atrás" para una fecha dada.
+ * Invariante: el saldo de una cuenta es
  *
- * Cuando se fija un saldo manual, además se actualiza `currentBalance` y
- * `balanceUpdatedAt` en `FinanceBankAccount` SI la fecha del snapshot es
- * la más reciente registrada — esto mantiene la pestaña "Cuentas" coherente
- * con el último saldo conocido.
+ *     saldo(fecha) = OPENING.balance + Σ amount(movimientos visibles con
+ *                    OPENING.asOfDate < transactionDate ≤ fecha)
  *
- * Precedencia de ancla: en la misma fecha, MANUAL gana sobre IMPORT/CALCULATED
- * para que una cartola del mismo día no pise un saldo fijado a mano.
+ * donde OPENING es el saldo inicial (saldo al cierre de `asOfDate`) y
+ * "visible" significa `hiddenAt IS NULL`. Ninguna otra cosa altera el saldo:
+ * ni el estado de conciliación, ni las lecturas del banco, ni el flujo de
+ * caja. Solo lo cambian movimientos (importados, manuales o un "ajuste de
+ * cuadratura" explícito, visible y auditable) y el propio saldo inicial.
+ *
+ * Las lecturas del banco (`MANUAL` pegado de la app, `IMPORT` cierre o saldo
+ * diario de cartola, `CALCULATED` del proveedor) se registran SIEMPRE y se
+ * comparan contra el ledger a esa fecha (`computedBalance`, `deltaClp`).
+ * Un delta ≠ 0 significa que falta o sobra un movimiento: se muestra y se
+ * alerta, nunca se "arregla" moviendo el saldo.
+ *
+ * `currentBalance` en `FinanceBankAccount` es solo un cache del ledger a hoy.
  */
 
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import type { FinanceBalanceSource } from "@prisma/client";
-import { bankTxDateFilterAfterAnchor } from "@/modules/finance/banking/bank-tx-after-anchor";
-import { utcDateFromYmd, ymdInChile, addDaysChile } from "@/lib/dates-cl";
+import {
+  utcDateFromYmd,
+  ymdInChile,
+  addDaysChile,
+  todayInChile,
+} from "@/lib/dates-cl";
 import { DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP } from "@/modules/finance/banking/bank-balance-constants";
+import { bankTxContentKey } from "@/modules/finance/banking/bank-tx-content-key";
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export type BankReadingSource = Exclude<FinanceBalanceSource, "OPENING">;
 
 export interface ResolvedAccountBalance {
+  /** Fecha de corte del saldo inicial (OPENING). Null si la cuenta no lo tiene. */
   anchorSnapshotDate: Date | null;
+  /** Saldo inicial (o `currentBalance` como fallback si no hay OPENING). */
   anchorBalanceClp: number;
+  /** Σ movimientos visibles posteriores al saldo inicial y ≤ corte. */
   txDeltaClp: number;
   txCount: number;
+  /** Saldo del ledger al corte. Sin OPENING es el fallback (no confiable). */
   resolvedBalanceClp: number;
-  /** Origen del snapshot ancla (si hay). */
-  anchorSource?: FinanceBalanceSource | null;
+  /** "OPENING" cuando hay saldo inicial; null si no. */
+  anchorSource: FinanceBalanceSource | null;
+  /** True si la cuenta no tiene saldo inicial: el saldo no es un ledger. */
+  needsOpening: boolean;
+  /** Fecha de corte usada (calendario Chile, YYYY-MM-DD). */
+  cutoffYmd: string;
 }
 
-export interface BalanceAnchorCandidate {
-  balance: unknown;
+export interface BankLedgerOpening {
+  id: string;
   asOfDate: Date;
-  source: FinanceBalanceSource;
+  balance: number;
+  note: string | null;
   createdAt: Date;
 }
 
 /**
- * Elige el ancla entre candidatos ya filtrados (asOfDate ≤ hoy), ordenados
- * por asOfDate desc / createdAt desc. En empate de fecha, MANUAL gana.
+ * Normaliza el corte del ledger a una fecha calendario Chile.
+ *   - sin valor → hoy en Chile
+ *   - "YYYY-MM-DD" → tal cual
+ *   - Date en medianoche UTC exacta (fecha "pura", como las @db.Date) → su
+ *     fecha UTC; cualquier otro instante → fecha calendario Chile.
  */
-export function pickBalanceAnchor(
-  candidates: BalanceAnchorCandidate[],
-): BalanceAnchorCandidate | null {
-  if (candidates.length === 0) return null;
-  const maxTime = candidates[0]!.asOfDate.getTime();
-  const sameDate = candidates.filter((c) => c.asOfDate.getTime() === maxTime);
-  const manual = sameDate.find((c) => c.source === "MANUAL");
-  return manual ?? sameDate[0] ?? null;
+export function ledgerCutoffYmd(asOf?: Date | string | null): string {
+  if (asOf == null) return todayInChile();
+  if (typeof asOf === "string") {
+    const trimmed = asOf.trim();
+    if (YMD_RE.test(trimmed)) return trimmed;
+    const d = new Date(trimmed);
+    if (Number.isNaN(d.getTime())) throw new Error("asOf inválido");
+    return ymdInChile(d);
+  }
+  const isPureUtcDate =
+    asOf.getUTCHours() === 0 &&
+    asOf.getUTCMinutes() === 0 &&
+    asOf.getUTCSeconds() === 0 &&
+    asOf.getUTCMilliseconds() === 0;
+  return isPureUtcDate ? asOf.toISOString().slice(0, 10) : ymdInChile(asOf);
+}
+
+/** Saldo inicial activo de la cuenta (el OPENING más reciente por createdAt). */
+export async function getLedgerOpening(
+  tenantId: string,
+  bankAccountId: string,
+): Promise<BankLedgerOpening | null> {
+  const row = await prisma.financeBankAccountBalance.findFirst({
+    where: { tenantId, bankAccountId, source: "OPENING" },
+    orderBy: [{ createdAt: "desc" }],
+    select: {
+      id: true,
+      asOfDate: true,
+      balance: true,
+      note: true,
+      createdAt: true,
+    },
+  });
+  if (!row) return null;
+  return {
+    id: row.id,
+    asOfDate: row.asOfDate,
+    balance: Number(row.balance),
+    note: row.note,
+    createdAt: row.createdAt,
+  };
 }
 
 /**
- * True si conviene crear un snapshot IMPORT de cierre de cartola.
- * False cuando ya hay un MANUAL con fecha ≥ cierre (protege el saldo fijado).
- */
-export function shouldApplyImportClosingBalance(args: {
-  importAsOfDate: Date;
-  protectingManualAsOfDate: Date | null;
-}): boolean {
-  if (!args.protectingManualAsOfDate) return true;
-  return args.protectingManualAsOfDate.getTime() < args.importAsOfDate.getTime();
-}
-
-function toLocalDateOnly(date: Date): Date {
-  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-}
-
-/**
- * Resuelve el saldo de una cuenta a una fecha: snapshot más reciente ≤ fecha
- * + Σ movimientos visibles de cartola (hiddenAt IS NULL).
+ * Saldo del ledger a una fecha: OPENING + Σ movimientos visibles con
+ * `OPENING.asOfDate < transactionDate ≤ corte`.
  *
- * Cualquier ancla (IMPORT / MANUAL / CALCULATED): transactionDate > asOfDate
- * (el saldo anclado ya trae el día). MATCHED / DTE borrador no filtran: la
- * plata del banco no depende de a qué documento se concilió.
- *
- * Sin snapshot, devuelve `currentBalance` (no se puede derivar solo desde
- * movimientos).
+ * MATCHED / DTE / flujo no filtran: la plata del banco no depende de a qué
+ * documento se concilió. Sin OPENING devuelve `currentBalance` como fallback
+ * y `needsOpening: true`.
  */
 export async function resolveAccountBalanceFromMovements(
   tenantId: string,
   bankAccountId: string,
-  asOfDate?: Date,
+  asOf?: Date | string,
 ): Promise<ResolvedAccountBalance> {
   const account = await prisma.financeBankAccount.findFirst({
     where: { id: bankAccountId, tenantId },
@@ -93,22 +134,11 @@ export async function resolveAccountBalanceFromMovements(
     throw new Error("Cuenta bancaria no encontrada");
   }
 
-  const todayDate = toLocalDateOnly(asOfDate ?? new Date());
+  const cutoffYmd = ledgerCutoffYmd(asOf);
+  const cutoff = utcDateFromYmd(cutoffYmd);
+  const opening = await getLedgerOpening(tenantId, bankAccountId);
 
-  const candidates = await prisma.financeBankAccountBalance.findMany({
-    where: {
-      tenantId,
-      bankAccountId,
-      asOfDate: { lte: todayDate },
-    },
-    orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-    take: 20,
-    select: { balance: true, asOfDate: true, source: true, createdAt: true },
-  });
-
-  const anchor = pickBalanceAnchor(candidates);
-
-  if (!anchor) {
+  if (!opening) {
     const fallback = Number(account.currentBalance ?? 0);
     return {
       anchorSnapshotDate: null,
@@ -117,6 +147,8 @@ export async function resolveAccountBalanceFromMovements(
       txCount: 0,
       resolvedBalanceClp: fallback,
       anchorSource: null,
+      needsOpening: true,
+      cutoffYmd,
     };
   }
 
@@ -125,45 +157,42 @@ export async function resolveAccountBalanceFromMovements(
       tenantId,
       bankAccountId,
       hiddenAt: null,
-      transactionDate: bankTxDateFilterAfterAnchor(
-        anchor.asOfDate,
-        todayDate,
-        anchor.source,
-      ),
+      transactionDate: { gt: opening.asOfDate, lte: cutoff },
     },
     _sum: { amount: true },
     _count: { _all: true },
   });
 
-  const anchorBalanceClp = Number(anchor.balance);
   const txDeltaClp = Number(txAgg._sum.amount ?? 0);
 
   return {
-    anchorSnapshotDate: anchor.asOfDate,
-    anchorBalanceClp,
+    anchorSnapshotDate: opening.asOfDate,
+    anchorBalanceClp: opening.balance,
     txDeltaClp,
     txCount: txAgg._count._all,
-    resolvedBalanceClp: anchorBalanceClp + txDeltaClp,
-    anchorSource: anchor.source,
+    resolvedBalanceClp: opening.balance + txDeltaClp,
+    anchorSource: "OPENING",
+    needsOpening: false,
+    cutoffYmd,
   };
 }
 
 /**
- * Recalcula y persiste `currentBalance` desde snapshot + movimientos.
- * Idempotente: conviene llamarlo tras cada import o cambio de movimientos.
+ * Recalcula y persiste el cache `currentBalance` desde el ledger a hoy.
+ * Idempotente. Sin OPENING no toca el cache (no hay ledger que persistir).
  */
 export async function syncCurrentBalanceFromMovements(
   tenantId: string,
   bankAccountId: string,
-  asOfDate?: Date,
+  asOf?: Date | string,
 ): Promise<ResolvedAccountBalance> {
   const resolved = await resolveAccountBalanceFromMovements(
     tenantId,
     bankAccountId,
-    asOfDate,
+    asOf,
   );
 
-  if (resolved.anchorSnapshotDate != null) {
+  if (!resolved.needsOpening) {
     await prisma.financeBankAccount.update({
       where: { id: bankAccountId },
       data: {
@@ -176,15 +205,87 @@ export async function syncCurrentBalanceFromMovements(
   return resolved;
 }
 
-export interface SetBalanceSnapshotInput {
-  bankAccountId: string;
-  asOfDate: string; // YYYY-MM-DD
-  balance: number;
-  source?: FinanceBalanceSource;
-  note?: string | null;
-  computedBalance?: number | null;
-  deltaClp?: number | null;
+/**
+ * Saldo consolidado del ledger (cuentas CLP activas) a una fecha. Reemplaza
+ * los helpers que tomaban "el snapshot más reciente" sin sumar movimientos.
+ */
+export async function resolveTenantBankLedgerAsOf(
+  tenantId: string,
+  asOf?: Date | string,
+): Promise<number> {
+  const accounts = await prisma.financeBankAccount.findMany({
+    where: { tenantId, isActive: true, currency: "CLP" },
+    select: { id: true },
+  });
+  let total = 0;
+  for (const acc of accounts) {
+    const r = await resolveAccountBalanceFromMovements(tenantId, acc.id, asOf);
+    total += r.resolvedBalanceClp;
+  }
+  return total;
 }
+
+// ── Saldo inicial ─────────────────────────────────────────────────────────
+
+export interface SetOpeningBalanceInput {
+  bankAccountId: string;
+  /** Día YA CERRADO cuyo saldo de cierre se toma como inicio del ledger. */
+  asOfDate: string;
+  balance: number;
+  note?: string | null;
+}
+
+/**
+ * Define (o redefine) el saldo inicial del ledger. Cada cambio es una fila
+ * nueva (historial completo); el activo es el más reciente. Debe ser un día
+ * ya terminado en Chile: un saldo intradía dejaría fuera los movimientos
+ * posteriores de ese mismo día.
+ */
+export async function setOpeningBalance(
+  tenantId: string,
+  userId: string | null,
+  input: SetOpeningBalanceInput,
+) {
+  if (!YMD_RE.test(input.asOfDate)) {
+    throw new Error("asOfDate debe ser YYYY-MM-DD");
+  }
+  if (input.asOfDate >= todayInChile()) {
+    throw new Error(
+      "El saldo inicial debe ser el saldo de cierre de un día ya terminado (ayer o anterior)",
+    );
+  }
+  if (!Number.isFinite(input.balance)) {
+    throw new Error("Saldo inválido");
+  }
+  const account = await prisma.financeBankAccount.findFirst({
+    where: { id: input.bankAccountId, tenantId },
+    select: { id: true },
+  });
+  if (!account) {
+    throw new Error("Cuenta bancaria no encontrada");
+  }
+
+  const created = await prisma.financeBankAccountBalance.create({
+    data: {
+      tenantId,
+      bankAccountId: input.bankAccountId,
+      asOfDate: utcDateFromYmd(input.asOfDate),
+      balance: new Decimal(input.balance),
+      source: "OPENING",
+      note: input.note?.trim() || null,
+      createdById: userId ?? null,
+    },
+  });
+
+  const resolved = await syncCurrentBalanceFromMovements(
+    tenantId,
+    input.bankAccountId,
+  );
+
+  return { opening: created, resolved };
+}
+
+// ── Lecturas del banco y cuadratura ───────────────────────────────────────
 
 export interface BalanceDiscrepancy {
   reported: number;
@@ -193,6 +294,8 @@ export interface BalanceDiscrepancy {
   exceeds: boolean;
   thresholdClp: number;
   asOfDate: string;
+  /** False si la cuenta no tiene saldo inicial: `computed` es un fallback. */
+  evaluable: boolean;
 }
 
 export interface LastUnexplainedDiscrepancy {
@@ -208,7 +311,7 @@ export interface LastUnexplainedDiscrepancy {
  */
 export function parseAsOfToChileYmd(asOf: string): string {
   const trimmed = asOf.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  if (YMD_RE.test(trimmed)) return trimmed;
   const d = new Date(trimmed);
   if (Number.isNaN(d.getTime())) {
     throw new Error("asOf inválido");
@@ -221,18 +324,21 @@ export function evaluateBalanceDiscrepancy(args: {
   computed: number;
   thresholdClp: number;
   asOfDate: string;
+  evaluable?: boolean;
 }): BalanceDiscrepancy {
   const reported = new Decimal(args.reported);
   const computed = new Decimal(args.computed);
   const delta = reported.minus(computed);
   const threshold = new Decimal(args.thresholdClp);
+  const evaluable = args.evaluable ?? true;
   return {
     reported: reported.toNumber(),
     computed: computed.toNumber(),
     delta: delta.toNumber(),
-    exceeds: delta.abs().gte(threshold),
+    exceeds: evaluable && delta.abs().gte(threshold),
     thresholdClp: args.thresholdClp,
     asOfDate: args.asOfDate,
+    evaluable,
   };
 }
 
@@ -262,23 +368,27 @@ export async function resolveAndEvaluateBalanceDiscrepancy(args: {
   const resolved = await resolveAccountBalanceFromMovements(
     args.tenantId,
     args.bankAccountId,
-    utcDateFromYmd(asOfDate),
+    asOfDate,
   );
   return evaluateBalanceDiscrepancy({
     reported: args.reportedBalance,
     computed: resolved.resolvedBalanceClp,
     thresholdClp,
     asOfDate,
+    evaluable: !resolved.needsOpening,
   });
 }
 
-export type ApplyReportedBalanceResult =
+export type RegisterBankReadingResult =
   | {
       ok: true;
-      snapshot: Awaited<ReturnType<typeof setBalanceSnapshot>>;
+      snapshot: { id: string; asOfDate: Date; balance: Decimal; source: FinanceBalanceSource; note: string | null; createdAt: Date; createdById: string | null; computedBalance: Decimal | null; deltaClp: Decimal | null };
       discrepancy: BalanceDiscrepancy;
-      appliedAsAnchor: boolean;
+      /** Saldo del ledger a hoy (no cambia por la lectura). */
       resolvedBalanceClp: number;
+      needsOpening: boolean;
+      /** True si esta lectura IMPORT inicializó el ledger (cuenta sin OPENING). */
+      bootstrappedOpening: boolean;
     }
   | {
       ok: false;
@@ -287,22 +397,23 @@ export type ApplyReportedBalanceResult =
     };
 
 /**
- * Evalúa reportado vs calculado, persiste snapshot con delta y sincroniza
- * currentBalance. Un MANUAL más nuevo no se pisa como ancla, pero el
- * snapshot queda en el historial (discrepancia informativa).
+ * Registra una lectura del banco y la cuadra contra el ledger a esa fecha.
+ * NUNCA modifica el saldo. Excepción de arranque: una lectura `IMPORT`
+ * (cierre de cartola, saldo de fin de día) en una cuenta sin saldo inicial
+ * crea el OPENING a esa fecha, porque es la única lectura que garantiza
+ * incluir el día completo.
  */
-export async function applyReportedBalance(args: {
+export async function registerBankReading(args: {
   tenantId: string;
   userId: string | null;
   bankAccountId: string;
   asOf: string;
   balance: number;
-  source: FinanceBalanceSource;
+  source: BankReadingSource;
   note?: string | null;
   requireNoteIfExceeds?: boolean;
-}): Promise<ApplyReportedBalanceResult> {
+}): Promise<RegisterBankReadingResult> {
   const asOfDate = parseAsOfToChileYmd(args.asOf);
-  const asOfDateUtc = utcDateFromYmd(asOfDate);
   const discrepancy = await resolveAndEvaluateBalanceDiscrepancy({
     tenantId: args.tenantId,
     bankAccountId: args.bankAccountId,
@@ -318,38 +429,55 @@ export async function applyReportedBalance(args: {
     return { ok: false, error: "note_required", discrepancy };
   }
 
-  let appliedAsAnchor = true;
-  if (args.source !== "MANUAL") {
-    const protectingManual = await prisma.financeBankAccountBalance.findFirst({
-      where: {
-        tenantId: args.tenantId,
-        bankAccountId: args.bankAccountId,
-        source: "MANUAL",
-        asOfDate: { gte: asOfDateUtc },
-      },
-      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-      select: { asOfDate: true },
+  const account = await prisma.financeBankAccount.findFirst({
+    where: { id: args.bankAccountId, tenantId: args.tenantId },
+    select: { id: true },
+  });
+  if (!account) {
+    throw new Error("Cuenta bancaria no encontrada");
+  }
+
+  let bootstrappedOpening = false;
+  if (
+    !discrepancy.evaluable &&
+    args.source === "IMPORT" &&
+    asOfDate < todayInChile()
+  ) {
+    await setOpeningBalance(args.tenantId, args.userId, {
+      bankAccountId: args.bankAccountId,
+      asOfDate,
+      balance: args.balance,
+      note: "Saldo inicial tomado del cierre de la primera cartola importada.",
     });
-    appliedAsAnchor = shouldApplyImportClosingBalance({
-      importAsOfDate: asOfDateUtc,
-      protectingManualAsOfDate: protectingManual?.asOfDate ?? null,
-    });
+    bootstrappedOpening = true;
   }
 
   const noteParts: string[] = [];
   if (args.note?.trim()) noteParts.push(args.note.trim());
-  if (!appliedAsAnchor) {
-    noteParts.push("No usado como ancla: hay un saldo MANUAL más reciente.");
+  if (!discrepancy.evaluable && !bootstrappedOpening) {
+    noteParts.push("Sin saldo inicial definido: lectura registrada sin cuadratura.");
   }
 
-  const snapshot = await setBalanceSnapshot(args.tenantId, args.userId, {
-    bankAccountId: args.bankAccountId,
-    asOfDate,
-    balance: args.balance,
-    source: args.source,
-    note: noteParts.length > 0 ? noteParts.join(" ") : null,
-    computedBalance: discrepancy.computed,
-    deltaClp: discrepancy.delta,
+  const snapshot = await prisma.financeBankAccountBalance.create({
+    data: {
+      tenantId: args.tenantId,
+      bankAccountId: args.bankAccountId,
+      asOfDate: utcDateFromYmd(asOfDate),
+      balance: new Decimal(args.balance),
+      source: args.source,
+      note: noteParts.length > 0 ? noteParts.join(" ") : null,
+      createdById: args.userId ?? null,
+      computedBalance: discrepancy.evaluable
+        ? new Decimal(discrepancy.computed)
+        : bootstrappedOpening
+          ? new Decimal(args.balance)
+          : null,
+      deltaClp: discrepancy.evaluable
+        ? new Decimal(discrepancy.delta)
+        : bootstrappedOpening
+          ? new Decimal(0)
+          : null,
+    },
   });
 
   const resolved = await syncCurrentBalanceFromMovements(
@@ -360,9 +488,12 @@ export async function applyReportedBalance(args: {
   return {
     ok: true,
     snapshot,
-    discrepancy,
-    appliedAsAnchor,
+    discrepancy: bootstrappedOpening
+      ? { ...discrepancy, computed: args.balance, delta: 0, exceeds: false, evaluable: true }
+      : discrepancy,
     resolvedBalanceClp: resolved.resolvedBalanceClp,
+    needsOpening: resolved.needsOpening,
+    bootstrappedOpening,
   };
 }
 
@@ -376,6 +507,7 @@ export async function findLatestUnexplainedDiscrepancy(
     where: {
       tenantId,
       bankAccountId,
+      source: { not: "OPENING" },
       deltaClp: { not: null },
       asOfDate: { gte: since },
     },
@@ -401,49 +533,8 @@ export async function findLatestUnexplainedDiscrepancy(
 }
 
 /**
- * Crea un snapshot de saldo para una cuenta a una fecha. Si esta fecha
- * resulta ser la ancla efectiva (tras precedencia MANUAL), actualiza
- * `currentBalance`. Devuelve el snapshot creado.
- */
-export async function setBalanceSnapshot(
-  tenantId: string,
-  userId: string | null,
-  input: SetBalanceSnapshotInput
-) {
-  const account = await prisma.financeBankAccount.findFirst({
-    where: { id: input.bankAccountId, tenantId },
-    select: { id: true },
-  });
-  if (!account) {
-    throw new Error("Cuenta bancaria no encontrada");
-  }
-
-  const created = await prisma.financeBankAccountBalance.create({
-    data: {
-      tenantId,
-      bankAccountId: input.bankAccountId,
-      asOfDate: utcDateFromYmd(input.asOfDate),
-      balance: new Decimal(input.balance),
-      source: input.source ?? "MANUAL",
-      note: input.note ?? null,
-      createdById: userId ?? null,
-      computedBalance:
-        input.computedBalance != null
-          ? new Decimal(input.computedBalance)
-          : null,
-      deltaClp: input.deltaClp != null ? new Decimal(input.deltaClp) : null,
-    },
-  });
-
-  // Alinear currentBalance con la ancla efectiva (MANUAL gana en empate).
-  await syncCurrentBalanceFromMovements(tenantId, input.bankAccountId);
-
-  return created;
-}
-
-/**
- * Lista el historial completo de snapshots de saldo de una cuenta,
- * más recientes primero.
+ * Lista el historial completo de saldos de una cuenta (saldo inicial y
+ * lecturas), más recientes primero.
  */
 export async function listBalanceHistory(
   tenantId: string,
@@ -456,9 +547,9 @@ export async function listBalanceHistory(
 }
 
 /**
- * Elimina un snapshot. Si el eliminado era el más reciente, recalcula
- * `currentBalance` desde el siguiente más reciente (o lo deja en null
- * si era el único).
+ * Elimina un snapshot (lectura o saldo inicial) y resincroniza el cache.
+ * Si era el OPENING activo, el ledger pasa al OPENING anterior o queda sin
+ * saldo inicial.
  */
 export async function deleteBalanceSnapshot(
   tenantId: string,
@@ -475,4 +566,257 @@ export async function deleteBalanceSnapshot(
   await prisma.financeBankAccountBalance.delete({ where: { id: snapshotId } });
 
   await syncCurrentBalanceFromMovements(tenantId, bankAccountId);
+}
+
+// ── Reporte de cuadratura ─────────────────────────────────────────────────
+
+export interface LedgerReading {
+  id: string;
+  asOfDate: string;
+  source: FinanceBalanceSource;
+  balance: number;
+  /** Ledger a esa fecha (null si la fecha es anterior al saldo inicial o no hay OPENING). */
+  ledgerAtDate: number | null;
+  deltaClp: number | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface LedgerDayDelta {
+  asOfDate: string;
+  source: FinanceBalanceSource;
+  readingBalance: number;
+  ledgerAtDate: number;
+  deltaClp: number;
+}
+
+export interface DuplicateSuspect {
+  id: string;
+  transactionDate: string;
+  description: string;
+  reference: string | null;
+  amount: number;
+  balance: number | null;
+  dupSuspectOfId: string | null;
+}
+
+export interface ContentGroup {
+  key: string;
+  transactionDate: string;
+  amount: number;
+  description: string;
+  reference: string | null;
+  /** True si todas las filas traen el mismo saldo del banco: copia casi segura. */
+  sameBalance: boolean;
+  txIds: string[];
+}
+
+export interface ReconciliationReport {
+  opening: { id: string; asOfDate: string; balance: number } | null;
+  needsOpening: boolean;
+  ledgerTodayClp: number;
+  latestReading: LedgerReading | null;
+  /** Lecturas de la ventana, más recientes primero. */
+  readings: LedgerReading[];
+  /** Un item por fecha con lectura cuyo delta vivo ≠ 0 (última lectura del día). */
+  daysWithDelta: LedgerDayDelta[];
+  duplicateSuspects: DuplicateSuspect[];
+  contentGroups: ContentGroup[];
+  windowFromYmd: string;
+  windowToYmd: string;
+}
+
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Cuadratura de una cuenta: recalcula en vivo el ledger a la fecha de cada
+ * lectura (no usa el delta guardado, que puede haber quedado obsoleto tras
+ * importar o ocultar movimientos) y reúne las pistas para explicar un delta:
+ * posibles duplicados pendientes y grupos de filas con la misma huella.
+ */
+export async function buildReconciliationReport(
+  tenantId: string,
+  bankAccountId: string,
+  opts?: { days?: number; asOf?: Date | string },
+): Promise<ReconciliationReport> {
+  const days = opts?.days ?? 90;
+  const todayYmd = ledgerCutoffYmd(opts?.asOf);
+  const today = utcDateFromYmd(todayYmd);
+  const windowFromYmd = ymdInChile(addDaysChile(today, -days));
+  const windowFrom = utcDateFromYmd(windowFromYmd);
+
+  const [opening, ledgerToday, readingRows] = await Promise.all([
+    getLedgerOpening(tenantId, bankAccountId),
+    resolveAccountBalanceFromMovements(tenantId, bankAccountId, todayYmd),
+    prisma.financeBankAccountBalance.findMany({
+      where: {
+        tenantId,
+        bankAccountId,
+        source: { not: "OPENING" },
+        asOfDate: { gte: windowFrom, lte: today },
+      },
+      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
+      take: 200,
+      select: {
+        id: true,
+        asOfDate: true,
+        source: true,
+        balance: true,
+        note: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  // Movimientos visibles de la ventana (para ledger por día y duplicados).
+  const windowTx = await prisma.financeBankTransaction.findMany({
+    where: {
+      tenantId,
+      bankAccountId,
+      hiddenAt: null,
+      transactionDate: { gte: windowFrom, lte: today },
+    },
+    orderBy: [{ transactionDate: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      transactionDate: true,
+      amount: true,
+      description: true,
+      reference: true,
+      balance: true,
+      dupSuspectOfId: true,
+      dupResolvedAt: true,
+    },
+  });
+
+  // base = ledger al cierre del día anterior al inicio de la ventana.
+  let ledgerAtDate: (d: Date) => number | null = () => null;
+  if (opening) {
+    const openingYmd = ymd(opening.asOfDate);
+    let base = opening.balance;
+    if (openingYmd < windowFromYmd) {
+      const before = await prisma.financeBankTransaction.aggregate({
+        where: {
+          tenantId,
+          bankAccountId,
+          hiddenAt: null,
+          transactionDate: { gt: opening.asOfDate, lt: windowFrom },
+        },
+        _sum: { amount: true },
+      });
+      base += Number(before._sum.amount ?? 0);
+    }
+    const byDay = new Map<string, number>();
+    for (const t of windowTx) {
+      const k = ymd(t.transactionDate);
+      byDay.set(k, (byDay.get(k) ?? 0) + Number(t.amount));
+    }
+    const dayKeys = [...byDay.keys()].sort();
+    ledgerAtDate = (d: Date) => {
+      const target = ymd(d);
+      if (target < openingYmd) return null;
+      if (target === openingYmd) return opening.balance;
+      // Movimientos del día del OPENING ya están en el saldo inicial.
+      const startYmd = openingYmd >= windowFromYmd ? openingYmd : windowFromYmd;
+      let sum = base;
+      for (const k of dayKeys) {
+        if (k > target) break;
+        if (k <= startYmd && openingYmd >= windowFromYmd) continue;
+        sum += byDay.get(k) ?? 0;
+      }
+      return sum;
+    };
+  }
+
+  const readings: LedgerReading[] = readingRows.map((r) => {
+    const l = ledgerAtDate(r.asOfDate);
+    const balance = Number(r.balance);
+    return {
+      id: r.id,
+      asOfDate: ymd(r.asOfDate),
+      source: r.source,
+      balance,
+      ledgerAtDate: l,
+      deltaClp: l == null ? null : Math.round((balance - l) * 100) / 100,
+      note: r.note,
+      createdAt: r.createdAt.toISOString(),
+    };
+  });
+
+  const daysWithDelta: LedgerDayDelta[] = [];
+  const seenDays = new Set<string>();
+  for (const r of readings) {
+    if (seenDays.has(r.asOfDate)) continue;
+    seenDays.add(r.asOfDate);
+    if (r.ledgerAtDate == null || r.deltaClp == null) continue;
+    if (Math.abs(r.deltaClp) < 1) continue;
+    daysWithDelta.push({
+      asOfDate: r.asOfDate,
+      source: r.source,
+      readingBalance: r.balance,
+      ledgerAtDate: r.ledgerAtDate,
+      deltaClp: r.deltaClp,
+    });
+  }
+
+  const duplicateSuspects: DuplicateSuspect[] = windowTx
+    .filter((t) => t.dupSuspectOfId != null && t.dupResolvedAt == null)
+    .map((t) => ({
+      id: t.id,
+      transactionDate: ymd(t.transactionDate),
+      description: t.description,
+      reference: t.reference,
+      amount: Number(t.amount),
+      balance: t.balance != null ? Number(t.balance) : null,
+      dupSuspectOfId: t.dupSuspectOfId,
+    }));
+
+  const groups = new Map<string, typeof windowTx>();
+  for (const t of windowTx) {
+    const key = bankTxContentKey({
+      transactionDate: t.transactionDate,
+      amount: t.amount,
+      description: t.description,
+      reference: t.reference,
+    });
+    const list = groups.get(key);
+    if (list) list.push(t);
+    else groups.set(key, [t]);
+  }
+  const contentGroups: ContentGroup[] = [];
+  for (const [key, rows] of groups) {
+    if (rows.length < 2) continue;
+    const first = rows[0]!;
+    const balances = rows.map((r) => (r.balance != null ? Number(r.balance) : null));
+    const sameBalance =
+      balances.every((b) => b != null) &&
+      balances.every((b) => b === balances[0]);
+    contentGroups.push({
+      key,
+      transactionDate: ymd(first.transactionDate),
+      amount: Number(first.amount),
+      description: first.description,
+      reference: first.reference,
+      sameBalance,
+      txIds: rows.map((r) => r.id),
+    });
+  }
+  contentGroups.sort((a, b) => b.transactionDate.localeCompare(a.transactionDate));
+
+  return {
+    opening: opening
+      ? { id: opening.id, asOfDate: ymd(opening.asOfDate), balance: opening.balance }
+      : null,
+    needsOpening: !opening,
+    ledgerTodayClp: ledgerToday.resolvedBalanceClp,
+    latestReading: readings[0] ?? null,
+    readings,
+    daysWithDelta,
+    duplicateSuspects,
+    contentGroups,
+    windowFromYmd,
+    windowToYmd: todayYmd,
+  };
 }

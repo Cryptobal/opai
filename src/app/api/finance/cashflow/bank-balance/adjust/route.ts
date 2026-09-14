@@ -5,7 +5,7 @@ import { requireAuth, unauthorized, parseBody, resolveApiPerms } from "@/lib/api
 import { hasCapability } from "@/lib/permissions";
 import { todayInChile } from "@/lib/dates-cl";
 import { prisma } from "@/lib/prisma";
-import { applyReportedBalance } from "@/modules/finance/banking/bank-balance.service";
+import { registerBankReading } from "@/modules/finance/banking/bank-balance.service";
 import { notifyBankBalanceDiscrepancy } from "@/modules/finance/banking/bank-balance-notify";
 
 const adjustSchema = z.object({
@@ -14,6 +14,14 @@ const adjustSchema = z.object({
   note: z.string().max(500).optional(),
 });
 
+/**
+ * POST /api/finance/cashflow/bank-balance/adjust
+ *
+ * Desde el flujo de caja: registra el saldo que muestra el banco HOY como
+ * lectura MANUAL y la cuadra contra el ledger. El flujo NO modifica el saldo
+ * banco: "Banco hoy" sigue siendo saldo inicial + movimientos. Si hay
+ * diferencia se devuelve el delta (y se notifica si supera el umbral).
+ */
 export async function POST(req: NextRequest) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
@@ -41,14 +49,14 @@ export async function POST(req: NextRequest) {
   }
   if (account.currency !== "CLP") {
     return NextResponse.json(
-      { success: false, error: "Sólo cuentas CLP son ajustables desde flujo de caja" },
+      { success: false, error: "Sólo cuentas CLP participan del flujo de caja" },
       { status: 400 },
     );
   }
 
   const asOfDate = todayInChile();
 
-  const applied = await applyReportedBalance({
+  const applied = await registerBankReading({
     tenantId: ctx.tenantId,
     userId: ctx.userId,
     bankAccountId,
@@ -79,7 +87,7 @@ export async function POST(req: NextRequest) {
         tenantId: ctx.tenantId,
         accountLabel: `${account.bankName} ${account.accountNumber}`,
         discrepancy: applied.discrepancy,
-        link: "/finanzas/flujo-caja",
+        link: "/finanzas/bancos?tab=transactions",
       });
     } catch (err) {
       console.error("[cashflow/bank-balance/adjust] notify:", err);
@@ -95,9 +103,12 @@ export async function POST(req: NextRequest) {
     success: true,
     data: {
       snapshotId: applied.snapshot.id,
+      /** Saldo del ledger (Banco hoy). No cambia por la lectura. */
       balance: applied.resolvedBalanceClp,
+      readingBalance: balance,
       asOfDate,
       discrepancy: applied.discrepancy,
+      needsOpening: applied.needsOpening,
     },
   });
 }

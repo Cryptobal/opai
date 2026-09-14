@@ -5,7 +5,10 @@ import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api
 import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { todayInChile } from "@/lib/dates-cl";
-import { applyReportedBalance } from "@/modules/finance/banking/bank-balance.service";
+import {
+  registerBankReading,
+  buildReconciliationReport,
+} from "@/modules/finance/banking/bank-balance.service";
 import { notifyBankBalanceDiscrepancy } from "@/modules/finance/banking/bank-balance-notify";
 
 const setCurrentBalanceSchema = z.object({
@@ -16,9 +19,11 @@ const setCurrentBalanceSchema = z.object({
 /**
  * POST /api/finance/banking/accounts/[id]/set-current-balance
  *
- * Fija el saldo real de la cuenta desde Movimientos: crea snapshot MANUAL
- * a hoy (calendario Chile) y actualiza currentBalance. Si |delta| ≥ umbral
- * la nota es obligatoria (400 note_required).
+ * "Cuadrar con banco": registra el saldo que muestra el banco HOY como
+ * lectura MANUAL y lo compara con el ledger. NO modifica el saldo: si hay
+ * diferencia, la respuesta trae el delta y el reporte de cuadratura (días
+ * con diferencia, posibles duplicados). Si |delta| ≥ umbral la nota es
+ * obligatoria (400 note_required).
  */
 export async function POST(
   request: NextRequest,
@@ -61,7 +66,7 @@ export async function POST(
     const previousBalanceClp = Number(account.currentBalance ?? 0);
     const { balance, note } = parsed.data;
 
-    const applied = await applyReportedBalance({
+    const applied = await registerBankReading({
       tenantId: ctx.tenantId,
       userId: ctx.userId,
       bankAccountId: id,
@@ -92,11 +97,14 @@ export async function POST(
           tenantId: ctx.tenantId,
           accountLabel: `${account.bankName} ${account.accountNumber}`,
           discrepancy: applied.discrepancy,
+          link: "/finanzas/bancos?tab=transactions",
         });
       } catch (err) {
         console.error("[Finance/Banking/SetCurrentBalance] notify:", err);
       }
     }
+
+    const report = await buildReconciliationReport(ctx.tenantId, id);
 
     revalidatePath("/finanzas/bancos");
     revalidatePath("/finanzas");
@@ -109,16 +117,20 @@ export async function POST(
         bankName: account.bankName,
         accountNumber: account.accountNumber,
         previousBalanceClp,
+        /** Saldo del ledger (no cambia por la lectura). */
         balanceClp: applied.resolvedBalanceClp,
+        readingBalanceClp: balance,
         asOfDate,
         snapshotId: applied.snapshot.id,
         discrepancy: applied.discrepancy,
+        needsOpening: applied.needsOpening,
+        report,
       },
     });
   } catch (error) {
     console.error("[Finance/Banking/SetCurrentBalance] POST error:", error);
     const message =
-      error instanceof Error ? error.message : "Error al fijar saldo";
+      error instanceof Error ? error.message : "Error al registrar la lectura";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

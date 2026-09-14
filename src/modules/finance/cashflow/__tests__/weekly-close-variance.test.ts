@@ -16,9 +16,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    financeBankAccount: { findMany: vi.fn() },
+    financeBankAccount: { findMany: vi.fn(), findFirst: vi.fn() },
     financeBankAccountBalance: { findFirst: vi.fn() },
-    financeBankTransaction: { findMany: vi.fn() },
+    financeBankTransaction: { findMany: vi.fn(), aggregate: vi.fn() },
     financeCashflowOccurrence: { findMany: vi.fn() },
     financeCashflowWeeklyClose: { findFirst: vi.fn() },
     crmInstallation: { findMany: vi.fn() },
@@ -42,7 +42,9 @@ import { buildProjection } from "../projection.service";
 import { computeWeeklyCloseSnapshot } from "../weekly-close.service";
 
 const accountFindMany = prisma.financeBankAccount.findMany as unknown as ReturnType<typeof vi.fn>;
-const balanceFindFirst = prisma.financeBankAccountBalance.findFirst as unknown as ReturnType<typeof vi.fn>;
+const accountFindFirst = prisma.financeBankAccount.findFirst as unknown as ReturnType<typeof vi.fn>;
+const openingFindFirst = prisma.financeBankAccountBalance.findFirst as unknown as ReturnType<typeof vi.fn>;
+const txAggregate = prisma.financeBankTransaction.aggregate as unknown as ReturnType<typeof vi.fn>;
 const txFindMany = prisma.financeBankTransaction.findMany as unknown as ReturnType<typeof vi.fn>;
 const occFindMany = prisma.financeCashflowOccurrence.findMany as unknown as ReturnType<typeof vi.fn>;
 const closeFindFirst = prisma.financeCashflowWeeklyClose.findFirst as unknown as ReturnType<typeof vi.fn>;
@@ -54,9 +56,11 @@ const buildProjectionMock = buildProjection as unknown as ReturnType<typeof vi.f
 const SALDO_HOY = 50_000_000;
 
 /**
- * Configura los mocks para un cierre. `openBalance` = snapshot banco al abrir la
- * semana (asOf = weekStart−1); `closeBalance` = snapshot banco al cerrar (asOf =
- * weekEnd). La diferenciación se hace por la fecha de corte de cada query.
+ * Configura los mocks para un cierre con la regla del libro mayor: el saldo a
+ * cualquier fecha es OPENING + Σ tx hasta esa fecha. `openBalance` = ledger al
+ * abrir la semana (corte weekStart−1); `closeBalance` = ledger al cerrar (corte
+ * weekEnd). El OPENING vale `openBalance` y las tx de la semana suman
+ * `closeBalance − openBalance`; la diferenciación es por el `lte` del aggregate.
  */
 function setupScenario(opts: {
   openBalance: number;
@@ -67,11 +71,24 @@ function setupScenario(opts: {
   splitDate: Date;
 }) {
   accountFindMany.mockResolvedValue([{ id: "acc-1", currentBalance: 0 }]);
-  balanceFindFirst.mockImplementation(async (args: { where: { asOfDate: { lte: Date } } }) => {
-    const lte = args.where.asOfDate.lte;
-    const isClose = lte.getTime() >= opts.splitDate.getTime();
-    return { balance: isClose ? opts.closeBalance : opts.openBalance };
+  accountFindFirst.mockResolvedValue({ currentBalance: 0 });
+  openingFindFirst.mockResolvedValue({
+    id: "opening",
+    asOfDate: new Date("2026-01-01T00:00:00.000Z"),
+    balance: opts.openBalance,
+    note: null,
+    createdAt: new Date("2026-01-01T12:00:00Z"),
   });
+  txAggregate.mockImplementation(
+    async (args: { where: { transactionDate: { lte: Date } } }) => {
+      const lte = args.where.transactionDate.lte;
+      const isClose = lte.getTime() >= opts.splitDate.getTime();
+      return {
+        _sum: { amount: isClose ? opts.closeBalance - opts.openBalance : 0 },
+        _count: { _all: isClose ? 1 : 0 },
+      };
+    },
+  );
   txFindMany.mockResolvedValue([]);
   occFindMany.mockResolvedValue([]);
   // Semana no sellada (B4): sin apertura congelada, se usa la calculada.

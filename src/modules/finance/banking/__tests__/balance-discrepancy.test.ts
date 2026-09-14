@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
-  applyReportedBalance,
+  registerBankReading,
   evaluateBalanceDiscrepancy,
   parseAsOfToChileYmd,
   resolveAndEvaluateBalanceDiscrepancy,
@@ -22,21 +22,12 @@ vi.mock("@/lib/prisma", () => ({
 
 import { prisma } from "@/lib/prisma";
 
-const findAccount = prisma.financeBankAccount.findFirst as unknown as ReturnType<
-  typeof vi.fn
->;
-const findSnapshots = prisma.financeBankAccountBalance.findMany as unknown as ReturnType<
-  typeof vi.fn
->;
-const aggregate = prisma.financeBankTransaction.aggregate as unknown as ReturnType<
-  typeof vi.fn
->;
-const findConfig = prisma.financeCashflowConfig.findUnique as unknown as ReturnType<
-  typeof vi.fn
->;
-const createSnap = prisma.financeBankAccountBalance.create as unknown as ReturnType<
-  typeof vi.fn
->;
+const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
+const findAccount = asMock(prisma.financeBankAccount.findFirst);
+const findOpening = asMock(prisma.financeBankAccountBalance.findFirst);
+const aggregate = asMock(prisma.financeBankTransaction.aggregate);
+const findConfig = asMock(prisma.financeCashflowConfig.findUnique);
+const createSnap = asMock(prisma.financeBankAccountBalance.create);
 
 describe("evaluateBalanceDiscrepancy", () => {
   it("delta exacto y umbral", () => {
@@ -48,6 +39,7 @@ describe("evaluateBalanceDiscrepancy", () => {
     });
     expect(d.delta).toBe(34_284_198);
     expect(d.exceeds).toBe(true);
+    expect(d.evaluable).toBe(true);
   });
 
   it("bajo el umbral no excede", () => {
@@ -71,6 +63,18 @@ describe("evaluateBalanceDiscrepancy", () => {
     expect(d.exceeds).toBe(true);
     expect(d.thresholdClp).toBe(DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP);
   });
+
+  it("no evaluable (sin saldo inicial) nunca excede", () => {
+    const d = evaluateBalanceDiscrepancy({
+      reported: 200_000,
+      computed: 0,
+      thresholdClp: 100_000,
+      asOfDate: "2026-09-09",
+      evaluable: false,
+    });
+    expect(d.exceeds).toBe(false);
+    expect(d.evaluable).toBe(false);
+  });
 });
 
 describe("parseAsOfToChileYmd", () => {
@@ -84,29 +88,24 @@ describe("parseAsOfToChileYmd", () => {
   });
 });
 
-describe("resolveAndEvaluateBalanceDiscrepancy — caso 04–09/09", () => {
+describe("resolveAndEvaluateBalanceDiscrepancy — caso 04–09/09 con las 7 SCF en el ledger", () => {
   beforeEach(() => {
-    findAccount.mockReset();
-    findSnapshots.mockReset();
-    aggregate.mockReset();
-    findConfig.mockReset();
+    vi.clearAllMocks();
     findConfig.mockResolvedValue({ bankBalanceDiscrepancyThresholdClp: 100_000 });
+    findAccount.mockResolvedValue({ currentBalance: 0, id: "a1" });
   });
 
-  it("con 7 SCF incluidas, delta dentro de ±1M y no notifica", async () => {
-    findAccount.mockResolvedValueOnce({ currentBalance: 0 });
-    findSnapshots.mockResolvedValueOnce([
-      {
-        asOfDate: new Date("2026-09-04T00:00:00.000Z"),
-        balance: 30_167_412,
-        source: "CALCULATED",
-        createdAt: new Date("2026-09-04T12:00:00Z"),
-      },
-    ]);
-    // computed = 30_167_412 + txDelta. Para empatar 18_646_796:
+  it("con las 7 transferencias idénticas sumadas, el ledger cuadra con la lectura", async () => {
+    findOpening.mockResolvedValueOnce({
+      id: "o",
+      asOfDate: new Date("2026-09-03T00:00:00.000Z"),
+      balance: 30_167_412,
+      note: null,
+      createdAt: new Date(),
+    });
     aggregate.mockResolvedValueOnce({
       _sum: { amount: 18_646_796 - 30_167_412 },
-      _count: { _all: 40 },
+      _count: { _all: 47 },
     });
 
     const d = await resolveAndEvaluateBalanceDiscrepancy({
@@ -116,26 +115,51 @@ describe("resolveAndEvaluateBalanceDiscrepancy — caso 04–09/09", () => {
       reportedBalance: 18_646_796,
     });
 
-    expect(Math.abs(d.delta)).toBeLessThanOrEqual(1_000_000);
+    expect(d.delta).toBe(0);
     expect(d.exceeds).toBe(false);
     expect(d.computed).toBe(18_646_796);
   });
+
+  it("si faltan 6 de las 7 SCF el delta es exactamente 6 × 7.000.000", async () => {
+    findOpening.mockResolvedValueOnce({
+      id: "o",
+      asOfDate: new Date("2026-09-03T00:00:00.000Z"),
+      balance: 30_167_412,
+      note: null,
+      createdAt: new Date(),
+    });
+    aggregate.mockResolvedValueOnce({
+      _sum: { amount: 18_646_796 - 30_167_412 - 6 * 7_000_000 },
+      _count: { _all: 41 },
+    });
+    const d = await resolveAndEvaluateBalanceDiscrepancy({
+      tenantId: "t1",
+      bankAccountId: "a1",
+      asOf: "2026-09-09",
+      reportedBalance: 18_646_796,
+    });
+    expect(d.delta).toBe(42_000_000);
+    expect(d.exceeds).toBe(true);
+  });
 });
 
-describe("applyReportedBalance", () => {
+describe("registerBankReading", () => {
   beforeEach(() => {
-    findAccount.mockReset();
-    findSnapshots.mockReset();
-    aggregate.mockReset();
-    findConfig.mockReset();
-    createSnap.mockReset();
+    vi.clearAllMocks();
     findConfig.mockResolvedValue({ bankBalanceDiscrepancyThresholdClp: 100_000 });
     findAccount.mockResolvedValue({ currentBalance: 0, id: "a1" });
-    findSnapshots.mockResolvedValue([]);
+    findOpening.mockResolvedValue({
+      id: "o",
+      asOfDate: new Date("2026-09-01T00:00:00.000Z"),
+      balance: 0,
+      note: null,
+      createdAt: new Date(),
+    });
+    aggregate.mockResolvedValue({ _sum: { amount: 0 }, _count: { _all: 0 } });
   });
 
   it("exige nota si |delta| ≥ umbral", async () => {
-    const r = await applyReportedBalance({
+    const r = await registerBankReading({
       tenantId: "t1",
       userId: "u1",
       bankAccountId: "a1",

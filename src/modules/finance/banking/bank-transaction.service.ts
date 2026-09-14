@@ -17,13 +17,16 @@ import {
 } from "./resolve-flow-row-display";
 import { recognizeRutsForTransactions } from "./rut-recognition.service";
 import {
-  applyReportedBalance,
+  getLedgerOpening,
+  registerBankReading,
   syncCurrentBalanceFromMovements,
   type BalanceDiscrepancy,
 } from "./bank-balance.service";
 import { bankTxContentKey } from "./bank-tx-content-key";
-import { loadVisibleContentKeys } from "./web4leads-import.service";
-import { todayInChile } from "@/lib/dates-cl";
+import { loadVisibleContentCounts } from "./web4leads-import.service";
+import { BANK_LEDGER_ADJUSTMENT_CATEGORY } from "./bank-balance-constants";
+import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
+import { logAudit } from "@/lib/audit";
 
 /**
  * Genera un `apiTransactionId` determinístico para una transacción importada
@@ -340,47 +343,44 @@ export async function listBankTransactions(
     prisma.financeBankTransaction.count({ where }),
   ]);
 
-  // Running balance: el campo `balance` que entrega Santander viene casi siempre
-  // null. Lo calculamos a mano: balance_at_tx_i = currentBalance - Σ(amount de
-  // todas las tx más nuevas, cronológicamente, en TODA la cuenta — sin importar
-  // filtros del listado).
-  //
-  // Solo aplica cuando sortField=transactionDate (en otros sorts el balance
-  // running por fila no es interpretable). Si la cuenta no tiene currentBalance
-  // fijado, dejamos null y la UI muestra "—".
+  // Columna "Saldo": saldo del ledger tras cada movimiento, hacia adelante
+  // desde el saldo inicial (OPENING) y solo con filas visibles:
+  //   saldo_tx = opening + Σ(amount de tx visibles con opening.asOfDate <
+  //              fecha y (fecha, id) ≤ (fecha_tx, id_tx))
+  // El orden canónico intradía es id (uuid), así que la columna es exacta al
+  // cierre de cada día y consistente con el orden del listado. Filas ocultas
+  // o anteriores al saldo inicial no tienen saldo (null). Solo aplica con
+  // sortField=transactionDate; sin OPENING se deja el `balance` del banco.
   if (sortField === "transactionDate" && transactions.length > 0) {
-    const account = await prisma.financeBankAccount.findFirst({
-      where: { id: bankAccountId, tenantId },
-      select: { currentBalance: true },
-    });
-    const currentBalance = account?.currentBalance;
-    if (currentBalance != null) {
-      type RawRow = { id: string; running: string };
+    const opening = await getLedgerOpening(tenantId, bankAccountId);
+    if (opening) {
+      type RawRow = { id: string; running: string | null };
       const ids = transactions.map((t) => t.id);
-      // Para cada tx de la página, balance = currentBalance - Σ(amount de
-      // las txs estrictamente más nuevas cronológicamente). El orden
-      // canónico es (transaction_date DESC, id DESC); "más nuevas" = mayor
-      // (transaction_date, id). Calculado con sub-query correlacionada.
-      // tenant_id es String (no uuid), bank_account_id sí es uuid.
+      const openingYmd = opening.asOfDate.toISOString().slice(0, 10);
       const rows = await prisma.$queryRaw<RawRow[]>`
         SELECT
           t.id::text AS id,
-          (
-            ${currentBalance.toString()}::numeric
-            - COALESCE(
-              (
-                SELECT SUM(t2.amount)
-                FROM finance.finance_bank_transactions t2
-                WHERE t2.tenant_id::text = ${tenantId}
-                  AND t2.bank_account_id = ${bankAccountId}::uuid
-                  AND (
-                    t2.transaction_date > t.transaction_date
-                    OR (t2.transaction_date = t.transaction_date AND t2.id > t.id)
-                  )
-              ),
-              0
-            )
-          )::text AS running
+          CASE
+            WHEN t.hidden_at IS NOT NULL OR t.transaction_date <= ${openingYmd}::date THEN NULL
+            ELSE (
+              ${opening.balance.toString()}::numeric
+              + COALESCE(
+                (
+                  SELECT SUM(t2.amount)
+                  FROM finance.finance_bank_transactions t2
+                  WHERE t2.tenant_id::text = ${tenantId}
+                    AND t2.bank_account_id = ${bankAccountId}::uuid
+                    AND t2.hidden_at IS NULL
+                    AND t2.transaction_date > ${openingYmd}::date
+                    AND (
+                      t2.transaction_date < t.transaction_date
+                      OR (t2.transaction_date = t.transaction_date AND t2.id <= t.id)
+                    )
+                ),
+                0
+              )
+            )::text
+          END AS running
         FROM finance.finance_bank_transactions t
         WHERE t.id = ANY(${ids}::uuid[])
           AND t.tenant_id::text = ${tenantId}
@@ -389,9 +389,7 @@ export async function listBankTransactions(
       const balanceMap = new Map(rows.map((r) => [r.id, r.running]));
       for (const tx of transactions) {
         const running = balanceMap.get(tx.id);
-        if (running !== undefined) {
-          tx.balance = new Decimal(running);
-        }
+        tx.balance = running != null ? new Decimal(running) : null;
       }
     }
   }
@@ -624,6 +622,28 @@ export interface ImportMetadata {
   accountNumberInFile?: string | null;
   periodFrom?: string | null;
   periodTo?: string | null;
+  /** "SALDO INICIAL" de la cartola (candidato a saldo inicial del ledger). */
+  openingBalance?: number | null;
+  /** Bloque "Saldos diarios": saldo al cierre de cada día del período. */
+  dailyBalances?: Array<{ date: string; balance: number }> | null;
+}
+
+/**
+ * Huella + índice de aparición dentro del archivo. Reimportar la misma
+ * cartola produce los mismos pares (huella, occ) → mismo `apiTransactionId`
+ * → `skipDuplicates` los salta. Dos filas legítimamente iguales en el archivo
+ * reciben occ 0 y 1 y se insertan ambas.
+ */
+function assignFileOccurrences(
+  transactions: ImportTransactionInput[],
+): Array<{ tx: ImportTransactionInput; key: string; occ: number }> {
+  const counts = new Map<string, number>();
+  return transactions.map((tx) => {
+    const key = bankTxContentKey(tx);
+    const occ = counts.get(key) ?? 0;
+    counts.set(key, occ + 1);
+    return { tx, key, occ };
+  });
 }
 
 export async function importBankTransactions(
@@ -657,50 +677,38 @@ export async function importBankTransactions(
   const dates = [
     ...new Set(transactions.map((tx) => tx.transactionDate)),
   ].map((d) => new Date(d));
-  const existingContent = await loadVisibleContentKeys({
+  // Filas ya guardadas por huella (visibles u ocultas): la k-ésima aparición
+  // del archivo se inserta solo si k > filas guardadas. Así reimportar no
+  // duplica, una cartola con dos filas iguales inserta las dos, y un
+  // movimiento que ya llegó por el proveedor no se vuelve a crear.
+  const existingCounts = await loadVisibleContentCounts({
     tenantId,
     bankAccountId,
     dates,
   });
-  const seenContent = new Set(existingContent);
-  const fresh: ImportTransactionInput[] = [];
+  const fresh: Array<{ tx: ImportTransactionInput; occ: number }> = [];
   let contentDuplicateCount = 0;
-  for (const tx of transactions) {
-    const key = bankTxContentKey(tx);
-    if (seenContent.has(key)) {
+  for (const { tx, key, occ } of assignFileOccurrences(transactions)) {
+    if (occ < (existingCounts.get(key) ?? 0)) {
       contentDuplicateCount += 1;
       continue;
     }
-    seenContent.add(key);
-    fresh.push(tx);
+    fresh.push({ tx, occ });
   }
 
-  // Build data for createMany — incluye apiTransactionId determinístico para
-  // que el unique key (tenantId, bankAccountId, apiTransactionId) bloquee
-  // duplicados al re-importar la misma cartola. occurrenceCounts maneja el
-  // caso de movimientos legítimamente duplicados dentro del mismo archivo.
-  const occurrenceCounts = new Map<string, number>();
-  const data = fresh.map((tx) => {
-    const baseKey = [
-      tx.transactionDate,
-      tx.amount.toString(),
-      (tx.description ?? "").trim(),
-      tx.reference ?? "",
-    ].join("|");
-    const occ = occurrenceCounts.get(baseKey) ?? 0;
-    occurrenceCounts.set(baseKey, occ + 1);
-    return {
-      tenantId,
-      bankAccountId,
-      transactionDate: new Date(tx.transactionDate),
-      description: tx.description,
-      reference: tx.reference ?? null,
-      amount: new Decimal(tx.amount),
-      source: "CSV_IMPORT" as FinanceBankTxSource,
-      reconciliationStatus: "UNMATCHED" as const,
-      apiTransactionId: buildImportTxId(tx, occ),
-    };
-  });
+  // apiTransactionId determinístico (huella + occ) para que el unique key
+  // (tenantId, bankAccountId, apiTransactionId) bloquee re-importaciones.
+  const data = fresh.map(({ tx, occ }) => ({
+    tenantId,
+    bankAccountId,
+    transactionDate: new Date(tx.transactionDate),
+    description: tx.description,
+    reference: tx.reference ?? null,
+    amount: new Decimal(tx.amount),
+    source: "CSV_IMPORT" as FinanceBankTxSource,
+    reconciliationStatus: "UNMATCHED" as const,
+    apiTransactionId: buildImportTxId(tx, occ),
+  }));
 
   // Bulk insert — skipDuplicates omite filas que rompan el unique constraint
   // (tenantId, bankAccountId, apiTransactionId), garantizando que reimportar
@@ -738,6 +746,10 @@ export async function importBankTransactions(
           closingBalance !== null && closingBalance !== undefined
             ? new Decimal(closingBalance)
             : null,
+        openingBalance:
+          metadata.openingBalance != null
+            ? new Decimal(metadata.openingBalance)
+            : null,
         createdById: userId ?? null,
       },
     });
@@ -761,21 +773,63 @@ export async function importBankTransactions(
     });
   }
 
-  // Update bank account balance if closing balance was provided.
-  // Snapshot IMPORT con cuadratura (computed/delta). Si hay MANUAL ≥ cierre,
-  // el snapshot queda en historial pero no pisa el ancla.
+  // Lecturas IMPORT del banco: saldos diarios (uno por día del período) y
+  // cierre de la cartola. Se cuadran contra el ledger; NO fijan el saldo.
+  // Única excepción: cuenta sin saldo inicial → el cierre de la cartola
+  // (saldo de fin de día) inicializa el ledger (ver registerBankReading).
   let discrepancy: BalanceDiscrepancy | null = null;
+  const lastTxDate = transactions.reduce<string | null>((acc, tx) => {
+    if (!acc || tx.transactionDate > acc) return tx.transactionDate;
+    return acc;
+  }, null);
+  const closingAsOf = (metadata?.periodTo ?? lastTxDate ?? todayInChile()).slice(0, 10);
+
+  const dailyBalances = (metadata?.dailyBalances ?? []).filter(
+    (d) => /^\d{4}-\d{2}-\d{2}$/.test(d.date) && Number.isFinite(d.balance),
+  );
+  if (dailyBalances.length > 0) {
+    // No repetir lecturas idénticas (misma fecha y saldo) en reimportaciones.
+    const existing = await prisma.financeBankAccountBalance.findMany({
+      where: {
+        tenantId,
+        bankAccountId,
+        source: "IMPORT",
+        asOfDate: {
+          in: dailyBalances.map((d) => utcDateFromYmd(d.date)),
+        },
+      },
+      select: { asOfDate: true, balance: true },
+    });
+    const seen = new Set(
+      existing.map(
+        (e) => `${e.asOfDate.toISOString().slice(0, 10)}|${Number(e.balance)}`,
+      ),
+    );
+    const sorted = [...dailyBalances].sort((a, b) => a.date.localeCompare(b.date));
+    for (const day of sorted) {
+      if (day.date === closingAsOf && closingBalance != null) continue;
+      if (seen.has(`${day.date}|${day.balance}`)) continue;
+      const applied = await registerBankReading({
+        tenantId,
+        userId: userId ?? null,
+        bankAccountId,
+        asOf: day.date,
+        balance: day.balance,
+        source: "IMPORT",
+        note: "Saldo diario de cartola",
+      });
+      if (applied.ok && applied.discrepancy.evaluable && applied.discrepancy.delta !== 0) {
+        discrepancy = applied.discrepancy;
+      }
+    }
+  }
+
   if (closingBalance !== null && closingBalance !== undefined) {
-    const lastTxDate = transactions.reduce<string | null>((acc, tx) => {
-      if (!acc || tx.transactionDate > acc) return tx.transactionDate;
-      return acc;
-    }, null);
-    const asOf = (lastTxDate ?? todayInChile()).slice(0, 10);
-    const applied = await applyReportedBalance({
+    const applied = await registerBankReading({
       tenantId,
       userId: userId ?? null,
       bankAccountId,
-      asOf,
+      asOf: closingAsOf,
       balance: closingBalance,
       source: "IMPORT",
       note: `Saldo de cierre de cartola importada (${transactions.length} mov.)`,
@@ -855,30 +909,21 @@ export async function previewBankStatementImport(
     throw new Error("Cuenta bancaria no encontrada");
   }
 
-  // Para cada transacción del archivo, calculamos su apiTransactionId con la
-  // misma lógica que importBankTransactions (incluyendo occurrenceIdx para
-  // duplicados legítimos intra-archivo).
-  const existingContent = await loadVisibleContentKeys({
+  // Misma regla que importBankTransactions: la k-ésima aparición de una huella
+  // en el archivo es nueva solo si k > filas ya guardadas con esa huella (o si
+  // su apiTransactionId determinístico no existe todavía).
+  const existingCounts = await loadVisibleContentCounts({
     tenantId,
     bankAccountId,
     dates: [
       ...new Set(transactions.map((tx) => tx.transactionDate)),
     ].map((d) => new Date(d)),
   });
-  const occurrenceCounts = new Map<string, number>();
-  const enriched = transactions.map((tx) => {
-    const baseKey = [
-      tx.transactionDate,
-      tx.amount.toString(),
-      (tx.description ?? "").trim(),
-      tx.reference ?? "",
-    ].join("|");
-    const occ = occurrenceCounts.get(baseKey) ?? 0;
-    occurrenceCounts.set(baseKey, occ + 1);
-    return { tx, apiTransactionId: buildImportTxId(tx, occ) };
-  });
+  const enriched = assignFileOccurrences(transactions).map((e) => ({
+    ...e,
+    apiTransactionId: buildImportTxId(e.tx, e.occ),
+  }));
 
-  // Buscamos cuáles de esos apiTransactionId ya existen en BD para esta cuenta.
   const existing = await prisma.financeBankTransaction.findMany({
     where: {
       tenantId,
@@ -900,11 +945,8 @@ export async function previewBankStatementImport(
 
   const newRows: PreviewRow[] = [];
   const duplicateRows: PreviewRow[] = [];
-  for (const { tx, apiTransactionId } of enriched) {
-    if (
-      existingSet.has(apiTransactionId) ||
-      existingContent.has(bankTxContentKey(tx))
-    ) {
+  for (const { tx, key, occ, apiTransactionId } of enriched) {
+    if (existingSet.has(apiTransactionId) || occ < (existingCounts.get(key) ?? 0)) {
       duplicateRows.push(toRow(tx));
     } else newRows.push(toRow(tx));
   }
@@ -1078,4 +1120,112 @@ export async function unhideTransaction(
   });
 
   await syncCurrentBalanceFromMovements(tenantId, tx.bankAccountId);
+}
+
+export interface CreateAdjustmentInput {
+  bankAccountId: string;
+  transactionDate: string; // YYYY-MM-DD
+  /** Signo real: positivo suma al ledger, negativo resta. */
+  amount: number;
+  reason: string;
+}
+
+/**
+ * Ajuste de cuadratura explícito: un movimiento visible, con motivo y
+ * auditado, que suma o resta al ledger como cualquier otro. Es el ÚNICO
+ * mecanismo para forzar el saldo — nunca se corrige "por fuera" del libro.
+ */
+export async function createAdjustmentTransaction(
+  tenantId: string,
+  userId: string | null,
+  input: CreateAdjustmentInput,
+) {
+  const reason = input.reason.trim();
+  if (reason.length < 5) throw new Error("Motivo requerido (mínimo 5 caracteres)");
+  if (!Number.isFinite(input.amount) || input.amount === 0) {
+    throw new Error("El monto del ajuste debe ser distinto de cero");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.transactionDate)) {
+    throw new Error("transactionDate debe ser YYYY-MM-DD");
+  }
+  const opening = await getLedgerOpening(tenantId, input.bankAccountId);
+  if (
+    opening &&
+    input.transactionDate <= opening.asOfDate.toISOString().slice(0, 10)
+  ) {
+    throw new Error(
+      "El ajuste debe ser posterior al saldo inicial; si el error está antes, corrige el saldo inicial",
+    );
+  }
+
+  const created = await createBankTransaction(tenantId, {
+    bankAccountId: input.bankAccountId,
+    transactionDate: input.transactionDate,
+    description: `Ajuste de cuadratura: ${reason}`.slice(0, 500),
+    reference: null,
+    amount: input.amount,
+    category: BANK_LEDGER_ADJUSTMENT_CATEGORY,
+    source: "MANUAL",
+  });
+
+  await logAudit({
+    tenantId,
+    userId,
+    action: "CREATE",
+    entity: "FinanceBankTransaction",
+    entityId: created.id,
+    details: {
+      kind: BANK_LEDGER_ADJUSTMENT_CATEGORY,
+      bankAccountId: input.bankAccountId,
+      transactionDate: input.transactionDate,
+      amount: input.amount,
+      reason,
+    },
+  });
+
+  return created;
+}
+
+/**
+ * Resuelve un posible duplicado: `hide` lo oculta (era copia: deja de sumar)
+ * y `keep` lo confirma como movimiento real. Ambos quedan marcados como
+ * revisados para que no vuelvan a aparecer en Cuadratura.
+ */
+export async function resolveDuplicateSuspect(
+  tenantId: string,
+  txId: string,
+  userId: string | null,
+  action: "hide" | "keep",
+): Promise<void> {
+  const tx = await prisma.financeBankTransaction.findFirst({
+    where: { id: txId, tenantId },
+    select: { id: true, dupSuspectOfId: true, bankAccountId: true },
+  });
+  if (!tx) throw new Error("Movimiento no encontrado");
+
+  if (action === "hide") {
+    await hideTransaction(
+      tenantId,
+      txId,
+      userId,
+      "Duplicado confirmado en cuadratura (misma operación que otra fila).",
+    );
+  }
+  await prisma.financeBankTransaction.update({
+    where: { id: txId },
+    data: { dupResolvedAt: new Date() },
+  });
+  await logAudit({
+    tenantId,
+    userId,
+    action: "UPDATE",
+    entity: "FinanceBankTransaction",
+    entityId: txId,
+    details: {
+      kind: "DUP_SUSPECT_RESOLVED",
+      action,
+      dupSuspectOfId: tx.dupSuspectOfId,
+      bankAccountId: tx.bankAccountId,
+    },
+  });
 }

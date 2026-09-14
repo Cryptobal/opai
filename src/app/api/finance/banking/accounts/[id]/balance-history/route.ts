@@ -9,10 +9,11 @@ import {
 import { hasCapability } from "@/lib/permissions";
 import {
   listBalanceHistory,
-  applyReportedBalance,
+  registerBankReading,
   resolveAccountBalanceFromMovements,
   findLatestUnexplainedDiscrepancy,
   getBankBalanceDiscrepancyThresholdClp,
+  buildReconciliationReport,
 } from "@/modules/finance/banking/bank-balance.service";
 import { notifyBankBalanceDiscrepancy } from "@/modules/finance/banking/bank-balance-notify";
 import { prisma } from "@/lib/prisma";
@@ -49,7 +50,8 @@ function serializeSnapshot(s: {
 
 /**
  * GET /api/finance/banking/accounts/[id]/balance-history
- * Lista el historial de saldos de una cuenta + trazabilidad del ancla.
+ * Historial de saldos (saldo inicial + lecturas), ledger a hoy y reporte de
+ * cuadratura (lecturas vs ledger, días con diferencia, posibles duplicados).
  */
 export async function GET(
   _request: NextRequest,
@@ -76,12 +78,13 @@ export async function GET(
         { status: 404 },
       );
     }
-    const [data, resolved, lastDiscrepancy, discrepancyThresholdClp] =
+    const [data, resolved, lastDiscrepancy, discrepancyThresholdClp, report] =
       await Promise.all([
         listBalanceHistory(ctx.tenantId, id),
         resolveAccountBalanceFromMovements(ctx.tenantId, id),
         findLatestUnexplainedDiscrepancy(ctx.tenantId, id),
         getBankBalanceDiscrepancyThresholdClp(ctx.tenantId),
+        buildReconciliationReport(ctx.tenantId, id),
       ]);
     return NextResponse.json({
       success: true,
@@ -95,7 +98,10 @@ export async function GET(
         txDeltaClp: resolved.txDeltaClp,
         txCount: resolved.txCount,
         resolvedBalanceClp: resolved.resolvedBalanceClp,
+        needsOpening: resolved.needsOpening,
       },
+      opening: report.opening,
+      report,
       lastDiscrepancy,
       discrepancyThresholdClp,
     });
@@ -110,7 +116,8 @@ export async function GET(
 
 /**
  * POST /api/finance/banking/accounts/[id]/balance-history
- * Crea un snapshot manual de saldo (cuadratura + nota si supera umbral).
+ * Registra una lectura MANUAL del banco a una fecha y la cuadra contra el
+ * ledger. No modifica el saldo (nota obligatoria si supera el umbral).
  */
 export async function POST(
   request: NextRequest,
@@ -141,7 +148,7 @@ export async function POST(
       );
     }
 
-    const applied = await applyReportedBalance({
+    const applied = await registerBankReading({
       tenantId: ctx.tenantId,
       userId: ctx.userId,
       bankAccountId: id,
@@ -172,6 +179,7 @@ export async function POST(
           tenantId: ctx.tenantId,
           accountLabel: `${account.bankName} ${account.accountNumber}`,
           discrepancy: applied.discrepancy,
+          link: "/finanzas/bancos?tab=transactions",
         });
       } catch (err) {
         console.error("[Finance/Banking/Balance] notify:", err);
@@ -179,13 +187,18 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { success: true, data: serializeSnapshot(applied.snapshot) },
+      {
+        success: true,
+        data: serializeSnapshot(applied.snapshot),
+        discrepancy: applied.discrepancy,
+        ledgerBalanceClp: applied.resolvedBalanceClp,
+      },
       { status: 201 },
     );
   } catch (error) {
     console.error("[Finance/Banking/Balance] POST error:", error);
     const message =
-      error instanceof Error ? error.message : "Error al fijar saldo";
+      error instanceof Error ? error.message : "Error al registrar la lectura";
     return NextResponse.json(
       { success: false, error: message },
       { status: 500 }

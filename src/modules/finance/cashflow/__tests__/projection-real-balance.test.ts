@@ -1,98 +1,74 @@
 import { describe, it, expect } from "vitest";
 import {
   getRealBankBalanceAt,
+  includeBankTxInLedger,
   type BalanceSnapshot,
   type BalanceTx,
 } from "../real-balance.helper";
 
 const accountIds = ["acc-1"];
 
-function snapsOf(...entries: BalanceSnapshot[]) {
+function openingsOf(...entries: BalanceSnapshot[]) {
   return new Map([["acc-1", entries]]);
 }
 function txsOf(...entries: BalanceTx[]) {
   return new Map([["acc-1", entries]]);
 }
 
-describe("getRealBankBalanceAt", () => {
-  it("snapshot MANUAL hoy, sin tx → devuelve exactamente snapshot.balance", () => {
-    const today = new Date("2026-05-13");
-    const snaps = snapsOf({ asOfDate: new Date("2026-05-13"), balance: 20_967_579 });
-    const txs = new Map<string, BalanceTx[]>();
-    expect(getRealBankBalanceAt(today, accountIds, snaps, txs)).toBe(20_967_579);
+describe("getRealBankBalanceAt (libro mayor por bucket)", () => {
+  it("saldo inicial sin tx → exactamente opening.balance", () => {
+    const openings = openingsOf({ asOfDate: new Date("2026-05-12"), balance: 20_967_579 });
+    expect(
+      getRealBankBalanceAt(new Date("2026-05-13"), accountIds, openings, new Map()),
+    ).toBe(20_967_579);
   });
 
-  it("snapshot histórico + tx posteriores → suma correcta", () => {
-    const snaps = snapsOf({ asOfDate: new Date("2026-04-20"), balance: 10_000_000 });
+  it("saldo inicial + tx posteriores → suma correcta", () => {
+    const openings = openingsOf({ asOfDate: new Date("2026-04-20"), balance: 10_000_000 });
     const txs = txsOf(
       { transactionDate: new Date("2026-04-26"), amount: 30_247_881 },
       { transactionDate: new Date("2026-05-03"), amount: -27_491 },
       { transactionDate: new Date("2026-05-10"), amount: -3_449_478 },
     );
-    const result = getRealBankBalanceAt(
-      new Date("2026-05-13"),
-      accountIds,
-      snaps,
-      txs,
+    expect(getRealBankBalanceAt(new Date("2026-05-13"), accountIds, openings, txs)).toBe(
+      10_000_000 + 30_247_881 - 27_491 - 3_449_478,
     );
-    expect(result).toBe(10_000_000 + 30_247_881 - 27_491 - 3_449_478);
   });
 
-  it("snapshot manual de hoy gana sobre cartola vieja, para bucket actual", () => {
-    const snaps = snapsOf(
-      { asOfDate: new Date("2026-04-20"), balance: 10_000_000 },
-      { asOfDate: new Date("2026-05-13"), balance: 20_967_579 },
-    );
+  it("bucket pasado: solo suma las tx hasta esa fecha (absoluto, no acumulativo)", () => {
+    const openings = openingsOf({ asOfDate: new Date("2026-04-20"), balance: 10_000_000 });
     const txs = txsOf(
       { transactionDate: new Date("2026-04-26"), amount: 30_000_000 },
       { transactionDate: new Date("2026-05-10"), amount: -1_000_000 },
     );
-    expect(
-      getRealBankBalanceAt(new Date("2026-05-13"), accountIds, snaps, txs),
-    ).toBe(20_967_579);
+    expect(getRealBankBalanceAt(new Date("2026-05-02"), accountIds, openings, txs)).toBe(
+      40_000_000,
+    );
+    expect(getRealBankBalanceAt(new Date("2026-05-13"), accountIds, openings, txs)).toBe(
+      39_000_000,
+    );
   });
 
-  it("bucket pasado al snapshot manual usa el snapshot ANTERIOR (cartola)", () => {
-    const snaps = snapsOf(
-      { asOfDate: new Date("2026-04-20"), balance: 10_000_000 },
-      { asOfDate: new Date("2026-05-13"), balance: 20_967_579 },
-    );
-    const txs = txsOf(
-      { transactionDate: new Date("2026-04-26"), amount: 30_000_000 },
-      { transactionDate: new Date("2026-05-10"), amount: -1_000_000 },
-    );
-    expect(
-      getRealBankBalanceAt(new Date("2026-05-02"), accountIds, snaps, txs),
-    ).toBe(10_000_000 + 30_000_000);
-  });
-
-  it("cuenta sin snapshot no contribuye al consolidado", () => {
-    const snaps = new Map<string, BalanceSnapshot[]>([
+  it("cuenta sin saldo inicial no contribuye al consolidado", () => {
+    const openings = new Map<string, BalanceSnapshot[]>([
       ["acc-1", [{ asOfDate: new Date("2026-04-20"), balance: 5_000_000 }]],
     ]);
-    const txs = new Map<string, BalanceTx[]>();
-    const result = getRealBankBalanceAt(
-      new Date("2026-05-13"),
-      ["acc-1", "acc-2-sin-snapshot"],
-      snaps,
-      txs,
-    );
-    expect(result).toBe(5_000_000);
-  });
-
-  it("tenant sin snapshots → null", () => {
     expect(
-      getRealBankBalanceAt(
-        new Date("2026-05-13"),
-        accountIds,
-        new Map(),
-        new Map(),
-      ),
-    ).toBeNull();
+      getRealBankBalanceAt(new Date("2026-05-13"), ["acc-1", "acc-2-sin-opening"], openings, new Map()),
+    ).toBe(5_000_000);
   });
 
-  it("multi-cuenta: consolida saldos de varias cuentas con anchor independiente", () => {
-    const snaps = new Map<string, BalanceSnapshot[]>([
+  it("tenant sin saldos iniciales → null", () => {
+    expect(getRealBankBalanceAt(new Date("2026-05-13"), accountIds, new Map(), new Map())).toBeNull();
+  });
+
+  it("bucket anterior al saldo inicial → la cuenta no aporta (null si es la única)", () => {
+    const openings = openingsOf({ asOfDate: new Date("2026-05-13"), balance: 100 });
+    expect(getRealBankBalanceAt(new Date("2026-05-02"), accountIds, openings, new Map())).toBeNull();
+  });
+
+  it("multi-cuenta: consolida con saldo inicial independiente", () => {
+    const openings = new Map<string, BalanceSnapshot[]>([
       ["acc-1", [{ asOfDate: new Date("2026-05-01"), balance: 1_000_000 }]],
       ["acc-2", [{ asOfDate: new Date("2026-05-05"), balance: 500_000 }]],
     ]);
@@ -101,62 +77,38 @@ describe("getRealBankBalanceAt", () => {
       ["acc-2", [{ transactionDate: new Date("2026-05-11"), amount: -50_000 }]],
     ]);
     expect(
-      getRealBankBalanceAt(
-        new Date("2026-05-13"),
-        ["acc-1", "acc-2"],
-        snaps,
-        txs,
-      ),
+      getRealBankBalanceAt(new Date("2026-05-13"), ["acc-1", "acc-2"], openings, txs),
     ).toBe(1_000_000 + 200_000 + 500_000 - 50_000);
   });
 
-  it("tx exactamente en la fecha del snapshot IMPORT no se cuenta (cierre de cartola)", () => {
-    const snaps = snapsOf({
-      asOfDate: new Date("2026-05-01"),
-      balance: 100_000,
-      source: "IMPORT",
-    });
+  it("tx del mismo día del saldo inicial no se cuenta (ya está dentro del saldo de cierre)", () => {
+    const openings = openingsOf({ asOfDate: new Date("2026-05-01"), balance: 100_000 });
     const txs = txsOf({ transactionDate: new Date("2026-05-01"), amount: 999_999 });
-    expect(
-      getRealBankBalanceAt(new Date("2026-05-13"), accountIds, snaps, txs),
-    ).toBe(100_000);
+    expect(getRealBankBalanceAt(new Date("2026-05-13"), accountIds, openings, txs)).toBe(100_000);
   });
 
-  it("tx del mismo día que un ancla MANUAL no se cuenta (ya va en el saldo)", () => {
-    const snaps = snapsOf({
-      asOfDate: new Date("2026-08-24"),
-      balance: 24_773_797,
-      source: "MANUAL",
-    });
-    const txs = txsOf({
-      transactionDate: new Date("2026-08-24"),
-      amount: 24_024_231,
-    });
-    expect(
-      getRealBankBalanceAt(new Date("2026-08-25"), accountIds, snaps, txs),
-    ).toBe(24_773_797);
-  });
-
-  it("tx del día siguiente al ancla MANUAL sí cuenta", () => {
-    const snaps = snapsOf({
-      asOfDate: new Date("2026-08-24"),
-      balance: 24_773_797,
-      source: "MANUAL",
-    });
-    const txs = txsOf({
-      transactionDate: new Date("2026-08-25"),
-      amount: 2_155_188,
-    });
-    expect(
-      getRealBankBalanceAt(new Date("2026-08-25"), accountIds, snaps, txs),
-    ).toBe(26_928_985);
+  it("tx del día siguiente al saldo inicial sí cuenta", () => {
+    const openings = openingsOf({ asOfDate: new Date("2026-08-23"), balance: 24_773_797 });
+    const txs = txsOf({ transactionDate: new Date("2026-08-24"), amount: 2_155_188 });
+    expect(getRealBankBalanceAt(new Date("2026-08-25"), accountIds, openings, txs)).toBe(26_928_985);
   });
 
   it("tx exactamente en atDate sí se cuenta (uso de <=)", () => {
-    const snaps = snapsOf({ asOfDate: new Date("2026-04-30"), balance: 100_000 });
+    const openings = openingsOf({ asOfDate: new Date("2026-04-30"), balance: 100_000 });
     const txs = txsOf({ transactionDate: new Date("2026-05-13"), amount: 50_000 });
-    expect(
-      getRealBankBalanceAt(new Date("2026-05-13"), accountIds, snaps, txs),
-    ).toBe(150_000);
+    expect(getRealBankBalanceAt(new Date("2026-05-13"), accountIds, openings, txs)).toBe(150_000);
+  });
+});
+
+describe("includeBankTxInLedger", () => {
+  const openingDate = new Date("2026-08-24T00:00:00.000Z");
+  const asOf = new Date("2026-08-25T00:00:00.000Z");
+  it("excluye el día del saldo inicial y lo anterior", () => {
+    expect(includeBankTxInLedger({ transactionDate: openingDate, openingAsOfDate: openingDate, asOfDate: asOf })).toBe(false);
+    expect(includeBankTxInLedger({ transactionDate: new Date("2026-08-23T00:00:00.000Z"), openingAsOfDate: openingDate, asOfDate: asOf })).toBe(false);
+  });
+  it("incluye posteriores hasta el corte inclusive", () => {
+    expect(includeBankTxInLedger({ transactionDate: asOf, openingAsOfDate: openingDate, asOfDate: asOf })).toBe(true);
+    expect(includeBankTxInLedger({ transactionDate: new Date("2026-08-26T00:00:00.000Z"), openingAsOfDate: openingDate, asOfDate: asOf })).toBe(false);
   });
 });

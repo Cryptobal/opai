@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
         accountNumberInFile: meta.accountNumber,
         periodFrom: meta.periodFrom,
         periodTo: meta.periodTo,
+        openingBalance: meta.openingBalance,
+        dailyBalances: meta.dailyBalances,
       },
     );
 

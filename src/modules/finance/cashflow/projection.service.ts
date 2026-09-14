@@ -2144,45 +2144,48 @@ export async function buildProjection(
     : null;
   const anchorDate = anchorClose?.weekEndDate ?? null;
 
-  // Snapshots de saldo: necesarios para calcular el saldo real por bucket de
-  // forma independiente (no acumulativa). El algoritmo previo arrancaba en
-  // `opening` (que ya es el saldo de hoy) y sumaba `actualBankNet` de cada
-  // bucket pasado — eso duplicaba la plata. Ver `real-balance.helper.ts`.
+  // Saldo inicial (OPENING) por cuenta: el saldo real de cada bucket es
+  // opening + Σ tx posteriores hasta el corte (libro mayor, ver
+  // `real-balance.helper.ts`). Las lecturas del banco no entran al saldo.
   const activeAccountsForBalance = await prisma.financeBankAccount.findMany({
     where: { tenantId, isActive: true, currency: "CLP" },
     select: { id: true },
   });
   const accountIds = activeAccountsForBalance.map((a) => a.id);
 
-  const allSnapshots = accountIds.length > 0
+  const openingRows = accountIds.length > 0
     ? await prisma.financeBankAccountBalance.findMany({
         where: {
           tenantId,
           bankAccountId: { in: accountIds },
-          asOfDate: { lte: range.to },
+          source: "OPENING",
         },
-        orderBy: { asOfDate: "asc" },
-        select: { bankAccountId: true, asOfDate: true, balance: true, source: true },
+        orderBy: { createdAt: "desc" },
+        select: { bankAccountId: true, asOfDate: true, balance: true },
       })
     : [];
 
+  // Solo el OPENING activo (más reciente por createdAt) de cada cuenta.
   const snapshotsByAccount = new Map<string, BalanceSnapshot[]>();
-  for (const s of allSnapshots) {
-    const arr = snapshotsByAccount.get(s.bankAccountId) ?? [];
-    arr.push({
-      asOfDate: s.asOfDate,
-      balance: Number(s.balance),
-      source: s.source,
-    });
-    snapshotsByAccount.set(s.bankAccountId, arr);
+  for (const s of openingRows) {
+    if (snapshotsByAccount.has(s.bankAccountId)) continue;
+    snapshotsByAccount.set(s.bankAccountId, [
+      { asOfDate: s.asOfDate, balance: Number(s.balance) },
+    ]);
   }
 
   // Carga ampliada de tx (indexada por cuenta) para reconstruir el saldo
-  // desde el snapshot más antiguo relevante. Esta carga es independiente
-  // de `bankTxs` (que sigue en uso para actualBankIncome/Expense).
-  const oldestSnapshotDate = allSnapshots[0]?.asOfDate ?? range.from;
+  // desde el saldo inicial más antiguo. Esta carga es independiente de
+  // `bankTxs` (que sigue en uso para actualBankIncome/Expense).
+  let oldestOpeningDate: Date | null = null;
+  for (const arr of snapshotsByAccount.values()) {
+    const d = arr[0]!.asOfDate;
+    if (!oldestOpeningDate || d < oldestOpeningDate) oldestOpeningDate = d;
+  }
   const minTxDate =
-    oldestSnapshotDate < range.from ? oldestSnapshotDate : range.from;
+    oldestOpeningDate && oldestOpeningDate < range.from
+      ? oldestOpeningDate
+      : range.from;
 
   const allBankTxs = accountIds.length > 0
     ? await prisma.financeBankTransaction.findMany({

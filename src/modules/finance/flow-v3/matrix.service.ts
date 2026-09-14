@@ -421,6 +421,7 @@ export async function buildFlowMatrix(
     anchorBalanceClp: Math.round(a.anchorBalanceClp),
     txDeltaClp: Math.round(a.txDeltaClp),
     txCount: a.txCount,
+    needsOpening: a.needsOpening,
     lastDiscrepancy: a.lastDiscrepancy
       ? { asOfYmd: a.lastDiscrepancy.asOfDate, deltaClp: Math.round(a.lastDiscrepancy.deltaClp) }
       : null,

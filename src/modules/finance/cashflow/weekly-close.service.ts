@@ -6,6 +6,7 @@ import { getOrCreateCashflowConfig } from "./config.service";
 import { weekStartForClosing, weekEndForClosing } from "./recurrence-engine";
 import { buildProjection } from "./projection.service";
 import { findCashflowOccurrenceCandidates } from "./candidate-finder";
+import { resolveTenantBankLedgerAsOf } from "@/modules/finance/banking/bank-balance.service";
 
 /** Una bank tx de la semana, con su estado de conciliación/exclusión y
  *  (cuando es pendiente) la mejor sugerencia de calce. Alimenta las 3
@@ -55,28 +56,11 @@ export interface WeeklyCloseSnapshot {
   allBank: BankTxSnapshot[];
 }
 
-/** Saldo banco consolidado (todas las cuentas CLP activas) a una fecha de corte.
- *  Usa el snapshot más reciente ≤ asOf; si no hay snapshot para esa cuenta, cae a
- *  currentBalance. Mismo criterio que ya usaba el cálculo de bankBalance.
- *
- *  TODO: hace un findFirst por cuenta (N+1). Con pocas cuentas CLP por tenant
- *  (2-3) es aceptable y replica el comportamiento previo; si algún tenant crece
- *  en cuentas, agrupar en un solo query por lote. */
+/** Saldo banco consolidado (cuentas CLP activas) a una fecha de corte, con la
+ *  regla del libro mayor: saldo inicial + Σ movimientos visibles hasta esa
+ *  fecha. Las lecturas del banco no participan (solo cuadran). */
 async function bankBalanceAsOf(tenantId: string, asOf: Date): Promise<number> {
-  const accounts = await prisma.financeBankAccount.findMany({
-    where: { tenantId, isActive: true, currency: "CLP" },
-    select: { id: true, currentBalance: true },
-  });
-  let total = 0;
-  for (const acc of accounts) {
-    const snap = await prisma.financeBankAccountBalance.findFirst({
-      where: { tenantId, bankAccountId: acc.id, asOfDate: { lte: asOf } },
-      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-      select: { balance: true },
-    });
-    total += snap ? Number(snap.balance) : Number(acc.currentBalance ?? 0);
-  }
-  return total;
+  return resolveTenantBankLedgerAsOf(tenantId, asOf);
 }
 
 /**

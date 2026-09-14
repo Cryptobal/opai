@@ -333,6 +333,8 @@ export async function POST(request: NextRequest) {
         accountNumberInFile: parsed.accountNumber ?? null,
         periodFrom: parsed.periodFrom ?? null,
         periodTo: parsed.periodTo ?? null,
+        openingBalance: parsed.openingBalance ?? null,
+        dailyBalances: parsed.dailyBalances,
       },
     );
     totalImported += result.importedCount;
@@ -367,8 +369,8 @@ export async function POST(request: NextRequest) {
           take: totalImported,
           select: { id: true, transactionDate: true, description: true, amount: true },
         });
-        // Saldo total tras el import: el import setea currentBalance =
-        // closingBalance de la cartola, así que re-consultamos el valor fresco.
+        // Saldo del ledger tras el import (saldo inicial + movimientos):
+        // re-consultamos el cache fresco.
         const acctFresh = await prisma.financeBankAccount.findUnique({
           where: { id: targetAccount.id },
           select: { currentBalance: true },

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import {
-  applyReportedBalance,
+  registerBankReading,
   syncCurrentBalanceFromMovements,
   type BalanceDiscrepancy,
 } from "@/modules/finance/banking/bank-balance.service";
@@ -10,6 +10,7 @@ import {
   dateKey,
   partitionInboundMovements,
   pickLatestBalanceHint,
+  type ExistingContentRow,
   type InboundMovementLike,
 } from "@/modules/finance/banking/bank-tx-content-key";
 
@@ -21,32 +22,42 @@ export interface Web4leadsAccountBalance {
 export interface Web4leadsImportResult {
   imported: number;
   duplicates: number;
+  /** Insertados marcados como posible duplicado (revisión en Cuadratura). */
+  suspects: number;
   insertedIds: string[];
+  /** Saldo del ledger tras el lote (no lo fija la lectura: lo fijan los movimientos). */
   syncedBalance: number | null;
   discrepancy: BalanceDiscrepancy | null;
 }
 
-export async function loadVisibleContentCounts(args: {
+/**
+ * Filas ya guardadas (visibles u ocultas) agrupadas por huella para las
+ * fechas del lote. Incluye ocultas: si el usuario ocultó una copia, una
+ * reimportación no debe resucitarla.
+ */
+export async function loadContentRows(args: {
   tenantId: string;
   bankAccountId: string;
   dates: Date[];
-}): Promise<Map<string, number>> {
+}): Promise<Map<string, ExistingContentRow[]>> {
   if (args.dates.length === 0) return new Map();
   const rows = await prisma.financeBankTransaction.findMany({
     where: {
       tenantId: args.tenantId,
       bankAccountId: args.bankAccountId,
-      hiddenAt: null,
       transactionDate: { in: args.dates },
     },
     select: {
+      id: true,
       transactionDate: true,
       amount: true,
       description: true,
       reference: true,
+      balance: true,
     },
+    orderBy: { createdAt: "asc" },
   });
-  const counts = new Map<string, number>();
+  const byKey = new Map<string, ExistingContentRow[]>();
   for (const r of rows) {
     const key = bankTxContentKey({
       transactionDate: r.transactionDate,
@@ -54,29 +65,34 @@ export async function loadVisibleContentCounts(args: {
       description: r.description,
       reference: r.reference,
     });
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const list = byKey.get(key) ?? [];
+    list.push({ id: r.id, balance: r.balance != null ? Number(r.balance) : null });
+    byKey.set(key, list);
   }
-  return counts;
+  return byKey;
 }
 
-export async function loadVisibleContentKeys(args: {
+export async function loadVisibleContentCounts(args: {
   tenantId: string;
   bankAccountId: string;
   dates: Date[];
-}): Promise<Set<string>> {
-  const counts = await loadVisibleContentCounts(args);
-  return new Set(counts.keys());
+}): Promise<Map<string, number>> {
+  const rows = await loadContentRows(args);
+  const counts = new Map<string, number>();
+  for (const [key, list] of rows) counts.set(key, list.length);
+  return counts;
 }
 
 /**
- * Inserta movimientos Web4Leads con doble idempotencia:
- *   1. `apiTransactionId = web4leads:<externalId>`
- *   2. conteo de huella fecha|monto|glosa|referencia (ids inestables /
- *      reenvíos; no descarta un externalId nuevo si el lote trae más
- *      ocurrencias que las ya visibles).
+ * Inserta movimientos Web4Leads sin pérdidas:
+ *   1. `apiTransactionId = web4leads:<externalId>` (idempotencia dura).
+ *   2. Huella + `balance` como árbitro: misma huella y mismo saldo tras el
+ *      movimiento = misma operación (se descarta); misma huella sin saldo
+ *      que discrimine = se inserta marcada como posible duplicado.
  *
- * `accountBalance` (top-level) tiene prioridad sobre `balance` por movimiento.
- * Tras insertar se evalúa la cuadratura y se ancla el saldo reportado.
+ * El saldo de la cuenta sale del ledger (movimientos). `accountBalance` o
+ * el `balance` del último movimiento se registran como LECTURA del banco y
+ * se cuadran contra el ledger; si difieren, se informa (`discrepancy`).
  */
 export async function importWeb4leadsMovements(args: {
   tenantId: string;
@@ -90,6 +106,7 @@ export async function importWeb4leadsMovements(args: {
   const empty: Web4leadsImportResult = {
     imported: 0,
     duplicates: 0,
+    suspects: 0,
     insertedIds: [],
     syncedBalance: null,
     discrepancy: null,
@@ -104,7 +121,7 @@ export async function importWeb4leadsMovements(args: {
     ...new Set(movements.map((m) => dateKey(m.transactionDate))),
   ].map((d) => new Date(d));
 
-  const [existingByExt, existingContentCounts] = await Promise.all([
+  const [existingByExt, existingContentRows] = await Promise.all([
     externalIds.length === 0
       ? Promise.resolve([] as Array<{ apiTransactionId: string | null }>)
       : prisma.financeBankTransaction.findMany({
@@ -115,7 +132,7 @@ export async function importWeb4leadsMovements(args: {
           },
           select: { apiTransactionId: true },
         }),
-    loadVisibleContentCounts({ tenantId, bankAccountId, dates }),
+    loadContentRows({ tenantId, bankAccountId, dates }),
   ]);
 
   const existingExternalIds = new Set(
@@ -125,16 +142,16 @@ export async function importWeb4leadsMovements(args: {
       .map((id) => id.slice("web4leads:".length)),
   );
 
-  const { toInsert, duplicateCount } = partitionInboundMovements({
+  const { toInsert, duplicateCount, suspectCount } = partitionInboundMovements({
     incoming: movements,
     existingExternalIds,
-    existingContentCounts,
+    existingContentRows,
   });
 
   const startedAt = new Date();
   if (toInsert.length > 0) {
     await prisma.financeBankTransaction.createMany({
-      data: toInsert.map((m) => ({
+      data: toInsert.map(({ movement: m, dupSuspectOfId }) => ({
         tenantId,
         bankAccountId,
         transactionDate: new Date(m.transactionDate),
@@ -148,6 +165,7 @@ export async function importWeb4leadsMovements(args: {
         source: "API" as const,
         reconciliationStatus: "UNMATCHED" as const,
         apiTransactionId: `web4leads:${m.externalId}`,
+        dupSuspectOfId,
       })),
       skipDuplicates: true,
     });
@@ -161,40 +179,77 @@ export async function importWeb4leadsMovements(args: {
             tenantId,
             bankAccountId,
             apiTransactionId: {
-              in: toInsert.map((m) => `web4leads:${m.externalId}`),
+              in: toInsert.map(({ movement: m }) => `web4leads:${m.externalId}`),
             },
             createdAt: { gte: startedAt },
           },
-          select: { id: true },
+          select: {
+            id: true,
+            transactionDate: true,
+            amount: true,
+            description: true,
+            reference: true,
+            balance: true,
+            dupSuspectOfId: true,
+          },
         });
 
+  // Copias dentro del mismo lote (misma huella, ids distintos, sin saldo que
+  // discrimine): la primera queda limpia, las demás apuntan a ella.
+  let intraBatchSuspects = 0;
+  const byContent = new Map<string, typeof inserted>();
+  for (const row of inserted) {
+    const key = bankTxContentKey({
+      transactionDate: row.transactionDate,
+      amount: row.amount,
+      description: row.description,
+      reference: row.reference,
+    });
+    const list = byContent.get(key) ?? [];
+    list.push(row);
+    byContent.set(key, list);
+  }
+  for (const rows of byContent.values()) {
+    if (rows.length < 2) continue;
+    const allHaveBalance = rows.every((r) => r.balance != null);
+    if (allHaveBalance) continue;
+    const [first, ...rest] = rows;
+    const targets = rest.filter((r) => r.dupSuspectOfId == null).map((r) => r.id);
+    if (targets.length === 0) continue;
+    await prisma.financeBankTransaction.updateMany({
+      where: { tenantId, id: { in: targets } },
+      data: { dupSuspectOfId: first!.id },
+    });
+    intraBatchSuspects += targets.length;
+  }
+
   const hint = pickLatestBalanceHint(movements);
-  const reported = accountBalance
+  const reading = accountBalance
     ? {
         asOf: accountBalance.asOf,
         balance: accountBalance.current,
-        note: "Saldo informado por Fintoc (accountBalance)",
+        note: "Saldo informado por el proveedor (accountBalance)",
       }
     : hint
       ? {
           asOf: hint.asOfDate,
           balance: hint.balance,
-          note: "Saldo informado por Web4Leads (balance del movimiento)",
+          note: "Saldo informado por el proveedor (balance del último movimiento)",
         }
       : null;
 
   let discrepancy: BalanceDiscrepancy | null = null;
   let syncedBalance: number | null = null;
 
-  if (reported) {
-    const applied = await applyReportedBalance({
+  if (reading) {
+    const applied = await registerBankReading({
       tenantId,
       userId: null,
       bankAccountId,
-      asOf: reported.asOf,
-      balance: reported.balance,
+      asOf: reading.asOf,
+      balance: reading.balance,
       source: "CALCULATED",
-      note: reported.note,
+      note: reading.note,
     });
     discrepancy = applied.discrepancy;
     if (applied.ok) {
@@ -202,7 +257,7 @@ export async function importWeb4leadsMovements(args: {
     }
   }
 
-  if (syncedBalance == null && (inserted.length > 0 || reported)) {
+  if (syncedBalance == null && (inserted.length > 0 || reading)) {
     const resolved = await syncCurrentBalanceFromMovements(
       tenantId,
       bankAccountId,
@@ -221,6 +276,7 @@ export async function importWeb4leadsMovements(args: {
   return {
     imported: inserted.length,
     duplicates: duplicateCount + (toInsert.length - inserted.length),
+    suspects: suspectCount + intraBatchSuspects,
     insertedIds: inserted.map((r) => r.id),
     syncedBalance,
     discrepancy,

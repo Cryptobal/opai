@@ -15,7 +15,9 @@ interface Props {
 /**
  * Paso 1 del cierre semanal: confirmar saldo banco real al cierre.
  * Muestra tres bloques compactos (banco real / proyectado / diferencia) y
- * un edit inline que reusa el endpoint /bank-balance/adjust.
+ * un edit inline que registra la lectura del banco vía /bank-balance/adjust.
+ * La lectura NO modifica el saldo (ledger = saldo inicial + movimientos): si
+ * difiere, el cierre lo muestra y la corrección va por Bancos → Cuadratura.
  *
  * Nota: el endpoint pide bankAccountId. Si hay múltiples cuentas, esta vista
  * delega a BankBalanceAdjustDrawer (paso 1 detallado). Para mantener este
@@ -52,8 +54,21 @@ export function WeekCloseStep1BankBalance({ snap, onRefresh }: Props) {
         }),
       });
       const j = await res.json();
-      if (!j.success) throw new Error(j.error);
-      toast.success("Saldo banco actualizado");
+      if (!j.success) {
+        throw new Error(
+          j.error === "note_required"
+            ? "La diferencia con OPAI supera el umbral: registrá la lectura con nota desde Bancos → Cuadratura"
+            : j.error,
+        );
+      }
+      const delta = Number(j.data?.discrepancy?.delta ?? 0);
+      if (Math.abs(delta) < 1) {
+        toast.success("Lectura registrada: cuadra con OPAI");
+      } else {
+        toast.warning(
+          `Lectura registrada. Diferencia banco − OPAI: ${fmtCLP.format(delta)} (revisá Bancos → Cuadratura)`,
+        );
+      }
       setEditing(false);
       onRefresh();
     } catch (e) {
@@ -79,7 +94,7 @@ export function WeekCloseStep1BankBalance({ snap, onRefresh }: Props) {
       </h3>
       <div className="rounded-md border border-border/60 divide-y divide-border/60">
         <div className="flex items-center justify-between px-3 py-2.5">
-          <span className="text-xs text-muted-foreground">Saldo banco real</span>
+          <span className="text-xs text-muted-foreground">Saldo banco (ledger)</span>
           {editing ? (
             <div className="flex items-center gap-1.5">
               <Input

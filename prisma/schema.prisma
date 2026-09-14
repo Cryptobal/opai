@@ -8465,10 +8465,14 @@ model FinanceBankAccount {
   @@schema("finance")
 }
 
-/// Snapshots de saldo de una cuenta bancaria a una fecha. Permite "fijar"
-/// el saldo real informado por el banco (manual), registrar el saldo de
-/// cierre de una cartola importada, y derivar saldos calculados a otras
-/// fechas. Cada cambio queda como fila nueva (historial completo).
+/// Saldos de una cuenta bancaria a una fecha. Dos roles distintos:
+///   - `OPENING`: saldo inicial del libro mayor (saldo al cierre de `asOfDate`).
+///     El saldo de la cuenta = OPENING + Σ movimientos visibles posteriores.
+///     Es la única fila que afecta el saldo; el activo es el más reciente.
+///   - `MANUAL` / `IMPORT` / `CALCULATED`: lecturas del banco (app, cierre o
+///     saldo diario de cartola, proveedor). Solo sirven para cuadratura:
+///     se comparan contra el ledger (`computedBalance`, `deltaClp`) y nunca
+///     modifican el saldo. Cada registro queda como fila nueva (historial).
 model FinanceBankAccountBalance {
   id            String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId      String               @map("tenant_id")
@@ -8497,6 +8501,9 @@ enum FinanceBalanceSource {
   IMPORT
   /// Calculado por el sistema a partir de transacciones.
   CALCULATED
+  /// Saldo inicial del libro mayor: saldo al cierre de `asOfDate`. Única
+  /// fuente que entra al cálculo del saldo (las demás son lecturas).
+  OPENING
 
   @@schema("finance")
 }
@@ -8741,6 +8748,13 @@ model FinanceBankTransaction {
   suggestedRuleId        String? @map("suggested_rule_id") @db.Uuid
   suggestedAccountPlanId String? @map("suggested_account_plan_id") @db.Uuid
 
+  // Posible duplicado: misma huella (fecha|monto|glosa|referencia) que otra
+  // fila de la cuenta, pero con id de proveedor distinto. Se inserta y SÍ
+  // cuenta en el saldo (nunca se descarta en silencio); el usuario resuelve
+  // en Cuadratura: ocultar (era copia) o mantener (`dupResolvedAt`).
+  dupSuspectOfId String?   @map("dup_suspect_of_id") @db.Uuid
+  dupResolvedAt  DateTime? @map("dup_resolved_at") @db.Timestamptz(6)
+
   reconcMatch         FinanceReconciliationMatch?
   links               FinanceBankTransactionLink[]
   paymentRecords      FinancePaymentRecord[]
@@ -8761,6 +8775,7 @@ model FinanceBankTransaction {
   @@index([suggestedRuleId], map: "idx_finance_bank_tx_suggestion")
   @@index([importId], map: "idx_finance_bank_tx_import")
   @@index([tenantId, excludedReason], map: "idx_finance_bank_tx_excluded")
+  @@index([tenantId, dupSuspectOfId], map: "idx_finance_bank_tx_dup_suspect")
   @@map("finance_bank_transactions")
   @@schema("finance")
 }
@@ -8784,6 +8799,8 @@ model FinanceBankStatementImport {
   importedCount       Int                @map("imported_count")
   duplicateCount      Int                @map("duplicate_count")
   closingBalance      Decimal?           @map("closing_balance") @db.Decimal(14, 2)
+  /// "SALDO INICIAL" de la cartola: candidato natural a OPENING del ledger.
+  openingBalance      Decimal?           @map("opening_balance") @db.Decimal(14, 2)
   createdById         String?            @map("created_by")
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 

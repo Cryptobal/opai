@@ -7,32 +7,27 @@ import {
 import type { FinanceBalanceSource } from "@prisma/client";
 
 export interface OpeningBalanceBreakdown {
-  /** Saldo total resultante en CLP, "as of today" (snapshot + Σ tx posteriores).
-   *  Útil para drift/anclas. Puede desviarse del saldo real si entran
-   *  movimientos sin refrescar el snapshot (ej. API que solo actualiza
-   *  currentBalance). Para "el monto que hay HOY en el banco" usar
-   *  `currentTotalClp`. */
+  /** Saldo total del ledger en CLP "as of today" (saldo inicial + Σ tx visibles). */
   totalClp: number;
-  /** Suma de `currentBalance` de las cuentas activas — alineado con Bancos.
-   *  Cuando hay snapshot, usa snapshot + movimientos (misma fórmula que
-   *  `syncCurrentBalanceFromMovements`). Fallback a `currentBalance` solo
-   *  sin ancla. */
+  /** Igual a `totalClp` — se mantiene por compatibilidad con consumidores. */
   currentTotalClp: number;
   /** Una fila por cuenta CLP activa para auditoría. */
   perAccount: Array<{
     bankAccountId: string;
     bankName: string;
     accountNumber: string;
-    /** El snapshot más reciente usado como anclaje (o null si solo se usa currentBalance). */
+    /** Fecha de corte del saldo inicial (OPENING); null si la cuenta no lo tiene. */
     anchorSnapshotDate: Date | null;
     anchorBalanceClp: number;
     anchorSource: FinanceBalanceSource | null;
-    /** Movimientos de cartola visibles posteriores al día del ancla (no el mismo día). */
+    /** Σ movimientos visibles posteriores al saldo inicial y ≤ corte. */
     txDeltaClp: number;
     /** Cuántas bank tx se sumaron. */
     txCount: number;
     /** Resultado final por cuenta: anchorBalanceClp + txDeltaClp. */
     resolvedBalanceClp: number;
+    /** True si falta el saldo inicial: resolvedBalanceClp es solo el cache. */
+    needsOpening: boolean;
     lastDiscrepancy: {
       asOfDate: string;
       deltaClp: number;
@@ -41,20 +36,17 @@ export interface OpeningBalanceBreakdown {
 }
 
 /**
- * Resuelve el saldo bancario "as of today" para el tenant.
+ * Resuelve "Banco hoy" para el tenant con la regla del libro mayor.
  *
  * Por cada cuenta CLP activa:
- *  1. Toma el snapshot más reciente con asOfDate <= hoy (de cualquier source).
- *  2. Suma bank_tx visibles (hidden_at IS NULL, sin filtrar MATCHED/DTE)
- *     con transactionDate > asOfDate AND ≤ today. El ancla (IMPORT cierre
- *     o MANUAL pegado de la app) ya incluye el día asOfDate; sumarlo
- *     duplica abonos del mismo día.
- *  3. Si no hay snapshot, usa `currentBalance` como fallback y NO suma tx
- *     (porque sin anchor no sabemos desde qué fecha contar).
+ *  1. Toma el saldo inicial (OPENING) de la cuenta.
+ *  2. Suma bank_tx visibles (hidden_at IS NULL, sin filtrar MATCHED/DTE) con
+ *     transactionDate > OPENING.asOfDate AND ≤ corte.
+ *  3. Sin saldo inicial usa `currentBalance` como fallback y NO suma tx
+ *     (`needsOpening: true` para que la UI pida definirlo).
  *
- * El total es la suma de los resolvedBalanceClp por cuenta. Devuelve también
- * el desglose para que la UI pueda mostrar "última cartola hace N días" y
- * para el panel de cuadratura.
+ * Las lecturas del banco (MANUAL/IMPORT/CALCULATED) no participan del saldo;
+ * `lastDiscrepancy` expone la última diferencia lectura vs ledger.
  */
 export async function resolveOpeningBalance(
   tenantId: string,
@@ -96,6 +88,7 @@ export async function resolveOpeningBalance(
       txDeltaClp: resolved.txDeltaClp,
       txCount: resolved.txCount,
       resolvedBalanceClp: resolved.resolvedBalanceClp,
+      needsOpening: resolved.needsOpening,
       lastDiscrepancy: lastDiscrepancy
         ? { asOfDate: lastDiscrepancy.asOfDate, deltaClp: lastDiscrepancy.deltaClp }
         : null,
