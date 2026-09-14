@@ -12,12 +12,15 @@ export interface OpeningBalanceAccount {
   /** Últimos 4 dígitos, ej. "••1234". Nunca el número completo. */
   accountMasked: string;
   balanceClp: number;
-  /** Fecha (YMD) de la última cartola/snapshot usada como ancla; null si no hay. */
+  /** Fecha (YMD) del saldo inicial del ledger; null si la cuenta no lo tiene. */
   lastSnapshotYmd: string | null;
-  anchorSource: "MANUAL" | "IMPORT" | "CALCULATED" | null;
+  /** "OPENING" cuando hay saldo inicial; null si el saldo es solo el cache. */
+  anchorSource: "OPENING" | "MANUAL" | "IMPORT" | "CALCULATED" | null;
   anchorBalanceClp: number;
   txDeltaClp: number;
   txCount: number;
+  /** True si falta definir el saldo inicial (el saldo mostrado no es un ledger). */
+  needsOpening: boolean;
   lastDiscrepancy: { asOfYmd: string; deltaClp: number } | null;
 }
 

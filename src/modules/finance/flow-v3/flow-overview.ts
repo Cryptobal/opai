@@ -144,12 +144,12 @@ export function formatFlowOverview(m: FlowMatrixResponse): string {
 
   lines.push(`Hoy: ${m.todayYmd}. Semana actual: ${m.currentWeek} (${currentLabel}).`);
   lines.push(
-    `Banco hoy (footer de la planilla; ancla viva = snapshot banco + movimientos de cartola visibles posteriores al día del ancla y ≤ hoy; MATCHED a DTE no excluye): ${dto.kpis.bancoHoy} CLP.`,
+    `Banco hoy (footer de la planilla; libro mayor = saldo inicial + movimientos de cartola visibles posteriores al saldo inicial y ≤ hoy; MATCHED a DTE no excluye; las lecturas del banco no lo modifican, solo cuadran): ${dto.kpis.bancoHoy} CLP.`,
   );
   lines.push(
     "Saldo acumulado (semana actual ABIERTA) = Banco hoy + pendientes (effective − real). " +
-      "Futuras: acumulan effective desde esa ancla. Pasadas: sello / realNet. " +
-      "No usar currentBalance de Banca si difiere — ese campo puede quedar desactualizado.",
+      "Futuras: acumulan effective desde ese saldo. Pasadas: sello / realNet. " +
+      "Si una lectura del banco difiere de Banco hoy, falta o sobra un movimiento (ver Cuadratura en Bancos).",
   );
   lines.push(`Umbral alerta: ${dto.kpis.warnThreshold} CLP.`);
   lines.push(

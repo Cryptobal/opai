@@ -5,6 +5,7 @@ import {
   reopenWeeklyClose,
 } from "@/modules/finance/cashflow/weekly-close.service";
 import { weekStartForClosing, weekEndForClosing } from "@/modules/finance/cashflow/recurrence-engine";
+import { resolveTenantBankLedgerAsOf } from "@/modules/finance/banking/bank-balance.service";
 import {
   startOfIsoWeekUTC,
   toYmd,
@@ -78,24 +79,12 @@ async function isWeekClosed(tenantId: string, mondayYmd: string, dow: number): P
 }
 
 /**
- * Saldo banco consolidado a una fecha (misma lógica que el helper privado del
- * servicio v2). Copiado aquí para no tocar weekly-close.service.ts.
+ * Saldo banco consolidado a una fecha con la regla del libro mayor (saldo
+ * inicial + movimientos visibles hasta esa fecha). El sello del cierre usa
+ * este número; las lecturas del banco solo cuadran, no lo modifican.
  */
 async function bankBalanceAsOf(tenantId: string, asOf: Date): Promise<number> {
-  const accounts = await prisma.financeBankAccount.findMany({
-    where: { tenantId, isActive: true, currency: "CLP" },
-    select: { id: true, currentBalance: true },
-  });
-  let total = 0;
-  for (const acc of accounts) {
-    const snap = await prisma.financeBankAccountBalance.findFirst({
-      where: { tenantId, bankAccountId: acc.id, asOfDate: { lte: asOf } },
-      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-      select: { balance: true },
-    });
-    total += snap ? Number(snap.balance) : Number(acc.currentBalance ?? 0);
-  }
-  return total;
+  return resolveTenantBankLedgerAsOf(tenantId, asOf);
 }
 
 /**
