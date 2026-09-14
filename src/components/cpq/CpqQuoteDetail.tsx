@@ -1320,7 +1320,7 @@ export function CpqQuoteDetail({
 
     const confirmed = await confirmDialog({
       description:
-        "Esta accion reemplazara la dotacion activa de la instalacion con los puestos de esta cotizacion. Continuar?",
+        "Esta accion reemplazara la dotacion activa de la instalacion con los puestos de esta cotizacion, incluyendo sus sueldos brutos. Los puestos con historial operativo quedan desactivados; el resto se elimina. Continuar?",
       variant: "destructive",
       confirmLabel: "Reemplazar",
     });
@@ -1337,9 +1337,16 @@ export function CpqQuoteDetail({
         throw new Error(payload.error || "No se pudo enviar la dotacion");
       }
 
-      toast.success(
-        `Dotacion enviada a ${payload.data.installationName}: ${payload.data.createdPuestos} puestos creados`
-      );
+      const d = payload.data as {
+        installationName: string;
+        createdPuestos: number;
+        deactivatedPuestos?: number;
+        startDate?: string;
+      };
+      const parts = [`${d.createdPuestos} puestos creados`];
+      if (d.deactivatedPuestos) parts.push(`${d.deactivatedPuestos} desactivados`);
+      if (d.startDate) parts.push(`inicio ${d.startDate.split("-").reverse().join("-")}`);
+      toast.success(`Dotacion enviada a ${d.installationName}: ${parts.join(", ")}`);
     } catch (error) {
       console.error("Error sending staffing to installation:", error);
       toast.error("No se pudo enviar la dotacion a instalacion");

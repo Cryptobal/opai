@@ -4,8 +4,7 @@ import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { createPuestoSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
 import { assertPuestoCatalogOwnership } from "@/lib/ops/puesto-catalog";
-import { simulatePayslip } from "@/modules/payroll/engine/simulate-payslip";
-import { resolveStructureAllowances } from "@/modules/payroll/resolve-structure-allowances";
+import { createPuestoSalaryStructure } from "@/lib/ops/puesto-salary-structure";
 import { syncPayrollItemForInstallation } from "@/modules/finance/cashflow/generators/payroll-sync";
 
 export async function GET(request: NextRequest) {
@@ -118,89 +117,21 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create PayrollSalaryStructure for this puesto
+    // Estructura de sueldo + bonos + líquido estimado (helper compartido con
+    // "Enviar dotación" del CPQ).
     if (body.baseSalary != null && body.baseSalary > 0) {
-      const salaryStructure = await prisma.payrollSalaryStructure.create({
-        data: {
-          tenantId: ctx.tenantId,
-          sourceType: "PUESTO",
-          sourceId: puesto.id,
-          baseSalary: body.baseSalary,
-          colacion: body.colacion ?? 0,
-          movilizacion: body.movilizacion ?? 0,
-          gratificationType: body.gratificationType ?? "AUTO_25",
-          gratificationCustomAmount: body.gratificationCustomAmount ?? null,
-          isActive: true,
-          effectiveFrom: body.activeFrom ? new Date(`${body.activeFrom}T00:00:00.000Z`) : new Date(),
-          createdBy: ctx.userId,
-        },
+      await createPuestoSalaryStructure(prisma, {
+        tenantId: ctx.tenantId,
+        puestoId: puesto.id,
+        baseSalary: body.baseSalary,
+        colacion: body.colacion,
+        movilizacion: body.movilizacion,
+        gratificationType: body.gratificationType,
+        gratificationCustomAmount: body.gratificationCustomAmount,
+        effectiveFrom: body.activeFrom ? new Date(`${body.activeFrom}T00:00:00.000Z`) : new Date(),
+        bonos: Array.isArray(body.bonos) ? body.bonos : [],
+        createdBy: ctx.userId,
       });
-
-      // Link structure to puesto
-      await prisma.opsPuestoOperativo.update({
-        where: { id: puesto.id },
-        data: { salaryStructureId: salaryStructure.id },
-      });
-
-      // Create salary structure bonos
-      if (Array.isArray(body.bonos) && body.bonos.length > 0) {
-        await prisma.payrollSalaryStructureBono.createMany({
-          data: body.bonos
-            .filter((b: any) => b.bonoCatalogId)
-            .map((b: any) => ({
-              salaryStructureId: salaryStructure.id,
-              bonoCatalogId: b.bonoCatalogId,
-              overrideAmount: b.overrideAmount ?? null,
-              overridePercentage: b.overridePercentage ?? null,
-              isActive: true,
-            })),
-        });
-      }
-
-      // Calcular y persistir líquido estimado para la tabla de puestos
-      try {
-        const baseSalary = Number(body.baseSalary);
-        const colacion = Number(body.colacion ?? 0);
-        const movilizacion = Number(body.movilizacion ?? 0);
-        const gratificationType = (body.gratificationType as string) ?? "AUTO_25";
-        const gratificationCustomAmount = Number(body.gratificationCustomAmount ?? 0);
-        const bonos = Array.isArray(body.bonos) ? body.bonos : [];
-        let bonosImponibles = 0;
-        let bonosNoImponibles = 0;
-        if (bonos.length > 0) {
-          const bonoIds = bonos.map((b: any) => b.bonoCatalogId).filter(Boolean);
-          const catalog = await prisma.payrollBonoCatalog.findMany({
-            where: { id: { in: bonoIds }, tenantId: ctx.tenantId },
-            select: { id: true, bonoType: true, isTaxable: true, defaultAmount: true, defaultPercentage: true },
-          });
-          const resolved = resolveStructureAllowances(
-            baseSalary,
-            bonos.map((b: any) => ({
-              overrideAmount: b.overrideAmount,
-              overridePercentage: b.overridePercentage,
-              bonoCatalog: catalog.find((c) => c.id === b.bonoCatalogId) ?? null,
-            })),
-          );
-          bonosImponibles = resolved.bonosImponibles;
-          bonosNoImponibles = resolved.bonosNoImponibles;
-        }
-        const result = await simulatePayslip({
-          base_salary_clp: baseSalary,
-          gratification_clp: gratificationType === "CUSTOM" ? gratificationCustomAmount : undefined,
-          other_taxable_allowances: bonosImponibles,
-          non_taxable_allowances: { transport: movilizacion, meal: colacion, other: bonosNoImponibles },
-          contract_type: "indefinite",
-          afp_name: "Modelo",
-          health_system: "fonasa",
-          save_simulation: false,
-        });
-        await prisma.payrollSalaryStructure.update({
-          where: { id: salaryStructure.id },
-          data: { netSalaryEstimate: result.net_salary },
-        });
-      } catch (err) {
-        console.error("[OPS] Error computing netSalaryEstimate on create puesto:", err);
-      }
     }
 
     await createOpsAuditLog(ctx, "ops.puesto.created", "ops_puesto", puesto.id, {
