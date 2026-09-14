@@ -5,7 +5,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { parseSantanderCartola } from "./santander-parser";
+import { parseSantanderCartola, type ParsedDailyBalance } from "./santander-parser";
 import { loadXlsxRows } from "./xlsx-loader";
 import type { ImportTransactionInput } from "./bank-transaction.service";
 
@@ -22,6 +22,8 @@ export interface ParsedCartolaUpload {
   periodFrom: string | null;
   periodTo: string | null;
   closingBalance: number | null;
+  openingBalance: number | null;
+  dailyBalances: ParsedDailyBalance[];
 }
 
 type Failure = { ok: false; response: NextResponse };
@@ -144,6 +146,8 @@ export async function parseCartolaUpload(
       periodFrom: parsed.periodFrom ?? null,
       periodTo: parsed.periodTo ?? null,
       closingBalance: parsed.closingBalance ?? null,
+      openingBalance: parsed.openingBalance ?? null,
+      dailyBalances: parsed.dailyBalances,
     },
   };
 }

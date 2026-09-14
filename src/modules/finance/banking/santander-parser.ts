@@ -25,6 +25,11 @@ export interface ParsedBankTransaction {
   branch: string | null;
 }
 
+export interface ParsedDailyBalance {
+  date: string; // YYYY-MM-DD
+  balance: number;
+}
+
 export interface ParsedBankStatement {
   accountNumber: string | null;
   currency: string | null;
@@ -32,7 +37,64 @@ export interface ParsedBankStatement {
   periodTo: string | null;
   openingBalance: number | null;
   closingBalance: number | null;
+  /** Bloque "Saldos diarios": saldo al cierre de cada día (lecturas del banco). */
+  dailyBalances: ParsedDailyBalance[];
   transactions: ParsedBankTransaction[];
+}
+
+/**
+ * Lee el bloque "Saldos diarios" (filas posteriores al marcador). Tolerante a
+ * la posición de columnas: en cada fila busca una celda con fecha DD/MM/YYYY
+ * y otra numérica. Ignora filas rotuladas (SALDO FINAL / CIERRE) y termina
+ * cuando aparecen filas sin fecha después de haber leído al menos una.
+ */
+export function parseDailyBalancesBlock(
+  rows: (string | number | null)[][],
+  startRow: number,
+): ParsedDailyBalance[] {
+  const out: ParsedDailyBalance[] = [];
+  const seen = new Set<string>();
+  for (let j = startRow; j < rows.length; j++) {
+    const row = rows[j];
+    if (!row || row.length === 0) {
+      if (out.length > 0) break;
+      continue;
+    }
+    let date: string | null = null;
+    let balance: number | null = null;
+    let labeled = false;
+    for (const cell of row) {
+      if (cell === null || cell === undefined || cell === "") continue;
+      const text = String(cell).trim();
+      const upper = text.toUpperCase();
+      if (upper.includes("SALDO") || upper.includes("CIERRE") || upper.includes("FECHA")) {
+        labeled = true;
+        continue;
+      }
+      if (date === null) {
+        const converted = convertDate(text);
+        if (converted) {
+          date = converted;
+          continue;
+        }
+      }
+      if (balance === null) {
+        const num = parseNumber(cell);
+        if (num !== null && /^-?[\d.,]+$/.test(text)) balance = num;
+      }
+    }
+    if (date && balance !== null) {
+      if (!seen.has(date)) {
+        seen.add(date);
+        out.push({ date, balance });
+      }
+      continue;
+    }
+    if (labeled) continue;
+    if (out.length > 0) break;
+  }
+  out.sort((a, b) => a.date.localeCompare(b.date));
+  return out;
 }
 
 /**
@@ -90,6 +152,7 @@ export function parseSantanderCartola(
     periodTo: null,
     openingBalance: null,
     closingBalance: null,
+    dailyBalances: [],
     transactions: [],
   };
 
@@ -197,6 +260,14 @@ export function parseSantanderCartola(
           if (closingVal !== null) result.closingBalance = closingVal;
           break;
         }
+      }
+      // Saldos diarios: una lectura del banco por día del período.
+      result.dailyBalances = parseDailyBalancesBlock(rows, i + 1);
+      if (result.closingBalance === null && result.periodTo) {
+        const closingDay = result.dailyBalances.find(
+          (d) => d.date === result.periodTo,
+        );
+        if (closingDay) result.closingBalance = closingDay.balance;
       }
       break;
     }

@@ -9,9 +9,14 @@
  *   3. Match a la cuenta bancaria del tenant por número de cuenta
  *      (bankCode solo desempata si hay varias con el mismo número).
  *   4. Inserta en finance_bank_transactions con
- *      apiTransactionId = "web4leads:<externalId>" y huella de contenido
- *      (fecha|monto|glosa|referencia) para ids inestables.
- *   5. Actualiza saldo (snapshot CALCULATED si viene `balance`) + apiLastSync.
+ *      apiTransactionId = "web4leads:<externalId>". La huella de contenido
+ *      (fecha|monto|glosa|referencia) NO descarta movimientos: un id nuevo
+ *      con huella repetida se inserta marcado como posible duplicado, salvo
+ *      que su `balance` (saldo tras el movimiento) coincida con una fila ya
+ *      guardada (misma operación → se ignora).
+ *   5. El saldo de la cuenta es el ledger (saldo inicial + movimientos).
+ *      `accountBalance` / `balance` se registran como lectura CALCULATED y
+ *      se cuadran contra el ledger (discrepancy) + apiLastSync.
 
  *   6. Corre auto-match (DTE → turnos extra → reglas) sobre los
  *      movimientos recién insertados — mismo comportamiento que el
@@ -243,7 +248,7 @@ export async function POST(
     );
   }
 
-  // 6. Insert idempotente por externalId y conteo de huella.
+  // 6. Insert idempotente por externalId; huella + balance como árbitro.
   const result = await importWeb4leadsMovements({
     tenantId,
     bankAccountId: account.id,
@@ -252,12 +257,16 @@ export async function POST(
   });
   const imported = result.imported;
   const duplicates = result.duplicates;
+  const suspects = result.suspects;
   const syncedBalance = result.syncedBalance;
   const discrepancy = result.discrepancy;
 
   // 8. Auto-match + notificación (fire-and-forget; un fallo no debe romper el 200)
   if (imported > 0) {
-    const summary = `${imported} movimiento(s) en cta. ${account.accountNumber}${duplicates > 0 ? ` · ${duplicates} duplicados ignorados` : ""}`;
+    const summary =
+      `${imported} movimiento(s) en cta. ${account.accountNumber}` +
+      (duplicates > 0 ? ` · ${duplicates} duplicados ignorados` : "") +
+      (suspects > 0 ? ` · ${suspects} posible(s) duplicado(s) a revisar` : "");
 
     const inserted = await prisma.financeBankTransaction.findMany({
       where: {
@@ -358,6 +367,7 @@ export async function POST(
     success: true,
     imported,
     duplicates,
+    suspects,
     syncedBalance,
     discrepancy,
   });
