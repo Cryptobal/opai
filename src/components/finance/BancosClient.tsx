@@ -28,7 +28,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DataTable, EmptyState, Tag, type DataTableColumn } from "@/components/opai-ds";
-import { bankBalanceSourceLabel, DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP } from "@/modules/finance/banking/bank-balance-constants";
+import { DEFAULT_BANK_BALANCE_DISCREPANCY_THRESHOLD_CLP } from "@/modules/finance/banking/bank-balance-constants";
 import { PaginationControls } from "./PaginationControls";
 import { BankBalanceSheet } from "./BankBalanceSheet";
 import { BankRulesClient } from "./BankRulesClient";
