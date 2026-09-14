@@ -4,14 +4,13 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { syncCurrentBalanceFromMovements } from "@/modules/finance/banking/bank-balance.service";
-import { hideContentDuplicateBankTransactions } from "@/modules/finance/banking/bank-tx-dedupe.service";
 
 /**
  * POST /api/finance/banking/accounts/[id]/recalculate-balance
  *
- * Oculta copias visibles con la misma huella y el mismo apiTransactionId
- * (ids de proveedor distintos no se tocan) y recalcula
- * `currentBalance` = ancla + movimientos posteriores.
+ * Resincroniza el cache `currentBalance` con el ledger
+ * (saldo inicial + movimientos visibles). No oculta ni modifica movimientos:
+ * los posibles duplicados se resuelven explícitamente en Cuadratura.
  */
 export async function POST(
   _request: NextRequest,
@@ -41,11 +40,6 @@ export async function POST(
     }
 
     const previousBalanceClp = Number(account.currentBalance ?? 0);
-    const deduped = await hideContentDuplicateBankTransactions({
-      tenantId: ctx.tenantId,
-      bankAccountId: id,
-      hiddenById: ctx.userId,
-    });
     const resolved = await syncCurrentBalanceFromMovements(
       ctx.tenantId,
       id,
@@ -62,7 +56,7 @@ export async function POST(
         resolvedBalanceClp: resolved.resolvedBalanceClp,
         txCount: resolved.txCount,
         anchorBalanceClp: resolved.anchorBalanceClp,
-        hiddenDuplicates: deduped.hidden,
+        needsOpening: resolved.needsOpening,
       },
     });
   } catch (error) {
