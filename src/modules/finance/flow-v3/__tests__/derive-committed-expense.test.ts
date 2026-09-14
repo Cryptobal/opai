@@ -241,6 +241,28 @@ describe("deriveCommittedExpense — hitos payroll/F29", () => {
     expect(out.get("row-f29")).toBeUndefined();
   });
 
+  it("f29 con ivaPostponed y monto 0 igual marca la celda F29", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      milestones: [{
+        key: "f29",
+        label: "IVA F29 2026-08 (IVA postergado)",
+        dateYmd: "2026-09-12",
+        amountClp: 0,
+        taxPeriod: "2026-08",
+        ivaPostponed: true,
+      }],
+    });
+    const cell = out.get("row-f29")?.get("2026-09-07");
+    expect(cell?.total).toBe(0);
+    expect(cell?.items[0]).toMatchObject({
+      milestoneKey: "f29",
+      ivaPostponed: true,
+      taxPeriod: "2026-08",
+      monto: 0,
+    });
+  });
+
   it("iva_postergado respeta override de semana", () => {
     const out = deriveCommittedExpense({
       ...base,

@@ -16,7 +16,7 @@
  * semanal exactamente por los ítems de semanas frontera reatribuidos
  * (esperado y correcto para la lectura calendario).
  */
-import { hasInvoicedIncome } from "./cell-editability";
+import { hasPostponedIvaF29, planYieldsToCommitted } from "./cell-editability";
 import { computeCellExecution, planCashSign } from "./residual";
 import { monthKeyOf, monthKeyOfDate, weekLabel } from "./weeks";
 import type {
@@ -215,7 +215,8 @@ function cellFromBucket(
   const committedCash =
     committed == null ? 0 : section === "INGRESOS" ? committed.total : -committed.total;
   const planCash = planCashSign(section, bucket.plan, canonicalKey);
-  const invoiced = hasInvoicedIncome(section, committed);
+  const ivaPostponed = hasPostponedIvaF29(canonicalKey, committed);
+  const ignorePlan = planYieldsToCommitted(section, canonicalKey, committed);
   const committedNet = bucket.committedItems
     .filter((it) => it.kind === "dte")
     .reduce((s, it) => s + it.monto, 0);
@@ -223,8 +224,10 @@ function cellFromBucket(
   let layer: FlowMatrixCellDto["layer"] = "empty";
   if (real && real.total !== 0) {
     layer = "real";
-  } else if (!isFrozen && invoiced && committed && committed.total !== 0) {
+  } else if (!isFrozen && ignorePlan && committed && committed.total !== 0) {
     layer = "committed";
+  } else if (!isFrozen && ivaPostponed) {
+    layer = "empty";
   } else if (!isFrozen && bucket.plan !== 0) {
     layer = "plan";
   } else if (!isFrozen && committed && committed.total !== 0) {
@@ -242,7 +245,7 @@ function cellFromBucket(
       plan: bucket.plan,
       committedTotal,
       committedNet,
-      invoiced,
+      invoiced: ignorePlan,
       realSigned,
       settlement: "AUTO",
       residualCarryEnabled,

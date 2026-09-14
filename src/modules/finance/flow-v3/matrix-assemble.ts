@@ -7,7 +7,8 @@
  * egreso; flujo y saldo suman `effective` directo.
  *
  * Capa efectiva (etiqueta `layer`, semana ABIERTA):
- *   real > ingreso facturado (DTE) > plan manual > comprometido > vacío.
+ *   real > ingreso facturado (DTE) / F29 con IVA postergado > plan manual
+ *   > comprometido > vacío.
  * Semanas CERRADAS (cierre semanal): SOLO real — el usuario fija al cerrar.
  * El rollover de calendario (isPast) NO congela montos ni quita plan/comprometido.
  *
@@ -31,7 +32,7 @@
  *    El espejo banco-hoy de la semana actual abierta NO genera ⚠:
  *    manda el banco; la divergencia vs cadena histórica es esperada.
  */
-import { hasInvoicedIncome } from "./cell-editability";
+import { hasPostponedIvaF29, planYieldsToCommitted } from "./cell-editability";
 import {
   computeCellExecution,
   planCashSign,
@@ -185,7 +186,8 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
       const committedCash =
         committed == null ? 0 : r.section === "INGRESOS" ? committed.total : -committed.total;
       const planCash = planCashSign(r.section, plan, r.canonicalKey);
-      const invoiced = hasInvoicedIncome(r.section, committed);
+      const ivaPostponed = hasPostponedIvaF29(r.canonicalKey, committed);
+      const ignorePlan = planYieldsToCommitted(r.section, r.canonicalKey, committed);
       const committedNet = committed
         ? committed.items
             .filter((it) => it.kind === "dte")
@@ -202,8 +204,11 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
       // Etiqueta de capa (sin cambiar significado): real gana la marca.
       if (real && real.total !== 0) {
         layer = "real";
-      } else if (!isFrozen && invoiced && committed && committed.total !== 0) {
+      } else if (!isFrozen && ignorePlan && committed && committed.total !== 0) {
         layer = "committed";
+      } else if (!isFrozen && ivaPostponed) {
+        // PPM = 0: el IVA salió del mes. El plan no debe reaparecer.
+        layer = "empty";
       } else if (!isFrozen && plan !== 0) {
         layer = "plan";
       } else if (!isFrozen && committed && committed.total !== 0) {
@@ -222,7 +227,7 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
           plan,
           committedTotal: committed?.total ?? 0,
           committedNet,
-          invoiced,
+          invoiced: ignorePlan,
           realSigned,
           settlement,
           residualCarryEnabled,

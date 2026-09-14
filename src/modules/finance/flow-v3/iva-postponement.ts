@@ -67,12 +67,13 @@ export function formatDdMmYyyy(ymd: string): string {
 
 /**
  * Parte el hito F29 cuando hay postergación: resto (PPM/retenciones) en la
- * fecha original + IVA determinado 2 meses después. Sin postergación devuelve
- * el hito `f29` intacto (mismos montos y label que hoy).
+ * fecha original + IVA determinado 2 meses después. El hito `f29` se emite
+ * siempre (aunque resto = 0) con `ivaPostponed` para que el plan manual no
+ * pise y deje el IVA duplicado en el mes original.
  *
  * Invariante: suma de montos emitidos === max(0, round(totalAPagarClp))
- * cuando ivaDeterminado > 0; si ivaDeterminado ≤ 0 el hito único lleva
- * totalAPagar (PPM) y no se emite iva_postergado.
+ * cuando ivaDeterminado > 0 (el F29 de resto 0 no suma); si ivaDeterminado ≤ 0
+ * el hito único lleva totalAPagar (PPM) y no se emite iva_postergado.
  */
 export function splitF29Milestone(args: {
   taxPeriod: string;
@@ -106,18 +107,22 @@ export function splitF29Milestone(args: {
   const dueLabel = formatDdMmYyyy(args.postponement.postponedPayYmd);
   const out: ExpenseMilestoneInput[] = [];
 
-  if (restoClp > 0) {
-    out.push({
-      key: "f29",
-      label: `${baseLabel} (solo PPM · IVA postergado)`,
-      dateYmd: args.payYmd,
-      amountClp: restoClp,
-      taxPeriod: args.taxPeriod,
-      metaNote: args.metaNote
-        ? `${args.metaNote} · IVA postergado a ${dueLabel}`
-        : `IVA postergado a ${dueLabel}`,
-    });
-  }
+  // Siempre emitir el hito F29 (aunque resto = 0): es la marca para que el
+  // plan manual de esa semana no pise y deje el IVA duplicado en el mes.
+  out.push({
+    key: "f29",
+    label:
+      restoClp > 0
+        ? `${baseLabel} (solo PPM · IVA postergado)`
+        : `${baseLabel} (IVA postergado)`,
+    dateYmd: args.payYmd,
+    amountClp: restoClp,
+    taxPeriod: args.taxPeriod,
+    ivaPostponed: true,
+    metaNote: args.metaNote
+      ? `${args.metaNote} · IVA postergado a ${dueLabel}`
+      : `IVA postergado a ${dueLabel}`,
+  });
 
   if (ivaClp > 0) {
     out.push({

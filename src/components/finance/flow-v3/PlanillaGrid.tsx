@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight, Inbox, Plus } from "lucide-react";
 import type { FlowMatrixResponse, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
-import { hasInvoicedIncome } from "@/modules/finance/flow-v3/cell-editability";
+import {
+  planYieldsReason,
+  planYieldsToCommitted,
+} from "@/modules/finance/flow-v3/cell-editability";
 import { addWeeksUTC, toYmd, ymdToDate } from "@/modules/finance/flow-v3/weeks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -772,8 +775,8 @@ export function PlanillaGrid({
       }
       if (rolledUpIds.has(rowId)) return false;
       const cell = row.cells[colIdx];
-      // Ingreso facturado: la factura manda; no se edita el plan encima.
-      if (hasInvoicedIncome(row.section, cell?.committed)) return false;
+      // Ingreso facturado o F29 con IVA postergado: el plan no pisa ni se edita.
+      if (planYieldsToCommitted(row.section, row.canonicalKey, cell?.committed)) return false;
       return true;
     },
     [rowById, canManage, colWritable, rolledUpIds],
@@ -923,10 +926,7 @@ export function PlanillaGrid({
       if (row.isVirtual) return "Fila calculada";
       if (row.isArchived) return "Fila archivada";
       if (closedSet.has(col.key)) return "Semana cerrada";
-      if (hasInvoicedIncome(row.section, cell.committed)) {
-        return "Ingreso facturado (la factura manda)";
-      }
-      return "";
+      return planYieldsReason(row.section, row.canonicalKey, cell.committed) ?? "";
     },
     [rowById, data.columns, data.granularity, canManage, closedSet],
   );
@@ -1348,9 +1348,7 @@ export function PlanillaGrid({
               ? "Fila archivada"
               : closedSet.has(col.key)
                 ? "Semana cerrada"
-                : hasInvoicedIncome(row.section, cell.committed)
-                  ? "Ingreso facturado (la factura manda)"
-                  : "";
+                : (planYieldsReason(row.section, row.canonicalKey, cell.committed) ?? "");
       const openWeeks = data.columns.filter((_, i) => i !== colIdx && canEditCell(rowId, i));
       const dteMoveWeeks = data.columns.filter(
         (c, i) =>
@@ -1426,9 +1424,7 @@ export function PlanillaGrid({
             ? "Fila archivada"
             : closedSet.has(col.key)
               ? "Semana cerrada"
-              : hasInvoicedIncome(row.section, cell.committed)
-                ? "Ingreso facturado (la factura manda)"
-                : "";
+              : (planYieldsReason(row.section, row.canonicalKey, cell.committed) ?? "");
     const openWeeks = data.columns.filter(
       (_, i) => i !== sheetTarget.sel.colIdx && canEditCell(row.id, i),
     );
@@ -1899,8 +1895,12 @@ export function PlanillaGrid({
         editReason={
           !canManage
             ? "Sin permiso de edición"
-            : popover && hasInvoicedIncome(popover.row.section, popover.cell.committed)
-              ? "Ingreso facturado (la factura manda)"
+            : popover
+              ? (planYieldsReason(
+                  popover.row.section,
+                  popover.row.canonicalKey,
+                  popover.cell.committed,
+                ) ?? undefined)
               : undefined
         }
         focusNote={popoverFocusNote}
