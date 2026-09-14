@@ -89,6 +89,11 @@ export async function loadCellNotes(
   return byRow;
 }
 
+/** Lunes ISO válidos, únicos, en el orden recibido. */
+function uniqueMondayWeeks(weekStarts: string[]): string[] {
+  return [...new Set(weekStarts.filter((w) => isMondayYmd(w)))];
+}
+
 /**
  * Estampa la misma nota en varias semanas (egreso recurrente al materializar).
  * body vacío/null ⇒ borra notas de esas semanas.
@@ -100,7 +105,7 @@ export async function stampCellNotes(
   body: string | null,
   updatedBy: string | null,
 ): Promise<number> {
-  const unique = [...new Set(weekStarts.filter((w) => isMondayYmd(w)))];
+  const unique = uniqueMondayWeeks(weekStarts);
   if (unique.length === 0) return 0;
   let n = 0;
   for (const w of unique) {
@@ -108,6 +113,24 @@ export async function stampCellNotes(
     n += 1;
   }
   return n;
+}
+
+/**
+ * Borra notas de las semanas dadas (p. ej. al eliminar un egreso recurrente).
+ * Una sola query; no toca otras filas ni semanas fuera de la lista.
+ */
+export async function deleteCellNotes(
+  tenantId: string,
+  rowId: string,
+  weekStarts: string[],
+): Promise<number> {
+  const unique = uniqueMondayWeeks(weekStarts);
+  const dates = unique.map((w) => ymdToDate(w)).filter((d): d is Date => d != null);
+  if (dates.length === 0) return 0;
+  const res = await prisma.financeFlowCellNote.deleteMany({
+    where: { tenantId, rowId, weekStart: { in: dates } },
+  });
+  return res.count;
 }
 
 /**

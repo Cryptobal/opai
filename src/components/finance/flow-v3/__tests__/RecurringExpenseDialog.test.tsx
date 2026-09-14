@@ -113,6 +113,7 @@ describe("RecurringExpenseDialog — listar / editar / eliminar", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
     expect(screen.getByText(/¿Eliminar esta recurrencia/)).toBeTruthy();
+    expect(screen.getByText(/junto con sus notas/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Sí, eliminar" }));
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith("rec-1");

@@ -744,7 +744,7 @@ export function RecurringExpenseDialog({
             <div className="space-y-2 rounded border border-status-danger-border bg-status-danger-soft/40 p-2">
               <p className="text-[13px] text-status-danger-fg">
                 ¿Eliminar esta recurrencia? Se borran las celdas futuras que no estén en semanas
-                cerradas. El pasado y las semanas selladas se conservan.
+                cerradas, junto con sus notas. El pasado y las semanas selladas se conservan.
               </p>
               <div className="flex gap-2">
                 <Button
