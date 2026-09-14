@@ -37,6 +37,35 @@ const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export type BankReadingSource = Exclude<FinanceBalanceSource, "OPENING">;
 
+/** Fuentes que son lecturas del banco (todo menos el saldo inicial). */
+export const BANK_READING_SOURCES: BankReadingSource[] = [
+  "MANUAL",
+  "IMPORT",
+  "CALCULATED",
+];
+
+export const LEDGER_MIGRATION_PENDING_MESSAGE =
+  "Migración pendiente: la base de datos no tiene el valor OPENING de FinanceBalanceSource. Aplica `npx prisma migrate deploy` (o `npx prisma db push` en local) — migración 20261228000000_finance_bank_ledger.";
+
+/**
+ * True si Postgres rechazó el valor OPENING del enum: el código corre contra
+ * una BD donde la migración del ledger todavía no se aplicó.
+ */
+export function isOpeningEnumMissingError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.includes("FinanceBalanceSource") &&
+    (msg.includes("invalid input value for enum") || msg.includes("22P02"))
+  );
+}
+
+let warnedMigrationPending = false;
+function warnLedgerMigrationPending(): void {
+  if (warnedMigrationPending) return;
+  warnedMigrationPending = true;
+  console.error(`[Finance/Banking] ${LEDGER_MIGRATION_PENDING_MESSAGE}`);
+}
+
 export interface ResolvedAccountBalance {
   /** Fecha de corte del saldo inicial (OPENING). Null si la cuenta no lo tiene. */
   anchorSnapshotDate: Date | null;
@@ -87,22 +116,42 @@ export function ledgerCutoffYmd(asOf?: Date | string | null): string {
   return isPureUtcDate ? asOf.toISOString().slice(0, 10) : ymdInChile(asOf);
 }
 
-/** Saldo inicial activo de la cuenta (el OPENING más reciente por createdAt). */
+/**
+ * Saldo inicial activo de la cuenta (el OPENING más reciente por createdAt).
+ * Si la BD aún no conoce el valor OPENING (migración pendiente) devuelve null
+ * y lo registra en el log: la cuenta se comporta como "sin saldo inicial" en
+ * vez de tumbar Bancos y el flujo de caja.
+ */
 export async function getLedgerOpening(
   tenantId: string,
   bankAccountId: string,
 ): Promise<BankLedgerOpening | null> {
-  const row = await prisma.financeBankAccountBalance.findFirst({
-    where: { tenantId, bankAccountId, source: "OPENING" },
-    orderBy: [{ createdAt: "desc" }],
-    select: {
-      id: true,
-      asOfDate: true,
-      balance: true,
-      note: true,
-      createdAt: true,
-    },
-  });
+  let row: {
+    id: string;
+    asOfDate: Date;
+    balance: Decimal;
+    note: string | null;
+    createdAt: Date;
+  } | null;
+  try {
+    row = await prisma.financeBankAccountBalance.findFirst({
+      where: { tenantId, bankAccountId, source: "OPENING" },
+      orderBy: [{ createdAt: "desc" }],
+      select: {
+        id: true,
+        asOfDate: true,
+        balance: true,
+        note: true,
+        createdAt: true,
+      },
+    });
+  } catch (err) {
+    if (isOpeningEnumMissingError(err)) {
+      warnLedgerMigrationPending();
+      return null;
+    }
+    throw err;
+  }
   if (!row) return null;
   return {
     id: row.id,
@@ -265,17 +314,26 @@ export async function setOpeningBalance(
     throw new Error("Cuenta bancaria no encontrada");
   }
 
-  const created = await prisma.financeBankAccountBalance.create({
-    data: {
-      tenantId,
-      bankAccountId: input.bankAccountId,
-      asOfDate: utcDateFromYmd(input.asOfDate),
-      balance: new Decimal(input.balance),
-      source: "OPENING",
-      note: input.note?.trim() || null,
-      createdById: userId ?? null,
-    },
-  });
+  let created: Awaited<ReturnType<typeof prisma.financeBankAccountBalance.create>>;
+  try {
+    created = await prisma.financeBankAccountBalance.create({
+      data: {
+        tenantId,
+        bankAccountId: input.bankAccountId,
+        asOfDate: utcDateFromYmd(input.asOfDate),
+        balance: new Decimal(input.balance),
+        source: "OPENING",
+        note: input.note?.trim() || null,
+        createdById: userId ?? null,
+      },
+    });
+  } catch (err) {
+    if (isOpeningEnumMissingError(err)) {
+      warnLedgerMigrationPending();
+      throw new Error(LEDGER_MIGRATION_PENDING_MESSAGE);
+    }
+    throw err;
+  }
 
   const resolved = await syncCurrentBalanceFromMovements(
     tenantId,
@@ -443,13 +501,21 @@ export async function registerBankReading(args: {
     args.source === "IMPORT" &&
     asOfDate < todayInChile()
   ) {
-    await setOpeningBalance(args.tenantId, args.userId, {
-      bankAccountId: args.bankAccountId,
-      asOfDate,
-      balance: args.balance,
-      note: "Saldo inicial tomado del cierre de la primera cartola importada.",
-    });
-    bootstrappedOpening = true;
+    try {
+      await setOpeningBalance(args.tenantId, args.userId, {
+        bankAccountId: args.bankAccountId,
+        asOfDate,
+        balance: args.balance,
+        note: "Saldo inicial tomado del cierre de la primera cartola importada.",
+      });
+      bootstrappedOpening = true;
+    } catch (err) {
+      // Sin migración aplicada no se puede crear el OPENING: la lectura se
+      // registra igual y la cuenta sigue "sin saldo inicial".
+      if (!(err instanceof Error && err.message === LEDGER_MIGRATION_PENDING_MESSAGE)) {
+        throw err;
+      }
+    }
   }
 
   const noteParts: string[] = [];
@@ -507,7 +573,7 @@ export async function findLatestUnexplainedDiscrepancy(
     where: {
       tenantId,
       bankAccountId,
-      source: { not: "OPENING" },
+      source: { in: BANK_READING_SOURCES },
       deltaClp: { not: null },
       asOfDate: { gte: since },
     },
@@ -654,7 +720,7 @@ export async function buildReconciliationReport(
       where: {
         tenantId,
         bankAccountId,
-        source: { not: "OPENING" },
+        source: { in: BANK_READING_SOURCES },
         asOfDate: { gte: windowFrom, lte: today },
       },
       orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
