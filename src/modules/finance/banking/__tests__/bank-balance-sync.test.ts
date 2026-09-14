@@ -222,6 +222,65 @@ describe("registerBankReading — las lecturas no mueven el saldo", () => {
   });
 });
 
+describe("BD sin la migración del ledger (enum sin OPENING)", () => {
+  const enumError = new Error(
+    'Invalid `prisma.financeBankAccountBalance.findFirst()` invocation: ConnectorError(... PostgresError { code: "22P02", message: "invalid input value for enum finance.\\"FinanceBalanceSource\\": \\"OPENING\\"" ...)',
+  );
+
+  it("resolveAccountBalanceFromMovements no revienta: cae a currentBalance con needsOpening", async () => {
+    findOpening.mockRejectedValueOnce(enumError);
+    const r = await resolveAccountBalanceFromMovements("t1", "a1");
+    expect(r.needsOpening).toBe(true);
+    expect(r.resolvedBalanceClp).toBe(999);
+    expect(aggregate).not.toHaveBeenCalled();
+  });
+
+  it("setOpeningBalance devuelve un error claro de migración pendiente", async () => {
+    createSnapshot.mockRejectedValueOnce(enumError);
+    await expect(
+      setOpeningBalance("t1", "u1", { bankAccountId: "a1", asOfDate: "2026-09-13", balance: 1 }),
+    ).rejects.toThrow(/Migración pendiente/);
+  });
+
+  it("registerBankReading IMPORT no falla si no puede inicializar el ledger", async () => {
+    findOpening.mockResolvedValue(null);
+    createSnapshot
+      .mockRejectedValueOnce(enumError) // intento de OPENING
+      .mockImplementationOnce(async (args: { data: Record<string, unknown> }) => ({
+        id: "snap-import",
+        ...args.data,
+        createdAt: new Date(),
+      }));
+    const r = await registerBankReading({
+      tenantId: "t1",
+      userId: null,
+      bankAccountId: "a1",
+      asOf: "2026-09-13",
+      balance: 30_000_000,
+      source: "IMPORT",
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.bootstrappedOpening).toBe(false);
+    expect(r.needsOpening).toBe(true);
+  });
+
+  it("las lecturas se filtran por lista positiva (nunca referencian OPENING)", async () => {
+    findOpening.mockResolvedValue(OPENING);
+    aggregate.mockResolvedValue({ _sum: { amount: 0 }, _count: { _all: 0 } });
+    findSnapshots.mockResolvedValue([]);
+    const { findLatestUnexplainedDiscrepancy } = await import("../bank-balance.service");
+    await findLatestUnexplainedDiscrepancy("t1", "a1");
+    expect(findSnapshots).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          source: { in: ["MANUAL", "IMPORT", "CALCULATED"] },
+        }),
+      }),
+    );
+  });
+});
+
 describe("setOpeningBalance", () => {
   it("rechaza hoy o futuro (debe ser un día cerrado)", async () => {
     await expect(
