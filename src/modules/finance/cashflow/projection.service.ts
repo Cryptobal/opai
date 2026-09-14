@@ -37,6 +37,10 @@ import {
   type BalanceSnapshot,
   type BalanceTx,
 } from "./real-balance.helper";
+import {
+  isOpeningEnumMissingError,
+  LEDGER_MIGRATION_PENDING_MESSAGE,
+} from "@/modules/finance/banking/bank-balance.service";
 import { computeCreditNoteImpact } from "../billing/credit-note-impact.helper";
 import {
   loadDteDateOverrides,
@@ -2153,8 +2157,10 @@ export async function buildProjection(
   });
   const accountIds = activeAccountsForBalance.map((a) => a.id);
 
-  const openingRows = accountIds.length > 0
-    ? await prisma.financeBankAccountBalance.findMany({
+  let openingRows: Array<{ bankAccountId: string; asOfDate: Date; balance: { toString(): string } }> = [];
+  if (accountIds.length > 0) {
+    try {
+      openingRows = await prisma.financeBankAccountBalance.findMany({
         where: {
           tenantId,
           bankAccountId: { in: accountIds },
@@ -2162,8 +2168,14 @@ export async function buildProjection(
         },
         orderBy: { createdAt: "desc" },
         select: { bankAccountId: true, asOfDate: true, balance: true },
-      })
-    : [];
+      });
+    } catch (err) {
+      // BD sin la migración del ledger: sin saldo inicial no hay saldo real
+      // por bucket (la planilla sigue cargando con Banco hoy = cache).
+      if (!isOpeningEnumMissingError(err)) throw err;
+      console.error(`[Cashflow/Projection] ${LEDGER_MIGRATION_PENDING_MESSAGE}`);
+    }
+  }
 
   // Solo el OPENING activo (más reciente por createdAt) de cada cuenta.
   const snapshotsByAccount = new Map<string, BalanceSnapshot[]>();
