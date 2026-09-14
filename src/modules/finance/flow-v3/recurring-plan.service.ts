@@ -12,7 +12,7 @@ import { bulkFill, upsertCell, type PlanCellDto } from "./plan.service";
 import { listClosedV3Weeks } from "./weekly-close.adapter";
 import { projectUfWithGrowth, ufTargetDate, ufToClp } from "./uf-occurrence";
 import { normalizeNameForDedupe } from "./row-visibility";
-import { stampCellNotes } from "./cell-note.service";
+import { deleteCellNotes, stampCellNotes } from "./cell-note.service";
 import { SUBROW_SECTIONS } from "./row-tree";
 
 /**
@@ -896,10 +896,22 @@ export async function deleteRecurrence(
 ): Promise<{ deleted: true }> {
   const rule = await refreshRuleAfterSplit(tenantId, ruleId, updatedBy);
 
-  if (!keepCells && rule.amountMode !== "PCT_SALES") {
+  if (!keepCells) {
     const currentWeek = currentWeekYmd();
     const future = occurrenceWeeks(rule).filter((w) => w >= currentWeek);
-    if (future.length > 0) await materializeClp(tenantId, rule.rowId, future, 0, updatedBy);
+    if (future.length > 0) {
+      if (rule.amountMode !== "PCT_SALES") {
+        await materializeClp(tenantId, rule.rowId, future, 0, updatedBy);
+      }
+      // Las notas se estampan al materializar; si no se borran, quedan los
+      // puntos azules en celdas ya en 0. El pasado y las semanas selladas se
+      // conservan, igual que los montos.
+      const sealed = new Set(await listClosedV3Weeks(tenantId, future));
+      const writable = future.filter((w) => !sealed.has(w));
+      if (writable.length > 0) {
+        await deleteCellNotes(tenantId, rule.rowId, writable);
+      }
+    }
   }
   await prisma.financeFlowPlanRecurrence.delete({ where: { id: rule.id } });
   return { deleted: true };

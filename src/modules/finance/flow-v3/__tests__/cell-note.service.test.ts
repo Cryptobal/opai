@@ -15,6 +15,7 @@ vi.mock("@/lib/prisma", () => ({
 import { prisma } from "@/lib/prisma";
 import {
   applyNoteToFuturePlanCells,
+  deleteCellNotes,
   loadCellNotes,
   stampCellNotes,
   upsertCellNote,
@@ -88,6 +89,36 @@ describe("stampCellNotes", () => {
     );
     expect(n).toBe(2);
     expect(prisma.financeFlowCellNote.upsert).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("deleteCellNotes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    asMock(prisma.financeFlowCellNote.deleteMany).mockResolvedValue({ count: 2 });
+  });
+
+  it("borra en lote solo lunes ISO", async () => {
+    const n = await deleteCellNotes(
+      "t1",
+      "row-1",
+      ["2026-08-03", "2026-08-10", "2026-08-04", "2026-08-03"],
+    );
+    expect(n).toBe(2);
+    expect(prisma.financeFlowCellNote.deleteMany).toHaveBeenCalledOnce();
+    const arg = asMock(prisma.financeFlowCellNote.deleteMany).mock.calls[0][0] as {
+      where: { tenantId: string; rowId: string; weekStart: { in: Date[] } };
+    };
+    expect(arg.where.tenantId).toBe("t1");
+    expect(arg.where.rowId).toBe("row-1");
+    const ymds = arg.where.weekStart.in.map((d) => d.toISOString().slice(0, 10));
+    expect(ymds).toEqual(["2026-08-03", "2026-08-10"]);
+  });
+
+  it("sin semanas válidas no llama a Prisma", async () => {
+    const n = await deleteCellNotes("t1", "row-1", ["2026-08-04", "no-es-fecha"]);
+    expect(n).toBe(0);
+    expect(prisma.financeFlowCellNote.deleteMany).not.toHaveBeenCalled();
   });
 });
 

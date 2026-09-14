@@ -37,7 +37,7 @@ export async function PATCH(
   }
 }
 
-/** Elimina una regla recurrente. keepCells=false borra sus celdas futuras. */
+/** Elimina una regla recurrente. keepCells=false borra celdas y notas futuras no selladas. */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },

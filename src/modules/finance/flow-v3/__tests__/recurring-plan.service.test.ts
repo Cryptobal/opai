@@ -283,9 +283,19 @@ describe("deleteRecurrence — limpia futuras no selladas", () => {
         expect(w).not.toBe(currentWeek); // sellada
       }
     }
+    expect(asMock(prisma.financeFlowCellNote.deleteMany)).toHaveBeenCalled();
+    const noteCalls = asMock(prisma.financeFlowCellNote.deleteMany).mock.calls;
+    for (const call of noteCalls) {
+      const dates = (call[0] as { where: { weekStart: { in: Date[] } } }).where.weekStart.in;
+      for (const d of dates) {
+        const ymd = d.toISOString().slice(0, 10);
+        expect(ymd >= currentWeek).toBe(true);
+        expect(ymd).not.toBe(currentWeek);
+      }
+    }
   });
 
-  it("keepCells=true no toca celdas; solo borra la regla", async () => {
+  it("keepCells=true no toca celdas ni notas; solo borra la regla", async () => {
     asMock(prisma.financeFlowPlanRecurrence.findFirst).mockResolvedValue({
       id: "rec-2",
       rowId: "row-1",
@@ -308,8 +318,49 @@ describe("deleteRecurrence — limpia futuras no selladas", () => {
     await deleteRecurrence("t1", "rec-2", true, "u");
 
     expect(asMock(bulkFill)).not.toHaveBeenCalled();
+    expect(asMock(prisma.financeFlowCellNote.deleteMany)).not.toHaveBeenCalled();
     expect(asMock(prisma.financeFlowPlanRecurrence.delete)).toHaveBeenCalledWith({
       where: { id: "rec-2" },
+    });
+  });
+
+  it("PCT_SALES: no toca celdas, pero borra notas futuras no selladas", async () => {
+    const currentWeek = weekStartYmd(new Date());
+    asMock(prisma.financeFlowPlanRecurrence.findFirst).mockResolvedValue({
+      id: "rec-pct-del",
+      rowId: "row-1",
+      tenantId: "t1",
+      amount: "0",
+      currency: "CLP",
+      amountMode: "PCT_SALES",
+      pctSales: "0.1000",
+      amountUf: null,
+      ufPolicy: null,
+      ufCustomDay: null,
+      frequency: "MONTHLY",
+      dayOfMonth: 1,
+      startDate: new Date("2020-01-01T00:00:00.000Z"),
+      endDate: null,
+      endAfterOccurrences: null,
+    });
+    asMock(prisma.financeFlowPlanRecurrence.delete).mockResolvedValue({});
+    asMock(listClosedV3Weeks).mockResolvedValue([]);
+
+    await deleteRecurrence("t1", "rec-pct-del", false, "u");
+
+    expect(asMock(bulkFill)).not.toHaveBeenCalled();
+    expect(asMock(prisma.financeFlowCellNote.deleteMany)).toHaveBeenCalled();
+    const dates = (
+      asMock(prisma.financeFlowCellNote.deleteMany).mock.calls[0][0] as {
+        where: { tenantId: string; rowId: string; weekStart: { in: Date[] } };
+      }
+    ).where.weekStart.in;
+    expect(dates.length).toBeGreaterThan(0);
+    for (const d of dates) {
+      expect(d.toISOString().slice(0, 10) >= currentWeek).toBe(true);
+    }
+    expect(asMock(prisma.financeFlowPlanRecurrence.delete)).toHaveBeenCalledWith({
+      where: { id: "rec-pct-del" },
     });
   });
 });
