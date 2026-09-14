@@ -19,6 +19,7 @@ import {
   computeTeHistoricalWeekly,
   computeTePctPayrollWeekly,
   payWeekForMonthDay,
+  resolvePayrollBaseForMonth,
   teHistoricalAmountSamples,
 } from "./derive-committed-expense-params";
 import type {
@@ -476,6 +477,15 @@ export async function loadExpenseParametrics(
     quincenaAdmin?: number;
     staffLiquido?: number;
     postponements?: Map<string, IvaPostponementRef>;
+    /**
+     * Montos OPERATIVO del hito de cada mes (YYYY-MM) ya ajustados por la
+     * vigencia/prorrateo de cada instalación. Los parches de descuento TE /
+     * quincena parten de estos valores para no pisar el prorrateo con el
+     * total plano. Sin mapa (o mes ausente) se usa el total.
+     */
+    liquidoByMonth?: Map<string, number>;
+    previRedByMonth?: Map<string, number>;
+    quincenaOperativoByMonth?: Map<string, number>;
   },
 ): Promise<ExpenseParametricsResult> {
   const milestones: ExpenseMilestoneInput[] = [];
@@ -709,10 +719,14 @@ export async function loadExpenseParametrics(
     if (monthKey === todayYmd.slice(0, 7)) projectedTe += payroll.pendingTeTotal;
     const tePeriodo = paidTe + projectedTe;
 
-    const quincenaOp = Number(payroll.quincenaOperativo ?? 0);
-    if (payroll.liquidoTotal > 0 && (liquidoDiscountPct > 0 || quincenaOp > 0)) {
+    const {
+      liquido: liquidoMes,
+      previRed: previRedMes,
+      quincenaOp,
+    } = resolvePayrollBaseForMonth(payroll, monthKey);
+    if (liquidoMes > 0 && (liquidoDiscountPct > 0 || quincenaOp > 0)) {
       const teAdj = applyTeDiscountToLiquido(
-        payroll.liquidoTotal,
+        liquidoMes,
         tePeriodo,
         liquidoDiscountPct,
       );
@@ -751,8 +765,8 @@ export async function loadExpenseParametrics(
         });
       }
     }
-    if (payroll.previRedTotal > 0 && previRedDiscountPct > 0) {
-      const adj = applyTeDiscountToLiquido(payroll.previRedTotal, tePeriodo, previRedDiscountPct);
+    if (previRedMes > 0 && previRedDiscountPct > 0) {
+      const adj = applyTeDiscountToLiquido(previRedMes, tePeriodo, previRedDiscountPct);
       if (adj.discount > 0) {
         payrollPatches.push({
           key: "previred",

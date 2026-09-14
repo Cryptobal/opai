@@ -84,6 +84,37 @@ export function computeTePctPayrollWeekly(
   return Math.round((pct * liquidoMensual) / weeksInMonth);
 }
 
+export interface PayrollMonthBaseInput {
+  liquidoTotal: number;
+  previRedTotal: number;
+  quincenaOperativo?: number;
+  liquidoByMonth?: Map<string, number>;
+  previRedByMonth?: Map<string, number>;
+  quincenaOperativoByMonth?: Map<string, number>;
+}
+
+/**
+ * Base del hito OPERATIVO de un mes para los parches de descuento TE /
+ * quincena. Si el mes viene en los mapas por vigencia (prorrateo por inicio /
+ * término de servicio) manda ese valor; si no, el total plano. Así el parche
+ * nunca pisa un mes prorrateado con la foto completa.
+ */
+export function resolvePayrollBaseForMonth(
+  payroll: PayrollMonthBaseInput,
+  monthKey: string,
+): { liquido: number; previRed: number; quincenaOp: number } {
+  const liquido = payroll.liquidoByMonth?.get(monthKey) ?? payroll.liquidoTotal;
+  const previRed = payroll.previRedByMonth?.get(monthKey) ?? payroll.previRedTotal;
+  const quincenaOp = Number(
+    payroll.quincenaOperativoByMonth?.get(monthKey) ?? payroll.quincenaOperativo ?? 0,
+  );
+  return {
+    liquido: Number.isFinite(liquido) ? liquido : 0,
+    previRed: Number.isFinite(previRed) ? previRed : 0,
+    quincenaOp: Number.isFinite(quincenaOp) ? quincenaOp : 0,
+  };
+}
+
 /** Descuento de caja sobre líquido: max(0, liquidoBase - round(amount × discountPct)). */
 export function applyTeDiscountToLiquido(
   liquidoBase: number,

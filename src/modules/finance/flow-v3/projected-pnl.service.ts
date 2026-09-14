@@ -11,6 +11,8 @@ import {
   computeNextRunAt,
 } from "@/modules/finance/billing/dte-recurring-schedule";
 import { expandOccurrenceDates } from "./recurring-plan.service";
+import { loadInstallationServiceWindows } from "./load-installation-windows";
+import { buildPayrollByMonth } from "./payroll-vigencia";
 import { defaultHorizon, todayYmdChile, toYmd } from "./weeks";
 import {
   assembleProjectedPnl,
@@ -110,6 +112,7 @@ export async function buildProjectedPnl(
     receivedRaw,
     gavRecs,
     installations,
+    serviceWindows,
   ] = await Promise.all([
     prisma.financeDte.findMany({
       where: {
@@ -217,9 +220,12 @@ export async function buildProjectedPnl(
       where: { tenantId },
       select: { id: true, name: true },
     }),
+    loadInstallationServiceWindows(tenantId),
   ]);
 
   const names = new Map(installations.map((i) => [i.id, i.name]));
+  // Personal por mes de servicio respetando inicio/término de cada instalación.
+  const payrollByMonth = buildPayrollByMonth(payroll.segments, serviceWindows, monthKeys);
 
   const issued: IssuedRevenueInput[] = [];
   const covered = new Set<string>();
@@ -286,11 +292,21 @@ export async function buildProjectedPnl(
   }
 
   const personnel: PersonnelInput[] = [...payroll.byInstallation.entries()].map(
-    ([installationId, b]) => ({
-      installationId,
-      name: b.name,
-      monthlyCostClp: b.costoDirecto,
-    }),
+    ([installationId, b]) => {
+      const monthlyByKey = new Map<string, number>();
+      const months = payrollByMonth.byInstallation.get(installationId);
+      if (months) {
+        for (const [monthKey, v] of months) {
+          monthlyByKey.set(monthKey, v.liquido + v.previred + v.impuestoUnico);
+        }
+      }
+      return {
+        installationId,
+        name: b.name,
+        monthlyCostClp: b.costoDirecto,
+        monthlyByKey,
+      };
+    },
   );
 
   const extraShifts: ExtraShiftInput[] = tes.map((t) => ({

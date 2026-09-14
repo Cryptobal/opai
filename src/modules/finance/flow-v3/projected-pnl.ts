@@ -87,6 +87,12 @@ export interface PersonnelInput {
   name: string | null;
   /** Costo directo mensual (líquido + previred + impuesto único). */
   monthlyCostClp: number;
+  /**
+   * Costo directo por mes (YYYY-MM) ajustado por la vigencia del servicio
+   * (inicio/término de la programación, prorrateo base 30). Los meses
+   * ausentes caen a `monthlyCostClp`.
+   */
+  monthlyByKey?: Map<string, number>;
 }
 
 export interface ExtraShiftInput {
@@ -441,7 +447,9 @@ export function assembleProjectedPnl(args: AssembleProjectedPnlArgs): ProjectedP
   for (const p of args.personnel) {
     if (p.name) names.set(p.installationId, p.name);
     const row = zeros(n);
-    for (let i = 0; i < n; i++) row[i] = p.monthlyCostClp;
+    for (let i = 0; i < n; i++) {
+      row[i] = p.monthlyByKey?.get(args.months[i].key) ?? p.monthlyCostClp;
+    }
     personnel.set(p.installationId, row);
   }
 

@@ -313,6 +313,75 @@ describe("computePayrollCashForTenant", () => {
     expect(_meta?.computeCalls).toBe(1);
     expect(total.dotacion).toBe(3);
   });
+
+  it("expone segments por puesto con vigencia y montos × requiredGuards; su suma cuadra con el total", async () => {
+    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: "p1",
+        installationId: "inst-1",
+        requiredGuards: 2,
+        activeFrom: new Date("2026-09-20T00:00:00.000Z"),
+        activeUntil: null,
+        installation: { id: "inst-1", name: "Torre A" },
+        salaryStructure: {
+          id: "ss-1",
+          baseSalary: 600_000,
+          colacion: 0,
+          movilizacion: 0,
+          gratificationType: "AUTO_25",
+          gratificationCustomAmount: null,
+          netSalaryEstimate: 700_000,
+          bonos: [],
+        },
+      },
+      {
+        id: "p2",
+        installationId: "inst-2",
+        requiredGuards: 1,
+        // Fixture legacy sin activeFrom/activeUntil → null.
+        installation: { id: "inst-2", name: "B" },
+        salaryStructure: {
+          id: "ss-2",
+          baseSalary: 500_000,
+          colacion: 0,
+          movilizacion: 0,
+          gratificationType: "AUTO_25",
+          gratificationCustomAmount: null,
+          netSalaryEstimate: null,
+          bonos: [],
+        },
+      },
+    ]);
+
+    const { total, segments } = await computePayrollCashForTenant(TENANT);
+    expect(segments).toHaveLength(2);
+
+    const s1 = segments.find((s) => s.puestoId === "p1")!;
+    expect(s1.installationId).toBe("inst-1");
+    expect(s1.installationName).toBe("Torre A");
+    expect(s1.activeFromYmd).toBe("2026-09-20");
+    expect(s1.activeUntilYmd).toBeNull();
+    // Líquido persistido × 2 guardias.
+    expect(s1.liquido).toBe(1_400_000);
+
+    const s2 = segments.find((s) => s.puestoId === "p2")!;
+    expect(s2.activeFromYmd).toBeNull();
+    expect(s2.activeUntilYmd).toBeNull();
+
+    const sum = (k: "liquido" | "previred" | "impuestoUnico") =>
+      Math.round(segments.reduce((acc, s) => acc + s[k], 0));
+    expect(sum("liquido")).toBe(total.liquido);
+    expect(sum("previred")).toBe(total.previred);
+    expect(sum("impuestoUnico")).toBe(total.impuestoUnico);
+  });
+
+  it("sin parámetros activos devuelve segments vacío", async () => {
+    const { loadActiveParameters } = await import("@/modules/payroll/engine/parameter-loader");
+    (loadActiveParameters as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("sin params"));
+    const r = await computePayrollCashForTenant(TENANT);
+    expect(r.segments).toEqual([]);
+    expect(r.total.liquido).toBe(0);
+  });
 });
 
 describe("computePayrollCashForInstallation", () => {
