@@ -1,5 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
+export const AUTO_MARK_TOAST_DISMISS_MS = 8000;
+
 interface AutoMarkToastProps {
   checkpointName: string;
   onAddPhoto: () => void;
@@ -10,13 +14,31 @@ interface AutoMarkToastProps {
   geoNoVerificada?: boolean;
 }
 
+export function shouldAutoDismissAutoMarkToast(
+  geoNoVerificada?: boolean,
+): boolean {
+  return geoNoVerificada !== true;
+}
+
 export function AutoMarkToast({
   checkpointName,
   onAddPhoto,
   onDismiss,
+  autoDismissMs = AUTO_MARK_TOAST_DISMISS_MS,
   geoNoVerificada,
 }: AutoMarkToastProps) {
   const tone = geoNoVerificada ? "warn" : "ok";
+  const canAutoDismiss = shouldAutoDismissAutoMarkToast(geoNoVerificada);
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
+  useEffect(() => {
+    if (!canAutoDismiss || autoDismissMs <= 0) return;
+    const id = window.setTimeout(() => {
+      onDismissRef.current();
+    }, autoDismissMs);
+    return () => window.clearTimeout(id);
+  }, [canAutoDismiss, autoDismissMs, checkpointName]);
 
   // Tokens semánticos del design system v3.
   const containerClass = tone === "warn"
@@ -24,8 +46,8 @@ export function AutoMarkToast({
     : "relative overflow-hidden rounded-2xl border border-status-ok-border bg-status-ok-soft/90 shadow-lg shadow-status-ok/30 backdrop-blur-sm";
 
   const iconBgClass = tone === "warn"
-    ? "flex h-9 w-9 shrink-0 items-center justify-content rounded-full bg-status-warn-soft"
-    : "flex h-9 w-9 shrink-0 items-center justify-content rounded-full bg-status-ok-soft";
+    ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-status-warn-soft"
+    : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-status-ok-soft";
 
   const iconClass = tone === "warn"
     ? "h-5 w-5 text-status-warn-fg mx-auto"
@@ -60,6 +82,7 @@ export function AutoMarkToast({
     <div
       className="fixed inset-x-4 z-[70] motion-safe:animate-in motion-safe:slide-in-from-top duration-300 motion-reduce:animate-none"
       style={{ top: "calc(var(--safe-area-top, 0px) + 1rem)" }}
+      role="status"
     >
       <div className={containerClass}>
         <div className="flex flex-col gap-3 px-4 py-3">
@@ -102,6 +125,17 @@ export function AutoMarkToast({
             </button>
           </div>
         </div>
+
+        {canAutoDismiss && autoDismissMs > 0 && (
+          <div
+            data-testid="automark-toast-progress"
+            className="automark-toast-progress h-[2px] origin-left bg-status-ok"
+            style={{
+              ["--automark-dismiss-ms" as string]: `${autoDismissMs}ms`,
+            }}
+            aria-hidden
+          />
+        )}
       </div>
 
       <style>{`
@@ -109,6 +143,21 @@ export function AutoMarkToast({
           0% { transform: scale(0); opacity: 0; }
           50% { transform: scale(1.2); }
           100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes automark-toast-shrink {
+          from { transform: scaleX(1); }
+          to { transform: scaleX(0); }
+        }
+        .automark-toast-progress {
+          transform-origin: left;
+          animation: automark-toast-shrink linear forwards;
+          animation-duration: var(--automark-dismiss-ms, 8s);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .automark-toast-progress {
+            animation: none;
+            transform: scaleX(1);
+          }
         }
       `}</style>
     </div>

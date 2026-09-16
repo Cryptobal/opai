@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { CheckpointMarker } from "./CheckpointMarker";
-import { AutoMarkToast } from "./AutoMarkToast";
+import { AutoMarkToast, AUTO_MARK_TOAST_DISMISS_MS } from "./AutoMarkToast";
 import { GpsStatusIndicator } from "./GpsStatusIndicator";
 import { ProgressRing } from "./ProgressRing";
 import { ActiveCheckpointCard } from "./ActiveCheckpointCard";
@@ -110,6 +110,7 @@ interface Props {
 }
 
 const AUTO_MARK_MAX_ACCURACY_M = 50;
+const COMPACT_CHIPS_MAX_VIEWPORT_PX = 700;
 
 // ---------------------------------------------------------------------------
 
@@ -148,6 +149,21 @@ function formatDistance(meters: number): string {
 /** Pendiente de visita real (sin marca COMPLETED ni marca GEO_NO_VERIFICADA). */
 function checkpointNeedsVisit(c: ApiCheckpoint): boolean {
   return !c.completed && !c.geoNoVerificada;
+}
+
+function useViewportHeight(): number {
+  // 0 en SSR y en el primer paint del cliente para evitar mismatch de hidratación.
+  // compactChips (height < 700) queda true hasta el effect; el portal es móvil-first.
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const update = () => setHeight(window.innerHeight);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  return height;
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +235,11 @@ export function RondaActiva({
 
   // -- Follow mode state --
   const [isFollowing, setIsFollowing] = useState(true);
+
+  // -- Map expand (mobile): hide card/chips/finalizar so the map can fill --
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const viewportHeight = useViewportHeight();
+  const compactChips = viewportHeight < COMPACT_CHIPS_MAX_VIEWPORT_PX;
 
   // -- Auto-mark state --
   const autoMarkingRef = useRef<Set<string>>(new Set());
@@ -568,6 +589,17 @@ export function RondaActiva({
     };
   }, []);
 
+  useEffect(() => {
+    if (!mapExpanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setMapExpanded(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mapExpanded]);
+
   const nearbyCheckpoint = nearbyCheckpointId
     ? checkpoints.find((c) => c.id === nearbyCheckpointId) ?? null
     : null;
@@ -750,6 +782,34 @@ export function RondaActiva({
   // Incomplete checkpoint names (for confirmation modal)
   const incompleteCheckpoints = checkpoints.filter((c) => !c.completed);
 
+  const allCheckpointsDone =
+    !isAdHocFreeForm &&
+    checkpoints.length > 0 &&
+    checkpoints.every((c) => c.completed);
+
+  const activeCheckpoint = useMemo(() => {
+    if (isAdHocFreeForm) return null;
+    if (selectedCheckpointId) {
+      const sel = checkpoints.find((c) => c.id === selectedCheckpointId);
+      if (sel && (checkpointNeedsVisit(sel) || sel.geoNoVerificada)) return sel;
+    }
+    const need = sortedCheckpoints.find((cp) => checkpointNeedsVisit(cp));
+    if (need) return need;
+    return sortedCheckpoints.find((cp) => cp.geoNoVerificada) ?? null;
+  }, [isAdHocFreeForm, selectedCheckpointId, checkpoints, sortedCheckpoints]);
+
+  const handleBack = useCallback(() => {
+    if (mapExpanded) {
+      setMapExpanded(false);
+      return;
+    }
+    onBack();
+  }, [mapExpanded, onBack]);
+
+  const toggleMapExpanded = useCallback(() => {
+    setMapExpanded((prev) => !prev);
+  }, []);
+
   // (sortedCheckpoints & closestPendingId moved above mapCheckpoints)
 
   // ---------------------------------------------------------------------------
@@ -846,7 +906,8 @@ export function RondaActiva({
         <div className="flex items-center gap-3">
           {/* Back button */}
           <button
-            onClick={onBack}
+            type="button"
+            onClick={handleBack}
             className="flex items-center gap-1 rounded-lg bg-ds-surface-2 px-3 py-2 text-base text-ds-text-2 transition-colors hover:bg-ds-surface-3 active:bg-ds-surface-3"
             style={{ minHeight: 44 }}
           >
@@ -930,6 +991,8 @@ export function RondaActiva({
         </div>
       )}
 
+      {!mapExpanded && (
+        <div className="min-h-0 shrink overflow-y-auto overscroll-contain">
       {/* ============ Geofence Auto-Prompt Banner ============ */}
       {nearbyCheckpoint && !markingCheckpointId && (
         <div className="relative z-10 mx-4 mt-3 mb-1 rounded-xl border border-status-info-border bg-status-info-soft/80 p-3 shadow-lg shadow-status-info/30 backdrop-blur-sm">
@@ -986,17 +1049,6 @@ export function RondaActiva({
 
       {/* ============ Next checkpoint (dominant) ============ */}
       {!isAdHocFreeForm && (() => {
-          const allDone = checkpoints.length > 0 && checkpoints.every((c) => c.completed);
-          const activeCheckpoint = (() => {
-            if (selectedCheckpointId) {
-              const sel = checkpoints.find((c) => c.id === selectedCheckpointId);
-              if (sel && (checkpointNeedsVisit(sel) || sel.geoNoVerificada)) return sel;
-            }
-            const need = sortedCheckpoints.find((cp) => checkpointNeedsVisit(cp));
-            if (need) return need;
-            return sortedCheckpoints.find((cp) => cp.geoNoVerificada) ?? null;
-          })();
-
           const cpDistance =
             activeCheckpoint && guardPos && activeCheckpoint.lat != null && activeCheckpoint.lng != null
               ? haversineDistance(
@@ -1039,10 +1091,10 @@ export function RondaActiva({
             : null;
 
           return (
-            <ActiveCheckpointCard
-              checkpoint={cardData}
-              allCompleted={allDone}
-              completedCount={completedCount}
+                <ActiveCheckpointCard
+                  checkpoint={cardData}
+                  allCompleted={allCheckpointsDone}
+                  completedCount={completedCount}
               total={total}
               isMarking={false}
               onConfirmMark={() => {
@@ -1057,31 +1109,61 @@ export function RondaActiva({
         })()}
 
       {!isAdHocFreeForm && checkpoints.length > 0 && (
-        <ol className="mx-3 mb-2 flex gap-2 overflow-x-auto pb-1">
-          {sortedCheckpoints.map((cp) => {
-            const isNow = closestPendingId === cp.id;
-            const done = cp.completed && !cp.geoNoVerificada;
-            return (
-              <li
-                key={cp.id}
-                className={`flex min-w-[4.5rem] flex-col items-center rounded-xl px-2 py-1.5 text-center ${
-                  done
-                    ? "text-status-ok-fg"
-                    : isNow
-                      ? "bg-primary/15 text-primary ring-2 ring-primary/50"
-                      : "border border-dashed border-ds-border-default text-ds-text-3"
-                }`}
+            compactChips ? (
+              <div
+                data-testid="ronda-chips-compact"
+                className="mx-3 mb-1 flex h-7 min-h-7 items-center gap-2 overflow-hidden text-[12px] text-ds-text-2"
               >
-                <span className="font-mono text-[12px] font-bold">{done ? "✓" : cp.orderIndex + 1}</span>
-                <span className="max-w-[4.5rem] truncate text-[12px]">{cp.name}</span>
-              </li>
-            );
-          })}
-        </ol>
+                <span className="shrink-0 font-mono font-semibold tabular-nums text-ds-text-1">
+                  {completedCount}/{total}
+                </span>
+                {activeCheckpoint ? (
+                  <span className="min-w-0 truncate">{activeCheckpoint.name}</span>
+                ) : allCheckpointsDone ? (
+                  <span className="min-w-0 truncate">Ronda completada</span>
+                ) : null}
+              </div>
+            ) : (
+              <ol
+                data-testid="ronda-chips-list"
+                className="mx-3 mb-2 flex gap-2 overflow-x-auto pb-1"
+              >
+                {sortedCheckpoints.map((cp) => {
+                  const isNow = closestPendingId === cp.id;
+                  const done = cp.completed && !cp.geoNoVerificada;
+                  return (
+                    <li
+                      key={cp.id}
+                      className={`flex min-w-[4.5rem] flex-col items-center rounded-xl px-2 py-1.5 text-center ${
+                        done
+                          ? "text-status-ok-fg"
+                          : isNow
+                            ? "bg-primary/15 text-primary ring-2 ring-primary/50"
+                            : "border border-dashed border-ds-border-default text-ds-text-3"
+                      }`}
+                    >
+                      <span className="font-mono text-[12px] font-bold">{done ? "✓" : cp.orderIndex + 1}</span>
+                      <span className="max-w-[4.5rem] truncate text-[12px]">{cp.name}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+            )
+          )}
+        </div>
       )}
 
-      {/* ============ Leaflet Map — flex-1 fills available space ============ */}
-      <div className="relative mx-3 min-h-0 flex-1 overflow-hidden rounded-2xl border border-ds-border-subtle" style={{ isolation: "isolate" }}>
+      {/* ============ Leaflet Map — flex-1, nunca menos de 220 px ============ */}
+      <div
+        data-testid="ronda-activa-map-pane"
+        data-expanded={mapExpanded ? "true" : "false"}
+        className={
+          mapExpanded
+            ? "relative mx-0 mb-[calc(4rem+env(safe-area-inset-bottom,0px))] min-h-[220px] grow shrink-0 basis-0 overflow-hidden rounded-none"
+            : "relative mx-3 min-h-[220px] grow shrink-0 basis-0 overflow-hidden rounded-2xl border border-ds-border-subtle"
+        }
+        style={{ isolation: "isolate" }}
+      >
         <RondaMap
           checkpoints={mapCheckpoints}
           guardPosition={guardPos}
@@ -1105,9 +1187,29 @@ export function RondaActiva({
             }, 10000);
           }}
         />
+        {!markingCheckpointId && (
+          <button
+            type="button"
+            aria-label={mapExpanded ? "Reducir mapa" : "Ampliar mapa"}
+            aria-pressed={mapExpanded}
+            onClick={toggleMapExpanded}
+            className="absolute top-3 right-3 z-[1000] flex h-11 min-w-[44px] items-center gap-1.5 rounded-xl border border-ds-border-subtle bg-ds-surface-1/90 px-3 text-[13px] font-semibold text-ds-text-1 shadow-sm"
+          >
+            {mapExpanded ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0h5M4 4v5M15 9l5-5m0 0h-5m5 0v5M9 15l-5 5m0 0h5m-5 0v-5M15 15l5 5m0 0h-5m5 0v-5" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+              </svg>
+            )}
+            {mapExpanded ? "Reducir" : "Ampliar"}
+          </button>
+        )}
       </div>
 
-      {/* ============ Bottom fixed area: card + complete button ============ */}
+      {!mapExpanded && (
       <div className="shrink-0 bg-background pt-3 pb-16">
         {/* Ad-hoc free-form: compact bottom panel */}
         {isAdHocFreeForm && (
@@ -1160,6 +1262,7 @@ export function RondaActiva({
           </div>
         )}
       </div>
+      )}
 
       {/* ============ Confirmation Modal (incomplete checkpoints) ============ */}
       {showConfirmModal && (
@@ -1262,6 +1365,7 @@ export function RondaActiva({
         <AutoMarkToast
           checkpointName={autoMarkToast.checkpointName}
           geoNoVerificada={autoMarkToast.geoNoVerificada}
+          autoDismissMs={AUTO_MARK_TOAST_DISMISS_MS}
           onAddPhoto={() => {
             setAutoMarkToast(null);
             // Open the checkpoint marker to add a photo
