@@ -55,7 +55,7 @@ describe("PuestoFormModal catalogs", () => {
       expect(fetchMock).toHaveBeenCalledWith("/api/ops/puestos/catalogos");
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("option", { name: "Guardia" })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: "Guardia" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Portería" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "4x4 (turno)" })).toBeInTheDocument();
     expect(screen.getByText("Bonos")).toBeInTheDocument();
@@ -108,7 +108,9 @@ describe("PuestoFormModal catalogs", () => {
         `/api/ops/puestos/catalogos?includeIds=${CARGO_ID}`,
       );
     });
-    expect(screen.getByRole("option", { name: "Guardia (inactivo)" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("option", { name: "Guardia (inactivo)" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Calcular sueldo líquido" })).not.toBeInTheDocument();
   });
 });

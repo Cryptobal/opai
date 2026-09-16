@@ -64,6 +64,8 @@ export interface RondaMapProps {
   onCheckpointClick?: (checkpointId: string) => void;
 }
 
+const RESIZE_INVALIDATE_DEBOUNCE_MS = 100;
+
 // ---------------------------------------------------------------------------
 // Custom marker icons using L.divIcon
 // ---------------------------------------------------------------------------
@@ -195,6 +197,59 @@ function FitBounds({ checkpoints, guardPosition }: FitBoundsProps) {
       const bounds = L.latLngBounds(points as L.LatLngTuple[]);
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
     }
+  }, [map]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Invalidate Leaflet size when the container is resized (expand / collapse /
+// rotation / Chrome URL bar). Debounced so layout animations don't spam.
+// ---------------------------------------------------------------------------
+
+function ResizeHandler({
+  isFollowing,
+  guardPosition,
+}: {
+  isFollowing: boolean;
+  guardPosition?: { lat: number; lng: number } | null;
+}) {
+  const map = useMap();
+  const followingRef = useRef(isFollowing);
+  const guardRef = useRef(guardPosition);
+  followingRef.current = isFollowing;
+  guardRef.current = guardPosition;
+
+  useEffect(() => {
+    const container = map.getContainer();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let rafId = 0;
+
+    const apply = () => {
+      timeoutId = null;
+      rafId = requestAnimationFrame(() => {
+        map.invalidateSize();
+        const gp = guardRef.current;
+        if (followingRef.current && gp) {
+          map.setView([gp.lat, gp.lng], map.getZoom(), { animate: false });
+        }
+      });
+    };
+
+    const schedule = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(apply, RESIZE_INVALIDATE_DEBOUNCE_MS);
+    };
+
+    const observer = new ResizeObserver(schedule);
+    observer.observe(container);
+    schedule();
+
+    return () => {
+      observer.disconnect();
+      if (timeoutId) clearTimeout(timeoutId);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [map]);
 
   return null;
@@ -506,6 +561,7 @@ export default function RondaMap({
 
         {/* Auto-fit bounds */}
         <FitBounds checkpoints={checkpoints} guardPosition={guardPosition} />
+        <ResizeHandler isFollowing={isFollowing} guardPosition={guardPosition} />
 
         {/* Disable interaction if non-interactive */}
         {!interactive && <DisableInteraction />}
