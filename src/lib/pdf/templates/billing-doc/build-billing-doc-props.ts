@@ -14,10 +14,8 @@ import { resolveBrandColors } from "@/modules/finance/billing/billing-doc-config
 import { listSigners } from "@/modules/finance/billing/billing-signers.service";
 import { getFileBuffer } from "@/lib/storage";
 import { renderVerificationCode } from "@/lib/validations/billing-doc";
-import {
-  resolvePeriodFromPolicy,
-  type PeriodPolicy,
-} from "@/modules/finance/billing/placeholders";
+import { resolveBillingDocPeriodo } from "@/modules/finance/billing/resolve-billing-doc-periodo";
+import type { PeriodPolicy } from "@/modules/finance/billing/placeholders";
 
 export type BillingDocVariant = "PROFORMA" | "ESTADO_DE_PAGO" | "DTE_PREVIEW";
 
@@ -177,30 +175,11 @@ const DTE_TYPE_NAMES: Record<number, string> = {
   61: "NOTA DE CRÉDITO ELECTRÓNICA",
 };
 
-const MONTHS_ES = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
-
 function formatDate(d: Date): string {
   const dd = String(d.getUTCDate()).padStart(2, "0");
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
   const yyyy = d.getUTCFullYear();
   return `${dd}/${mm}/${yyyy}`;
-}
-
-function periodoLabel(d: Date): string {
-  return `${MONTHS_ES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 function slugify(s: string): string {
@@ -439,43 +418,35 @@ export async function buildBillingDocProps(
   const date = new Date(dte.date);
 
   // Período del documento (rótulo del EP + token {{periodo}} del asunto/intro
-  // del email de proforma/estado de pago).
-  //
-  // Para borradores generados por una PROGRAMACIÓN recurrente, el período debe
-  // reflejar la MISMA política de período (FinanceDteRecurringTemplate.
-  // periodPolicy) que resolvió el placeholder {{periodo}} en las líneas,
-  // anclada al mes de facturación (billingPeriod). Así el asunto/intro del
-  // email y el rótulo del PDF coinciden EXACTAMENTE con lo que dicen las
-  // líneas del documento (antes se derivaban de la fecha de emisión, que para
-  // proformas facturadas el mes siguiente daba un mes de más).
-  //
-  // Para DTEs manuales (sin programación) se mantiene la lógica histórica: el
-  // mes de emisión, con el corrimiento de `estadoPagoPeriodoMode` para el EP.
-  let periodoDate = new Date(date);
-  let periodoLabelResolved: string | null = null;
-  const billingPeriodMatch =
-    dte.billingPeriod && /^\d{4}-\d{2}$/.test(dte.billingPeriod)
-      ? dte.billingPeriod.split("-").map(Number)
-      : null;
-  if (dte.recurringTemplateId && billingPeriodMatch) {
-    const [bpYear, bpMonth] = billingPeriodMatch; // bpMonth: 1-12
+  // del email). El EP honra `estadoPagoPeriodoMode` aunque el borrador venga
+  // de una programación. La Proforma sí replica billingPeriod + periodPolicy
+  // para coincidir con los placeholders de las líneas.
+  let recurringPeriod: {
+    billingPeriod: string;
+    periodPolicy: PeriodPolicy;
+  } | null = null;
+  if (
+    variant !== "ESTADO_DE_PAGO" &&
+    dte.recurringTemplateId &&
+    dte.billingPeriod &&
+    /^\d{4}-\d{2}$/.test(dte.billingPeriod)
+  ) {
     const tpl = await prisma.financeDteRecurringTemplate.findFirst({
       where: { id: dte.recurringTemplateId, tenantId },
       select: { periodPolicy: true },
     });
-    const policy = (tpl?.periodPolicy as PeriodPolicy) ?? "CURRENT_MONTH";
-    const anchor = new Date(Date.UTC(bpYear, bpMonth - 1, 1));
-    const period = resolvePeriodFromPolicy(policy, anchor);
-    const [pMonth, pYear] = period.periodoCorto.split("/").map(Number);
-    periodoDate = new Date(Date.UTC(pYear, pMonth - 1, 1));
-    // Idéntico al placeholder {{periodo}} (capitalizado, ej: "Julio 2026").
-    periodoLabelResolved = `${period.mes} ${period.anio}`;
-  } else if (
-    variant === "ESTADO_DE_PAGO" &&
-    dte.estadoPagoPeriodoMode === "PREVIOUS"
-  ) {
-    periodoDate.setUTCMonth(periodoDate.getUTCMonth() - 1);
+    recurringPeriod = {
+      billingPeriod: dte.billingPeriod,
+      periodPolicy: (tpl?.periodPolicy as PeriodPolicy) ?? "CURRENT_MONTH",
+    };
   }
+  const { periodoDate, periodoLabel: periodoLabelResolved } =
+    resolveBillingDocPeriodo({
+      variant,
+      issueDate: date,
+      estadoPagoPeriodoMode: dte.estadoPagoPeriodoMode,
+      recurring: recurringPeriod,
+    });
 
   // Código verificación: solo se imprime en Estado de Pago. Usa el periodo del
   // EP (no la fecha de emisión) para que el código coincida con el mes rotulado.
@@ -531,7 +502,7 @@ export async function buildBillingDocProps(
       dateIso: date.toISOString().slice(0, 10),
       numeroOrdenContrato: account?.numeroOrdenContrato ?? null,
       installationName: headerInstallationName,
-      periodoLabel: periodoLabelResolved ?? periodoLabel(periodoDate),
+      periodoLabel: periodoLabelResolved,
       verificationCode,
       additionalReferences: (() => {
         const refs = (dte.additionalReferences ?? []) as Array<{

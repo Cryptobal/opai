@@ -42,6 +42,7 @@ import {
   type UfFixingPolicy,
 } from "./dte-recurring-schedule";
 import { formatDateOnlyUtcYmd } from "@/lib/fx-date";
+import { estadoPagoPeriodoModeFromPolicy } from "./resolve-billing-doc-periodo";
 
 /**
  * Shape de cada línea en el JSON `lines` del template. Algunos campos
@@ -220,9 +221,10 @@ function templateToDraftInput(
     // pueden separar manualmente en el form de DTE).
     proformaRecipientContactIds: t.recipientContactIds ?? [],
     estadoPagoRecipientContactIds: t.recipientContactIds ?? [],
-    // El EP recurrente cierra el mes de servicio: se emite al inicio del mes
-    // siguiente, así que el periodo rotulado es el mes anterior a la emisión.
-    estadoPagoPeriodoMode: "PREVIOUS",
+    // El rótulo del EP sigue el selector del borrador (fecha de emisión ±
+    // modo). Alineamos el default con la periodPolicy de la plantilla:
+    // factura vencida → mes anterior; adelantada / resto → mes en curso.
+    estadoPagoPeriodoMode: estadoPagoPeriodoModeFromPolicy(t.periodPolicy),
     // Estampado automático para la dedupe period-aware del flujo: esta cuota
     // viene de ESTA programación y ocupa el período del run (mes de caja). El
     // adelanto/atraso manual se hace en el editor, no acá (el cron es la cuota
@@ -422,10 +424,9 @@ export async function runTemplate(
     // Ancla del placeholder {{periodo}}: primer día (UTC) del mes de
     // facturación. Anclar a billingPeriod (y NO a `new Date()`) hace que el
     // {{periodo}} de las líneas sea determinístico e IDÉNTICO al período que
-    // el email/PDF de la proforma / estado de pago reconstruye desde
-    // billingPeriod + periodPolicy (ver build-billing-doc-props). Antes se
-    // usaba la fecha real de ejecución del cron, que en corridas atrasadas
-    // podía caer en otro mes que el rótulo del documento.
+    // el email/PDF de la *proforma* reconstruye desde billingPeriod +
+    // periodPolicy. El Estado de Pago usa `estadoPagoPeriodoMode` del
+    // borrador (selector del formulario), no esta política.
     const periodAnchor = new Date(
       Date.UTC(issueAnchor.getUTCFullYear(), issueAnchor.getUTCMonth(), 1),
     );
