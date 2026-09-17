@@ -2373,6 +2373,12 @@ export function DteForm({
         isDraftSaved={!!draftIdParam}
         onContactsLoaded={setPlanContacts}
         issueDate={issueDate}
+        billingPeriod={
+          (accountTemplates.length === 0 || linkMode === "cuota") &&
+          /^\d{4}-\d{2}$/.test(billingPeriod)
+            ? billingPeriod
+            : undefined
+        }
       />
 
       {/* Adjuntos del DTE: solo disponibles cuando ya existe un draft (necesita id).
