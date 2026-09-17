@@ -1,13 +1,16 @@
 /**
  * Tests del rótulo de período de Proforma / Estado de Pago.
- * Cubre el bug: EP con programación + selector CURRENT debe decir
- * el mes de emisión, no periodPolicy de la plantilla.
+ *
+ * El caso de producción: DTE ya persistido/emitido con programación,
+ * billingPeriod agosto y estadoPagoPeriodoMode PREVIOUS (default viejo
+ * del cron) debe rotular Agosto, no Julio.
  */
 
 import { describe, it, expect } from "vitest";
 import {
   resolveBillingDocPeriodo,
   estadoPagoPeriodoModeFromPolicy,
+  formatBillingPeriodLabel,
 } from "../resolve-billing-doc-periodo";
 
 const augustIssue = new Date(Date.UTC(2026, 7, 28)); // 28 ago 2026
@@ -19,11 +22,12 @@ const recurringPrevious = {
 };
 
 describe("resolveBillingDocPeriodo — Estado de Pago", () => {
-  it("CURRENT + programación PREVIOUS_MONTH → mes de emisión (agosto)", () => {
+  it("DTE emitido: billingPeriod agosto + PREVIOUS persistido → agosto", () => {
     const r = resolveBillingDocPeriodo({
       variant: "ESTADO_DE_PAGO",
       issueDate: augustIssue,
-      estadoPagoPeriodoMode: "CURRENT",
+      estadoPagoPeriodoMode: "PREVIOUS",
+      billingPeriod: "2026-08",
       recurring: recurringPrevious,
     });
     expect(r.periodoLabel).toBe("Agosto 2026");
@@ -31,21 +35,35 @@ describe("resolveBillingDocPeriodo — Estado de Pago", () => {
     expect(r.periodoDate.getUTCFullYear()).toBe(2026);
   });
 
-  it("PREVIOUS + programación CURRENT_MONTH → mes anterior (julio)", () => {
+  it("cuota vencida: billingPeriod julio + issue agosto → julio", () => {
     const r = resolveBillingDocPeriodo({
       variant: "ESTADO_DE_PAGO",
       issueDate: augustIssue,
       estadoPagoPeriodoMode: "PREVIOUS",
-      recurring: {
-        billingPeriod: "2026-08",
-        periodPolicy: "CURRENT_MONTH",
-      },
+      billingPeriod: "2026-07",
     });
     expect(r.periodoLabel).toBe("Julio 2026");
-    expect(r.periodoDate.getUTCMonth()).toBe(6);
   });
 
-  it("PREVIOUS en enero hace wrap a diciembre del año anterior", () => {
+  it("sin billingPeriod + CURRENT → mes de emisión", () => {
+    const r = resolveBillingDocPeriodo({
+      variant: "ESTADO_DE_PAGO",
+      issueDate: augustIssue,
+      estadoPagoPeriodoMode: "CURRENT",
+    });
+    expect(r.periodoLabel).toBe("Agosto 2026");
+  });
+
+  it("sin billingPeriod + PREVIOUS → mes anterior", () => {
+    const r = resolveBillingDocPeriodo({
+      variant: "ESTADO_DE_PAGO",
+      issueDate: augustIssue,
+      estadoPagoPeriodoMode: "PREVIOUS",
+    });
+    expect(r.periodoLabel).toBe("Julio 2026");
+  });
+
+  it("PREVIOUS en enero sin billingPeriod hace wrap a diciembre", () => {
     const r = resolveBillingDocPeriodo({
       variant: "ESTADO_DE_PAGO",
       issueDate: januaryIssue,
@@ -54,7 +72,7 @@ describe("resolveBillingDocPeriodo — Estado de Pago", () => {
     expect(r.periodoLabel).toBe("Diciembre 2025");
   });
 
-  it("sin modo (null) trata como CURRENT", () => {
+  it("sin modo ni billingPeriod trata como CURRENT", () => {
     const r = resolveBillingDocPeriodo({
       variant: "ESTADO_DE_PAGO",
       issueDate: augustIssue,
@@ -70,6 +88,7 @@ describe("resolveBillingDocPeriodo — Proforma", () => {
       variant: "PROFORMA",
       issueDate: augustIssue,
       estadoPagoPeriodoMode: "CURRENT",
+      billingPeriod: "2026-08",
       recurring: recurringPrevious,
     });
     expect(r.periodoLabel).toBe("Julio 2026");
@@ -120,5 +139,17 @@ describe("estadoPagoPeriodoModeFromPolicy", () => {
   it("null / desconocido → CURRENT", () => {
     expect(estadoPagoPeriodoModeFromPolicy(null)).toBe("CURRENT");
     expect(estadoPagoPeriodoModeFromPolicy("OTRO")).toBe("CURRENT");
+  });
+});
+
+describe("formatBillingPeriodLabel", () => {
+  it("formatea YYYY-MM capitalizado", () => {
+    expect(formatBillingPeriodLabel("2026-08")).toBe("Agosto 2026");
+    expect(formatBillingPeriodLabel("2026-07")).toBe("Julio 2026");
+  });
+
+  it("null / inválido → null", () => {
+    expect(formatBillingPeriodLabel(null)).toBeNull();
+    expect(formatBillingPeriodLabel("agosto")).toBeNull();
   });
 });
