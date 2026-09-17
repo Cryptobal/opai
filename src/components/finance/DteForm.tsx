@@ -1450,9 +1450,44 @@ export function DteForm({
   };
 
   /**
+   * Persiste el borrador actual (incluye el plan de cobro / mes del EP)
+   * sin navegar ni toast de éxito. Preview y envío leen el DTE de BD.
+   */
+  const persistDraft = async () => {
+    if (!draftIdParam) {
+      throw new Error(
+        "Guardá primero el borrador para ver la vista previa de Proforma / Estado de Pago.",
+      );
+    }
+    const dteTypeNum = parseInt(dteType, 10);
+    if (
+      (dteTypeNum === 33 || dteTypeNum === 34) &&
+      accountTemplates.length >= 2 &&
+      !recurringTemplateId
+    ) {
+      throw new Error(
+        "Elegí la programación de destino: este cliente tiene varias filas en el flujo de caja.",
+      );
+    }
+    const payload = buildPayload();
+    const res = await fetch(`/api/finance/billing/drafts/${draftIdParam}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        (err as { error?: string }).error || "Error al guardar borrador",
+      );
+    }
+  };
+
+  /**
    * Vista previa para variantes Proforma / Estado de Pago. Requiere
    * draftIdParam (no soporta modo ad-hoc — esos layouts cargan firmantes,
    * branding, contacto receptor, metadata por línea desde la BD).
+   * Guarda el form antes (el PDF se arma desde el DTE persistido).
    */
   const handleVariantPreview = async (
     variant: "PROFORMA" | "ESTADO_DE_PAGO",
@@ -1465,6 +1500,7 @@ export function DteForm({
     }
     setPreviewLoading(true);
     try {
+      await persistDraft();
       if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
       const res = await fetch("/api/finance/billing/preview-pdf", {
         method: "POST",
@@ -1485,6 +1521,22 @@ export function DteForm({
       toast.error((err as Error).message);
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  const handleOpenSendAs = async (variant: "PROFORMA" | "ESTADO_DE_PAGO") => {
+    if (!draftIdParam) {
+      toast.error("Guardá primero el borrador para enviar el documento.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await persistDraft();
+      setSendAsVariant(variant);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -2350,7 +2402,7 @@ export function DteForm({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSendAsVariant("PROFORMA")}
+              onClick={() => void handleOpenSendAs("PROFORMA")}
               disabled={saving || previewLoading}
             >
               <Send className="h-3.5 w-3.5 mr-1.5" />
@@ -2361,7 +2413,7 @@ export function DteForm({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSendAsVariant("ESTADO_DE_PAGO")}
+              onClick={() => void handleOpenSendAs("ESTADO_DE_PAGO")}
               disabled={saving || previewLoading}
             >
               <Send className="h-3.5 w-3.5 mr-1.5" />
