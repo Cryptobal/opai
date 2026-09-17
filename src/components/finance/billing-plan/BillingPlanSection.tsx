@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { formatBillingPeriodLabel } from "@/modules/finance/billing/resolve-billing-doc-periodo";
 
 export interface ContactOption {
   id: string;
@@ -94,6 +95,9 @@ interface Props {
   /** Fecha de emisión del DTE ("YYYY-MM-DD") — define los rótulos de mes
    *  (en curso / anterior) que se muestran en el selector de periodo del EP. */
   issueDate?: string;
+  /** Período facturado "YYYY-MM". Si está, el rótulo del EP es ese mes
+   *  (no el selector Mes en curso / anterior). */
+  billingPeriod?: string;
   /** Notifica al padre los contactos cargados (con email) para que pueda
    *  resolver el destinatario sugerido del modal de envío a partir de los
    *  IDs seleccionados del plan. */
@@ -106,8 +110,10 @@ export function BillingPlanSection({
   onChange,
   onContactsLoaded,
   issueDate,
+  billingPeriod,
 }: Props) {
   const epPeriodos = periodoLabels(issueDate);
+  const billedLabel = formatBillingPeriodLabel(billingPeriod);
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -360,48 +366,59 @@ export function BillingPlanSection({
 
             {value.requireEstadoPago && (
               <div className="pl-6 space-y-3">
-                {/* Periodo del EP: mes en curso vs mes anterior de la fecha de
-                    emisión. Ej: factura emitida en junio por servicio de mayo. */}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Periodo del Estado de Pago</Label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onChange({ ...value, estadoPagoPeriodoMode: "CURRENT" })
-                      }
-                      className={`rounded-lg border px-3 py-2 text-left transition ${
-                        value.estadoPagoPeriodoMode !== "PREVIOUS"
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className="text-xs font-medium">Mes en curso</div>
-                      <div className="text-[11px] text-muted-foreground capitalize">
-                        {epPeriodos.current}
+                  {billedLabel ? (
+                    <div className="rounded-lg border border-border px-3 py-2">
+                      <div className="text-xs font-medium capitalize">{billedLabel}</div>
+                      <p className="text-[12px] text-muted-foreground mt-0.5">
+                        Es el período facturado de esta cuota. Si no es el mes
+                        correcto, cambialo arriba en Período facturado — también
+                        aplica a DTEs ya emitidos.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onChange({ ...value, estadoPagoPeriodoMode: "CURRENT" })
+                          }
+                          className={`rounded-lg border px-3 py-2 text-left transition ${
+                            value.estadoPagoPeriodoMode !== "PREVIOUS"
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:bg-muted/50"
+                          }`}
+                        >
+                          <div className="text-xs font-medium">Mes en curso</div>
+                          <div className="text-[12px] text-muted-foreground capitalize">
+                            {epPeriodos.current}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onChange({ ...value, estadoPagoPeriodoMode: "PREVIOUS" })
+                          }
+                          className={`rounded-lg border px-3 py-2 text-left transition ${
+                            value.estadoPagoPeriodoMode === "PREVIOUS"
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:bg-muted/50"
+                          }`}
+                        >
+                          <div className="text-xs font-medium">Mes anterior</div>
+                          <div className="text-[12px] text-muted-foreground capitalize">
+                            {epPeriodos.previous}
+                          </div>
+                        </button>
                       </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onChange({ ...value, estadoPagoPeriodoMode: "PREVIOUS" })
-                      }
-                      className={`rounded-lg border px-3 py-2 text-left transition ${
-                        value.estadoPagoPeriodoMode === "PREVIOUS"
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className="text-xs font-medium">Mes anterior</div>
-                      <div className="text-[11px] text-muted-foreground capitalize">
-                        {epPeriodos.previous}
-                      </div>
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/80">
-                    Rótulo que aparece bajo el título del Estado de Pago. La
-                    fecha de emisión del DTE no cambia.
-                  </p>
+                      <p className="text-[12px] text-muted-foreground">
+                        Rótulo que aparece bajo el título del Estado de Pago. La
+                        fecha de emisión del DTE no cambia.
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <Label className="text-xs">

@@ -418,9 +418,11 @@ export async function buildBillingDocProps(
   const date = new Date(dte.date);
 
   // Período del documento (rótulo del EP + token {{periodo}} del asunto/intro
-  // del email). El EP honra `estadoPagoPeriodoMode` aunque el borrador venga
-  // de una programación. La Proforma sí replica billingPeriod + periodPolicy
-  // para coincidir con los placeholders de las líneas.
+  // del email). El EP usa el período facturado (`billingPeriod`) cuando
+  // existe — así un DTE ya emitido (cuyo estadoPagoPeriodoMode quedó
+  // PREVIOUS y ya no se edita) rotula el mes de la cuota, no el anterior.
+  // La Proforma sí replica billingPeriod + periodPolicy para coincidir
+  // con los placeholders de las líneas.
   let recurringPeriod: {
     billingPeriod: string;
     periodPolicy: PeriodPolicy;
@@ -445,6 +447,7 @@ export async function buildBillingDocProps(
       variant,
       issueDate: date,
       estadoPagoPeriodoMode: dte.estadoPagoPeriodoMode,
+      billingPeriod: dte.billingPeriod,
       recurring: recurringPeriod,
     });
 

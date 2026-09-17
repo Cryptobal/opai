@@ -4,9 +4,12 @@
  * Función pura (sin I/O): el PDF, el email (`{{periodo}}`) y los tests
  * comparten la misma regla.
  *
- *   - Estado de Pago: el selector del formulario (`estadoPagoPeriodoMode`)
- *     gana siempre, anclado a la fecha de emisión. Una programación
- *     vinculada NO lo pisa.
+ *   - Estado de Pago: si hay `billingPeriod` (período facturado / cuota),
+ *     ese mes ES el rótulo. Los borradores creados por programación
+ *     nacían con `estadoPagoPeriodoMode=PREVIOUS` y, una vez emitidos al
+ *     SII, ese flag ya no se puede editar — por eso no puede ser la
+ *     fuente de verdad. Sin período facturado, se usa la fecha de
+ *     emisión ± el selector Mes en curso / anterior.
  *   - Proforma (y resto): si hay programación, el mes sigue
  *     `billingPeriod + periodPolicy` para coincidir con `{{periodo}}`
  *     de las líneas. Si no, el mes de emisión.
@@ -29,9 +32,11 @@ export interface ResolveBillingDocPeriodoInput {
   /** Fecha de emisión del DTE (se lee en UTC). */
   issueDate: Date;
   estadoPagoPeriodoMode?: string | null;
+  /** YYYY-MM del período facturado. Fuente de verdad del rótulo del EP. */
+  billingPeriod?: string | null;
   /**
-   * Solo aplica a Proforma / DTE_PREVIEW. El EP ignora este bloque
-   * para honrar el selector del formulario.
+   * Solo aplica a Proforma / DTE_PREVIEW. El EP usa `billingPeriod`
+   * directo, sin `periodPolicy`.
    */
   recurring?: {
     billingPeriod: string;
@@ -78,10 +83,28 @@ function fromPeriodInfo(period: {
   };
 }
 
+function fromYearMonth(year: number, month1to12: number): ResolveBillingDocPeriodoResult {
+  const anchor = new Date(Date.UTC(year, month1to12 - 1, 1));
+  return fromPeriodInfo(resolvePeriodFromPolicy("CURRENT_MONTH", anchor));
+}
+
+/** "2026-08" → "Agosto 2026". Null si el valor no es YYYY-MM. */
+export function formatBillingPeriodLabel(
+  billingPeriod: string | null | undefined,
+): string | null {
+  const bp = parseBillingPeriod(billingPeriod);
+  if (!bp) return null;
+  return fromYearMonth(bp[0], bp[1]).periodoLabel;
+}
+
 export function resolveBillingDocPeriodo(
   input: ResolveBillingDocPeriodoInput,
 ): ResolveBillingDocPeriodoResult {
   if (input.variant === "ESTADO_DE_PAGO") {
+    const bp = parseBillingPeriod(input.billingPeriod);
+    if (bp) {
+      return fromYearMonth(bp[0], bp[1]);
+    }
     const policy: PeriodPolicy =
       input.estadoPagoPeriodoMode === "PREVIOUS"
         ? "PREVIOUS_MONTH"
@@ -89,10 +112,11 @@ export function resolveBillingDocPeriodo(
     return fromPeriodInfo(resolvePeriodFromPolicy(policy, input.issueDate));
   }
 
-  const bp = parseBillingPeriod(input.recurring?.billingPeriod);
-  if (bp) {
-    const [bpYear, bpMonth] = bp;
-    const policy = (input.recurring?.periodPolicy as PeriodPolicy) ?? "CURRENT_MONTH";
+  const recurringBp = parseBillingPeriod(input.recurring?.billingPeriod);
+  if (recurringBp) {
+    const [bpYear, bpMonth] = recurringBp;
+    const policy =
+      (input.recurring?.periodPolicy as PeriodPolicy) ?? "CURRENT_MONTH";
     const anchor = new Date(Date.UTC(bpYear, bpMonth - 1, 1));
     return fromPeriodInfo(resolvePeriodFromPolicy(policy, anchor));
   }
